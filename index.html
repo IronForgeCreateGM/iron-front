@@ -1,9 +1,39 @@
-<!DOCTYPE html><html><head><meta charset="utf-8"><title>Iron Front v1</title>
-<style>body{margin:0;background:#111;color:#ddd;font:13px sans-serif;display:flex;overflow:hidden}
-#side{width:180px;padding:6px;background:#222;height:100vh;box-sizing:border-box}
-#side button{display:block;width:100%;margin:3px 0;padding:6px;background:#334;color:#eee;border:1px solid #556;cursor:pointer}
-#side button:disabled{opacity:.4}#msg{color:#fc6;min-height:2em}</style></head><body>
-<canvas id="c"></canvas><div id="side"><b>IRON FRONT</b><div id="stats"></div><div id="msg"></div>
-<div>Build</div><div id="bb"></div><div>Train</div><div id="tb"></div>
-<small>Left-drag select, right-click move/attack. WASD/arrows or screen-edge scroll. Esc cancels placement.</small></div>
-<script src="game.js"></script></body></html>
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Iron Front</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<div id="app">
+  <div id="view"><canvas id="ov"></canvas><div id="msg"></div>
+    <div id="hint">Drag: select · Right-click: move/attack · A: attack-move · S: stop · Ctrl+1-9: group · H: base · Q: next tab · X sell · R repair · P/Esc pause · Wheel: zoom</div></div>
+  <div id="side">
+    <div class="brand">IRON<span>FRONT</span><button id="muteBtn" class="ico">🔊</button><button id="pauseBtn" class="ico">⏸</button></div>
+    <canvas id="minimap" width="248" height="248"></canvas>
+    <div class="res"><div id="cr">$0</div><div class="pw"><div class="pwl">POWER <span id="powtxt"></span></div><div class="pwb"><div id="powbar"></div></div></div></div>
+    <div id="tabs"></div>
+    <div id="grid"></div>
+    <div class="tools"><button id="sellBtn">$ Sell</button><button id="repBtn">🔧 Repair</button></div>
+    <div id="info"></div>
+  </div>
+</div>
+<div id="menu" class="screen"><div class="panel">
+  <h1>IRON<span>FRONT</span></h1><p class="sub">Real-time strategy · v2</p>
+  <div id="diff"><button data-d="easy">Easy</button><button data-d="normal" class="on">Normal</button><button data-d="hard">Hard</button></div>
+  <label><input type="checkbox" id="fogChk" checked> Fog of war</label>
+  <button id="startBtn" class="big">DEPLOY</button>
+  <div class="help">Build a Power Plant, Barracks and Ore Refinery, then a War Factory. Research Lab unlocks heavy armor, artillery and the Helipad.<br>
+  Counters: bullets shred infantry · cannons beat armor · rockets hit armor & air · flak kills aircraft · artillery wrecks bases.<br>
+  Destroy every enemy production structure to win.</div>
+</div></div>
+<div id="pause" class="screen" style="display:none"><div class="panel"><h2>PAUSED</h2><button id="resumeBtn" class="big">Resume</button><button class="quitBtn">Quit to menu</button></div></div>
+<div id="end" class="screen" style="display:none"><div class="panel"><h1 id="endTitle"></h1><p id="endStats"></p><button class="quitBtn big">Play again</button></div></div>
+<pre id="err"></pre>
+<script src="vendor/three.min.js"></script>
+<script src="js/data.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body></html>

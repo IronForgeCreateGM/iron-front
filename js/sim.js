@@ -438,7 +438,7 @@ function nearestOre(u, pref) {
     const x = i % MW + 0.5, y = ((i / MW) | 0) + 0.5;
     let d = Math.hypot(x - u.x, y - u.y);
     for (const r of refs) d = Math.min(d, Math.hypot(x - r.x, y - r.y) * 1.2 + 2);
-    for (const o of G.ents) if (o !== u && o.t === 'harv' && o.oreT === i) d += 3;
+    for (const o of G.ents) if (o !== u && o.t === 'harv' && o.team === u.team && o.oreT === i) d += 10;
     if (G.danger && G.danger[u.team] && G.danger[u.team].some(p => Math.hypot(p.x - x, p.y - y) < 6)) d += 30;
     if (d < bd) { bd = d; b = i; }
   }
@@ -451,11 +451,17 @@ function harvest(h) {
     case 'idle': {
       if (h.load >= CAP) { h.hst = 'ret'; break; }
       const i = nearestOre(h, h.prefOre); h.prefOre = null; if (i < 0) { if (h.load > 0) h.hst = 'ret'; break; }
-      h.oreT = i; setPath(h, i % MW + 0.5, ((i / MW) | 0) + 0.5); h.order = 'idle'; h.hst = 'toOre'; break;
+      h.oreT = i; h.toT = G.time; setPath(h, i % MW + 0.5, ((i / MW) | 0) + 0.5); h.order = 'idle'; h.hst = 'toOre'; break;
     }
-    case 'toOre': if (!h.path.length) { const i = idx(Math.floor(h.x), Math.floor(h.y)); if (G.ore[i] > 0) { h.hst = 'mine'; h.oreT = i; } else h.hst = 'idle'; } break;
+    case 'toOre': {
+      const ci = idx(Math.floor(h.x), Math.floor(h.y));
+      if (h.oreT != null && G.ore[h.oreT] > 0 && Math.hypot(h.x - (h.oreT % MW + 0.5), h.y - (((h.oreT / MW) | 0) + 0.5)) < 1.3) { h.path = []; h.hst = 'mine'; break; }
+      if (G.ore[ci] > 0 && (h.oreT == null || Math.hypot(h.x - (h.oreT % MW + 0.5), h.y - (((h.oreT / MW) | 0) + 0.5)) < 2.5)) { h.path = []; h.hst = 'mine'; h.oreT = ci; break; }
+      if (G.time - h.toT > 12 || (h.oreT != null && G.ore[h.oreT] <= 0)) { h.hst = 'idle'; h.oreT = null; break; }
+    }
+    if (!h.path.length) { const i = idx(Math.floor(h.x), Math.floor(h.y)); if (G.ore[i] > 0) { h.hst = 'mine'; h.oreT = i; } else h.hst = 'idle'; } break;
     case 'mine': {
-      const i = idx(Math.floor(h.x), Math.floor(h.y));
+      const i = h.oreT != null ? h.oreT : idx(Math.floor(h.x), Math.floor(h.y));
       if (G.ore[i] > 0) { const a = Math.min(G.ore[i], 90 * DT, CAP - h.load); G.ore[i] -= a; h.load += a; if (G.ore[i] <= 0) { G.ore[i] = 0; G.oreVer++; } if (G.tick % 10 === 0) G.oreVer++; }
       if (h.load >= CAP - 0.01) { h.hst = 'ret'; break; }
       if (G.ore[i] <= 0) { // look adjacent
