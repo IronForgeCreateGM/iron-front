@@ -2,9 +2,9 @@
 // ===== Renderer orchestrator: quality, lighting/env, instanced units, buildings, events, camera, picking =====
 const QUALITY = {
   low:   { pr: 0.75, shadows: false, shadowSize: 1024, bloom: false, fxaa: false, msaa: 0, grass: 0, fx: 0.5, label: 'Low' },
-  med:   { pr: 1.0, shadows: true, shadowSize: 1024, bloom: true, fxaa: true, msaa: 0, grass: 0.35, fx: 0.75, label: 'Medium' },
-  high:  { pr: 1.5, shadows: true, shadowSize: 2048, bloom: true, fxaa: false, msaa: 4, grass: 0.7, fx: 1, label: 'High' },
-  ultra: { pr: 2.0, shadows: true, shadowSize: 4096, bloom: true, fxaa: false, msaa: 4, grass: 1, fx: 1.2, label: 'Ultra' },
+  med:   { pr: 1.0, shadows: true, shadowSize: 1024, bloom: true, fxaa: true, msaa: 0, grass: 0.3, fx: 0.75, label: 'Medium' },
+  high:  { pr: 1.25, shadows: true, shadowSize: 2048, bloom: true, fxaa: false, msaa: 4, grass: 0.55, fx: 1, label: 'High' },
+  ultra: { pr: 2.0, shadows: true, shadowSize: 4096, bloom: true, fxaa: false, msaa: 4, grass: 0.85, fx: 1.2, label: 'Ultra' },
 };
 const R3 = { objs: new Map(), rs: new Map(), uiMesh: new Map(), markers: [], cam: { x: 12, y: 14, d: 30, tx: 12, ty: 14, td: 30 }, time: 0, uTime: { value: 0 }, sunDir: null, fps: 60, frames: 0, fpsT: 0, view: { x0: 0, y0: 0, x1: MW, y1: MH } };
 function detectQuality() {
@@ -179,7 +179,7 @@ function r3Render(dt) {
     const i = U.n++, pv = U.model.piv;
     const moving = e.path.length > 0, bob = d.armor === 'inf' && moving ? Math.abs(Math.sin(R3.time * 11 + e.id)) * 0.04 : 0;
     T.e.set(0, -(d.armor === 'inf' ? rs.tang : rs.ang), air ? (moving ? -0.18 : 0) : 0, 'YXZ'); T.q.setFromEuler(T.e);
-    T.b.compose(T.p.set(rs.x, rs.z + bob, rs.y), T.q, T.one);
+    const vs = d.armor === 'inf' ? 1 : air ? 0.9 : 0.8; T.b.compose(T.p.set(rs.x, rs.z + bob, rs.y), T.q, T.s.set(vs, vs, vs));
     U.parts.body.setMatrixAt(i, T.b);
     if (U.parts.turret) { T.e.set(0, -(rs.tang - rs.ang), 0); T.q.setFromEuler(T.e); T.l.compose(T.p.set(pv.turret[0] - rs.recoil, pv.turret[1], pv.turret[2]), T.q, T.one); U.parts.turret.setMatrixAt(i, T.t.multiplyMatrices(T.b, T.l)); }
     if (U.parts.rotor) { if (e.t === 'harv') T.e.set(0, 0, -rs.spin); else T.e.set(0, rs.spin, 0); T.q.setFromEuler(T.e); T.l.compose(T.p.set(pv.rotor[0], pv.rotor[1], pv.rotor[2]), T.q, T.one); U.parts.rotor.setMatrixAt(i, T.t.multiplyMatrices(T.b, T.l)); }
@@ -187,7 +187,7 @@ function r3Render(dt) {
     // contact shadow + rings
     const gz = heightAt(rs.x, rs.y), rr = d.r * (air ? 2.2 : 3.2);
     if (nBlob < 800) R3.blob.setMatrixAt(nBlob++, T.l.compose(T.p.set(rs.x, gz + 0.04, rs.y), T.q.identity(), T.s.set(rr, 1, rr)));
-    if (e.sel || e.id === R3.hoverId) { const im = e.sel ? (e.team === 0 ? R3.ringSel : R3.ringEnemy) : R3.ringHover; const j = e.sel ? (e.team === 0 ? nSel++ : nEn++) : nHov++; const s = d.r * 1.5 + 0.12; if (j < im.instanceMatrix.count) im.setMatrixAt(j, T.l.compose(T.p.set(rs.x, gz + 0.06, rs.y), T.q.identity(), T.s.set(s, 1, s))); }
+    if (e.sel || e.id === R3.hoverId) { const im = e.sel ? (e.team === 0 ? R3.ringSel : R3.ringEnemy) : R3.ringHover; const j = e.sel ? (e.team === 0 ? nSel++ : nEn++) : nHov++; const s = d.r * 1.15 + 0.1; if (j < im.instanceMatrix.count) im.setMatrixAt(j, T.l.compose(T.p.set(rs.x, gz + 0.06, rs.y), T.q.identity(), T.s.set(s, 1, s))); }
     // ambient unit fx
     if (e.t === 'harv' && e.hst === 'mine' && Math.random() < dt * 10 * FX.mul) FX.smoke.spawn(rs.x + Math.cos(rs.ang) * 0.7, rs.y + Math.sin(rs.ang) * 0.7, gz + 0.2, rnd(0.5), rnd(0.5), 0.5, 1.2, 0.2, 0.6, 0.55, 0.45, 0.28, 0.5, 0);
     if (!air && d.armor !== 'inf' && moving && Math.random() < dt * 8 * FX.mul) FX.smoke.spawn(rs.x - Math.cos(rs.ang) * d.r, rs.y - Math.sin(rs.ang) * d.r, gz + 0.08, rnd(0.3), rnd(0.3), 0.2, 1.0, 0.15, 0.5, 0.5, 0.45, 0.36, 0.35, 0);

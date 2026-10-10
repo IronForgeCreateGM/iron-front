@@ -15,10 +15,12 @@ function startGame(diff, opts) {
   if (opts.demo) {
     const hits = [];
     for (let i = 0; i < opts.demo * 30; i++) { stepGame(); for (const ev of G.events) if (ev.e === 'hit') hits.push({ x: ev.x, y: ev.y, t: G.time }); G.events.length = 0; if (G.over) break; }
-    const recent = hits.filter(h => h.t > G.time - 4); let best = null, bn = -1;
+    const recent = hits.filter(h => h.t > G.time - 4 && G.vis[idx(Math.floor(h.x), Math.floor(h.y))]); let best = null, bn = -1;
     for (const h of recent) { const n = recent.filter(o => Math.hypot(o.x - h.x, o.y - h.y) < 5).length; if (n > bn) { bn = n; best = h; } }
     const u0 = G.ents.filter(e => e.kind === 'u' && e.team === 0 && e.t !== 'harv');
-    if (best) { R3.cam.td = R3.cam.d = +(QS.get('zoom') || 22); jumpTo(best.x, best.y, true); }
+    R3.cam.td = R3.cam.d = +(QS.get('zoom') || 22);
+    if (!best) { const army = G.ents.filter(e => e.team === 0 && e.kind === 'u' && e.t !== 'harv'); if (army.length) best = { x: army.reduce((a, e) => a + e.x, 0) / army.length, y: army.reduce((a, e) => a + e.y, 0) / army.length }; }
+    if (best) jumpTo(best.x + (+QS.get('ox') || 0), best.y + (+QS.get('oy') || 0), true);
     setSel(u0.filter(u => best && Math.hypot(u.x - best.x, u.y - best.y) < 8));
   }
   started = true; lastT = performance.now(); requestAnimationFrame(frame);
@@ -42,10 +44,17 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('startBtn').onclick = () => { audioInit(); startGame(diff, { fog: document.getElementById('fogChk').checked }); };
   document.getElementById('resumeBtn').onclick = () => togglePause();
   document.querySelectorAll('.quitBtn').forEach(b => b.onclick = () => location.href = location.pathname);
+  if (QS.get('stress')) { startGame('normal', { demo: 1, seed: 4242 }); const n = +QS.get('stress'), types = ['rifle', 'rocketeer', 'light', 'heavy', 'arty', 'aa', 'scout', 'gunship'];
+    for (let i = 0; i < n; i++) { const tm = i % 2, t = types[i % types.length]; const p = nearFree(28 + (tm ? 6 : -6) + (i % 7), 30 + ((i / 7) | 0) % 10, 6); addU(t, tm, p[0] + 0.5, p[1] + 0.5); }
+    G.opts.fog = false; R3.cam.td = R3.cam.d = 34; jumpTo(32, 32, true);
+    const ts = []; let k = 0; const tick = () => { const t0 = performance.now(); stepGame(); uiFrame(1 / 60); r3Render(1 / 60); ts.push(performance.now() - t0); if (++k < 90) setTimeout(tick, 0); else { ts.sort((a, b) => a - b); document.title = 'STRESS units=' + G.ents.filter(e => e.kind === 'u').length + ' median ms=' + ts[45].toFixed(1) + ' draws=' + R3.renderer.info.render.calls; } };
+    paused = true; setTimeout(tick, 100);
+  } else
   if (QS.get('demo')) startGame(QS.get('diff') || 'normal', { demo: +QS.get('demo'), seed: +QS.get('seed') || 4242 });
   else if (QS.get('autostart')) startGame(QS.get('diff') || 'normal', {});
 });
 // In-browser input smoke test: index.html?autostart=1&selftest=1  (result written to document.title)
+let extra = '';
 function selfTest() {
   try {
     const v = document.getElementById('view'), ev = (type, x, y, button, extra) => v.dispatchEvent(new MouseEvent(type, Object.assign({ clientX: x, clientY: y, button, bubbles: true }, extra || {})));
@@ -61,8 +70,16 @@ function selfTest() {
     const mm = document.getElementById('minimap'), r = mm.getBoundingClientRect(); mm.dispatchEvent(new MouseEvent('mousedown', { clientX: r.left + 100, clientY: r.top + 100, button: 0, bubbles: true }));
     for (let i = 0; i < 300; i++) stepGame();
     togglePause(); togglePause();
+    for (const q of ['low', 'med', 'ultra', 'high']) { applyQuality(q); r3Render(0.016); }
+    G.players[0].cr = 99999; addB('barracks', 0, 14, 4, true); addB('factory', 0, 14, 10, true); stepGame();
+    const bar = G.ents.find(e => e.t === 'barracks' && e.team === 0); setSel([bar]); const tabOk = UI.tab === 'inf';
+    clickItem('rifle', false, true); const q5 = G.players[0].queues.inf.length; clickItem('rifle', true, false); const q4 = G.players[0].queues.inf.length;
+    showTip('heavy', document.querySelector('.item')); sidebar(); setSel([G.ents.find(e => e.t === 'hq' && e.team === 0)]); sidebar();
+    const ctxBtns = document.querySelectorAll('#ctx .item').length;
+    for (let i = 0; i < 300; i++) stepGame();
     for (let i = 0; i < 20; i++) { uiFrame(0.05); r3Render(0.05); }
-    document.title = 'IM ' + JSON.stringify([...R3.uiMesh.entries()].map(([k, u]) => k + ':' + u.n + '/' + u.cap + '/' + Object.keys(u.parts).join('+'))) + ' view ' + JSON.stringify(R3.view) + ' SELFTEST OK sel=' + UI.sel.length + ' powerPlants=' + G.ents.filter(e => e.team === 0 && e.t === 'power').length;
+    extra = ` tab=${tabOk} q5=${q5} q4=${q4} hqBtns=${ctxBtns} units=${G.ents.filter(e => e.team === 0 && e.kind === 'u').length}`;
+    document.title = extra + ' SELFTEST OK sel=' + UI.sel.length + ' powerPlants=' + G.ents.filter(e => e.team === 0 && e.t === 'power').length;
   } catch (e) { document.title = 'SELFTEST FAIL ' + e.message; throw e; }
 }
 if (QS.get('selftest')) window.addEventListener('load', () => setTimeout(selfTest, 300));

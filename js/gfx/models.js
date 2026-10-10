@@ -208,7 +208,7 @@ const BLD_MODELS = {
     B.box('body', 1.6, 0.42, 0.7, COL.STEEL, PBR.METAL, 0, 0.36, 0.5); windows(B, 0, 0.42, 0.86, 1.3, 'x', 4, 0xffd27a);
     for (const x of [-0.45, 0.45]) {
       B.cyl('body', 0.36, 0.7, COL.LIGHT, PBR.PAINT, x, 0.5, -0.32, { rt: 0.27, seg: 20 }); B.cyl('body', 0.27, 0.5, COL.LIGHT, PBR.PAINT, x, 1.1, -0.32, { rt: 0.31, seg: 20 });
-      B.torus('body', 0.3, 0.025, 'T', PBR.GLOW2, x, 1.33, -0.32, { rx: Math.PI / 2 }); B.cyl('body', 0.26, 0.02, 'TL', PBR.GLOW, x, 1.31, -0.32, { seg: 20 });
+      B.torus('body', 0.3, 0.025, 'T', PBR.GLOW2, x, 1.33, -0.32, { rx: Math.PI / 2 }); B.cyl('body', 0.26, 0.02, 'TL', PBR.GLOW2, x, 1.31, -0.32, { seg: 20 });
       for (let i = 0; i < 3; i++) B.torus('body', 0.33 - i * 0.02, 0.012, COL.CONCD, PBR.CONC, x, 0.3 + i * 0.25, -0.32, { rx: Math.PI / 2 });
     }
     for (const x of [-0.6, -0.2, 0.2, 0.6]) { B.box('body', 0.18, 0.2, 0.18, COL.DARK, PBR.DARKM, x, 0.68, 0.5); B.cyl('body', 0.03, 0.12, COL.LIGHT, PBR.PAINT, x, 0.84, 0.5, { seg: 8 }); }

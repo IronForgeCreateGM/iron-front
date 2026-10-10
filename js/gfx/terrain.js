@@ -51,10 +51,10 @@ function terrainMaterial() {
         float tRock = w.z; float tGrass = w.x;`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(0.95, 0.72, tRock) - n4*0.08;')
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
-        { float hb = fbm(q*3.0)*(0.06 + 0.25*tRock) + vnoise(q*14.0)*0.02*(1.0+tGrass);
+        { float hb = fbm(q*2.0)*(0.03 + 0.3*tRock) + vnoise(q*9.0)*0.006;
           vec3 dpx = dFdx(-vViewPosition), dpy = dFdy(-vViewPosition); float dhx = dFdx(hb), dhy = dFdy(hb);
           vec3 r1 = cross(dpy, normal), r2 = cross(normal, dpx); float det = dot(dpx, r1);
-          vec3 grad = sign(det) * (dhx * r1 + dhy * r2); normal = normalize(abs(det) * normal - grad * 6.0); }`);
+          vec3 grad = sign(det) * (dhx * r1 + dhy * r2); normal = normalize(abs(det) * normal - grad * 2.5); }`);
     fowPatch(sh);
   };
   m.customProgramCacheKey = () => 'terrain3';
@@ -148,12 +148,12 @@ function buildOre() {
 function updOre() {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), p = new THREE.Vector3();
   R3.oreTiles.forEach((i, k) => { const a = G.ore[i], seen = G.seen[i], x = i % MW, y = (i / MW) | 0;
-    for (let j = 0; j < 4; j++) { const r = R3.oreJ[k][j], f = a / Math.max(1, G.oreMax[i]); const sc = seen && a > 1 && f > j * 0.22 ? (0.45 + 0.75 * Math.sqrt(f)) * (0.6 + r[2] * 0.7) : 0;
+    for (let j = 0; j < 4; j++) { const r = R3.oreJ[k][j], f = a / Math.max(1, G.oreMax[i]); const sc = seen && a > 1 && f > j * 0.22 ? (0.3 + 0.45 * Math.sqrt(f)) * (0.6 + r[2] * 0.7) : 0;
       e.set((r[0] - 0.5) * 0.6, r[1] * 6, (r[3] - 0.5) * 0.6); q.setFromEuler(e); const px = x + 0.15 + r[0] * 0.7, pz = y + 0.15 + r[1] * 0.7; p.set(px, heightAt(px, pz) + sc * 0.12, pz); s.set(sc, sc, sc);
       m4.compose(p, q, s); R3.oreMesh.setMatrixAt(k * 4 + j, m4); } });
   R3.oreMesh.instanceMatrix.needsUpdate = true;
 }
-function windMat(color, rough) {
+function windMat(upNormal, rough) {
   const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: rough || 0.85, metalness: 0, side: THREE.DoubleSide });
   m.onBeforeCompile = sh => { sh.uniforms.uTime = R3.uTime;
     sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
@@ -161,8 +161,10 @@ function windMat(color, rough) {
       vec3 ip = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
       float sw = sin(uTime*1.8 + ip.x*0.6 + ip.z*0.4) + 0.5*sin(uTime*3.1 + ip.x*1.3);
       transformed.x += sw * 0.06 * max(position.y, 0.0) * 2.5; transformed.z += sw * 0.03 * max(position.y, 0.0) * 2.5;
-      #endif`); fowPatch(sh); };
-  m.customProgramCacheKey = () => 'wind' + (rough || 0); return m;
+      #endif`);
+    if (upNormal) sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\nnormal = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);');
+    fowPatch(sh); };
+  m.customProgramCacheKey = () => 'wind' + (rough || 0) + (upNormal ? 'u' : ''); return m;
 }
 function buildFoliage() {
   const R = mkRng(G.opts.seed + 3);
@@ -171,11 +173,11 @@ function buildFoliage() {
   const blades = []; for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI, h = 0.18 + (i % 3) * 0.05; const g = new THREE.BufferGeometry();
     const c = Math.cos(a) * 0.05, s = Math.sin(a) * 0.05, ox = Math.cos(a * 2.3) * 0.04, oz = Math.sin(a * 1.7) * 0.04;
     g.setAttribute('position', new THREE.Float32BufferAttribute([ox - c, 0, oz - s, ox + c, 0, oz + s, ox + c * 0.1 + 0.03, h, oz + s * 0.1], 3));
-    g.setAttribute('color', new THREE.Float32BufferAttribute([0.05, 0.1, 0.02, 0.05, 0.1, 0.02, 0.15, 0.24, 0.05], 3)); g.computeVertexNormals();
+    g.setAttribute('color', new THREE.Float32BufferAttribute([0.08, 0.15, 0.035, 0.08, 0.15, 0.035, 0.2, 0.3, 0.07], 3)); g.computeVertexNormals();
     g.setAttribute('normal', new THREE.Float32BufferAttribute([0, 1, 0, 0, 1, 0, 0, 1, 0], 3)); blades.push(g); }
   const tg = new THREE.BufferGeometry(); { let P = [], C = [], N = []; for (const b of blades) { P.push(...b.attributes.position.array); C.push(...b.attributes.color.array); N.push(...b.attributes.normal.array); }
     tg.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); tg.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); tg.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); }
-  const MAXG = 30000, gm = new THREE.InstancedMesh(tg, windMat(0, 0.9), MAXG); gm.receiveShadow = true; gm.frustumCulled = false;
+  const MAXG = 30000, gm = new THREE.InstancedMesh(tg, windMat(true, 0.9), MAXG); gm.receiveShadow = true; gm.frustumCulled = false;
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), cl = new THREE.Color(); let k = 0; R3.grassTile = [];
   let tries = 0;
   while (k < MAXG && tries++ < MAXG * 4) {
@@ -187,12 +189,12 @@ function buildFoliage() {
   gm.count = k; R3.grassMax = k; R3.grass = gm; R3.scene.add(gm);
   // trees (pine) near cliffs and scattered
   const B = new MB(0); B.cyl('t', 0.05, 0.4, 0x4a3524, PBR.RUB, 0, 0.2, 0, { seg: 6 });
-  for (let i = 0; i < 3; i++) B.cone('t', 0.36 - i * 0.09, 0.5, 0x23441e + i * 0x030503, [0, 0.85, 0], 0, 0.45 + i * 0.27, 0, { seg: 8 });
+  for (let i = 0; i < 3; i++) B.cone('t', 0.36 - i * 0.09, 0.5, 0x2f5a26 + i * 0x061006, [0, 0.85, 0], 0, 0.45 + i * 0.27, 0, { seg: 8 });
   const treeGeo = B.build().t; const trees = [];
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x; if (G.map[i] !== 0 || G.oreMax[i] > 0 || nearBase(x + 0.5, y + 0.5)) continue;
     const nearRock = [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [0, 2], [-2, 0], [0, -2]].some(([a, b]) => inb(x + a, y + b) && G.map[(y + b) * MW + x + a] === 1);
     if (R() < (nearRock ? 0.5 : 0.015)) trees.push([x + 0.2 + R() * 0.6, y + 0.2 + R() * 0.6, 0.7 + R() * 0.7]); }
-  const tm = new THREE.InstancedMesh(treeGeo, windMat(0, 0.8), trees.length); tm.castShadow = true; tm.receiveShadow = true; tm.frustumCulled = false;
+  const tm = new THREE.InstancedMesh(treeGeo, windMat(false, 0.8), trees.length); tm.castShadow = true; tm.receiveShadow = true; tm.frustumCulled = false;
   trees.forEach((t, j) => { e.set((R() - 0.5) * 0.1, R() * 6.28, (R() - 0.5) * 0.1); q.setFromEuler(e); m4.compose(new THREE.Vector3(t[0], heightAt(t[0], t[1]) - 0.05, t[1]), q, new THREE.Vector3(t[2], t[2] * (0.9 + R() * 0.4), t[2])); tm.setMatrixAt(j, m4);
     cl.setRGB(0.8 + R() * 0.4, 0.8 + R() * 0.4, 0.8 + R() * 0.3); tm.setColorAt(j, cl); (R3.treeTile = R3.treeTile || {})[Math.floor(t[1]) * MW + Math.floor(t[0])] = j; });
   R3.trees = tm; R3.scene.add(tm);

@@ -88,7 +88,7 @@ function buildFx3() {
 }
 const _m4 = typeof THREE !== 'undefined' ? new THREE.Matrix4() : null, _q = typeof THREE !== 'undefined' ? new THREE.Quaternion() : null, _e = typeof THREE !== 'undefined' ? new THREE.Euler() : null, _v = typeof THREE !== 'undefined' ? new THREE.Vector3() : null, _s = typeof THREE !== 'undefined' ? new THREE.Vector3() : null;
 const rnd = (a) => (Math.random() - 0.5) * a;
-function puff(x, y, z, size, life, shade, alpha, rise) { FX.smoke.spawn(x, y, z, rnd(0.4), rnd(0.4), rise != null ? rise : 0.5 + Math.random() * 0.5, life, size * 0.6, size * 1.8, shade, shade * 0.97, shade * 0.93, alpha, -0.05); }
+function puff(x, y, z, size, life, shade, alpha, rise) { FX.smoke.spawn(x, y, z, rnd(0.4), rnd(0.4), rise != null ? rise : 0.5 + Math.random() * 0.5, life, size * 0.6, size * 1.8, shade, shade * 0.97, shade * 0.93, alpha * 0.8, -0.05); }
 function flash(x, y, z, size, r, g, b) { FX.spark.spawn(x, y, z, 0, 0, 0, 0.09, size, size * 1.3, r, g, b, 1, 0, 0); }
 function sparks(x, y, z, n, sp) { for (let i = 0; i < n * FX.mul; i++) FX.spark.spawn(x, y, z, rnd(sp), rnd(sp), Math.random() * sp * 0.8, 0.3 + Math.random() * 0.4, 0.06, 0.02, 1, 0.75, 0.35, 1, 9, 0); }
 function explosion3(x, y, z, size) {
@@ -127,7 +127,7 @@ function updFx(dt) {
     const k = p.kind === 'bullet' ? 'tracer' : p.kind === 'cannon' ? 'shell' : p.kind; const im = FX.proj[k]; if (!im || cnt[k] >= 400) continue;
     const gz = heightAt(p.x, p.y) * (p.tz > 1.5 ? 0.3 : 1) + p.z, ang = Math.atan2(p.ty - p.y, p.tx - p.x);
     _e.set(0, -ang, 0); _q.setFromEuler(_e); im.setMatrixAt(cnt[k]++, _m4.compose(_v.set(p.x, gz, p.y), _q, _s.set(1, 1, 1)));
-    if (p.kind === 'rocket' && Math.random() < 0.9 * FX.mul) puff(p.x, p.y, gz, 0.12, 0.9, 0.55, 0.55, 0.2);
+    if (p.kind === 'rocket' && Math.random() < 0.9 * FX.mul) puff(p.x, p.y, gz, 0.1, 0.8, 0.42, 0.4, 0.2);
     if ((p.kind === 'shell') && Math.random() < 0.7 * FX.mul) FX.fire.spawn(p.x, p.y, gz, 0, 0, 0, 0.25, 0.15, 0.05, 1, 0.6, 0.3, 0.8, 0, 0);
     if (p.kind === 'cannon' && Math.random() < 0.5 * FX.mul) puff(p.x, p.y, gz, 0.07, 0.4, 0.6, 0.35, 0.1);
   }

@@ -56,4 +56,4 @@ const DIFF = {
   hard:   { income: 1.35, think: 0.7, wave0: 7, waveMax: 20, harass: 0.5, build: 1.3 },
 };
 // economy
-const ORE_VALUE = 0.6, HARV_CAP = 1500, MINE_RATE = 150, UNLOAD_RATE = 600, ORE_REGROW = 1.2; // per second
+const ORE_VALUE = 0.9, HARV_CAP = 1500, MINE_RATE = 150, UNLOAD_RATE = 600, ORE_REGROW = 1.2; // per second
