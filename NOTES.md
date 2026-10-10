@@ -26,3 +26,10 @@ No build step. `index.html` loads classic scripts in order (globals, no ES modul
 ## URL params (testing)
 `?autostart=1`, `?demo=SECONDS&zoom=Z&ox=&oy=` (AI vs AI fast-forward, camera on fighting), `?selftest=1`, `?stress=150` (draw-call stress), `?q=low|med|high|ultra`, `?dbg=1`.
 Headless: `node test/sim-test.js`; Chrome: `google-chrome --headless=new --use-angle=swiftshader --enable-unsafe-swiftshader --virtual-time-budget=4000 --screenshot=... "file://.../index.html?demo=300&q=ultra"`.
+
+## v3.1
+- `DIFF` (data.js): `firstAttack`, `waveGap`, `waveInc`, `harassAfter`, `scoutAfter`.
+- `UPG`, `UPG_DMG`, `UPG_RNG`, `DEF_RESEARCH` (data.js); `defW(b)` gives the effective upgraded weapon; `upgradeInfo` and `upgradeB` (sim.js); building fields `lvl`, `upT`, `upDur`, `upKind`.
+- Formations: `formationSlots`, `orderFormation`, `setStance` (sim.js); unit fields `stance` ('hold'|'aggr'), `guard`, `face`.
+- Post uniforms `uExpo`, `uCon`, `uBri`, `uSat` are bound to the Settings sliders (localStorage `if_settings`).
+- `?showcase=1` shows a staged scene (upgraded turrets plus a formation).

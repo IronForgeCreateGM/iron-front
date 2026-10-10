@@ -2,7 +2,7 @@
 // ===== DOM UI: sidebar, context panel, alerts, minimap, overlay, input, hotkeys, settings =====
 const HOTKEYS = ['t', 'y', 'u', 'i', 'o', 'j', 'k', 'l'];
 const UI = { sel: [], tab: 'bld', placing: null, mode: null, mouse: { x: -1, y: -1, down: false, sx: 0, sy: 0 }, keys: {}, groups: {}, lastGroupKey: null, lastGroupT: 0, msgT: 0, lastClick: 0, pings: [], alerts: [], gridList: [],
-  set: Object.assign({ edge: 1, hbars: 'smart', fps: false, vol: 0.45, quality: 'auto' }, JSON.parse(localStorage.getItem('if_settings') || '{}')) };
+  set: Object.assign({ edge: 1, hbars: 'smart', fps: false, vol: 0.45, quality: 'auto', bri: 0, con: 1.15, sat: 1.22 }, JSON.parse(localStorage.getItem('if_settings') || '{}')) };
 const $ = id => document.getElementById(id);
 function saveSet() { localStorage.setItem('if_settings', JSON.stringify(UI.set)); localStorage.setItem('if_quality', UI.set.quality); }
 function uiMsg(s) { const m = $('msg'); if (!m) return; m.textContent = s; m.style.opacity = 1; UI.msgT = 3; }
@@ -48,6 +48,7 @@ function uiSetup() {
   const fp = $('setFps'); fp.checked = UI.set.fps; fp.onchange = () => { UI.set.fps = fp.checked; saveSet(); };
   const vo = $('setVol'); vo.value = UI.set.vol; vo.oninput = () => { UI.set.vol = +vo.value; AU.vol = UI.set.vol; if (AU.master) AU.master.gain.value = AU.vol; saveSet(); };
   AU.vol = UI.set.vol;
+  for (const [id, k, u] of [['setBri', 'bri', 'uBri'], ['setCon', 'con', 'uCon'], ['setSat', 'sat', 'uSat']]) { const el = $(id); el.value = UI.set[k]; POST.final.uniforms[u].value = UI.set[k]; el.oninput = () => { UI.set[k] = +el.value; POST.final.uniforms[u].value = UI.set[k]; saveSet(); }; }
   $('setClose').onclick = () => openSettings(false);
   setTimeout(() => { minimap(); sidebar(); }, 0);
 }
@@ -79,6 +80,7 @@ function showTip(t, el) {
   if (wpn) h += `Weapon: ${W[wpn].type}, ${W[wpn].dmg} dmg, range ${W[wpn].rng}${W[wpn].splash ? ', splash' : ''}<br>`;
   if (c.good.length) h += `<span class="g">Strong vs: ${c.good.join(', ')}</span><br>`; if (c.bad.length) h += `<span class="r">Weak / can't hit: ${c.bad.join(', ')}</span><br>`;
   if (u && u.engineer) h += 'Captures enemy structures, repairs your own.<br>';
+  if (UPG[t]) h += `<span class="dim">Upgradable to level 3 (+dmg, +range) when selected.</span><br>`;
   if (t === 'harv') h += `Carries ${HARV_CAP} ore. Built at War Factory or Command Yard.<br>`;
   const req = (d.req || []).filter(r => r !== '__never'); if (req.length) h += `<span class="dim">Requires: ${req.map(r => BT[r].n).join(', ')}</span><br>`;
   h += `<span class="dim">${BT[t] ? 'Click to build, then place' : 'Shift+click: queue 5'} · Right-click: cancel</span>`;
@@ -173,6 +175,9 @@ function onKey(e) {
   }
   const hi = HOTKEYS.indexOf(k); if (hi >= 0 && UI.gridList[hi] && !e.ctrlKey && !e.metaKey) { clickItem(UI.gridList[hi], false, e.shiftKey); return; }
   if (k === 's') orderStop(UI.sel.filter(s => s.team === 0));
+  if (k === 'g') { doFormation(e.shiftKey); return; }
+  if (k === 'v') { toggleStance(); return; }
+  if (k === 'z') { doUpgrade(); return; }
   if (k === 'a' && UI.sel.some(s => s.kind === 'u')) { UI.mode = 'amove'; uiMsg('Attack-move: left-click target (Shift = waypoint)'); }
   if (k === 'h') { const hq = G.ents.find(e => e.team === 0 && e.t === 'hq'); if (hq) jumpTo(hq.x, hq.y); }
   if (k === 'q') { UI.tab = Object.keys(CATS)[(Object.keys(CATS).indexOf(UI.tab) + 1) % 5]; buildGrid(); }
@@ -180,6 +185,25 @@ function onKey(e) {
   if (k === 'e') setSel(G.ents.filter(o => o.team === 0 && o.kind === 'u' && UT[o.t].wpn));
   if (k === 'f') { UI.set.fps = !UI.set.fps; $('setFps').checked = UI.set.fps; saveSet(); }
   if (k === '.') selectIdle('harv'); if (k === ',') selectIdle('army');
+}
+function myUnits() { return UI.sel.filter(s => s.team === 0 && s.kind === 'u' && UT[s.t].wpn); }
+function enemyFacing(cx, cy) {
+  let best = null, bd = 1e9; for (const e of G.ents) if (e.team === 1 && visibleTo0(e)) { const d = Math.hypot(e.x - cx, e.y - cy); if (d < bd) { bd = d; best = e; } }
+  const t = best && bd < 30 ? best : { x: G.starts[1][0], y: G.starts[1][1] }; return Math.atan2(t.y - cy, t.x - cx);
+}
+function doFormation(atBase) {
+  const us = myUnits(); if (!us.length) { uiMsg('Select combat units first'); sfx('error'); return; }
+  let cx = us.reduce((a, u) => a + u.x, 0) / us.length, cy = us.reduce((a, u) => a + u.y, 0) / us.length;
+  if (atBase) { const hq = G.ents.find(e => e.team === 0 && e.t === 'hq') || us[0]; const a = Math.atan2(G.starts[1][1] - hq.y, G.starts[1][0] - hq.x); cx = hq.x + Math.cos(a) * 7; cy = hq.y + Math.sin(a) * 7; }
+  const n = orderFormation(us, cx, cy, enemyFacing(cx, cy)); marker(cx, cy); sfx('ack'); uiMsg(`Defensive formation: ${n} units holding (armor front, infantry middle, artillery/AA rear)`); UI.ctxKey = null;
+}
+function toggleStance() { const us = myUnits(); if (!us.length) return; const st = us.every(u => u.stance === 'hold') ? 'aggr' : 'hold'; setStance(us, st); sfx('click'); uiMsg(st === 'hold' ? 'Stance: Hold position (engage in range, return)' : 'Stance: Aggressive (chase targets)'); UI.ctxKey = null; }
+function doUpgrade() { const b = UI.sel.length === 1 && UI.sel[0].kind === 'b' && UI.sel[0].team === 0 ? UI.sel[0] : null; if (!b) return; const inf = upgradeInfo(b);
+  if (!inf) return; if (upgradeB(b)) { sfx('click'); uiMsg(inf.kind === 'def' ? 'Researching ' + DEF_RESEARCH.n : 'Upgrading to level ' + inf.next); UI.ctxKey = null; } else { sfx('error'); uiMsg(b.upT != null ? 'Upgrade in progress' : 'Insufficient funds'); } }
+function upgTip(b) {
+  const inf = upgradeInfo(b); if (!inf) return 'Fully upgraded'; if (inf.kind === 'def') return `<b>${DEF_RESEARCH.n}</b> <span class="c">$${inf.cost}</span> <span class="dim">· ${inf.time}s</span><br>All Guard Turrets & Flak Batteries: +${Math.round((DEF_RESEARCH.dmg - 1) * 100)}% damage, +${DEF_RESEARCH.rng} range, +${Math.round((DEF_RESEARCH.hp - 1) * 100)}% HP`;
+  const w = defW(b), l = b.lvl || 1, nd = Math.round(W[BT[b.t].wpn].dmg * UPG_DMG[l] * (G.players[0].defUp ? DEF_RESEARCH.dmg : 1)), nr = W[BT[b.t].wpn].rng + UPG_RNG[l] + (G.players[0].defUp ? DEF_RESEARCH.rng : 0);
+  return `<b>Upgrade to level ${l + 1}</b> <span class="c">$${inf.cost}</span> <span class="dim">· ${inf.time}s</span> <kbd>Z</kbd><br>Damage ${w.dmg} → <span class="g">${nd}</span><br>Range ${w.rng} → <span class="g">${nr}</span>`;
 }
 function idleList(kind) {
   return G.ents.filter(u => u.team === 0 && u.kind === 'u' && (kind === 'harv' ? u.t === 'harv' && (u.hst === 'idle' || u.hst === 'manual') && !u.path.length && (u.idleT || 0) > 2
@@ -237,15 +261,26 @@ function sidebar() {
     UI.ctxKey = key; let h = '';
     if (s.length === 1) { const e = s[0], d = defOf(e);
       h = `<div class="pt"><img src="${icon(e.t)}"><div><b>${d.n}</b>${e.team !== 0 ? ' <span class="r">(enemy)</span>' : ''}<div class="hpb"><div id="ctxhp"></div></div><div id="ctxinfo" class="dim"></div></div></div>`;
+      if (e.kind === 'b' && e.team === 0 && (UPG[e.t] || e.t === 'tech')) h += `<button id="upBtn" class="act"></button>`;
+      if (e.kind === 'u' && e.team === 0 && UT[e.t].wpn) h += `<div class="acts"><button id="fmBtn" class="act">⛨ Defensive Formation <kbd>G</kbd></button><button id="stBtn" class="act"></button></div>`;
       if (e.kind === 'b' && e.team === 0) { const opts = Object.keys(UT).filter(t => UT[t].from === e.t || (UT[t].alt || []).includes(e.t)); if (opts.length) h += `<div class="cgrid">${opts.map(t => `<div class="item sm">${itemHTML(t)}</div>`).join('')}</div><div class="dim small">Right-click ground to set rally point</div>`; }
-    } else if (s.length > 1) { const c = {}; s.forEach(e => c[e.t] = (c[e.t] || 0) + 1); h = '<div class="chips">' + Object.entries(c).map(([t, n]) => `<span class="chip" data-t="${t}"><img src="${icon(t)}">${n}</span>`).join('') + '</div>'; }
+    } else if (s.length > 1) { const c = {}; s.forEach(e => c[e.t] = (c[e.t] || 0) + 1); h = '<div class="chips">' + Object.entries(c).map(([t, n]) => `<span class="chip" data-t="${t}"><img src="${icon(t)}">${n}</span>`).join('') + '</div>';
+      if (myUnits().length) h += `<div class="acts"><button id="fmBtn" class="act">⛨ Defensive Formation <kbd>G</kbd></button><button id="stBtn" class="act"></button></div>`; }
     ctx.innerHTML = h;
     const opts = s.length === 1 && s[0].kind === 'b' ? Object.keys(UT).filter(t => UT[t].from === s[0].t || (UT[t].alt || []).includes(s[0].t)) : [];
     ctx.querySelectorAll('.item').forEach((b, i) => wireItem(b, opts[i]));
     ctx.querySelectorAll('.chip').forEach(c => c.onclick = () => setSel(UI.sel.filter(e => e.t === c.dataset.t)));
+    const fm = $('fmBtn'); if (fm) { fm.onclick = e => doFormation(e.shiftKey); fm.title = 'Arrange selected units in battle formation facing the nearest enemy and hold. Shift: at base entrance.'; }
+    const st = $('stBtn'); if (st) st.onclick = toggleStance;
+    const ub = $('upBtn'); if (ub) { ub.onclick = doUpgrade; ub.onmouseenter = () => { const b = UI.sel[0]; UI.tip.innerHTML = upgTip(b); UI.tip.style.display = 'block'; const r = ub.getBoundingClientRect(); UI.tip.style.top = Math.max(8, r.top - 90) + 'px'; UI.tip.style.right = (innerWidth - r.left + 8) + 'px'; }; ub.onmouseleave = () => { UI.tip.style.display = 'none'; }; }
   }
+  const stb = $('stBtn'); if (stb) { const hold = myUnits().length && myUnits().every(u => u.stance === 'hold'); const t = hold ? '⚓ Stance: Hold <kbd>V</kbd>' : '⚔ Stance: Aggressive <kbd>V</kbd>'; if (stb.innerHTML !== t) stb.innerHTML = t; }
+  const upb = $('upBtn'); if (upb && s[0]) { const b = s[0], inf = upgradeInfo(b); let t;
+    if (b.upT != null) t = `⬆ Upgrading… ${Math.floor((G.time - b.upT) / b.upDur * 100)}%`; else if (!inf) t = b.t === 'tech' ? '✔ ' + DEF_RESEARCH.n + ' researched' : '★ Max level (3)';
+    else t = inf.kind === 'def' ? `⬆ ${DEF_RESEARCH.n} $${inf.cost} <kbd>Z</kbd>` : `⬆ Upgrade to Lv${inf.next} $${inf.cost} <kbd>Z</kbd>`;
+    if (upb.innerHTML !== t) upb.innerHTML = t; upb.disabled = !inf || b.upT != null; upb.classList.toggle('poor', !!inf && G.players[0].cr < inf.cost); }
   if (s.length === 1) { const e = s[0], f = e.hp / e.mhp, hp = $('ctxhp'); if (hp) { hp.style.width = (f * 100) + '%'; hp.style.background = f > 0.6 ? '#4dff7a' : f > 0.3 ? '#ffd23d' : '#ff4d3d'; }
-    const inf = $('ctxinfo'); if (inf) inf.innerHTML = `HP ${Math.ceil(e.hp)} / ${e.mhp}` + (e.t === 'harv' ? `<br>Ore ${Math.floor(e.load)} / ${HARV_CAP} · ${e.hst}` : '') + (e.kind === 'u' && UT[e.t].wpn ? `<br>${W[UT[e.t].wpn].type} · range ${W[UT[e.t].wpn].rng} · ${e.order}${e.wq && e.wq.length ? ' +' + e.wq.length + ' wp' : ''}` : '') + (e.kind === 'b' ? `<br>Power ${BT[e.t].pow > 0 ? '+' : ''}${BT[e.t].pow}${e.repair ? ' · repairing' : ''}` : ''); }
+    const inf = $('ctxinfo'); if (inf) inf.innerHTML = `HP ${Math.ceil(e.hp)} / ${e.mhp}` + (e.t === 'harv' ? `<br>Ore ${Math.floor(e.load)} / ${HARV_CAP} · ${e.hst}` : '') + (e.kind === 'u' && UT[e.t].wpn ? `<br>${W[UT[e.t].wpn].type} · range ${W[UT[e.t].wpn].rng} · ${e.order}${e.wq && e.wq.length ? ' +' + e.wq.length + ' wp' : ''}` : '') + (e.kind === 'b' ? `<br>Power ${BT[e.t].pow > 0 ? '+' : ''}${BT[e.t].pow}${e.repair ? ' · repairing' : ''}` + (BT[e.t].wpn ? `<br>Lv${e.lvl || 1} · dmg ${defW(e).dmg} · range ${defW(e).rng}` : '') : '') + (e.kind === 'u' && e.stance === 'hold' ? ' · HOLD' : ''); }
 }
 function minimap() {
   const c = $('minimap'), x = c.getContext('2d'), s = c.width / MW;

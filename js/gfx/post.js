@@ -13,7 +13,7 @@ function postInit(renderer) {
   P.blur = mk(`uniform sampler2D tD; uniform vec2 uDir; varying vec2 vUv; void main(){ vec3 c = texture2D(tD, vUv).rgb * 0.227027;
     c += texture2D(tD, vUv + uDir * 1.3846).rgb * 0.3162162; c += texture2D(tD, vUv - uDir * 1.3846).rgb * 0.3162162;
     c += texture2D(tD, vUv + uDir * 3.2308).rgb * 0.0702703; c += texture2D(tD, vUv - uDir * 3.2308).rgb * 0.0702703; gl_FragColor = vec4(c, 1.0); }`, { tD: { value: null }, uDir: { value: new THREE.Vector2() } });
-  P.final = mk(`uniform sampler2D tD, tB1, tB2, tB3; uniform float uBloom, uExpo, uVig, uSat, uHasBloom; uniform vec3 uLift, uGain; varying vec2 vUv;
+  P.final = mk(`uniform sampler2D tD, tB1, tB2, tB3; uniform float uBloom, uExpo, uVig, uSat, uHasBloom, uCon, uBri; uniform vec3 uLift, uGain; varying vec2 vUv;
     vec3 aces(vec3 x){ x *= 0.6; return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
     vec3 toSRGB(vec3 c){ return mix(c * 12.92, 1.055 * pow(c, vec3(1.0/2.4)) - 0.055, step(0.0031308, c)); }
     void main(){ vec3 c = texture2D(tD, vUv).rgb;
@@ -22,10 +22,11 @@ function postInit(renderer) {
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(l), c, uSat);
       c = c * uGain + uLift * (1.0 - c);
       c = toSRGB(c);
+      c = clamp((c - 0.5) * uCon + 0.5 + uBri, 0.0, 1.0);
       vec2 d = vUv - 0.5; c *= 1.0 - uVig * smoothstep(0.35, 0.85, length(d * vec2(1.25, 1.0)));
       gl_FragColor = vec4(c, 1.0); }`,
-    { tD: { value: null }, tB1: { value: null }, tB2: { value: null }, tB3: { value: null }, uBloom: { value: 0.55 }, uExpo: { value: 1.05 }, uVig: { value: 0.32 }, uSat: { value: 1.1 }, uHasBloom: { value: 1 },
-      uLift: { value: new THREE.Vector3(0.012, 0.016, 0.03) }, uGain: { value: new THREE.Vector3(1.03, 1.0, 0.96) } });
+    { tD: { value: null }, tB1: { value: null }, tB2: { value: null }, tB3: { value: null }, uBloom: { value: 0.5 }, uExpo: { value: 0.8 }, uVig: { value: 0.4 }, uSat: { value: 1.22 }, uCon: { value: 1.15 }, uBri: { value: 0 }, uHasBloom: { value: 1 },
+      uLift: { value: new THREE.Vector3(0.0, 0.006, 0.018) }, uGain: { value: new THREE.Vector3(1.04, 1.0, 0.95) } });
   P.fxaa = mk(`uniform sampler2D tD; uniform vec2 uRes; varying vec2 vUv;
     void main(){ vec2 px = 1.0 / uRes;
       vec3 rgbNW = texture2D(tD, vUv + vec2(-1.0,-1.0)*px).rgb, rgbNE = texture2D(tD, vUv + vec2(1.0,-1.0)*px).rgb, rgbSW = texture2D(tD, vUv + vec2(-1.0,1.0)*px).rgb, rgbSE = texture2D(tD, vUv + vec2(1.0,1.0)*px).rgb, rgbM = texture2D(tD, vUv).rgb;

@@ -22,8 +22,8 @@ function r3Init(el) {
   const fogC = new THREE.Color(0x8fa6b8); S.background = fogC; S.fog = new THREE.FogExp2(fogC, 0.0065);
   R3.camera = new THREE.PerspectiveCamera(34, 1, 0.5, 260);
   R3.sunDir = new THREE.Vector3(-0.45, 0.78, -0.42).normalize();
-  R3.hemi = new THREE.HemisphereLight(0xc8dcff, 0x40351f, 0.35); S.add(R3.hemi);
-  const sun = R3.sun = new THREE.DirectionalLight(0xffe6c4, 3.1); sun.castShadow = true; sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.025; sun.shadow.radius = 3;
+  R3.hemi = new THREE.HemisphereLight(0xc8dcff, 0x40351f, 0.15); S.add(R3.hemi);
+  const sun = R3.sun = new THREE.DirectionalLight(0xffe2bc, 3.0); sun.castShadow = true; sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.025; sun.shadow.radius = 3;
   S.add(sun); S.add(sun.target);
   buildEnv();
   postInit(r);
@@ -64,6 +64,7 @@ function buildMarkers() {
   R3.aoTex = new THREE.CanvasTexture(c);
   R3.blob = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: R3.aoTex, transparent: true, depthWrite: false, fog: false }), 800);
   R3.blob.frustumCulled = false; R3.blob.renderOrder = 1; R3.blob.count = 0; R3.scene.add(R3.blob);
+  R3.rangeRings = []; for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(new THREE.RingGeometry(0.985, 1, 96).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffd060, transparent: true, opacity: 0.55, depthWrite: false, fog: false })); m.visible = false; m.renderOrder = 7; R3.scene.add(m); R3.rangeRings.push(m); }
   R3.markPool = []; for (let i = 0; i < 10; i++) { const m = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: 0x55ff77, transparent: true, depthWrite: false, fog: false })); m.visible = false; m.renderOrder = 7; R3.scene.add(m); R3.markPool.push({ m, t: 0 }); }
 }
 function marker(x, y, attack) { const k = R3.markPool.find(k => k.t <= 0) || R3.markPool[0]; k.t = 0.5; k.m.visible = true; k.m.material.color.set(attack ? 0xff4433 : 0x55ff77); k.m.position.set(x, heightAt(x, y) + 0.1, y); }
@@ -130,6 +131,7 @@ function handleEvents() {
         if (ev.b.team === 0) sfx('place'); break;
       case 'ready': if (ev.team === 0) { sfx('ready'); uiMsg(BT[ev.t].n + ' ready to place'); } break;
       case 'unit': if (ev.team === 0) sfx('unit'); break;
+      case 'upgraded': if (ev.team === 0) { sfx('ready'); uiMsg(ev.b.upKind === 'def' ? 'Research complete: ' + DEF_RESEARCH.n : BT[ev.b.t].n + ' upgraded to level ' + ev.b.lvl); } flash(ev.b.x, ev.b.y, 1, 1.5, 0.6, 0.9, 1); break;
       case 'capture': if (ev.team === 0 || ev.b.team === 0) { sfx('ready'); uiMsg('Structure captured!'); } disposeObj(ev.b.id); break;
       case 'attacked': if (ev.team === 0 && typeof uiAlert === 'function') uiAlert(ev); break;
     }
@@ -145,7 +147,7 @@ function r3Render(dt) {
   handleEvents();
   const k = 1 - Math.exp(-dt * 16);
   for (const u of R3.uiMesh.values()) u.n = 0;
-  let nSel = 0, nEn = 0, nHov = 0, nBlob = 0; const T = TMP;
+  let nSel = 0, nEn = 0, nHov = 0, nBlob = 0, nRange = 0; const T = TMP;
   const alive = new Set();
   for (const e of G.ents) {
     alive.add(e.id);
@@ -158,6 +160,10 @@ function r3Render(dt) {
       let sy = 0.02 + 0.98 * ease; if (e.sell >= 0) sy = Math.max(0.02, 1 - (G.time - e.sell) / 1.2);
       o.body.scale.y = sy; o.sc.visible = cons < 1 || e.sell >= 0;
       if (o.parts.spin) o.parts.spin.rotation.y += dt * 1.4; if (o.parts.head) o.parts.head.rotation.y = -e.tang;
+      if ((e.lvl || 1) !== (o.lvl || 1)) setLevelDecor(o, e);
+      if (e.upT != null && Math.random() < dt * 12) FX.spark.spawn(e.x + rnd(e.w), e.y + rnd(e.h), 0.5 + Math.random() * 0.6, rnd(1), rnd(1), 1.5, 0.5, 0.12, 0.04, 0.5, 0.9, 1, 1, 3);
+      o.sc.visible = o.sc.visible || e.upT != null;
+      if ((e.sel || e.id === R3.hoverId) && BT[e.t].wpn && nRange < 6) { const rg = R3.rangeRings[nRange++], r = defW(e).rng; rg.visible = true; rg.scale.set(r, 1, r); rg.position.set(e.x, heightAt(e.x, e.y) + 0.15, e.y); rg.material.color.set(e.team === 0 ? 0xffd060 : 0xff6050); }
       if (o.parts.glow) o.parts.glow.visible = Math.sin(R3.time * 4 + e.id) > -0.3;
       if (o.piv.smoke && Math.random() < dt * 4 * FX.mul) puff(e.x + o.piv.smoke[0], e.y + o.piv.smoke[2], o.piv.smoke[1] + heightAt(e.x, e.y), 0.2, 2.5, 0.45, 0.35, 0.8);
       const f = e.hp / e.mhp;
@@ -196,6 +202,8 @@ function r3Render(dt) {
   for (const u of R3.uiMesh.values()) for (const kk in u.parts) { u.parts[kk].count = u.n; u.parts[kk].instanceMatrix.needsUpdate = true; }
   R3.ringSel.count = Math.min(nSel, 400); R3.ringEnemy.count = Math.min(nEn, 100); R3.ringHover.count = Math.min(nHov, 4); R3.blob.count = nBlob;
   R3.ringSel.instanceMatrix.needsUpdate = R3.ringEnemy.instanceMatrix.needsUpdate = R3.ringHover.instanceMatrix.needsUpdate = R3.blob.instanceMatrix.needsUpdate = true;
+  if (UI.placing && BT[UI.placing].wpn && R3.ghost && R3.ghost.visible && nRange < 6) { const rg = R3.rangeRings[nRange++], r = W[BT[UI.placing].wpn].rng; rg.visible = true; rg.scale.set(r, 1, r); rg.position.copy(R3.ghost.position); rg.position.y += 0.15; rg.material.color.set(0xffd060); }
+  for (let i = nRange; i < 6; i++) R3.rangeRings[i].visible = false;
   for (const id of [...R3.objs.keys()]) if (!alive.has(id)) disposeObj(id);
   if (G.tick % 300 === 0) for (const id of [...R3.rs.keys()]) if (!alive.has(id)) R3.rs.delete(id);
   for (const mk of R3.markPool) if (mk.t > 0) { mk.t -= dt; mk.m.scale.setScalar(0.2 + mk.t * 1.4); mk.m.material.opacity = mk.t * 2; if (mk.t <= 0) mk.m.visible = false; }
@@ -266,4 +274,15 @@ function makePortraits() {
   for (const t in UT) shoot('u', t); for (const t in BT) shoot('b', t);
   FOW.uFowOn.value = 1; r.toneMapping = THREE.NoToneMapping; r.outputEncoding = THREE.LinearEncoding; r.setClearColor(0x000000, 1); r.setPixelRatio(oldPR); r.setSize(oldSize.x, oldSize.y);
   R3.portraits = out;
+}
+// visual change per defense level: bigger head, rank chevrons, armor collar, extra glow
+function setLevelDecor(o, e) {
+  const l = e.lvl || 1; o.lvl = l; if (o.decor) { o.body.remove(o.decor); o.decor = null; }
+  if (o.parts.head) o.parts.head.scale.setScalar(1 + 0.12 * (l - 1));
+  if (l < 2) return;
+  const B = new MB(e.team);
+  for (let i = 0; i < l - 1; i++) { B.glow('d', 0.05, 0.03, 0.16, 'TL', 0.4 - i * 0.09, 0.2, 0, { ry: 0 }); B.glow('d', 0.05, 0.03, 0.16, 'TL', -0.4 + i * 0.09, 0.2, 0); }
+  B.torus('d', 0.4, 0.035, COL.STEEL, PBR.METAL, 0, 0.42, 0, { rx: Math.PI / 2, seg: 24 });
+  if (l >= 3) { B.torus('d', 0.47, 0.02, 'T', PBR.GLOW2, 0, 0.24, 0, { rx: Math.PI / 2, seg: 24 }); for (const a of [0.8, 2.4, 3.9, 5.5]) B.box('d', 0.12, 0.3, 0.06, COL.DARK, PBR.DARKM, Math.cos(a) * 0.4, 0.3, Math.sin(a) * 0.4, { ry: -a }); }
+  const m = new THREE.Mesh(B.build().d, pbrMaterial()); m.castShadow = true; o.body.add(m); o.decor = m;
 }

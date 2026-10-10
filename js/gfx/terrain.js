@@ -30,7 +30,7 @@ function buildHeightfield() {
   }
 }
 function terrainMaterial() {
-  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0 });
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0, envMapIntensity: 0.5 });
   m.extensions = { derivatives: true };
   m.onBeforeCompile = sh => {
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec4 splat;\nvarying vec4 vSplat;\nvarying vec3 vW;')
@@ -78,7 +78,7 @@ function buildTerrain3() {
     spl.set([grass, dirt, rock, sand], i * 4);
     // cavity AO: compare with neighborhood
     const avg = (heightAt(x + 1, z) + heightAt(x - 1, z) + heightAt(x, z + 1) + heightAt(x, z - 1)) / 4;
-    const ao = Math.max(0.45, Math.min(1, 1 - (avg - h) * 0.6));
+    const ao = Math.max(0.3, Math.min(1, 1 - (avg - h) * 0.9));
     col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = ao;
   }
   geo.setAttribute('splat', new THREE.BufferAttribute(spl, 4)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));

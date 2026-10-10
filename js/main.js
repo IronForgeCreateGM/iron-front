@@ -44,6 +44,13 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('startBtn').onclick = () => { audioInit(); startGame(diff, { fog: document.getElementById('fogChk').checked }); };
   document.getElementById('resumeBtn').onclick = () => togglePause();
   document.querySelectorAll('.quitBtn').forEach(b => b.onclick = () => location.href = location.pathname);
+  if (QS.get('showcase')) { startGame('easy', { seed: 4242 }); const P = G.players[0]; P.cr = 99999;
+    for (const [t, x, y] of [['power', 4, 12], ['power', 1, 9], ['power', 4, 2], ['barracks', 11, 3], ['refinery', 11, 12], ['factory', 15, 6], ['tech', 3, 15]]) addB(t, 0, x, y, true).born = -10;
+    const t1 = addB('turret', 0, 16, 14, true), t2 = addB('turret', 0, 19, 11, true), t3 = addB('aagun', 0, 18, 15, true); t1.lvl = 3; t2.lvl = 2; [t1, t2, t3].forEach(b => b.born = -10);
+    const army = []; ['heavy', 'heavy', 'light', 'light', 'rifle', 'rifle', 'rocketeer', 'rocketeer', 'rifle', 'arty', 'aa', 'arty'].forEach((t, i) => army.push(addU(t, 0, 14 + (i % 4), 18 + (i / 4 | 0))));
+    for (let i = 0; i < 30; i++) stepGame(); orderFormation(army, 20, 20, Math.PI / 4); for (let i = 0; i < 30 * 12; i++) stepGame();
+    G.events.length = 0; setSel([t1]); R3.cam.td = R3.cam.d = 19; jumpTo(17, 15.5, true); paused = false;
+  } else
   if (QS.get('stress')) { startGame('normal', { demo: 1, seed: 4242 }); const n = +QS.get('stress'), types = ['rifle', 'rocketeer', 'light', 'heavy', 'arty', 'aa', 'scout', 'gunship'];
     for (let i = 0; i < n; i++) { const tm = i % 2, t = types[i % types.length]; const p = nearFree(28 + (tm ? 6 : -6) + (i % 7), 30 + ((i / 7) | 0) % 10, 6); addU(t, tm, p[0] + 0.5, p[1] + 0.5); }
     G.opts.fog = false; R3.cam.td = R3.cam.d = 34; jumpTo(32, 32, true);
@@ -76,9 +83,13 @@ function selfTest() {
     clickItem('rifle', false, true); const q5 = G.players[0].queues.inf.length; clickItem('rifle', true, false); const q4 = G.players[0].queues.inf.length;
     showTip('heavy', document.querySelector('.item')); sidebar(); setSel([G.ents.find(e => e.t === 'hq' && e.team === 0)]); sidebar();
     const ctxBtns = document.querySelectorAll('#ctx .item').length;
+    const tur2 = addB('turret', 0, 12, 13, true); tur2.born = -10; const lv0 = defW(tur2).rng; const okU = upgradeB(tur2); for (let i = 0; i < 30 * 16; i++) stepGame(); const lv = tur2.lvl;
+    const army = []; for (let i = 0; i < 8; i++) army.push(addU(['heavy', 'rifle', 'arty', 'rocketeer'][i % 4], 0, 16 + i % 3, 16 + (i / 3 | 0)));
+    setSel(army); sidebar(); doFormation(false); const fmOk = army.every(u => u.stance === 'hold'); toggleStance(); const agg = army.every(u => u.stance === 'aggr');
+    extra += ` upg=${okU}:${lv}:${lv0}->${defW(tur2).rng} formation=${fmOk} stance=${agg}`;
     for (let i = 0; i < 300; i++) stepGame();
     for (let i = 0; i < 20; i++) { uiFrame(0.05); r3Render(0.05); }
-    extra = ` tab=${tabOk} q5=${q5} q4=${q4} hqBtns=${ctxBtns} units=${G.ents.filter(e => e.team === 0 && e.kind === 'u').length}`;
+    extra += ` tab=${tabOk} q5=${q5} q4=${q4} hqBtns=${ctxBtns} units=${G.ents.filter(e => e.team === 0 && e.kind === 'u').length}`;
     document.title = extra + ' SELFTEST OK sel=' + UI.sel.length + ' powerPlants=' + G.ents.filter(e => e.team === 0 && e.t === 'power').length;
   } catch (e) { document.title = 'SELFTEST FAIL ' + e.message; throw e; }
 }

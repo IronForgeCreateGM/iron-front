@@ -19,7 +19,7 @@ function fowPatch(sh) {
 }
 function pbrMaterial() {
   if (PBR_MAT) return PBR_MAT;
-  const m = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 1, roughness: 1, envMapIntensity: 1.0 });
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 1, roughness: 1, envMapIntensity: 0.65 });
   m.onBeforeCompile = sh => {
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 pbr;\nvarying vec3 vPbr;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvPbr = pbr;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vPbr;')
