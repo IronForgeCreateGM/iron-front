@@ -44,7 +44,7 @@ const UT = {
   heavy:  { n: 'Bastion Tank', hp: 800, sp: 1.4, armor: 'heavy', wpn: 'hcannon', cost: 1400, time: 12, from: 'factory', sight: 7, r: 0.58, req: ['tech'], turret: 1 },
   arty:   { n: 'Howler Artillery', hp: 260, sp: 1.6, armor: 'light', wpn: 'arty', cost: 1000, time: 10, from: 'factory', sight: 6, r: 0.48, req: ['tech'], turret: 1 },
   aa:     { n: 'Skyguard', hp: 320, sp: 2.2, armor: 'light', wpn: 'flak', cost: 700, time: 7, from: 'factory', sight: 8, r: 0.45, req: [], turret: 1 },
-  harv:   { n: 'Ore Hauler', hp: 900, sp: 1.5, armor: 'heavy', wpn: null, cost: 1400, time: 10, from: 'factory', sight: 5, r: 0.6, req: [] },
+  harv:   { n: 'Ore Hauler', hp: 1000, sp: 1.5, armor: 'heavy', wpn: null, cost: 1400, time: 10, from: 'factory', alt: ['hq'], sight: 5, r: 0.6, req: [] },
   gunship:{ n: 'Hornet Gunship', hp: 340, sp: 3.4, armor: 'air', wpn: 'gun', cost: 1200, time: 10, from: 'airpad', sight: 8, r: 0.5, req: [], air: 1 },
 };
 const CATS = { bld: 'Structures', def: 'Defenses', inf: 'Infantry', veh: 'Vehicles', air: 'Aircraft' };
@@ -55,3 +55,5 @@ const DIFF = {
   normal: { income: 1.0, think: 1.2, wave0: 6, waveMax: 14, harass: 0.3, build: 1.0 },
   hard:   { income: 1.35, think: 0.7, wave0: 7, waveMax: 20, harass: 0.5, build: 1.3 },
 };
+// economy
+const HARV_CAP = 1500, MINE_RATE = 150, UNLOAD_RATE = 600, ORE_REGROW = 1.2; // per second

@@ -3,14 +3,21 @@
 // Each think: power check, build order (rebuilds losses), placement, harvesters,
 // counter-composition army, base defense, waves, harass, scouting.
 const AI_ORDER = ['power', 'barracks', 'refinery', 'power', 'factory', 'turret', 'refinery', 'power', 'tech', 'aagun', 'power', 'turret', 'airpad', 'power', 'turret', 'aagun', 'refinery', 'power'];
-function aiInit(P) { P.aiS = { next: 0, wave: DIFF[P.diff].wave0, scoutT: 20, lastAttack: 0, attackers: new Set() }; }
+function aiInit(P) { P.aiS = { next: 0, wave: DIFF[P.diff].wave0, scoutT: 20, lastAttack: 0, attackers: new Set(), known: new Map(), sellT: 0 }; }
 function aiStep(P) {
   const S = P.aiS, D = DIFF[P.diff];
+  const myBld = () => G.ents.filter(e => e.team === P.team && e.kind === 'b' && e.sell < 0);
   if (G.time < S.next) return;
   S.next = G.time + D.think;
   const me = G.ents.filter(e => e.team === P.team), hq = me.find(e => e.t === 'hq') || me.find(e => e.kind === 'b');
   if (!hq) return;
-  const enemyTeam = 1 - P.team, foes = G.ents.filter(e => e.team === enemyTeam);
+  const enemyTeam = 1 - P.team;
+  // fog-respecting knowledge: visible units + remembered buildings
+  const foes = G.ents.filter(e => e.team === enemyTeam && visibleTo(P.team, e));
+  for (const f of foes) if (f.kind === 'b') S.known.set(f.id, f);
+  for (const [id, b] of S.known) if (b.hp <= 0 || b.dead || b.team !== enemyTeam || (G.visT[P.team][idx(Math.floor(b.x), Math.floor(b.y))] && !foes.includes(b))) S.known.delete(id);
+  const knownB = [...S.known.values()];
+  const estart = G.starts[enemyTeam];
   const cnt = {}; for (const e of me) cnt[e.t] = (cnt[e.t] || 0) + 1;
   // queued items count too
   for (const c in P.queues) for (const it of P.queues[c]) cnt[it.t] = (cnt[it.t] || 0) + 1;
@@ -29,7 +36,15 @@ function aiStep(P) {
   }
   // 3) harvesters
   const refs = cnt.refinery || 0, harvs = cnt.harv || 0;
-  if (harvs < Math.min(4, refs * 2) && avail(P.team, 'harv') && P.queues.veh.length < 2 && !P.queues.veh.some(q => q.t === 'harv')) enqueue(P.team, 'harv');
+  const wantH = Math.min(6, Math.max(1, refs) * 2);
+  if (harvs < wantH && avail(P.team, 'harv') && !P.queues.veh.some(q => q.t === 'harv')) { if (P.queues.veh.length >= 2) cancel(P.team, P.queues.veh[P.queues.veh.length - 1].t); enqueue(P.team, 'harv'); }
+  // money stall breaker: no harvesters and broke -> sell non-essential structures
+  const realH = me.filter(e => e.t === 'harv').length;
+  if (realH === 0 && P.cr < UT.harv.cost && G.time > S.sellT) {
+    const sac = ['airpad', 'tech', 'aagun', 'turret', 'wall'].map(t => myBld().find(b => b.t === t)).find(Boolean) || (cnt.barracks > 1 && myBld().find(b => b.t === 'barracks'));
+    if (sac) { sellB(sac); S.sellT = G.time + 15; }
+  }
+  if (realH < 2 && P.cr < UT.harv.cost + 200) return; // save for harvesters
   // 4) army composition: counter what enemy fields
   const ft = { inf: 0, armor: 0, air: 0 };
   for (const f of foes) if (f.kind === 'u' && f.t !== 'harv') { const a = UT[f.t].armor; if (a === 'inf') ft.inf++; else if (a === 'air') ft.air++; else ft.armor++; }
@@ -57,7 +72,7 @@ function aiStep(P) {
   if (G.time > S.scoutT) {
     S.scoutT = G.time + 60;
     const sc = home.find(u => u.t === 'scout') || home.find(u => u.t === 'rifle');
-    if (sc && !intruders.length) { orderMove([sc], 10 + G.R() * 44, 10 + G.R() * 44, true); S.attackers.add(sc.id); }
+    if (sc && !intruders.length) { const tgt = S.known.size ? [10 + G.R() * 44, 10 + G.R() * 44] : estart; orderMove([sc], tgt[0], tgt[1], true); S.attackers.add(sc.id); }
   }
   // 7) harass enemy harvesters with fast units / gunships
   if (D.harass && G.R() < D.harass * 0.15) {
@@ -69,12 +84,13 @@ function aiStep(P) {
   for (const id of [...S.attackers]) { const u = byId(id); if (!u) S.attackers.delete(id); else if (u.order === 'idle' && !u.tgt && G.R() < 0.2) S.attackers.delete(id); }
   const ready = home.filter(u => u.t !== 'harv');
   if (ready.length >= S.wave && !intruders.length && G.time - S.lastAttack > 30) {
-    const tgts = foes.filter(f => f.kind === 'b');
-    if (tgts.length) {
+    const tgts = knownB.slice();
+    if (!tgts.length) { orderMove(ready, estart[0], estart[1], true); ready.forEach(u => S.attackers.add(u.id)); S.lastAttack = G.time; }
+    else {
       // prefer production/eco targets; artillery-friendly
       const pref = ['refinery', 'factory', 'power', 'barracks', 'hq'];
       tgts.sort((a, b) => (pref.indexOf(a.t) + 1 || 9) - (pref.indexOf(b.t) + 1 || 9) + (Math.hypot(a.x - hq.x, a.y - hq.y) - Math.hypot(b.x - hq.x, b.y - hq.y)) * 0.05);
-      const t = tgts[0];
+      const t = tgts[0]; if (!t) return;
       orderMove(ready, t.x, t.y, true); ready.forEach(u => S.attackers.add(u.id));
       S.wave = Math.min(D.waveMax, S.wave + 2); S.lastAttack = G.time;
     }
@@ -85,7 +101,7 @@ function aiStep(P) {
 function aiSpot(P, t, hq, foes) {
   const d = BT[t];
   let ax = hq.x, ay = hq.y;
-  const ef = foes.find(f => f.t === 'hq') || foes.find(f => f.kind === 'b');
+  const kb = P.aiS ? [...P.aiS.known.values()] : []; const ef = kb.find(f => f.t === 'hq') || kb[0] || { x: G.starts[1 - P.team][0], y: G.starts[1 - P.team][1] };
   if (t === 'refinery') { // near closest ore
     let b = -1, bd = 1e9; for (let i = 0; i < G.ore.length; i++) if (G.ore[i] > 0) { const dd = Math.hypot(i % MW - hq.x, ((i / MW) | 0) - hq.y); if (dd < bd) { bd = dd; b = i; } }
     if (b >= 0) { ax = (b % MW + hq.x) / 2; ay = (((b / MW) | 0) + hq.y) / 2; }

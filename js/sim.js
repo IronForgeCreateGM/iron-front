@@ -13,7 +13,8 @@ function newGame(opts) {
   const R = mkRng(opts.seed);
   G = { R, opts, tick: 0, time: 0, ents: [], projs: [], events: [], nid: 1, over: null, bver: 1, blockVer: 0, block: null,
     map: new Uint8Array(MW * MH), ore: new Float32Array(MW * MH), elev: new Float32Array(MW * MH),
-    vis: new Uint8Array(MW * MH), seen: new Uint8Array(MW * MH), oreVer: 0, players: [] };
+    visT: [new Uint8Array(MW * MH), new Uint8Array(MW * MH)], seenT: [new Uint8Array(MW * MH), new Uint8Array(MW * MH)], oreVer: 0, players: [] };
+  G.vis = G.visT[0]; G.seen = G.seenT[0]; G.dens = new Uint8Array(MW * MH); G.starts = [[7.5, 7.5], [56.5, 56.5]];
   genMap(R);
   for (let t = 0; t < 2; t++) G.players.push({ team: t, cr: 5000, pow: 0, gen: 0, use: 0, ai: opts.aiTeams.includes(t), diff: opts.diff,
     queues: { bld: [], def: [], inf: [], veh: [], air: [] }, ready: { bld: null, def: null }, stats: { kills: 0, lost: 0, mined: 0 } });
@@ -47,7 +48,7 @@ function genMap(R) {
   clear(8, 8, 11);
   for (let k = 0; k <= 60; k++) { const t = k / 60; clear(8 + 47 * t, 8 + 47 * t + Math.sin(t * 9) * 4, 1.8); clear(8 + 47 * t + Math.sin(t * 7) * 10, 8 + 47 * t - Math.sin(t * 7) * 10, 1.4); }
   const field = (cx, cy, r) => { for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) if (inb(x, y)) {
-      const d = Math.hypot(x - cx, y - cy); if (d <= r + 0.3) { const a = 350 + (r - d) * 120; for (const j of [idx(x, y), N - 1 - idx(x, y)]) { G.map[j] = 0; G.ore[j] = a; } } } };
+      const d = Math.hypot(x - cx, y - cy); if (d <= r + 0.3) { const a = (350 + (r - d) * 120) * 4.5; for (const j of [idx(x, y), N - 1 - idx(x, y)]) { G.map[j] = 0; G.ore[j] = a; } } } };
   field(17, 9, 2); field(9, 19, 2); field(30, 29, 3); field(12, 44, 2); field(42, 15, 2);
   // flood fill from base: unreachable open tiles become rock
   const seen = new Uint8Array(N), st = [idx(8, 8)]; seen[st[0]] = 1;
@@ -55,6 +56,7 @@ function genMap(R) {
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (!inb(nx, ny)) continue; const n = idx(nx, ny);
       if (!seen[n] && G.map[n] === 0) { seen[n] = 1; st.push(n); } } }
   for (let i = 0; i < N; i++) if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.ore[i] = 0; }
+  G.oreMax = Float32Array.from(G.ore);
 }
 function addB(t, team, tx, ty, instant) {
   const d = BT[t];
@@ -80,7 +82,7 @@ function hasBuilt(team, t) { return G.ents.some(e => e.kind === 'b' && e.team ==
 function reqOk(team, d) { return d.req.every(r => hasBuilt(team, r)); }
 function avail(team, t) {
   if (BT[t]) return hasBuilt(team, 'hq') && reqOk(team, BT[t]);
-  const d = UT[t]; return hasBuilt(team, d.from) && reqOk(team, d);
+  const d = UT[t]; return (hasBuilt(team, d.from) || (d.alt || []).some(a => hasBuilt(team, a))) && reqOk(team, d);
 }
 function catOf(t) { return BT[t] ? BT[t].cat : FROMCAT[UT[t].from]; }
 function getBlock() {
@@ -88,7 +90,9 @@ function getBlock() {
   const g = new Uint8Array(MW * MH);
   for (let i = 0; i < g.length; i++) g[i] = G.map[i] ? 1 : 0;
   for (const e of G.ents) if (e.kind === 'b') for (let y = e.ty; y < e.ty + e.h; y++) for (let x = e.tx; x < e.tx + e.w; x++) g[idx(x, y)] = 2;
-  G.block = g; G.blockVer = G.bver; return g;
+  const nr = new Uint8Array(MW * MH);
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { if (g[idx(x, y)]) continue; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (!inb(x + dx, y + dy) || g[idx(x + dx, y + dy)]) nr[idx(x, y)] = 1; }
+  G.near = nr; G.block = g; G.blockVer = G.bver; return g;
 }
 const blk = (x, y) => { x = Math.floor(x); y = Math.floor(y); return !inb(x, y) || getBlock()[idx(x, y)] > 0; };
 
@@ -133,7 +137,8 @@ function stepProduction(P) {
     if ((cat === 'bld' || cat === 'def') && P.ready[cat]) continue;
     const it = q[0], d = BT[it.t] || UT[it.t];
     const src = BT[it.t] ? 'hq' : d.from;
-    const prod = G.ents.filter(e => e.kind === 'b' && e.team === P.team && e.t === src && e.sell < 0 && G.time - e.born > 1.5);
+    let prod = G.ents.filter(e => e.kind === 'b' && e.team === P.team && e.t === src && e.sell < 0 && G.time - e.born > 1.5);
+    if (!prod.length && d.alt) prod = G.ents.filter(e => e.kind === 'b' && e.team === P.team && d.alt.includes(e.t) && e.sell < 0 && G.time - e.born > 1.5);
     if (!prod.length || !reqOk(P.team, d)) continue;
     const dp = Math.min(1 - it.prog, DT * (1 + 0.5 * (prod.length - 1)) * slow * ai / d.time), c = d.cost * dp;
     if (P.cr >= c) { P.cr -= c; it.prog += dp; it.paid += c; }
@@ -165,7 +170,7 @@ function nearFree(x, y, maxR) {
 }
 // ---------- pathfinding: A* w/ binary heap + LOS smoothing ----------
 function findPath(sx, sy, gx, gy) {
-  const g = getBlock();
+  const g = getBlock(); G.pathCalls = (G.pathCalls || 0) + 1;
   let six = Math.floor(sx), siy = Math.floor(sy), gix = Math.max(0, Math.min(MW - 1, Math.floor(gx))), giy = Math.max(0, Math.min(MH - 1, Math.floor(gy)));
   if (!inb(six, siy)) return [];
   if (g[idx(gix, giy)]) { const f = nearFree(gix, giy, 8); gix = f[0]; giy = f[1]; gx = gix + 0.5; gy = giy + 0.5; }
@@ -187,7 +192,7 @@ function findPath(sx, sy, gx, gy) {
       if (!inb(nx, ny)) continue; const n = idx(nx, ny);
       if (cl[n] || g[n]) continue;
       if (dx && dy && (g[idx(nx, cy)] || g[idx(cx, ny)])) continue;
-      const ng = gs[c] + (dx && dy ? 1.414 : 1);
+      const ng = gs[c] + (dx && dy ? 1.414 : 1) + (G.near[n] ? 0.35 : 0) + (n !== goal ? G.dens[n] * 0.8 : 0);
       if (ng < gs[n]) { gs[n] = ng; par[n] = c; push(ng + H(nx, ny), n); }
     }
   }
@@ -214,22 +219,24 @@ function setPath(u, x, y) {
   if (isAir(u)) u.path = [{ x: Math.max(0.5, Math.min(MW - 0.5, x)), y: Math.max(0.5, Math.min(MH - 0.5, y)) }];
   else u.path = findPath(u.x, u.y, x, y);
 }
-function orderMove(units, x, y, attackMove) {
+function orderMove(units, x, y, attackMove, queue) {
   units = units.filter(u => u.kind === 'u'); if (!units.length) return;
   let cx = 0, cy = 0; units.forEach(u => { cx += u.x; cy += u.y; }); cx /= units.length; cy /= units.length;
-  const dir = Math.atan2(y - cy, x - cx), cols = Math.ceil(Math.sqrt(units.length * 1.5)), sp = 1.0;
+  const dir = Math.atan2(y - cy, x - cx), cols = Math.ceil(Math.sqrt(units.length * 1.5)), sp = units.some(u => UT[u.t].armor !== 'inf') ? 1.25 : 0.85;
   const slots = [];
   for (let i = 0; i < units.length; i++) {
     const r = Math.floor(i / cols), c = i % cols, rowN = Math.min(cols, units.length - r * cols);
     const lat = (c - (rowN - 1) / 2) * sp, back = -r * sp;
     let sx = x + Math.cos(dir) * back - Math.sin(dir) * lat, sy = y + Math.sin(dir) * back + Math.cos(dir) * lat;
-    if (blk(sx, sy)) { sx = x; sy = y; }
+    if (blk(sx, sy)) { const f = nearFree(Math.floor(sx), Math.floor(sy), 4); sx = f[0] + 0.5; sy = f[1] + 0.5; }
     slots.push({ x: sx, y: sy });
   }
   // fastest/frontline first: greedy nearest assignment
   const left = units.slice();
   for (const s of slots) { let bi = 0, bd = 1e9; left.forEach((u, i) => { const d = Math.hypot(u.x - s.x, u.y - s.y); if (d < bd) { bd = d; bi = i; } });
-    const u = left.splice(bi, 1)[0]; u.order = attackMove ? 'amove' : 'move'; u.tgt = null; u.anchor = { x: s.x, y: s.y };
+    const u = left.splice(bi, 1)[0]; u.grp = units.length;
+    if (queue && (u.path.length || (u.wq && u.wq.length))) { (u.wq = u.wq || []).push({ x: s.x, y: s.y, am: attackMove }); continue; }
+    u.wq = []; u.order = attackMove ? 'amove' : 'move'; u.tgt = null; u.anchor = { x: s.x, y: s.y };
     if (u.t === 'harv') { u.hst = 'manual'; const oi = idx(Math.floor(s.x), Math.floor(s.y)); if (G.ore[oi] > 0) { u.hst = 'idle'; u.prefOre = oi; } }
     setPath(u, s.x, s.y); }
 }
@@ -264,6 +271,9 @@ function stepGame() {
   const hash = new Map();
   for (const e of G.ents) if (e.kind === 'u') { const k = (Math.floor(e.x) << 8) | Math.floor(e.y) | (isAir(e) ? 1 << 20 : 0); let a = hash.get(k); if (!a) hash.set(k, a = []); a.push(e); }
   G.hash = hash;
+  G.dens.fill(0);
+  for (const e of G.ents) if (e.kind === 'u' && !e.path.length && !isAir(e)) { const i = idx(Math.floor(e.x), Math.floor(e.y)); if (G.dens[i] < 6) G.dens[i]++; }
+  if (G.tick % 30 === 0) { for (let i = 0; i < G.ore.length; i++) if (G.oreMax[i] > 0 && G.ore[i] < G.oreMax[i]) { const was = G.ore[i]; G.ore[i] = Math.min(G.oreMax[i], G.ore[i] + ORE_REGROW * (was > 0 ? 1 : 0.5)); } G.oreVer++; }
   for (const e of G.ents) { if (e.hp <= 0) continue; if (e.kind === 'b') stepBuilding(e); else stepUnit(e); }
   separate(hash);
   stepProjs();
@@ -356,6 +366,7 @@ function damage(t, amt, w, team) {
   if (t.hp <= 0) return;
   t.hp -= amt * DMG[w.type][armorOf(t)];
   t.lastHitBy = team; t.hitT = G.time;
+  const TP = G.players[t.team]; if (TP && G.time - (TP.alertT || -99) > 12) { TP.alertT = G.time; G.events.push({ e: 'attacked', team: t.team, x: t.x, y: t.y, harv: t.t === 'harv' }); }
   if (t.kind === 'u' && t.order === 'idle' && !t.tgt && t.team !== team) t.underFire = G.time;
 }
 function impact(p) {
@@ -387,7 +398,10 @@ function stepUnit(u) {
   if (u.path.length) {
     const p = u.path[0], dx = p.x - u.x, dy = p.y - u.y, dist = Math.hypot(dx, dy);
     const last = u.path.length === 1;
-    if (dist < (last ? 0.12 : 0.4)) { u.path.shift(); if (!u.path.length && (u.order === 'move' || u.order === 'amove')) { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; } }
+    const crowdArrive = last && u.grp > 1 && dist < 0.6 + 0.35 * Math.sqrt(u.grp) && u.blockedT > 0.6;
+    if (dist < (last ? 0.12 : 0.4) || crowdArrive) { u.path.shift(); if (crowdArrive) u.path = [];
+      if (!u.path.length && u.wq && u.wq.length) { const w = u.wq.shift(); u.order = w.am ? 'amove' : 'move'; u.anchor = { x: w.x, y: w.y }; setPath(u, w.x, w.y); }
+      else if (!u.path.length && (u.order === 'move' || u.order === 'amove')) { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; } }
     else {
       const want = Math.atan2(dy, dx);
       const veh = d.armor !== 'inf';
@@ -395,13 +409,16 @@ function stepUnit(u) {
       const f = veh ? Math.max(0, Math.cos(angDiff(u.ang, want))) : 1;
       const sp = Math.min(dist, d.sp * DT * f * (d.armor === 'inf' && u.underFire && G.time - u.underFire < 2 ? 1.2 : 1));
       const nx = u.x + Math.cos(u.ang) * sp, ny = u.y + Math.sin(u.ang) * sp;
+      const ox = u.x, oy = u.y;
       if (d.air || !blk(nx, ny)) { u.x = nx; u.y = ny; }
       else if (!blk(nx, u.y)) u.x = nx; else if (!blk(u.x, ny)) u.y = ny;
       if (!UT[u.t].turret && !u.tgt) u.tang = u.ang;
+      u.prevP = { x: ox, y: oy };
     }
+    if (u.prevP) { const prog = Math.hypot(u.x - u.prevP.x, u.y - u.prevP.y); u.blockedT = prog < d.sp * DT * 0.25 ? (u.blockedT || 0) + DT : 0; }
     u.moveT += DT;
     if (u.moveT > 2) { // stuck detection
-      if (Math.hypot(u.x - u.lastP.x, u.y - u.lastP.y) < 0.3 && u.dest) { const dd = u.dest; setPath(u, dd.x + (G.R() - 0.5), dd.y + (G.R() - 0.5)); }
+      if (Math.hypot(u.x - u.lastP.x, u.y - u.lastP.y) < 0.3 && u.dest) { const dd = u.dest; u.stuckN = (u.stuckN || 0) + 1; if (u.stuckN > 3 && Math.hypot(u.x - dd.x, u.y - dd.y) < 3) { u.path = []; u.stuckN = 0; } else setPath(u, dd.x + (G.R() - 0.5) * u.stuckN, dd.y + (G.R() - 0.5) * u.stuckN); } else u.stuckN = 0;
       u.moveT = 0; u.lastP = { x: u.x, y: u.y };
     }
   } else if (UT[u.t].turret && !u.tgt) u.tang = turnTo(u.tang, u.ang, 2 * DT);
@@ -418,7 +435,7 @@ function separate(hash) {
         let dx = a.x - b.x, dy = a.y - b.y, dd = Math.hypot(dx, dy); const min = ra + UT[b.t].r;
         if (dd >= min) continue;
         if (dd < 1e-4) { dx = G.R() - 0.5; dy = G.R() - 0.5; dd = Math.hypot(dx, dy); }
-        const ov = (min - dd) * 0.5, am = a.path.length ? 0.3 : 1, bm = b.path.length ? 0.3 : 1, tot = am + bm;
+        const soft = a.t === 'harv' && b.t === 'harv' ? 0.4 : 1, ov = (min - dd) * 0.5 * soft, am = a.path.length ? 0.3 : 1, bm = b.path.length ? 0.3 : 1, tot = am + bm;
         const pa = ov * am / tot * 2 * 0.5, pb = ov * bm / tot * 2 * 0.5;
         const ax = a.x + dx / dd * pa, ay = a.y + dy / dd * pa, bx = b.x - dx / dd * pb, by = b.y - dy / dd * pb;
         if (air || !blk(ax, ay)) { a.x = ax; a.y = ay; }
@@ -430,77 +447,94 @@ function separate(hash) {
   }
 }
 // ---------- harvester ----------
-function nearestOre(u, pref) {
-  if (pref != null && G.ore[pref] > 0) return pref;
-  let b = -1, bd = 1e9;
-  const refs = G.ents.filter(e => e.team === u.team && e.t === 'refinery');
-  for (let i = 0; i < G.ore.length; i++) if (G.ore[i] > 0) {
-    const x = i % MW + 0.5, y = ((i / MW) | 0) + 0.5;
-    let d = Math.hypot(x - u.x, y - u.y);
-    for (const r of refs) d = Math.min(d, Math.hypot(x - r.x, y - r.y) * 1.2 + 2);
-    for (const o of G.ents) if (o !== u && o.t === 'harv' && o.team === u.team && o.oreT === i) d += 10;
-    if (G.danger && G.danger[u.team] && G.danger[u.team].some(p => Math.hypot(p.x - x, p.y - y) < 6)) d += 30;
-    if (d < bd) { bd = d; b = i; }
+function oreScore(u, i, refs) {
+  const x = i % MW + 0.5, y = ((i / MW) | 0) + 0.5;
+  let d = Math.hypot(x - u.x, y - u.y) * 0.6;
+  let rd = 1e9; for (const r of refs) rd = Math.min(rd, Math.hypot(x - r.x, y - r.y)); d += Math.min(rd, 60) * 0.9;
+  for (const o of G.ents) if (o !== u && o.t === 'harv' && o.team === u.team && o.oreT != null) {
+    if (o.oreT === i) return 1e9; // reserved
+    const ox = o.oreT % MW + 0.5, oy = ((o.oreT / MW) | 0) + 0.5; const dd = Math.hypot(ox - x, oy - y); if (dd < 3) d += (3 - dd) * 2.5; // spread across patches
   }
+  if (G.danger && G.danger[u.team] && G.danger[u.team].some(p => Math.hypot(p.x - x, p.y - y) < 6)) d += 40;
+  if (G.ore[i] < 200) d += 6;
+  return d;
+}
+function nearestOre(u, pref) {
+  const refs = G.ents.filter(e => e.team === u.team && e.t === 'refinery');
+  if (pref != null && G.ore[pref] > 0 && oreScore(u, pref, refs) < 1e9) return pref;
+  let b = -1, bd = 1e9;
+  for (let i = 0; i < G.ore.length; i++) if (G.ore[i] > 30) { const d = oreScore(u, i, refs); if (d < bd) { bd = d; b = i; } }
   return b;
 }
 function harvest(h) {
-  const P = G.players[h.team], CAP = 700;
+  const P = G.players[h.team], CAP = HARV_CAP;
   switch (h.hst) {
     case 'manual': if (!h.path.length) h.hst = h.load >= CAP ? 'ret' : 'idle'; break;
     case 'idle': {
+      h.oreT = null;
       if (h.load >= CAP) { h.hst = 'ret'; break; }
+      if ((G.tick + h.id) % 10) break;
       const i = nearestOre(h, h.prefOre); h.prefOre = null; if (i < 0) { if (h.load > 0) h.hst = 'ret'; break; }
       h.oreT = i; h.toT = G.time; setPath(h, i % MW + 0.5, ((i / MW) | 0) + 0.5); h.order = 'idle'; h.hst = 'toOre'; break;
     }
     case 'toOre': {
-      const ci = idx(Math.floor(h.x), Math.floor(h.y));
-      if (h.oreT != null && G.ore[h.oreT] > 0 && Math.hypot(h.x - (h.oreT % MW + 0.5), h.y - (((h.oreT / MW) | 0) + 0.5)) < 1.3) { h.path = []; h.hst = 'mine'; break; }
-      if (G.ore[ci] > 0 && (h.oreT == null || Math.hypot(h.x - (h.oreT % MW + 0.5), h.y - (((h.oreT / MW) | 0) + 0.5)) < 2.5)) { h.path = []; h.hst = 'mine'; h.oreT = ci; break; }
-      if (G.time - h.toT > 12 || (h.oreT != null && G.ore[h.oreT] <= 0)) { h.hst = 'idle'; h.oreT = null; break; }
+      if (h.oreT == null || G.ore[h.oreT] <= 0) { h.hst = 'idle'; break; }
+      const tx = h.oreT % MW + 0.5, ty = ((h.oreT / MW) | 0) + 0.5;
+      if (Math.hypot(h.x - tx, h.y - ty) < 1.1) { h.path = []; h.hst = 'mine'; h.ang = turnTo(h.ang, Math.atan2(ty - h.y, tx - h.x), 1); break; }
+      if (G.time - h.toT > 15) { h.hst = 'idle'; break; }
+      if (!h.path.length) setPath(h, tx, ty);
+      break;
     }
-    if (!h.path.length) { const i = idx(Math.floor(h.x), Math.floor(h.y)); if (G.ore[i] > 0) { h.hst = 'mine'; h.oreT = i; } else h.hst = 'idle'; } break;
     case 'mine': {
-      const i = h.oreT != null ? h.oreT : idx(Math.floor(h.x), Math.floor(h.y));
-      if (G.ore[i] > 0) { const a = Math.min(G.ore[i], 90 * DT, CAP - h.load); G.ore[i] -= a; h.load += a; if (G.ore[i] <= 0) { G.ore[i] = 0; G.oreVer++; } if (G.tick % 10 === 0) G.oreVer++; }
-      if (h.load >= CAP - 0.01) { h.hst = 'ret'; break; }
-      if (G.ore[i] <= 0) { // look adjacent
-        const x = i % MW, y = (i / MW) | 0; let n = -1;
-        for (let r = 1; r <= 2 && n < 0; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (inb(x + dx, y + dy) && G.ore[idx(x + dx, y + dy)] > 0) n = idx(x + dx, y + dy);
-        if (n >= 0) { h.oreT = n; setPath(h, n % MW + 0.5, ((n / MW) | 0) + 0.5); h.hst = 'toOre'; } else h.hst = h.load > 0 ? 'ret' : 'idle';
+      const i = h.oreT;
+      if (i == null) { h.hst = 'idle'; break; }
+      if (G.ore[i] > 0) { const a = Math.min(G.ore[i], MINE_RATE * DT, CAP - h.load); G.ore[i] -= a; h.load += a; if (G.ore[i] <= 0) { G.ore[i] = 0; G.oreVer++; } }
+      if (h.load >= CAP - 0.01) { h.hst = 'ret'; h.oreT = null; break; }
+      if (G.ore[i] <= 0) { // next patch nearby (unreserved)
+        const x = i % MW, y = (i / MW) | 0, refs = G.ents.filter(e => e.team === h.team && e.t === 'refinery'); let n = -1, bs = 1e9;
+        for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const j = idx(x + dx, y + dy); if (inb(x + dx, y + dy) && G.ore[j] > 30) { const sc = oreScore(h, j, refs); if (sc < bs) { bs = sc; n = j; } } }
+        if (n >= 0) { h.oreT = n; h.toT = G.time; h.hst = 'toOre'; setPath(h, n % MW + 0.5, ((n / MW) | 0) + 0.5); } else { h.hst = h.load > CAP * 0.3 ? 'ret' : 'idle'; h.oreT = null; }
       }
       break;
     }
     case 'ret': {
-      let r = null, bd = 1e9; for (const e of G.ents) if (e.team === h.team && e.t === 'refinery' && e.sell < 0) { const d = Math.hypot(e.x - h.x, e.y - h.y); if (d < bd) { bd = d; r = e; } }
+      let r = null, bd = 1e9; for (const e of G.ents) if (e.team === h.team && e.t === 'refinery' && e.sell < 0) { const busy = e.dockBy && e.dockBy !== h.id && byId(e.dockBy) ? 8 : 0; const d = Math.hypot(e.x - h.x, e.y - h.y) + busy; if (d < bd) { bd = d; r = e; } }
       if (!r) break;
       const dock = { x: r.x, y: r.ty + r.h + 0.5 };
-      if (Math.hypot(h.x - dock.x, h.y - dock.y) < 0.9) { h.hst = 'unload'; h.path = []; h.ang = -Math.PI / 2; }
-      else if (!h.path.length) setPath(h, dock.x, dock.y);
+      const free = !r.dockBy || r.dockBy === h.id || !byId(r.dockBy) || byId(r.dockBy).hst !== 'unload' && byId(r.dockBy).dockR !== r.id;
+      const dd = Math.hypot(h.x - dock.x, h.y - dock.y);
+      if (free) { r.dockBy = h.id; h.dockR = r.id; }
+      if (free && dd < 0.9) { h.hst = 'unload'; h.path = []; h.ang = -Math.PI / 2; }
+      else if (!free && dd < 3) { h.path = []; } // wait in line
+      else if (!h.path.length || G.tick % 45 === h.id % 45) setPath(h, free ? dock.x : dock.x + 2.5, free ? dock.y : dock.y + 1.5);
       break;
     }
     case 'unload': {
-      const a = Math.min(h.load, 500 * DT); h.load -= a;
+      const a = Math.min(h.load, UNLOAD_RATE * DT); h.load -= a;
       const mult = P.ai ? DIFF[P.diff].income : 1; P.cr += a * mult; P.stats.mined += a * mult;
-      if (h.load <= 0) { h.load = 0; h.hst = 'idle'; }
+      if (h.load <= 0) { h.load = 0; h.hst = 'idle'; const r = byId(h.dockR); if (r && r.dockBy === h.id) r.dockBy = null; h.dockR = null; h.path = []; setPath(h, h.x, h.y + 1.5); }
       break;
     }
   }
 }
-// ---------- fog (team 0) ----------
+// ---------- fog (per team) ----------
 function updFog() {
-  const v = G.vis; v.fill(0);
-  for (const e of G.ents) {
-    if (e.team !== 0) continue;
-    const r = e.kind === 'b' ? (BT[e.t].sight || 5) + e.w / 2 : UT[e.t].sight, cx = e.x, cy = e.y, r2 = r * r;
-    for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(MH - 1, cy + r); y++)
-      for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(MW - 1, cx + r); x++)
-        if ((x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 <= r2) { v[idx(x, y)] = 1; G.seen[idx(x, y)] = 1; }
+  for (let t = 0; t < 2; t++) {
+    const v = G.visT[t], sn = G.seenT[t]; v.fill(0);
+    for (const e of G.ents) {
+      if (e.team !== t) continue;
+      const r = e.kind === 'b' ? (BT[e.t].sight || 5) + e.w / 2 : UT[e.t].sight, cx = e.x, cy = e.y, r2 = r * r;
+      for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(MH - 1, cy + r); y++)
+        for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(MW - 1, cx + r); x++)
+          if ((x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 <= r2) { v[idx(x, y)] = 1; sn[idx(x, y)] = 1; }
+    }
+    if (!G.opts.fog && t === 0) { v.fill(1); sn.fill(1); }
   }
-  if (!G.opts.fog) { v.fill(1); G.seen.fill(1); }
 }
-function visibleTo0(e) {
-  if (e.team === 0) return true;
-  if (e.kind === 'b') { for (let y = e.ty; y < e.ty + e.h; y++) for (let x = e.tx; x < e.tx + e.w; x++) if (G.seen[idx(x, y)]) return true; return false; }
-  return !!G.vis[idx(Math.floor(e.x), Math.floor(e.y))];
+function visibleTo(team, e) {
+  if (e.team === team) return true;
+  const V = G.visT[team], S = G.seenT[team];
+  if (e.kind === 'b') { for (let y = e.ty; y < e.ty + e.h; y++) for (let x = e.tx; x < e.tx + e.w; x++) if (S[idx(x, y)]) return true; return false; }
+  return !!V[idx(Math.floor(e.x), Math.floor(e.y))];
 }
+function visibleTo0(e) { return visibleTo(0, e); }
