@@ -1,38 +1,28 @@
-# Iron Front – Roadmap
+# Iron Front — Roadmap
 
-## v1 (done)
-Canvas 2D prototype: map, harvesting, 5 buildings, 3 units, A*, basic AI.
+## Done
+### v1 – Canvas prototype (map, harvesting, A*, AI waves)
+### v2 – Three.js 2.5D, tech tree, 10 units, counters, AI difficulty, audio, groups
+### v3 – Graphics + QoL + economy
+- **Rendering**: PBR (MeshStandard + per-vertex metal/rough/emissive), PMREM image-based lighting from a procedural sky, tuned PCF soft shadows that follow the camera (snapped to texels), exp fog/atmosphere.
+- **Custom HDR post pipeline** (no ES modules): HalfFloat scene RT (MSAA x4 on High/Ultra) → 3-level bloom → ACES → lift/gain grading + saturation → vignette → FXAA (Medium).
+- **Models**: every unit and building rebuilt from beveled, merged procedural parts, with team paint, glowing lights, windows, antennas, and animated parts (radar dishes, rotors, harvester drum, visible ore load, turret recoil, blinking lights). The sidebar and info-panel portraits are real 3D renders of these models.
+- **Terrain**: a 4x-resolution smoothed heightfield (smooth cliffs and shores), a shader splat (grass/dirt/rock/sand with procedural noise, bump detail, strata) and vertex cavity AO. Water uses an animated normal shader with fresnel sky reflection, sun glints, depth color and shoreline foam. Grass tufts (up to 30k) and pines are instanced and sway in the wind, with displaced boulders. Fog of war is applied inside every shader.
+- **FX**: GPU instanced billboard particles with a procedural 16-frame smoke flipbook (smoke, fire, sparks), instanced debris with physics, scorch decals, shockwave rings, glowing tracers, shells and rockets, camera shake.
+- **Performance**: units are drawn with InstancedMesh per type, team and part (150 units ≈ 36 draw calls in the stress test). Also: manual view-rect culling, pooled particles/debris/decals/markers, capped pixel ratio, Low/Med/High/Ultra presets with GPU auto-detect and automatic downgrade when FPS < 38, and an FPS/draw-call overlay (F).
+- **QoL**: selecting a building switches the tab automatically. The Command Yard can build Ore Haulers. Selected buildings show build buttons in the context panel. Hotkeys (T Y U I O J K) appear on the buttons. Tooltips show cost, stats and strong/weak matchups. Shift-click queues 5; right-click cancels (shift = 5). The info panel has a 3D portrait. Alerts cover idle harvesters (.), idle army (,) and attacks (with minimap ping). Other additions: smooth damped camera, middle-drag pan, edge-pan speed setting, shift waypoints for move and attack-move with path lines, a health-bar mode setting, hover rings, and a settings panel.
+- **Economy**: 4.5x ore per tile, ore regrows (faster on live tiles), harvesters carry 1500 with a visible load, a dock queue at refineries, and tile reservation plus spreading penalties.
+- **v2 fixes**: wall-adjacent and congestion costs in A*, crowd-arrival logic and an escalating sidestep (fewer chokepoint jams). The AI now only sees what its own fog reveals (it remembers buildings it has seen and scouts the enemy start). The AI also keeps harvesters stocked and sells non-essential structures when broke (no late-game stall).
 
-## v2 (done)
-- **Renderer:** Three.js r149 (UMD, vendored at `vendor/three.min.js`, loads from file://), 2.5D perspective camera with wheel zoom, ACES tone mapping, soft shadows from the sun light.
-- **Terrain:** generated height-mapped terrain (grass, cliffs, lakes, ore ground), instanced boulders, trees and ore crystals that shrink as they are mined. Point-symmetric random map with a guaranteed corridor between bases.
-- **Models:** units and buildings built from primitive shapes in team colours. Tank turrets rotate and recoil, rotors and radars spin, infantry bob, the harvester's ore load shows.
-- **Building animation:** buildings rise with a scaffold when placed and sink when sold.
-- **Particles:** muzzle flashes, tracers, rocket/shell trails, explosions, smoke, debris with physics, scorch marks, damaged-building smoke and fire, harvester dust, screen shake.
-- **Fog of war:** soft shroud that follows the terrain (explored / visible).
-- **Movement:** A* (binary heap, octile, no corner cutting), line-of-sight path smoothing, formation slots facing the move direction, spatial-hash separation, stuck re-pathing, vehicles turning on the spot, aircraft flying straight.
-- **Production:** RA2-style queues per category (Structures / Defenses / Infantry / Vehicles / Aircraft). Credits are paid as progress is made, with progress bars; up to 6 units queued; right-click cancels and refunds. Buildings show "ready to place". Low power halves production and shuts off defenses. Rally points, sell (50%), repair (costs credits). Extra producer buildings speed up their queue.
-- **Tech tree:** Power → Barracks/Refinery → War Factory → Research Lab → Helipad, Bastion tank, Howler artillery.
-- **Units:** Rifleman, Rocketeer, Engineer (captures enemy buildings / fully repairs own), Raider buggy, Lancer light tank, Bastion heavy tank, Howler artillery (minimum range, splash), Skyguard AA, Ore Hauler, Hornet gunship (air).
-- **Defenses:** Guard Turret, Flak Battery, Wall.
-- **Damage system:** damage types × armour classes (bullet/cannon/rocket/shell/flak vs inf/light/heavy/bldg/air).
-- **AI:** build order that rebuilds losses, power management, placement with gaps and refineries near ore, defenses facing the enemy, harvester quota, army that counters the enemy's mix, base defense, scouting, harvester harassment, growing waves, auto-repair. Easy/Normal/Hard change income, think speed, wave size and build speed.
-- **Audio:** WebAudio-synthesised sound effects that fade with distance.
-- **Screens and controls:** main menu, pause, victory/defeat stats, minimap (left-click pans, right-click orders a move), hotkeys, control groups (Ctrl+1-9; double-tap centers the camera), double-click selects all units of that type.
-- **Tests:** `node test/sim-test.js` (headless AI-vs-AI on all difficulties), `index.html?autostart=1&selftest=1` (input smoke test, result shown in the tab title), `index.html?demo=230` (AI-vs-AI fast-forward, used for screenshots).
-
-## Known rough edges
-- Units can still bunch up at chokepoints. There is no flow field, and crowds can jam. Harvesters sometimes queue up on the same ore patch.
-- When both sides run out of money late in the game (harvesters dead, no credits) the match can stall. The AI should sell buildings or keep money aside for a harvester.
-- The AI can see the whole map (no fog for the AI). Gunships have no landing or rearming.
-- The models are simple primitives. Cliffs are steep slabs with no proper cliff mesh. Water is a flat plane.
-- Rendering and fog are only checked in headless Chrome with software rendering. Safari is not verified yet (the code uses ES2017-level JS and WebGL1/2 through Three.js r149).
-- Performance has not been profiled. Each unit is a group of meshes; instancing would help past about 300 units.
+## Rough edges
+- Real GPU performance can't be measured headless (SwiftShader). Draw calls are low, but the terrain fragment shader is noise-heavy; auto-quality is the safety net.
+- No SSAO; it's faked with contact-shadow blobs, building AO decals and vertex cavity AO. There is no mesh LOD (instancing made it unnecessary at 150 units).
+- Smoke quads can clip into the ground (no soft particles). Explosions are good but not film-grade.
+- Units still overlap a bit in big crowds. Jams are reduced, not eliminated.
+- Gunships have no proper landing/rearm. There are no walls in the UI, and engineers only capture.
 
 ## Next steps
-1. Flow fields or group pathing plus local avoidance (RVO), so large armies move smoothly through chokepoints.
-2. Visual pass: proper cliff and shoreline meshes, an animated water shader, LOD and instanced unit rendering, a post-processing bloom pass (vendor EffectComposer), and nicer building models.
-3. A second faction with its own units and tech, plus veterancy.
-4. AI: respect fog, retreat damaged units, use transports, have strategic personalities; fix the late-game money stall.
-5. Map editor and JSON maps, 2v2 / free-for-all, save/load, a replay of order commands (the sim is deterministic apart from Math.random use in the AI and renderer).
-6. Music (generated), voice-like acknowledgement blips, settings menu (volume, scroll speed, key bindings).
+1. A second faction with unique units and superweapon(s), plus a skirmish map selection/generator.
+2. Soft particles + depth-based SSAO (needs a depth pre-pass), GPU-timer-driven dynamic resolution.
+3. Flow-field pathing for large groups; formations with facing; unit veterancy.
+4. Campaign/mission scripting, save/load, replays; better AI build-order personalities.
