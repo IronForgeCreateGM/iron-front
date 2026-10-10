@@ -511,7 +511,7 @@ function harvest(h) {
     }
     case 'unload': {
       const a = Math.min(h.load, UNLOAD_RATE * DT); h.load -= a;
-      const mult = P.ai ? DIFF[P.diff].income : 1; P.cr += a * mult; P.stats.mined += a * mult;
+      const mult = (P.ai ? DIFF[P.diff].income : 1) * ORE_VALUE; P.cr += a * mult; P.stats.mined += a * mult;
       if (h.load <= 0) { h.load = 0; h.hst = 'idle'; const r = byId(h.dockR); if (r && r.dockBy === h.id) r.dockBy = null; h.dockR = null; h.path = []; setPath(h, h.x, h.y + 1.5); }
       break;
     }

@@ -4,28 +4,39 @@
 <link rel="stylesheet" href="style.css">
 </head><body>
 <div id="app">
-  <div id="view"><canvas id="ov"></canvas><div id="msg"></div>
-    <div id="hint">Drag: select · Right-click: move/attack · A: attack-move · S: stop · Ctrl+1-9: group · H: base · Q: next tab · X sell · R repair · P/Esc pause · Wheel: zoom</div></div>
+  <div id="view"><canvas id="ov"></canvas><div id="msg"></div><div id="fps"></div>
+    <div id="hint">Drag select · Right-click move/attack (Shift = waypoint) · A attack-move · S stop · Ctrl+1-9 groups · H base · . idle harvester · , idle army · Wheel zoom · Middle-drag pan · F fps</div></div>
   <div id="side">
-    <div class="brand">IRON<span>FRONT</span><button id="muteBtn" class="ico">🔊</button><button id="pauseBtn" class="ico">⏸</button></div>
-    <canvas id="minimap" width="248" height="248"></canvas>
+    <div class="brand">IRON<span>FRONT</span><button id="setBtn" class="ico" title="Settings">⚙</button><button id="muteBtn" class="ico">🔊</button><button id="pauseBtn" class="ico">⏸</button></div>
+    <canvas id="minimap" width="256" height="256"></canvas>
     <div class="res"><div id="cr">$0</div><div class="pw"><div class="pwl">POWER <span id="powtxt"></span></div><div class="pwb"><div id="powbar"></div></div></div></div>
+    <div id="alerts"></div>
     <div id="tabs"></div>
     <div id="grid"></div>
-    <div class="tools"><button id="sellBtn">$ Sell</button><button id="repBtn">🔧 Repair</button></div>
-    <div id="info"></div>
+    <div class="tools"><button id="sellBtn">$ Sell <kbd>X</kbd></button><button id="repBtn">🔧 Repair <kbd>R</kbd></button></div>
+    <div id="ctx"></div>
   </div>
 </div>
+<div id="tip"></div>
 <div id="menu" class="screen"><div class="panel">
-  <h1>IRON<span>FRONT</span></h1><p class="sub">Real-time strategy · v2</p>
+  <h1>IRON<span>FRONT</span></h1><p class="sub">Real-time strategy · v3</p>
   <div id="diff"><button data-d="easy">Easy</button><button data-d="normal" class="on">Normal</button><button data-d="hard">Hard</button></div>
   <label><input type="checkbox" id="fogChk" checked> Fog of war</label>
   <button id="startBtn" class="big">DEPLOY</button>
-  <div class="help">Build a Power Plant, Barracks and Ore Refinery, then a War Factory. Research Lab unlocks heavy armor, artillery and the Helipad.<br>
-  Counters: bullets shred infantry · cannons beat armor · rockets hit armor & air · flak kills aircraft · artillery wrecks bases.<br>
+  <div class="help">Build Power → Barracks → Ore Refinery → War Factory. The Research Lab unlocks heavy armor, artillery and the Helipad. Harvesters can also be built at the Command Yard.<br>
+  Counters: bullets shred infantry · cannons beat armor · rockets hit armor &amp; air · flak downs aircraft · artillery wrecks bases.<br>
   Destroy every enemy production structure to win.</div>
 </div></div>
-<div id="pause" class="screen" style="display:none"><div class="panel"><h2>PAUSED</h2><button id="resumeBtn" class="big">Resume</button><button class="quitBtn">Quit to menu</button></div></div>
+<div id="pause" class="screen" style="display:none"><div class="panel"><h2>PAUSED</h2><button id="resumeBtn" class="big">Resume</button><button onclick="openSettings(true)">Settings</button><button class="quitBtn">Quit to menu</button></div></div>
+<div id="settings" class="screen" style="display:none"><div class="panel set">
+  <h2>Settings</h2>
+  <label>Graphics quality <select id="setQuality"><option value="auto">Auto</option><option value="low">Low</option><option value="med">Medium</option><option value="high">High</option><option value="ultra">Ultra</option></select></label>
+  <label>Edge-pan speed <input type="range" id="setEdge" min="0.3" max="2.5" step="0.1"></label>
+  <label>Health bars <select id="setHB"><option value="smart">Selected, hovered &amp; damaged</option><option value="selected">Selected &amp; hovered only</option><option value="always">Always</option></select></label>
+  <label>Volume <input type="range" id="setVol" min="0" max="1" step="0.05"></label>
+  <label><input type="checkbox" id="setFps"> Show FPS / stats (F)</label>
+  <button id="setClose" class="big">Done</button>
+</div></div>
 <div id="end" class="screen" style="display:none"><div class="panel"><h1 id="endTitle"></h1><p id="endStats"></p><button class="quitBtn big">Play again</button></div></div>
 <pre id="err"></pre>
 <script src="vendor/three.min.js"></script>
@@ -33,6 +44,10 @@
 <script src="js/sim.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/audio.js"></script>
+<script src="js/gfx/models.js"></script>
+<script src="js/gfx/terrain.js"></script>
+<script src="js/gfx/fx.js"></script>
+<script src="js/gfx/post.js"></script>
 <script src="js/render.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
