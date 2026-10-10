@@ -51,9 +51,13 @@ const CATS = { bld: 'Structures', def: 'Defenses', inf: 'Infantry', veh: 'Vehicl
 const FROMCAT = { barracks: 'inf', factory: 'veh', airpad: 'air' };
 const TEAMCOL = [0x2f8cff, 0xff4433, 0x33dd66, 0xffcc22];
 const DIFF = {
-  easy:   { income: 0.75, think: 2.0, wave0: 5, waveMax: 9, harass: 0, build: 0.8 },
-  normal: { income: 1.0, think: 1.2, wave0: 6, waveMax: 14, harass: 0.3, build: 1.0 },
-  hard:   { income: 1.35, think: 0.7, wave0: 7, waveMax: 20, harass: 0.5, build: 1.3 },
+  easy:   { income: 0.55, think: 2.5, wave0: 3, waveMax: 7, waveInc: 1, harass: 0.15, harassAfter: 1080, firstAttack: 570, waveGap: 150, build: 0.6, scoutAfter: 600 },
+  normal: { income: 1.0, think: 1.2, wave0: 6, waveMax: 14, waveInc: 2, harass: 0.3, harassAfter: 0, firstAttack: 0, waveGap: 30, build: 1.0, scoutAfter: 20 },
+  hard:   { income: 1.35, think: 0.7, wave0: 7, waveMax: 20, waveInc: 2, harass: 0.5, harassAfter: 0, firstAttack: 0, waveGap: 30, build: 1.3, scoutAfter: 20 },
 };
 // economy
 const ORE_VALUE = 0.9, HARV_CAP = 1500, MINE_RATE = 150, UNLOAD_RATE = 600, ORE_REGROW = 1.2; // per second
+// defense upgrades: level 2/3 cost & time per structure; per-level multipliers
+const UPG = { turret: [[450, 15], [800, 25]], aagun: [[450, 15], [800, 25]] };
+const UPG_DMG = [1, 1.35, 1.75], UPG_RNG = [0, 1, 2];
+const DEF_RESEARCH = { n: 'Hardened Defenses', cost: 1500, time: 40, dmg: 1.15, rng: 0.5, hp: 1.25 };

@@ -3,7 +3,7 @@
 // Each think: power check, build order (rebuilds losses), placement, harvesters,
 // counter-composition army, base defense, waves, harass, scouting.
 const AI_ORDER = ['power', 'barracks', 'refinery', 'power', 'factory', 'turret', 'refinery', 'power', 'tech', 'aagun', 'power', 'turret', 'airpad', 'power', 'turret', 'aagun', 'refinery', 'power'];
-function aiInit(P) { P.aiS = { next: 0, wave: DIFF[P.diff].wave0, scoutT: 20, lastAttack: 0, attackers: new Set(), known: new Map(), sellT: 0 }; }
+function aiInit(P) { P.aiS = { next: 0, wave: DIFF[P.diff].wave0, scoutT: DIFF[P.diff].scoutAfter, lastAttack: 0, attackers: new Set(), known: new Map(), sellT: 0 }; }
 function aiStep(P) {
   const S = P.aiS, D = DIFF[P.diff];
   const myBld = () => G.ents.filter(e => e.team === P.team && e.kind === 'b' && e.sell < 0);
@@ -66,24 +66,27 @@ function aiStep(P) {
   if (intruders.length) {
     const c = intruders[0];
     const defenders = home.filter(u => u.order !== 'attack' && Math.hypot(u.x - c.x, u.y - c.y) < 25);
+    if (D.firstAttack && G.time < D.firstAttack) defenders.forEach(u => S.attackers.delete(u.id));
     if (defenders.length) orderMove(defenders, c.x, c.y, true);
   }
   // 6) scouting
   if (G.time > S.scoutT) {
     S.scoutT = G.time + 60;
     const sc = home.find(u => u.t === 'scout') || home.find(u => u.t === 'rifle');
-    if (sc && !intruders.length) { const tgt = S.known.size ? [10 + G.R() * 44, 10 + G.R() * 44] : estart; orderMove([sc], tgt[0], tgt[1], true); S.attackers.add(sc.id); }
+    if (sc && !intruders.length) { const tgt = S.known.size ? [10 + G.R() * 44, 10 + G.R() * 44] : estart; orderMove([sc], tgt[0], tgt[1], D.firstAttack ? false : true); S.attackers.add(sc.id); }
   }
   // 7) harass enemy harvesters with fast units / gunships
-  if (D.harass && G.R() < D.harass * 0.15) {
+  if (D.harass && G.time > D.harassAfter && G.R() < D.harass * 0.15) {
     const fh = foes.find(f => f.t === 'harv');
     const raiders = home.filter(u => u.t === 'scout' || u.t === 'gunship' || u.t === 'light').slice(0, 4);
-    if (fh && raiders.length >= 2) { orderAttack(raiders, fh); raiders.forEach(u => S.attackers.add(u.id)); }
+    if (fh && raiders.length >= 2) { orderAttack(raiders, fh); raiders.forEach(u => S.attackers.add(u.id)); if (S.firstAttackT == null) S.firstAttackT = G.time; }
   }
   // 8) waves
   for (const id of [...S.attackers]) { const u = byId(id); if (!u) S.attackers.delete(id); else if (u.order === 'idle' && !u.tgt && G.R() < 0.2) S.attackers.delete(id); }
   const ready = home.filter(u => u.t !== 'harv');
-  if (ready.length >= S.wave && !intruders.length && G.time - S.lastAttack > 30) {
+  if (ready.length >= S.wave && !intruders.length && G.time >= D.firstAttack && G.time - S.lastAttack > D.waveGap) {
+    if (S.firstAttackT == null) S.firstAttackT = G.time;
+    if (D.waveMax < 10) ready.splice(Math.min(ready.length, S.wave + 2));
     const tgts = knownB.slice();
     if (!tgts.length) { orderMove(ready, estart[0], estart[1], true); ready.forEach(u => S.attackers.add(u.id)); S.lastAttack = G.time; }
     else {
@@ -92,9 +95,11 @@ function aiStep(P) {
       tgts.sort((a, b) => (pref.indexOf(a.t) + 1 || 9) - (pref.indexOf(b.t) + 1 || 9) + (Math.hypot(a.x - hq.x, a.y - hq.y) - Math.hypot(b.x - hq.x, b.y - hq.y)) * 0.05);
       const t = tgts[0]; if (!t) return;
       orderMove(ready, t.x, t.y, true); ready.forEach(u => S.attackers.add(u.id));
-      S.wave = Math.min(D.waveMax, S.wave + 2); S.lastAttack = G.time;
+      S.wave = Math.min(D.waveMax, S.wave + D.waveInc); S.lastAttack = G.time;
     }
   }
+  // 8b) defense upgrades when rich
+  if (P.cr > 2500 && G.R() < 0.1) { const t = myB.find(b => UPG[b.t] && (b.lvl || 1) < 3 && b.upT == null); if (t) upgradeB(t); }
   // 9) repair damaged buildings
   for (const b of myB) if (b.hp < b.mhp * 0.6 && P.cr > 500) b.repair = true;
 }

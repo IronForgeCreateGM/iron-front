@@ -236,7 +236,7 @@ function orderMove(units, x, y, attackMove, queue) {
   for (const s of slots) { let bi = 0, bd = 1e9; left.forEach((u, i) => { const d = Math.hypot(u.x - s.x, u.y - s.y); if (d < bd) { bd = d; bi = i; } });
     const u = left.splice(bi, 1)[0]; u.grp = units.length;
     if (queue && (u.path.length || (u.wq && u.wq.length))) { (u.wq = u.wq || []).push({ x: s.x, y: s.y, am: attackMove }); continue; }
-    u.wq = []; u.order = attackMove ? 'amove' : 'move'; u.tgt = null; u.anchor = { x: s.x, y: s.y };
+    u.wq = []; u.order = attackMove ? 'amove' : 'move'; u.face = null; if (u.stance === 'hold') u.guard = { x: s.x, y: s.y }; u.tgt = null; u.anchor = { x: s.x, y: s.y };
     if (u.t === 'harv') { u.hst = 'manual'; const oi = idx(Math.floor(s.x), Math.floor(s.y)); if (G.ore[oi] > 0) { u.hst = 'idle'; u.prefOre = oi; } }
     setPath(u, s.x, s.y); }
 }
@@ -296,9 +296,10 @@ function stepBuilding(b) {
   if (b.sell >= 0) { if (G.time - b.sell > 1.2) { P.cr += Math.floor(d.cost * 0.5 * b.hp / b.mhp); b.hp = 0; b.sold = true; } return; }
   if (b.repair && b.hp < b.mhp) { const dh = b.mhp * 0.04 * DT, c = d.cost * 0.4 * dh / b.mhp; if (P.cr >= c) { P.cr -= c; b.hp = Math.min(b.mhp, b.hp + dh); } }
   if (b.repair && b.hp >= b.mhp) b.repair = false;
+  if (b.upT != null && G.time - b.upT >= b.upDur) { b.upT = null; if (b.upKind === 'def') { P.defUp = true; G.ents.forEach(e => { if (e.team === b.team && UPG[e.t]) { e.mhp = Math.round(BT[e.t].hp * DEF_RESEARCH.hp); e.hp = Math.min(e.mhp, e.hp * DEF_RESEARCH.hp); } }); } else b.lvl = (b.lvl || 1) + 1; G.events.push({ e: 'upgraded', b, team: b.team }); }
   if (!d.wpn || G.time - b.born < 1.5) return;
   if (P.pow < 0 && d.pow < 0) return; // offline
-  combat(b, W[d.wpn], d.sight, false);
+  const w = defW(b); combat(b, w, d.sight + (w.rng - W[d.wpn].rng), false);
 }
 function acquire(e, w, range) {
   let best = null, bs = 1e9;
@@ -318,7 +319,7 @@ function combat(e, w, sight, mobile) {
   const forced = e.order === 'attack';
   if (!e.tgt && e.order !== 'move' && (G.tick + e.id) % 8 === 0) e.tgt = acquire(e, w, sight);
   if (e.tgt && !forced && mobile && e.order !== 'move') {
-    const dt = distTo(e.anchor, e.tgt); if (e.order === 'idle' && dt > sight + 3) { e.tgt = null; }
+    const dt = distTo(e.anchor, e.tgt); if (e.order === 'idle' && dt > (e.stance === 'hold' ? w.rng + 1.5 : sight + 3)) { e.tgt = null; }
   }
   if (!e.tgt) return false;
   const t = e.tgt, d = distTo(e, t), tr = t.kind === 'u' ? UT[t.t].r : 0;
@@ -392,7 +393,9 @@ function stepUnit(u) {
   let engaged = false;
   if (d.wpn) engaged = combat(u, W[d.wpn], Math.max(d.sight, W[d.wpn].rng + 0.5), true);
   if (!engaged && u.order === 'attack') { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; }
-  if (!engaged && u.order === 'idle' && !u.path.length && Math.hypot(u.x - u.anchor.x, u.y - u.anchor.y) > 2.5 && u.t !== 'harv') setPath(u, u.anchor.x, u.anchor.y);
+  if (u.stance === 'hold' && u.guard && u.order === 'idle') u.anchor = u.guard;
+  if (!engaged && u.order === 'idle' && !u.path.length && Math.hypot(u.x - u.anchor.x, u.y - u.anchor.y) > (u.stance === 'hold' ? 0.5 : 2.5) && u.t !== 'harv') setPath(u, u.anchor.x, u.anchor.y);
+  if (!engaged && u.order === 'idle' && !u.path.length && u.face != null && u.stance === 'hold') { u.ang = turnTo(u.ang, u.face, 2 * DT); u.tang = turnTo(u.tang, u.face, 2 * DT); }
   if (!engaged && u.order === 'amove' && !u.path.length && u.dest && Math.hypot(u.x - u.dest.x, u.y - u.dest.y) > 1.5) setPath(u, u.dest.x, u.dest.y);
   // movement
   if (u.path.length) {
@@ -538,3 +541,39 @@ function visibleTo(team, e) {
   return !!V[idx(Math.floor(e.x), Math.floor(e.y))];
 }
 function visibleTo0(e) { return visibleTo(0, e); }
+// ---------- defense upgrades ----------
+const _defWC = {};
+function defW(b) { const d = BT[b.t], P = G.players[b.team], l = b.lvl || 1, k = d.wpn + l + (P.defUp ? 'd' : '');
+  if (!_defWC[k]) { const base = W[d.wpn]; _defWC[k] = Object.assign({}, base, { dmg: Math.round(base.dmg * UPG_DMG[l - 1] * (P.defUp ? DEF_RESEARCH.dmg : 1)), rng: base.rng + UPG_RNG[l - 1] + (P.defUp ? DEF_RESEARCH.rng : 0) }); }
+  return _defWC[k]; }
+function upgradeInfo(b) {
+  if (b.t === 'tech') { const P = G.players[b.team]; if (P.defUp || b.upT != null) return null; return { cost: DEF_RESEARCH.cost, time: DEF_RESEARCH.time, kind: 'def' }; }
+  const u = UPG[b.t]; if (!u) return null; const l = b.lvl || 1; if (l >= 3) return null; return { cost: u[l - 1][0], time: u[l - 1][1], kind: 'lvl', next: l + 1 };
+}
+function upgradeB(b) {
+  if (b.upT != null || b.sell >= 0 || G.time - b.born < 1.5) return false; const P = G.players[b.team], inf = upgradeInfo(b); if (!inf || P.cr < inf.cost) return false;
+  if (inf.kind === 'def' && G.ents.some(e => e.team === b.team && e.upKind === 'def' && e.upT != null)) return false;
+  P.cr -= inf.cost; b.upT = G.time; b.upDur = inf.time; b.upKind = inf.kind; return true;
+}
+// ---------- formations & stances ----------
+const ROWOF = t => { const d = UT[t]; if (t === 'arty' || t === 'aa') return 2; if (d.armor === 'inf') return 1; if (d.air) return 1; return 0; };
+function formationSlots(units, cx, cy, face) {
+  const rows = [[], [], []]; for (const u of units) rows[ROWOF(u.t)].push(u);
+  const fx = Math.cos(face), fy = Math.sin(face), px = -fy, py = fx, out = [];
+  let depth = 0.0;
+  rows.forEach((row, ri) => { if (!row.length) return; const sp = ri === 1 ? 0.8 : 1.25, perLine = Math.max(3, Math.ceil(Math.sqrt(row.length * 3)));
+    // sort by lateral position to reduce crossing
+    row.sort((a, b) => ((a.x - cx) * px + (a.y - cy) * py) - ((b.x - cx) * px + (b.y - cy) * py));
+    row.forEach((u, i) => { const line = Math.floor(i / perLine), inLine = Math.min(perLine, row.length - line * perLine), k = i % perLine - (inLine - 1) / 2;
+      const back = depth + line * sp; let x = cx + px * k * sp - fx * back, y = cy + py * k * sp - fy * back;
+      if (blk(Math.floor(x), Math.floor(y))) { const f = nearFree(Math.floor(x), Math.floor(y), 4); x = f[0] + 0.5; y = f[1] + 0.5; }
+      out.push({ u, x, y }); });
+    depth += Math.ceil(row.length / perLine) * sp + 0.6; });
+  return out;
+}
+function orderFormation(units, cx, cy, face) {
+  units = units.filter(u => u.kind === 'u' && UT[u.t].wpn && u.t !== 'harv'); if (!units.length) return 0;
+  for (const s of formationSlots(units, cx, cy, face)) { const u = s.u; u.wq = []; u.tgt = null; u.order = 'move'; u.grp = 1; setPath(u, s.x, s.y); u.anchor = { x: s.x, y: s.y }; u.guard = { x: s.x, y: s.y }; u.face = face; u.stance = 'hold'; }
+  return units.length;
+}
+function setStance(units, st) { for (const u of units) if (u.kind === 'u') { u.stance = st; if (st === 'hold') { u.guard = { x: u.x, y: u.y }; u.anchor = { x: u.x, y: u.y }; } else u.guard = null; } }
