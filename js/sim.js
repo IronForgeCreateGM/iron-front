@@ -48,7 +48,7 @@ function genMap(R) {
   clear(8, 8, 11);
   for (let k = 0; k <= 60; k++) { const t = k / 60; clear(8 + 47 * t, 8 + 47 * t + Math.sin(t * 9) * 4, 1.8); clear(8 + 47 * t + Math.sin(t * 7) * 10, 8 + 47 * t - Math.sin(t * 7) * 10, 1.4); }
   const field = (cx, cy, r) => { for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) if (inb(x, y)) {
-      const d = Math.hypot(x - cx, y - cy); if (d <= r + 0.3) { const a = (350 + (r - d) * 120) * 4.5; for (const j of [idx(x, y), N - 1 - idx(x, y)]) { G.map[j] = 0; G.ore[j] = a; } } } };
+      const d = Math.hypot(x - cx, y - cy); if (d <= r + 0.3) { const a = (350 + (r - d) * 120) * ORE_MULT; for (const j of [idx(x, y), N - 1 - idx(x, y)]) { G.map[j] = 0; G.ore[j] = a; } } } };
   field(17, 9, 2); field(9, 19, 2); field(30, 29, 3); field(12, 44, 2); field(42, 15, 2);
   // flood fill from base: unreachable open tiles become rock
   const seen = new Uint8Array(N), st = [idx(8, 8)]; seen[st[0]] = 1;
@@ -157,7 +157,7 @@ function spawnUnit(team, t, b) {
   G.events.push({ e: 'unit', team, u });
   if (t === 'harv') return u;
   if (b.rally) orderMove([u], b.rally.x, b.rally.y, true);
-  else if (!UT[t].air) orderMove([u], x + (G.R() - 0.5) * 2, y + 1.5 + G.R(), false);
+  else if (!UT[t].air) orderMove([u], x + (G.R() - 0.5) * 2, y + 1.5 + G.R(), true);
   return u;
 }
 function nearFree(x, y, maxR) {
@@ -301,16 +301,27 @@ function stepBuilding(b) {
   if (P.pow < 0 && d.pow < 0) return; // offline
   const w = defW(b); combat(b, w, d.sight + (w.rng - W[d.wpn].rng), false);
 }
+function tscore(e, w, o, d) {
+  const eff = DMG[w.type][armorOf(o)]; if (eff <= 0.05) return 1e9;
+  let s = d * 0.6 - eff * 3;
+  if (o.kind === 'b') s += o.t === 'wall' ? 8 : (BT[o.t].wpn ? 1 : 4);
+  if (o.t === 'harv') s += 1;
+  if (o.kind === 'u' && UT[o.t].wpn && canHit(W[UT[o.t].wpn], e)) s -= 1.5;
+  if (o.kind === 'u' && UT[o.t].heal) s -= 1;
+  if (o.tgt === e) s -= 2.5;                       // threats shooting me
+  s -= (1 - o.hp / o.mhp) * 2.5;                    // finish wounded
+  const inc = o.inc || 0; if (inc >= o.hp * 1.1) s += 6; else if (inc > 0) s -= 1; // focus fire, avoid overkill
+  return s;
+}
 function acquire(e, w, range) {
   let best = null, bs = 1e9;
   for (const o of G.ents) {
     if (o.team === e.team || o.hp <= 0 || !canHit(w, o)) continue;
     const d = distTo(e, o); if (d > range) continue;
-    let s = d + (o.kind === 'b' ? (o.t === 'wall' ? 8 : 4) : 0) + (o.t === 'harv' ? 1 : 0);
-    if (o.kind === 'u' && UT[o.t].wpn && canHit(W[UT[o.t].wpn], e)) s -= 1.5; // threats first
-    if (s < bs) { bs = s; best = o; }
+    if (e.team != null && G.visT && !visibleTo(e.team, o)) continue;
+    const s = tscore(e, w, o, d); if (s < bs) { bs = s; best = o; }
   }
-  return best;
+  e._bs = bs; return best;
 }
 // returns true if engaging (in range or chasing)
 function combat(e, w, sight, mobile) {
@@ -318,14 +329,24 @@ function combat(e, w, sight, mobile) {
   if (e.cd > 0) e.cd -= DT;
   const forced = e.order === 'attack';
   if (!e.tgt && e.order !== 'move' && (G.tick + e.id) % 8 === 0) e.tgt = acquire(e, w, sight);
+  else if (e.tgt && !forced && e.order !== 'move' && (G.tick + e.id) % 24 === 0) {
+    const nb = acquire(e, w, mobile && e.stance !== 'hold' ? sight : w.rng + 0.5);
+    if (nb && nb !== e.tgt && e._bs < tscore(e, w, e.tgt, distTo(e, e.tgt)) - 1.5) e.tgt = nb;
+  }
   if (e.tgt && !forced && mobile && e.order !== 'move') {
     const dt = distTo(e.anchor, e.tgt); if (e.order === 'idle' && dt > (e.stance === 'hold' ? w.rng + 1.5 : sight + 3)) { e.tgt = null; }
   }
   if (!e.tgt) return false;
   const t = e.tgt, d = distTo(e, t), tr = t.kind === 'u' ? UT[t.t].r : 0;
   const want = Math.atan2(t.y - e.y, t.x - e.x);
+  const jetRun = mobile && UT[e.t].jet && w.type === 'bomb';
   if (d <= w.rng + tr && (!w.minRng || d >= w.minRng)) {
-    if (mobile) e.path = [];
+    if (jetRun) { e.tang = e.ang; if (e.cd <= 0 && e.ammo > 0) { fire(e, w, t); e.passT = G.time + 1.4; setPath(e, t.x + Math.cos(e.ang) * 4, t.y + Math.sin(e.ang) * 4); } else if (!e.path.length) setPath(e, t.x, t.y); return true; }
+    // kite: keep range advantage vs slower-ranged threats
+    if (mobile && !forced && e.stance !== 'hold' && !UT[e.t].air && t.kind === 'u' && UT[t.t].wpn && e.cd > 0.3 && G.time > (e.kiteT || 0)) {
+      const tw = W[UT[t.t].wpn]; if (w.rng > tw.rng + 1.2 && d < tw.rng + 0.6 && canHit(tw, e)) { const kx = e.x - Math.cos(want) * 1.6, ky = e.y - Math.sin(want) * 1.6; if (!blk(Math.floor(kx), Math.floor(ky))) { setPath(e, kx, ky); e.kiteT = G.time + 0.9; } }
+    }
+    if (mobile && G.time > (e.kiteT || 0)) e.path = [];
     e.tang = turnTo(e.tang, want, 5 * DT);
     if (mobile && !UT[e.t].turret) e.ang = e.tang;
     if (e.cd <= 0 && Math.abs(angDiff(e.tang, want)) < 0.25) fire(e, w, t);
@@ -334,6 +355,7 @@ function combat(e, w, sight, mobile) {
   if (mobile) {
     if (w.minRng && d < w.minRng) { if (!e.path.length) setPath(e, e.x - Math.cos(want) * 3, e.y - Math.sin(want) * 3); return true; }
     e.repathT = (e.repathT || 0) - DT;
+    if (jetRun && G.time < (e.passT || 0)) return true;
     if (!e.path.length || e.repathT <= 0) { setPath(e, t.x, t.y); e.repathT = 1 + G.R(); }
     return true;
   }
@@ -344,9 +366,11 @@ function fire(e, w, t) {
   e.cd = w.cd * (0.9 + G.R() * 0.2);
   const z0 = e.kind === 'u' ? e.z : 0.8, tz = t.kind === 'u' ? t.z : 0.5;
   const shots = w.twin ? 2 : 1;
+  if (w.ammo) e.ammo = (e.ammo == null ? w.ammo : e.ammo) - 1;
+  const est = w.dmg * DMG[w.type][armorOf(t)] * shots; t.inc = (t.inc || 0) + est;
   for (let s = 0; s < shots; s++) {
-    const spread = w.type === 'shell' ? 0.8 : 0;
-    G.projs.push({ id: G.nid++, x: e.x, y: e.y, z: z0 + 0.4, sx: e.x, sy: e.y, w, team: e.team, tgt: t, home: w.type !== 'shell',
+    const spread = w.spread || (w.type === 'shell' ? 0.8 : 0);
+    G.projs.push({ id: G.nid++, x: e.x, y: e.y, z: z0 + 0.4, sx: e.x, sy: e.y, w, team: e.team, tgt: t, src: e, est: est / shots, home: w.type !== 'shell' && w.type !== 'bomb',
       tx: t.x + (G.R() - 0.5) * spread, ty: t.y + (G.R() - 0.5) * spread, tz, delay: s * 0.12, kind: w.type });
   }
   G.events.push({ e: 'fire', src: e, w });
@@ -363,7 +387,15 @@ function stepProjs() {
   }
   G.projs = G.projs.filter(p => !p.done);
 }
-function damage(t, amt, w, team) {
+function respond(u, src) {
+  if (!src || src.hp <= 0 || u.kind !== 'u' || u.hp <= 0 || u.order === 'move' || u.order === 'attack' || u.order === 'capture') return;
+  const d = UT[u.t]; if (!d.wpn || (u.tgt && u.tgt.hp > 0 && u.tgt.tgt === u)) return;
+  const w = W[d.wpn]; if (!canHit(w, src) || DMG[w.type][armorOf(src)] <= 0.05) return;
+  const dist = distTo(u, src); if (u.stance === 'hold' ? dist > w.rng + 0.5 : dist > d.sight + 6) return;
+  if (!u.tgt || u.tgt.hp <= 0 || distTo(u, u.tgt) > w.rng) u.tgt = src;
+}
+function damage(t, amt, w, team, src) {
+  if (src && t.team !== team && t.kind === 'u') { respond(t, src); if (G.time - (t.helpT || 0) > 1) { t.helpT = G.time; for (const o of G.ents) if (o.team === t.team && o.kind === 'u' && o !== t && !o.tgt && Math.hypot(o.x - t.x, o.y - t.y) < 5) respond(o, src); } }
   if (t.hp <= 0) return;
   t.hp -= amt * DMG[w.type][armorOf(t)];
   t.lastHitBy = team; t.hitT = G.time;
@@ -371,11 +403,11 @@ function damage(t, amt, w, team) {
   if (t.kind === 'u' && t.order === 'idle' && !t.tgt && t.team !== team) t.underFire = G.time;
 }
 function impact(p) {
-  const w = p.w;
+  const w = p.w; if (p.tgt) p.tgt.inc = Math.max(0, (p.tgt.inc || 0) - (p.est || 0));
   if (w.splash) {
     for (const o of G.ents) { if (o.team === p.team) continue; if (isAir(o) !== (p.tz > 1.5)) continue;
-      const d = distTo(p, o); if (d < w.splash) damage(o, w.dmg * (1 - 0.6 * d / w.splash), w, p.team); }
-  } else if (p.tgt && p.tgt.hp > 0 && distTo(p, p.tgt) < 1.2) damage(p.tgt, w.dmg, w, p.team);
+      const d = distTo(p, o); if (d < w.splash) damage(o, w.dmg * (1 - 0.6 * d / w.splash), w, p.team, p.src); }
+  } else if (p.tgt && p.tgt.hp > 0 && distTo(p, p.tgt) < 1.2) damage(p.tgt, w.dmg, w, p.team, p.src);
   G.events.push({ e: 'hit', x: p.x, y: p.y, z: p.z, kind: w.type });
 }
 function turnTo(a, b, rate) { const d = angDiff(a, b); return Math.abs(d) <= rate ? b : a + Math.sign(d) * rate; }
@@ -390,8 +422,10 @@ function stepUnit(u) {
       u.hp = 0; u.sold = true; return;
     } else if (!u.path.length) setPath(u, t.x, t.y);
   }
+  if (d.heal) medic(u, d);
+  if (d.jet && jetStep(u, d)) return;
   let engaged = false;
-  if (d.wpn) engaged = combat(u, W[d.wpn], Math.max(d.sight, W[d.wpn].rng + 0.5), true);
+  if (d.wpn && !(d.jet && u.ammo <= 0)) engaged = combat(u, W[d.wpn], Math.max(d.sight, W[d.wpn].rng + 0.5), true);
   if (!engaged && u.order === 'attack') { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; }
   if (u.stance === 'hold' && u.guard && u.order === 'idle') u.anchor = u.guard;
   if (!engaged && u.order === 'idle' && !u.path.length && Math.hypot(u.x - u.anchor.x, u.y - u.anchor.y) > (u.stance === 'hold' ? 0.5 : 2.5) && u.t !== 'harv') setPath(u, u.anchor.x, u.anchor.y);
@@ -425,7 +459,34 @@ function stepUnit(u) {
       u.moveT = 0; u.lastP = { x: u.x, y: u.y };
     }
   } else if (UT[u.t].turret && !u.tgt) u.tang = turnTo(u.tang, u.ang, 2 * DT);
-  if (d.air) u.z = 2.6 + Math.sin(G.time * 2 + u.id) * 0.1;
+  if (d.jet) u.z += ((u.js === 'landed' ? 0.32 : 3.4) - u.z) * 0.05;
+  else if (d.air) u.z = 2.6 + Math.sin(G.time * 2 + u.id) * 0.1;
+}
+function airBase(u) { let b = null, bd = 1e9; for (const e of G.ents) if (e.team === u.team && e.kind === 'b' && (e.t === 'airfield' || e.t === 'airpad') && e.sell < 0) { const d = Math.hypot(e.x - u.x, e.y - u.y) + (e.t === 'airfield' ? 0 : 6); if (d < bd) { bd = d; b = e; } } return b || G.ents.find(e => e.team === u.team && e.t === 'hq'); }
+function jetStep(u, d) {
+  const w = W[d.wpn]; if (u.ammo == null) u.ammo = w.ammo;
+  if (u.js === 'rtb' || (u.ammo <= 0 && u.js !== 'landed')) {
+    const b = airBase(u); if (!b) return false;
+    const px = b.x + ((u.id % 3) - 1) * 0.8, py = b.y + 0.3;
+    if (u.js !== 'rtb') { u.js = 'rtb'; u.tgt = null; u.order = 'rtb'; u.wq = []; setPath(u, px, py); }
+    if (Math.hypot(u.x - px, u.y - py) < 0.4) { u.js = 'landed'; u.path = []; u.order = 'idle'; u.reloadT = 0; u.anchor = { x: u.x, y: u.y }; }
+    else if (!u.path.length) setPath(u, px, py);
+    return false;
+  }
+  if (u.js === 'landed') {
+    if (u.ammo < w.ammo) { u.reloadT = (u.reloadT || 0) + DT; if (u.reloadT > 2.5) { u.ammo++; u.reloadT = 0; } }
+    if (u.path.length || u.order === 'attack' || u.order === 'amove') u.js = 'fly'; else { u.ang = turnTo(u.ang, -Math.PI / 2, DT); return u.ammo < w.ammo; }
+  }
+  u.js = 'fly';
+  if (u.order === 'idle' && !u.tgt && !u.path.length && (G.tick + u.id) % 60 === 0) { const b = airBase(u); if (b && Math.hypot(b.x - u.x, b.y - u.y) > 2.5) u.js = 'rtb'; else if (b) { u.js = 'rtb'; } }
+  return false;
+}
+function medic(u, d) {
+  if ((G.tick + u.id) % 15 === 0) { let best = null, bs = 0; for (const o of G.ents) if (o.team === u.team && o.kind === 'u' && UT[o.t].armor === 'inf' && o.hp < o.mhp && o.hp > 0) { const dd = Math.hypot(o.x - u.x, o.y - u.y); if (dd < 7) { const sc = (1 - o.hp / o.mhp) * 10 - dd; if (!best || sc > bs) { bs = sc; best = o; } } } u.healT = best; }
+  const o = u.healT; if (!o || o.hp <= 0 || o.hp >= o.mhp) { u.healT = null; return; }
+  const dd = Math.hypot(o.x - u.x, o.y - u.y);
+  if (dd > 1.6) { if ((u.order === 'idle' || u.order === 'amove') && (!u.path.length || (G.tick + u.id) % 20 === 0)) setPath(u, o.x, o.y); }
+  else { if (u.order === 'idle') u.path = []; o.hp = Math.min(o.mhp, o.hp + d.heal * DT); if ((G.tick + u.id) % 15 === 0) G.events.push({ e: 'heal', x: o.x, y: o.y, src: u }); }
 }
 function separate(hash) {
   for (const a of G.ents) {

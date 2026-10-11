@@ -8,6 +8,10 @@ const DMG = {
   rocket: { inf: 0.25, light: 1.0, heavy: 1.25, bldg: 0.7, air: 1.1 },
   shell:  { inf: 1.0, light: 0.8, heavy: 0.6, bldg: 1.3, air: 0 },
   flak:   { inf: 0.35, light: 0.2, heavy: 0.1, bldg: 0.1, air: 1.6 },
+  snipe:  { inf: 1.0, light: 0.12, heavy: 0.04, bldg: 0.04, air: 0.1 },
+  fire:   { inf: 1.3, light: 0.6, heavy: 0.25, bldg: 1.0, air: 0 },
+  bomb:   { inf: 0.6, light: 1.0, heavy: 1.1, bldg: 1.8, air: 0 },
+  aam:    { inf: 0, light: 0, heavy: 0, bldg: 0, air: 1.5 },
 };
 // weapons: dmg, rng(tiles), cd(sec), type, spd(proj tiles/s), ground/air capability
 const W = {
@@ -19,6 +23,11 @@ const W = {
   flak:   { dmg: 26, rng: 7, cd: 0.5, type: 'flak', spd: 30, ground: 0, air: 1, splash: 0.8, snd: 'flak' },
   mg:     { dmg: 9, rng: 4.5, cd: 0.4, type: 'bullet', spd: 40, ground: 1, air: 1, snd: 'rifle' },
   gun:    { dmg: 45, rng: 4, cd: 1.4, type: 'rocket', spd: 16, ground: 1, air: 0, snd: 'rocket' },
+  snipe:  { dmg: 125, rng: 9, cd: 3.2, type: 'snipe', spd: 70, ground: 1, air: 0, snd: 'snipe' },
+  flame:  { dmg: 20, rng: 2.6, cd: 0.45, type: 'fire', spd: 9, ground: 1, air: 0, splash: 0.9, snd: 'flame' },
+  jbomb:  { dmg: 230, rng: 1.6, cd: 0.6, type: 'bomb', spd: 8, ground: 1, air: 0, splash: 1.4, snd: 'arty', ammo: 2 },
+  cbomb:  { dmg: 170, rng: 1.8, cd: 0.25, type: 'bomb', spd: 7, ground: 1, air: 0, splash: 1.5, snd: 'arty', ammo: 6, spread: 1.6 },
+  aam:    { dmg: 95, rng: 6.5, cd: 1.4, type: 'aam', spd: 22, ground: 0, air: 1, snd: 'rocket', ammo: 4 },
   tcannon:{ dmg: 55, rng: 6.5, cd: 1.5, type: 'cannon', spd: 25, ground: 1, air: 0, snd: 'cannon' },
 };
 // Buildings. cat: bld (structures) | def (defenses). req: buildings needed.
@@ -32,6 +41,7 @@ const BT = {
   tech:    { n: 'Research Lab', w: 2, h: 2, hp: 1000, cost: 1800, pow: -100, time: 12, cat: 'bld', req: ['factory'] },
   turret:  { n: 'Guard Turret', w: 1, h: 1, hp: 700, cost: 600, pow: -20, time: 5, cat: 'def', req: ['barracks'], wpn: 'tcannon', sight: 7 },
   aagun:   { n: 'Flak Battery', w: 1, h: 1, hp: 500, cost: 700, pow: -25, time: 5, cat: 'def', req: ['barracks'], wpn: 'flak', sight: 8 },
+  airfield:{ n: 'Airfield', w: 3, h: 3, hp: 1200, cost: 1500, pow: -50, time: 12, cat: 'bld', req: ['factory', 'tech'] },
   wall:    { n: 'Wall', w: 1, h: 1, hp: 400, cost: 50, pow: 0, time: 1, cat: 'def', req: ['barracks'] },
 };
 // Units. armor: inf|light|heavy|air. sp tiles/sec. r radius.
@@ -39,24 +49,32 @@ const UT = {
   rifle:  { n: 'Rifleman', hp: 110, sp: 1.6, armor: 'inf', wpn: 'rifle', cost: 100, time: 3, from: 'barracks', sight: 6, r: 0.22, req: [] },
   rocketeer:{ n: 'Rocketeer', hp: 100, sp: 1.4, armor: 'inf', wpn: 'rocket', cost: 300, time: 5, from: 'barracks', sight: 6.5, r: 0.22, req: [] },
   engineer:{ n: 'Engineer', hp: 80, sp: 1.5, armor: 'inf', wpn: null, cost: 500, time: 6, from: 'barracks', sight: 5, r: 0.22, req: [], engineer: 1 },
+  sniper: { n: 'Sniper', hp: 90, sp: 1.4, armor: 'inf', wpn: 'snipe', cost: 600, time: 7, from: 'barracks', sight: 10, r: 0.22, req: [] },
+  pyro:   { n: 'Pyro', hp: 170, sp: 1.6, armor: 'inf', wpn: 'flame', cost: 350, time: 5, from: 'barracks', sight: 5.5, r: 0.24, req: [] },
+  medic:  { n: 'Field Medic', hp: 120, sp: 1.7, armor: 'inf', wpn: null, cost: 400, time: 5, from: 'barracks', sight: 6, r: 0.22, req: [], heal: 14 },
   scout:  { n: 'Raider Buggy', hp: 200, sp: 3.6, armor: 'light', wpn: 'mg', cost: 500, time: 5, from: 'factory', sight: 9, r: 0.38, req: [] },
   light:  { n: 'Lancer Tank', hp: 380, sp: 2.2, armor: 'heavy', wpn: 'lcannon', cost: 700, time: 7, from: 'factory', sight: 7, r: 0.45, req: [], turret: 1 },
   heavy:  { n: 'Bastion Tank', hp: 800, sp: 1.4, armor: 'heavy', wpn: 'hcannon', cost: 1400, time: 12, from: 'factory', sight: 7, r: 0.58, req: ['tech'], turret: 1 },
   arty:   { n: 'Howler Artillery', hp: 260, sp: 1.6, armor: 'light', wpn: 'arty', cost: 1000, time: 10, from: 'factory', sight: 6, r: 0.48, req: ['tech'], turret: 1 },
   aa:     { n: 'Skyguard', hp: 320, sp: 2.2, armor: 'light', wpn: 'flak', cost: 700, time: 7, from: 'factory', sight: 8, r: 0.45, req: [], turret: 1 },
   harv:   { n: 'Ore Hauler', hp: 1000, sp: 1.5, armor: 'heavy', wpn: null, cost: 1400, time: 10, from: 'factory', alt: ['hq'], sight: 5, r: 0.6, req: [] },
+  jet:    { n: 'Falcon Strike Jet', hp: 420, sp: 7.0, armor: 'air', wpn: 'jbomb', cost: 2000, time: 14, from: 'airfield', sight: 8, r: 0.6, req: [], air: 1, jet: 1 },
+  intercept:{ n: 'Talon Interceptor', hp: 360, sp: 7.5, armor: 'air', wpn: 'aam', cost: 1300, time: 10, from: 'airfield', sight: 10, r: 0.55, req: [], air: 1, jet: 1 },
+  bomber: { n: 'Thunder Bomber', hp: 950, sp: 3.6, armor: 'air', wpn: 'cbomb', cost: 2800, time: 20, from: 'airfield', sight: 8, r: 0.9, req: [], air: 1, jet: 1 },
   gunship:{ n: 'Hornet Gunship', hp: 340, sp: 3.4, armor: 'air', wpn: 'gun', cost: 1200, time: 10, from: 'airpad', sight: 8, r: 0.5, req: [], air: 1 },
 };
 const CATS = { bld: 'Structures', def: 'Defenses', inf: 'Infantry', veh: 'Vehicles', air: 'Aircraft' };
-const FROMCAT = { barracks: 'inf', factory: 'veh', airpad: 'air' };
-const TEAMCOL = [0x2f8cff, 0xff4433, 0x33dd66, 0xffcc22];
+const FROMCAT = { barracks: 'inf', factory: 'veh', airpad: 'air', airfield: 'air' };
+const TEAMCOL = [0x3f7fd0, 0xd04a36, 0x33dd66, 0xffcc22]; // accents only
+const TEAMPAINT = [0x4b5638, 0x8c7a5a]; // olive drab vs desert tan
 const DIFF = {
   easy:   { income: 0.55, think: 2.5, wave0: 3, waveMax: 7, waveInc: 1, harass: 0.15, harassAfter: 1080, firstAttack: 570, waveGap: 150, build: 0.6, scoutAfter: 600 },
   normal: { income: 1.0, think: 1.2, wave0: 6, waveMax: 14, waveInc: 2, harass: 0.3, harassAfter: 0, firstAttack: 0, waveGap: 30, build: 1.0, scoutAfter: 20 },
+  chief:  { income: 1.0, think: 0.5, wave0: 10, waveMax: 30, waveInc: 3, harass: 0.4, harassAfter: 240, firstAttack: 0, waveGap: 45, build: 1.0, scoutAfter: 15, chief: 1 },
   hard:   { income: 1.35, think: 0.7, wave0: 7, waveMax: 20, waveInc: 2, harass: 0.5, harassAfter: 0, firstAttack: 0, waveGap: 30, build: 1.3, scoutAfter: 20 },
 };
 // economy
-const ORE_VALUE = 0.9, HARV_CAP = 1500, MINE_RATE = 150, UNLOAD_RATE = 600, ORE_REGROW = 1.2; // per second
+const ORE_VALUE = 0.7, HARV_CAP = 600, MINE_RATE = 40, UNLOAD_RATE = 300, ORE_REGROW = 0.8, ORE_MULT = 11; // per second
 // defense upgrades: level 2/3 cost & time per structure; per-level multipliers
 const UPG = { turret: [[450, 15], [800, 25]], aagun: [[450, 15], [800, 25]] };
 const UPG_DMG = [1, 1.35, 1.75], UPG_RNG = [0, 1, 2];
