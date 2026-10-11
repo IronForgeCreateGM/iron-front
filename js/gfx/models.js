@@ -59,7 +59,7 @@ function bevelBoxGeo(w, h, d, b) {
 }
 class MB {
   constructor(team) { this.team = team; this.parts = {}; this.piv = {}; }
-  col(c) { if (c === 'T') return new THREE.Color(TEAMPAINT[this.team]); if (c === 'TD') return new THREE.Color(TEAMPAINT[this.team]).multiplyScalar(0.62); if (c === 'TA') return new THREE.Color(TEAMCOL[this.team]); if (c === 'TL') return new THREE.Color(TEAMCOL[this.team]).lerp(new THREE.Color(0xffffff), 0.3); return new THREE.Color(c); }
+  col(c) { if (this.bld && (c === COL.LIGHT || c === COL.STEEL)) return new THREE.Color(c).lerp(new THREE.Color(TEAMPAINT[this.team]), c === COL.LIGHT ? 0.55 : 0.3); if (c === 'T') return new THREE.Color(TEAMPAINT[this.team]); if (c === 'TD') return new THREE.Color(TEAMPAINT[this.team]).multiplyScalar(0.62); if (c === 'TA') return new THREE.Color(TEAMCOL[this.team]); if (c === 'TL') return new THREE.Color(TEAMCOL[this.team]).lerp(new THREE.Color(0xffffff), 0.3); return new THREE.Color(c); }
   add(part, geo, c, pbr, x, y, z, o) {
     if (this.bld && pbr === PBR.PAINT) pbr = PBR.BPAINT;
     o = o || {}; const g = (geo.index ? geo.toNonIndexed() : geo.clone());
@@ -101,7 +101,7 @@ function tracks(B, L, W, H, wheels) {
   }
 }
 const UNIT_MODELS = {
-  rifle(B) { inf(B, 'rifle'); }, sniper(B) { inf(B, 'sniper'); }, pyro(B) { inf(B, 'pyro'); }, medic(B) { inf(B, 'medic'); }, rocketeer(B) { inf(B, 'rocketeer'); }, engineer(B) { inf(B, 'engineer'); },
+  rifle(B) { inf(B, 'rifle'); }, kommando(B) { inf(B, 'kommando'); B.piv.squad = 3; }, sniper(B) { inf(B, 'sniper'); }, pyro(B) { inf(B, 'pyro'); }, medic(B) { inf(B, 'medic'); }, rocketeer(B) { inf(B, 'rocketeer'); }, engineer(B) { inf(B, 'engineer'); },
   light(B) {
     tracks(B, 0.92, 0.6, 0.2, 5);
     B.box('body', 0.78, 0.17, 0.44, 'T', PBR.PAINT, -0.02, 0.29, 0);
@@ -174,6 +174,40 @@ const UNIT_MODELS = {
     const R = mkRng(9); for (let i = 0; i < 14; i++) B.add('load', new THREE.OctahedronGeometry(0.08 + R() * 0.06, 0), COL.ORE, PBR.ORE, (R() - 0.5) * 0.55, R() * 0.12 + 0.05, (R() - 0.5) * 0.5, { rx: R() * 3, ry: R() * 3 });
     B.box('load', 0.6, 0.08, 0.56, 0xb88a20, PBR.ORE, 0, 0.04, 0, { bevel: 0.02 });
   },
+  titan(B) {
+    // mech walker: legs rig (scaled) + armoured hull with twin rocket pods
+    const s = 1;
+    for (const [side, z] of [['L', 0.3], ['R', -0.3]]) {
+      B.box('th' + side, 0.2, 0.5, 0.2, 'T', PBR.PAINT, 0, -0.25, 0); B.cyl('th' + side, 0.13, 0.24, COL.STEEL, PBR.METAL, 0, 0, 0, { rx: Math.PI / 2, seg: 10 });
+      B.box('sh' + side, 0.16, 0.5, 0.18, COL.STEEL, PBR.METAL, 0.02, -0.25, 0); B.box('sh' + side, 0.12, 0.2, 0.2, 'T', PBR.PAINT, 0.06, -0.16, 0);
+      B.box('sh' + side, 0.42, 0.08, 0.26, COL.DARK, PBR.DARKM, 0.06, -0.52, 0); B.cyl('sh' + side, 0.1, 0.22, COL.DARK, PBR.DARKM, 0, 0, 0, { rx: Math.PI / 2, seg: 10 });
+    }
+    B.box('body', 0.45, 0.2, 0.62, COL.DARK, PBR.DARKM, 0, 1.0, 0);
+    B.box('body', 0.75, 0.42, 0.62, 'T', PBR.PAINT, 0.05, 1.3, 0); B.box('body', 0.35, 0.2, 0.5, 'T', PBR.PAINT, 0.32, 1.42, 0, { rz: -0.35 });
+    B.box('body', 0.12, 0.08, 0.4, COL.GLASS, PBR.GLASS, 0.42, 1.38, 0); B.glow('body', 0.02, 0.04, 0.3, 'TL', 0.49, 1.38, 0);
+    for (const z of [0.44, -0.44]) { B.box('body', 0.5, 0.26, 0.2, COL.STEEL, PBR.METAL, 0.05, 1.32, z); for (let k = 0; k < 6; k++) B.cyl('body', 0.03, 0.05, COL.GUN, PBR.DARKM, 0.31, 1.25 + (k % 2) * 0.12, z - 0.05 + (k >> 1) * 0.05, { rz: Math.PI / 2, seg: 6 }); }
+    B.box('body', 0.3, 0.12, 0.3, COL.STEEL, PBR.METAL, -0.32, 1.38, 0); B.cyl('body', 0.012, 0.35, COL.GUN, PBR.DARKM, -0.38, 1.62, 0.15, { seg: 4 });
+    B.piv.legs = { hip: 1.0, hz: 0.3, tl: 0.5, stride: 1.5, mech: 1 }; B.piv.tip = 0.35;
+  },
+  tsar(B) {
+    tracks(B, 2.2, 1.5, 0.42, 7);
+    B.box('body', 2.0, 0.4, 1.1, 'T', PBR.PAINT, 0, 0.58, 0); B.box('body', 0.5, 0.3, 1.0, 'T', PBR.PAINT, 0.8, 0.5, 0, { rz: 0.5 });
+    for (const z of [0.62, -0.62]) B.box('body', 1.8, 0.08, 0.3, COL.DARK, PBR.DARKM, 0, 0.82, z);
+    B.piv.turret = [-0.1, 0.8, 0];
+    B.box('turret', 1.0, 0.36, 0.9, 'T', PBR.PAINT, 0, 0.18, 0); B.box('turret', 0.5, 0.26, 0.8, 'TD', PBR.PAINT, -0.55, 0.15, 0);
+    for (const z of [0.18, -0.18]) { B.cyl('turret', 0.07, 1.25, COL.STEEL, PBR.METAL, 1.05, 0.2, z, { rz: -Math.PI / 2, seg: 10 }); B.cyl('turret', 0.1, 0.18, COL.DARK, PBR.DARKM, 1.62, 0.2, z, { rz: -Math.PI / 2, seg: 10 }); }
+    for (const z of [0.55, -0.55]) { B.box('turret', 0.5, 0.25, 0.22, COL.STEEL, PBR.METAL, -0.1, 0.3, z); for (let k = 0; k < 4; k++) B.cyl('turret', 0.035, 0.04, COL.GUN, PBR.DARKM, 0.16, 0.24 + (k % 2) * 0.12, z - 0.05 + (k >> 1) * 0.1, { rz: Math.PI / 2, seg: 6 }); }
+    B.glow('turret', 0.04, 0.06, 0.95, 'TL', -0.8, 0.22, 0); B.box('turret', 0.2, 0.18, 0.2, COL.DARK, PBR.DARKM, -0.2, 0.42, -0.2);
+    B.piv.tip = 1.7;
+  },
+  stealth(B) {
+    const wing = new THREE.Shape(); wing.moveTo(0.75, 0); wing.lineTo(-0.45, 0.85); wing.lineTo(-0.3, 0.3); wing.lineTo(-0.55, 0); wing.lineTo(-0.3, -0.3); wing.lineTo(-0.45, -0.85); wing.lineTo(0.75, 0);
+    const wg = new THREE.ExtrudeGeometry(wing, { depth: 0.07, bevelEnabled: true, bevelSize: 0.03, bevelThickness: 0.03, bevelSegments: 1 }); wg.rotateX(Math.PI / 2); B.add('body', wg, 0x2a2e33, PBR.DARKM, 0, 0.05, 0);
+    B.sph('body', 0.09, 0x111316, PBR.GLASS, 0.3, 0.08, 0, { sx: 2.2, sy: 0.6, sz: 0.9, seg: 10 });
+    for (const z of [0.18, -0.18]) B.box('body', 0.22, 0.2, 0.02, 0x2a2e33, PBR.DARKM, -0.38, 0.14, z, { rx: z > 0 ? -0.5 : 0.5, bevel: 0 });
+    B.box('body', 0.5, 0.02, 0.12, 'T', PBR.PAINT, -0.05, 0.1, 0.45, { ry: 0.6, bevel: 0 }); B.box('body', 0.5, 0.02, 0.12, 'T', PBR.PAINT, -0.05, 0.1, -0.45, { ry: -0.6, bevel: 0 });
+    B.glow('body', 0.02, 0.03, 0.2, 0x66aaff, -0.5, 0.06, 0); B.piv.tip = 0.3;
+  },
   jet(B) {
     B.cyl('body', 0.09, 1.3, 'T', PBR.PAINT, 0, 0, 0, { rz: -Math.PI / 2, rt: 0.02, seg: 12 }); B.cyl('body', 0.11, 0.5, 'T', PBR.PAINT, -0.45, 0, 0, { rz: -Math.PI / 2, rt: 0.09, seg: 12 });
     B.sph('body', 0.08, COL.GLASS, PBR.GLASS, 0.25, 0.07, 0, { sx: 2.2, sy: 0.8, sz: 0.8, seg: 10 });
@@ -219,10 +253,22 @@ const UNIT_MODELS = {
     B.piv.tip = 0.5;
   },
 };
+// jointed legs: parts thL/shL/thR/shR built around their joint origins (hip, knee); piv.legs drives animation
+function legRig(B, s, hip, tl, sl, hz, pc, bc, w) {
+  const S = v => v * s;
+  for (const [side, z] of [['L', hz], ['R', -hz]]) {
+    B.box('th' + side, S(0.05 * w), S(tl + 0.02), S(0.05 * w), pc, PBR.PAINT, 0, -S(tl / 2), 0, { bevel: 0.006 });
+    B.box('th' + side, S(0.045 * w), S(0.03), S(0.03), COL.DARK, PBR.CLOTH, S(0.012), -S(tl * 0.5), S(0.02 * Math.sign(z)), { bevel: 0 }); // thigh pocket
+    B.box('sh' + side, S(0.045 * w), S(sl - 0.02), S(0.045 * w), pc, PBR.PAINT, 0, -S((sl - 0.02) / 2), 0, { bevel: 0.006 });
+    B.box('sh' + side, S(0.05 * w), S(0.035), S(0.05 * w), COL.DARK, PBR.RUB, S(0.006), -S(0.04), 0, { bevel: 0.006 }); // knee pad
+    B.box('sh' + side, S(0.072 * w), S(0.032), S(0.055 * w), bc, PBR.RUB, S(0.014), -S(sl - 0.016), 0, { bevel: 0.006 }); // boot
+  }
+  B.piv.legs = { hip: S(hip), hz: S(hz), tl: S(tl), stride: S(0.62), mech: 0 };
+}
 function inf(B, kind) {
   const s = 1.2, P = (part, w, h, d, c, m, x, y, z, o) => B.box(part, w * s, h * s, d * s, c, m, x * s, y * s, z * s, Object.assign({ bevel: 0.006 }, o || {}));
   const pants = kind === 'medic' ? COL.KHAKI : 'T', top = kind === 'pyro' ? 0x5a4a32 : 'T';
-  for (const z of [0.042, -0.042]) { P('body', 0.055, 0.03, 0.07, COL.DARK, PBR.RUB, 0.012, 0.015, z); P('body', 0.045, 0.13, 0.045, pants, PBR.PAINT, 0, 0.095, z); P('body', 0.05, 0.11, 0.05, pants, PBR.PAINT, 0, 0.215, z); }
+  legRig(B, s, 0.27, 0.115, 0.155, 0.042, pants, kind === 'kommando' ? 0x2a2a26 : COL.DARK, 1);
   P('body', 0.09, 0.05, 0.13, COL.DARK, PBR.CLOTH, 0, 0.28, 0);
   P('body', 0.085, 0.15, 0.13, top, PBR.PAINT, 0, 0.36, 0);
   P('body', 0.1, 0.12, 0.14, kind === 'medic' ? COL.WHITE : COL.KHAKI, PBR.CLOTH, 0.006, 0.37, 0);            // plate carrier
@@ -236,6 +282,7 @@ function inf(B, kind) {
   for (const z of [0.075, -0.075]) { P('body', 0.11, 0.035, 0.035, top, PBR.PAINT, 0.04, 0.4, z, { rz: -0.5 }); P('body', 0.1, 0.03, 0.03, top, PBR.PAINT, 0.1, 0.36, z * 0.6, { ry: z > 0 ? 0.5 : -0.5 }); }
   B.box('body', 0.02 * s, 0.025 * s, 0.012 * s, 'TA', PBR.ACC, 0, 0.42 * s, 0.07 * s, { bevel: 0 });   // shoulder patch
   const gy = 0.36;
+  if (kind === 'kommando') { P('body', 0.34, 0.035, 0.03, COL.GUN, PBR.DARKM, 0.15, gy, 0.03); P('body', 0.05, 0.03, 0.03, COL.GUN, PBR.DARKM, 0.26, gy + 0.03, 0.03); B.sph('body', 0.047 * s, 0x2b2d28, PBR.CLOTH, 0, 0.5 * s, 0, { half: true, seg: 10 }); P('body', 0.04, 0.02, 0.09, 0x111111, PBR.GLASS, 0.03, 0.495, 0); }
   if (kind === 'rifle' || kind === 'engineer') { P('body', 0.3, 0.03, 0.025, COL.GUN, PBR.DARKM, 0.14, gy, 0.03); P('body', 0.03, 0.06, 0.02, COL.GUN, PBR.DARKM, 0.1, gy - 0.04, 0.03); }
   if (kind === 'sniper') { P('body', 0.48, 0.025, 0.022, COL.GUN, PBR.DARKM, 0.18, gy, 0.03); B.cyl('body', 0.012 * s, 0.1 * s, COL.GUN, PBR.DARKM, 0.12 * s, (gy + 0.03) * s, 0.03 * s, { rz: Math.PI / 2 });
     const R = mkRng(3); for (let i = 0; i < 9; i++) B.sph('body', (0.025 + R() * 0.02) * s, R() < 0.5 ? 0x3d4a26 : 0x55502e, PBR.CLOTH, (-0.06 + R() * 0.08) * s, (0.4 + R() * 0.12) * s, (R() - 0.5) * 0.12 * s, { seg: 6 }); }
@@ -349,6 +396,21 @@ const BLD_MODELS = {
     B.cyl('body', 0.55, 1.6, 'T', PBR.PAINT, -0.5, 0.1, -0.75, { rz: Math.PI / 2, seg: 14 }); B.box('body', 0.03, 0.45, 0.9, COL.DARK, PBR.DARKM, 0.31, 0.3, -0.75);
     B.box('body', 0.4, 0.8, 0.4, COL.LIGHT, PBR.PAINT, 1.1, 0.45, -0.95); B.box('body', 0.5, 0.18, 0.5, COL.GLASS, PBR.GLASS, 1.1, 0.95, -0.95, { bevel: 0.02 }); B.cyl('body', 0.01, 0.4, COL.GUN, PBR.DARKM, 1.1, 1.25, -0.95, { seg: 4 });
     B.piv.spin = [1.1, 1.06, -0.95]; B.box('spin', 0.4, 0.04, 0.05, COL.LIGHT, PBR.METAL, 0, 0, 0); B.glow('spin', 0.03, 0.03, 0.03, COL.RED, 0.2, 0.02, 0);
+  },
+  extractor(B) {
+    B.box('body', 1.9, 0.12, 1.9, 0x47494a, PBR.CONC, 0, 0.06, 0, { bevel: 0.04 });
+    B.cyl('body', 0.5, 0.9, 'T', PBR.PAINT, -0.2, 0.55, -0.2, { seg: 16 }); B.cyl('body', 0.52, 0.08, COL.STEEL, PBR.METAL, -0.2, 0.95, -0.2, { seg: 16 });
+    B.sph('body', 0.5, 'T', PBR.PAINT, -0.2, 1.0, -0.2, { half: true, seg: 14 });
+    for (const [x, z] of [[0.55, 0.55], [0.55, -0.4], [-0.5, 0.6]]) { B.cyl('body', 0.14, 0.7, COL.STEEL, PBR.METAL, x, 0.45, z, { seg: 10 }); B.glow('body', 0.2, 0.05, 0.2, 0x55ffcc, x, 0.82, z); }
+    B.box('body', 0.9, 0.08, 0.08, COL.STEEL, PBR.METAL, 0.2, 0.3, 0.55); B.box('body', 0.08, 0.08, 0.9, COL.STEEL, PBR.METAL, 0.55, 0.3, 0.1);
+    B.glow('body', 0.6, 0.06, 0.6, 0x44ffbb, -0.2, 1.3, -0.2, { bevel: 0 }); B.piv.smoke = [-0.2, 1.4, -0.2];
+  },
+  gcannon(B) {
+    B.box('body', 1.95, 0.4, 1.95, 0x5a5b56, PBR.CONC, 0, 0.2, 0, { bevel: 0.08 }); B.box('body', 1.6, 0.25, 1.6, 'T', PBR.PAINT, 0, 0.5, 0);
+    B.piv.head = [0, 0.65, 0];
+    B.cyl('head', 0.7, 0.35, 'T', PBR.PAINT, 0, 0.17, 0, { seg: 18 }); B.box('head', 0.9, 0.5, 0.8, 'T', PBR.PAINT, 0.05, 0.5, 0);
+    B.cyl('head', 0.16, 2.0, COL.STEEL, PBR.METAL, 1.3, 0.55, 0, { rz: -Math.PI / 2, seg: 14 }); B.cyl('head', 0.22, 0.3, COL.DARK, PBR.DARKM, 2.2, 0.55, 0, { rz: -Math.PI / 2, seg: 14 });
+    B.cyl('head', 0.2, 0.5, COL.STEEL, PBR.METAL, 0.6, 0.55, 0, { rz: -Math.PI / 2, seg: 14 }); B.glow('head', 0.05, 0.08, 0.6, 'TL', -0.4, 0.6, 0);
   },
   wall(B) { B.box('body', 0.98, 0.62, 0.98, COL.CONC, PBR.CONC, 0, 0.31, 0, { bevel: 0.08 }); B.box('body', 1.0, 0.06, 1.0, 'TD', PBR.PAINT, 0, 0.6, 0, { bevel: 0.02 }); },
 };

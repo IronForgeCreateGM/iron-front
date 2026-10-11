@@ -12,6 +12,7 @@ const DMG = {
   fire:   { inf: 1.3, light: 0.6, heavy: 0.25, bldg: 1.0, air: 0 },
   bomb:   { inf: 0.6, light: 1.0, heavy: 1.1, bldg: 1.8, air: 0 },
   aam:    { inf: 0, light: 0, heavy: 0, bldg: 0, air: 1.5 },
+  cmdo:   { inf: 1.25, light: 0.5, heavy: 0.3, bldg: 1.6, air: 0.3 },
 };
 // weapons: dmg, rng(tiles), cd(sec), type, spd(proj tiles/s), ground/air capability
 const W = {
@@ -28,6 +29,11 @@ const W = {
   jbomb:  { dmg: 230, rng: 1.6, cd: 0.6, type: 'bomb', spd: 8, ground: 1, air: 0, splash: 1.4, snd: 'arty', ammo: 2 },
   cbomb:  { dmg: 170, rng: 1.8, cd: 0.25, type: 'bomb', spd: 7, ground: 1, air: 0, splash: 1.5, snd: 'arty', ammo: 6, spread: 1.6 },
   aam:    { dmg: 95, rng: 6.5, cd: 1.4, type: 'aam', spd: 22, ground: 0, air: 1, snd: 'rocket', ammo: 4 },
+  sbomb:  { dmg: 300, rng: 1.6, cd: 0.6, type: 'bomb', spd: 8, ground: 1, air: 0, splash: 1.3, snd: 'arty', ammo: 2 },
+  tsarc:  { dmg: 120, rng: 6.5, cd: 2.2, type: 'cannon', spd: 24, ground: 1, air: 0, snd: 'cannon', twin: 1 },
+  gcan:   { dmg: 280, rng: 15, minRng: 3, cd: 4.5, type: 'shell', spd: 12, ground: 1, air: 0, splash: 1.6, arc: 1, snd: 'arty' },
+  kmg:    { dmg: 30, rng: 6, cd: 0.45, type: 'cmdo', spd: 45, ground: 1, air: 1, snd: 'rifle' },
+  titan:  { dmg: 85, rng: 7, cd: 1.7, type: 'rocket', spd: 14, ground: 1, air: 1, snd: 'rocket', twin: 1 },
   tcannon:{ dmg: 55, rng: 6.5, cd: 1.5, type: 'cannon', spd: 25, ground: 1, air: 0, snd: 'cannon' },
 };
 // Buildings. cat: bld (structures) | def (defenses). req: buildings needed.
@@ -42,6 +48,8 @@ const BT = {
   turret:  { n: 'Guard Turret', w: 1, h: 1, hp: 700, cost: 600, pow: -20, time: 5, cat: 'def', req: ['barracks'], wpn: 'tcannon', sight: 7 },
   aagun:   { n: 'Flak Battery', w: 1, h: 1, hp: 500, cost: 700, pow: -25, time: 5, cat: 'def', req: ['barracks'], wpn: 'flak', sight: 8 },
   airfield:{ n: 'Airfield', w: 3, h: 3, hp: 1200, cost: 1500, pow: -50, time: 12, cat: 'bld', req: ['factory', 'tech'] },
+  extractor:{ n: 'Gas Extractor', w: 2, h: 2, hp: 900, cost: 800, pow: -20, time: 8, cat: 'bld', req: ['refinery'] },
+  gcannon: { n: 'Grand Cannon', w: 2, h: 2, hp: 2200, cost: 2500, gas: 300, pow: -80, time: 20, cat: 'def', req: ['tech'], wpn: 'gcan', sight: 15, fac: 'fra' },
   wall:    { n: 'Wall', w: 1, h: 1, hp: 400, cost: 50, pow: 0, time: 1, cat: 'def', req: ['barracks'] },
 };
 // Units. armor: inf|light|heavy|air. sp tiles/sec. r radius.
@@ -50,23 +58,27 @@ const UT = {
   rocketeer:{ n: 'Rocketeer', hp: 100, sp: 1.4, armor: 'inf', wpn: 'rocket', cost: 300, time: 5, from: 'barracks', sight: 6.5, r: 0.22, req: [] },
   engineer:{ n: 'Engineer', hp: 80, sp: 1.5, armor: 'inf', wpn: null, cost: 500, time: 6, from: 'barracks', sight: 5, r: 0.22, req: [], engineer: 1 },
   sniper: { n: 'Sniper', hp: 90, sp: 1.4, armor: 'inf', wpn: 'snipe', cost: 600, time: 7, from: 'barracks', sight: 10, r: 0.22, req: [] },
-  pyro:   { n: 'Pyro', hp: 170, sp: 1.6, armor: 'inf', wpn: 'flame', cost: 350, time: 5, from: 'barracks', sight: 5.5, r: 0.24, req: [] },
+  pyro:   { n: 'Pyro', hp: 170, sp: 1.6, armor: 'inf', wpn: 'flame', cost: 350, gas: 25, time: 5, from: 'barracks', sight: 5.5, r: 0.24, req: [] },
   medic:  { n: 'Field Medic', hp: 120, sp: 1.7, armor: 'inf', wpn: null, cost: 400, time: 5, from: 'barracks', sight: 6, r: 0.22, req: [], heal: 14 },
+  kommando:{ n: 'Jäger Kommando Squad', hp: 600, sp: 1.8, armor: 'inf', wpn: 'kmg', cost: 1500, gas: 150, time: 14, from: 'barracks', sight: 8, r: 0.4, req: ['tech'], squad: 3, fac: 'ger' },
   scout:  { n: 'Raider Buggy', hp: 200, sp: 3.6, armor: 'light', wpn: 'mg', cost: 500, time: 5, from: 'factory', sight: 9, r: 0.38, req: [] },
   light:  { n: 'Lancer Tank', hp: 380, sp: 2.2, armor: 'heavy', wpn: 'lcannon', cost: 700, time: 7, from: 'factory', sight: 7, r: 0.45, req: [], turret: 1 },
-  heavy:  { n: 'Bastion Tank', hp: 800, sp: 1.4, armor: 'heavy', wpn: 'hcannon', cost: 1400, time: 12, from: 'factory', sight: 7, r: 0.58, req: ['tech'], turret: 1 },
+  heavy:  { n: 'Bastion Tank', hp: 800, sp: 1.4, armor: 'heavy', wpn: 'hcannon', cost: 1400, gas: 75, time: 12, from: 'factory', sight: 7, r: 0.58, req: ['tech'], turret: 1 },
   arty:   { n: 'Howler Artillery', hp: 260, sp: 1.6, armor: 'light', wpn: 'arty', cost: 1000, time: 10, from: 'factory', sight: 6, r: 0.48, req: ['tech'], turret: 1 },
   aa:     { n: 'Skyguard', hp: 320, sp: 2.2, armor: 'light', wpn: 'flak', cost: 700, time: 7, from: 'factory', sight: 8, r: 0.45, req: [], turret: 1 },
+  titan:  { n: 'Titan Walker', hp: 1500, sp: 1.3, armor: 'heavy', wpn: 'titan', cost: 2600, gas: 250, time: 18, from: 'factory', sight: 8, r: 0.75, req: ['tech'], turret: 1, mech: 1 },
+  tsar:   { n: 'Tsar Siege Tank', hp: 2600, sp: 1.0, armor: 'heavy', wpn: 'tsarc', cost: 3200, gas: 300, time: 24, from: 'factory', sight: 8, r: 0.9, req: ['tech'], turret: 1, regen: 6, fac: 'rus' },
   harv:   { n: 'Ore Hauler', hp: 1000, sp: 1.5, armor: 'heavy', wpn: null, cost: 1400, time: 10, from: 'factory', alt: ['hq'], sight: 5, r: 0.6, req: [] },
-  jet:    { n: 'Falcon Strike Jet', hp: 420, sp: 7.0, armor: 'air', wpn: 'jbomb', cost: 2000, time: 14, from: 'airfield', sight: 8, r: 0.6, req: [], air: 1, jet: 1 },
+  jet:    { n: 'Falcon Strike Jet', hp: 420, sp: 7.0, armor: 'air', wpn: 'jbomb', cost: 2000, gas: 150, time: 14, from: 'airfield', sight: 8, r: 0.6, req: [], air: 1, jet: 1 },
   intercept:{ n: 'Talon Interceptor', hp: 360, sp: 7.5, armor: 'air', wpn: 'aam', cost: 1300, time: 10, from: 'airfield', sight: 10, r: 0.55, req: [], air: 1, jet: 1 },
-  bomber: { n: 'Thunder Bomber', hp: 950, sp: 3.6, armor: 'air', wpn: 'cbomb', cost: 2800, time: 20, from: 'airfield', sight: 8, r: 0.9, req: [], air: 1, jet: 1 },
+  bomber: { n: 'Thunder Bomber', hp: 950, sp: 3.6, armor: 'air', wpn: 'cbomb', cost: 2800, gas: 250, time: 20, from: 'airfield', sight: 8, r: 0.9, req: [], air: 1, jet: 1 },
+  stealth:{ n: 'Nightshade Stealth Fighter', hp: 380, sp: 7.5, armor: 'air', wpn: 'sbomb', cost: 2400, gas: 200, time: 16, from: 'airfield', sight: 8, r: 0.6, req: [], air: 1, jet: 1, stealthy: 1, fac: 'usa' },
   gunship:{ n: 'Hornet Gunship', hp: 340, sp: 3.4, armor: 'air', wpn: 'gun', cost: 1200, time: 10, from: 'airpad', sight: 8, r: 0.5, req: [], air: 1 },
 };
 const CATS = { bld: 'Structures', def: 'Defenses', inf: 'Infantry', veh: 'Vehicles', air: 'Aircraft' };
 const FROMCAT = { barracks: 'inf', factory: 'veh', airpad: 'air', airfield: 'air' };
 const TEAMCOL = [0x3f7fd0, 0xd04a36, 0x33dd66, 0xffcc22]; // accents only
-const TEAMPAINT = [0x464d36, 0x7a705c]; // olive drab vs desert tan
+const TEAMPAINT = [0x2e4a73, 0x7a2d25]; // strong but realistic military blue / oxide red // olive drab vs desert tan
 const DIFF = {
   easy:   { income: 0.55, think: 2.5, wave0: 3, waveMax: 7, waveInc: 1, harass: 0.15, harassAfter: 1080, firstAttack: 570, waveGap: 150, build: 0.6, scoutAfter: 600 },
   normal: { income: 1.0, think: 1.2, wave0: 6, waveMax: 14, waveInc: 2, harass: 0.3, harassAfter: 0, firstAttack: 0, waveGap: 30, build: 1.0, scoutAfter: 20 },
@@ -77,6 +89,14 @@ const DIFF = {
 // economy
 const ORE_VALUE = 0.91, HARV_CAP = 600, MINE_RATE = 40, UNLOAD_RATE = 300, ORE_REGROW = 0.8, ORE_MULT = 11; // per second
 // defense upgrades: level 2/3 cost & time per structure; per-level multipliers
-const UPG = { turret: [[450, 15], [800, 25]], aagun: [[450, 15], [800, 25]] };
+const UPG = { turret: [[450, 15], [800, 25, 100]], aagun: [[450, 15], [800, 25, 100]] };
 const UPG_DMG = [1, 1.35, 1.75], UPG_RNG = [0, 1, 2];
-const DEF_RESEARCH = { n: 'Hardened Defenses', cost: 1500, time: 40, dmg: 1.15, rng: 0.5, hp: 1.25 };
+const DEF_RESEARCH = { n: 'Hardened Defenses', cost: 1500, gas: 200, time: 40, dmg: 1.15, rng: 0.5, hp: 1.25 };
+
+const GAS_RATE = 3.0; // per extractor per second
+const FACTIONS = {
+  usa: { n: 'United States', flag: '🇺🇸', sp: 'stealth', desc: 'Nightshade Stealth Fighter — invisible bomber. Only revealed when enemies are within 3 tiles or it attacks. Precision 300-dmg bombs vs. structures.' },
+  rus: { n: 'Russia', flag: '🇷🇺', sp: 'tsar', desc: 'Tsar Siege Tank — 2600 HP super-heavy with twin 120mm guns that slowly repairs itself in the field.' },
+  fra: { n: 'France', flag: '🇫🇷', sp: 'gcannon', desc: 'Grand Cannon — fortress artillery with 15-tile range and 280 splash damage. Locks down a whole front.' },
+  ger: { n: 'Germany', flag: '🇩🇪', sp: 'kommando', desc: 'Jäger Kommando Squad — three elite commandos in one unit: rapid long-range fire, demolition charges wreck buildings.' },
+};

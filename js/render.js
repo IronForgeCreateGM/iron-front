@@ -6,7 +6,7 @@ const QUALITY = {
   high:  { pr: 1.25, shadows: true, shadowSize: 2048, bloom: true, fxaa: false, msaa: 4, grass: 0.55, fx: 1, label: 'High' },
   ultra: { pr: 2.0, shadows: true, shadowSize: 4096, bloom: true, fxaa: false, msaa: 4, grass: 0.85, fx: 1.2, label: 'Ultra' },
 };
-const R3 = { objs: new Map(), rs: new Map(), uiMesh: new Map(), markers: [], cam: { x: 12, y: 14, d: 30, tx: 12, ty: 14, td: 30 }, time: 0, uTime: { value: 0 }, sunDir: null, fps: 60, frames: 0, fpsT: 0, view: { x0: 0, y0: 0, x1: MW, y1: MH } };
+const R3 = { corpses: [], objs: new Map(), rs: new Map(), uiMesh: new Map(), markers: [], cam: { x: 12, y: 14, d: 30, tx: 12, ty: 14, td: 30 }, time: 0, uTime: { value: 0 }, sunDir: null, fps: 60, frames: 0, fpsT: 0, view: { x0: 0, y0: 0, x1: MW, y1: MH } };
 function detectQuality() {
   if (QS.get('q') && QUALITY[QS.get('q')]) return QS.get('q');
   const saved = localStorage.getItem('if_quality'); if (saved && saved !== 'auto' && QUALITY[saved]) return saved;
@@ -105,6 +105,7 @@ function handleEvents() {
         const s = ev.src; if (!visibleTo0(s) || !inView(s.x, s.y)) { sfx(ev.w.snd, s.x, s.y); break; }
         const p = barrelTip(s), w = ev.w.type, big = w === 'cannon' || w === 'shell';
         flash(p.x, p.y, p.z, big ? 0.9 : w === 'bullet' ? 0.35 : 0.55, 1, 0.8, 0.45);
+        { const r0 = R3.rs.get(s.id); if (r0 && s.kind === 'u' && (UT[s.t].armor === 'inf' || UT[s.t].mech)) r0.kick = 1; }
         if (big) { for (let i = 0; i < 4 * FX.mul; i++) puff(p.x + Math.cos(s.tang) * 0.2, p.y + Math.sin(s.tang) * 0.2, p.z, 0.25, 1.1, 0.55, 0.45, 0.3); const rs = R3.rs.get(s.id); if (rs) rs.recoil = 0.09; }
         if (w === 'rocket') puff(p.x - Math.cos(s.tang) * 0.4, p.y - Math.sin(s.tang) * 0.4, p.z, 0.3, 0.8, 0.6, 0.5, 0.2);
         sfx(ev.w.snd, s.x, s.y); break;
@@ -125,6 +126,7 @@ function handleEvents() {
         const e = ev.ent; const seen = !G.opts.fog || visibleTo0(e);
         if (e.sold || !seen) { disposeObj(e.id); R3.rs.delete(e.id); break; }
         const rs = R3.rs.get(e.id), z = rs ? rs.z : heightAt(e.x, e.y);
+        if (e.kind === 'u' && (UT[e.t].armor === 'inf' || UT[e.t].mech) && rs) { R3.corpses.push({ t: e.t, team: e.team, rs: Object.assign({}, rs, { aim: 0, spd: 0, dead: 0, fallDir: Math.random() < 0.6 ? 1 : -1 }), t0: R3.time }); if (R3.corpses.length > 60) R3.corpses.shift(); }
         if (e.kind === 'b') { const n = Math.max(3, e.w * e.h); for (let i = 0; i < n; i++) setTimeout(() => explosion3(e.tx + Math.random() * e.w, e.ty + Math.random() * e.h, heightAt(e.x, e.y) + 0.4 + Math.random(), 1.1 + Math.random() * 0.7), i * 120);
           debris(e.x, e.y, 1, 16, 0, true); scorch3(e.x, e.y, e.w * 1.8); sfx('boomBig', e.x, e.y); shake(0.5); }
         else if (UT[e.t].armor === 'inf') { puff(e.x, e.y, z + 0.2, 0.3, 1, 0.4, 0.5, 0.3); sfx('die', e.x, e.y); }
@@ -188,11 +190,23 @@ function r3Render(dt) {
     if (!vis || !inView(rs.x, rs.y)) continue;
     const U = unitIM(e.t, e.team); if (U.n >= U.cap) growIM(U, U.cap * 2);
     const i = U.n++, pv = U.model.piv;
-    const moving = e.path.length > 0, bob = d.armor === 'inf' && moving ? Math.abs(Math.sin(R3.time * 11 + e.id)) * 0.04 : 0;
+    const moving = e.path.length > 0, bob = 0;
     rs.bank = (rs.bank || 0) * 0.9 + angDiff(rs.pang == null ? rs.ang : rs.pang, rs.ang) * (d.jet ? 9 : 0); rs.pang = rs.ang;
-    T.e.set(d.jet ? -Math.max(-0.7, Math.min(0.7, rs.bank)) : 0, -(d.armor === 'inf' ? rs.tang : rs.ang), air && !d.jet ? (moving ? -0.18 : 0) : 0, 'YXZ'); T.q.setFromEuler(T.e);
-    const vs = d.armor === 'inf' ? 1 : d.jet ? 1.1 : air ? 0.9 : 0.8; T.b.compose(T.p.set(rs.x, rs.z + bob, rs.y), T.q, T.s.set(vs, vs, vs));
+    T.e.set(d.jet ? -Math.max(-0.7, Math.min(0.7, rs.bank)) : 0, -(d.armor === 'inf' || d.mech ? rs.tang : rs.ang), air && !d.jet ? (moving ? -0.18 : 0) : 0, 'YXZ'); T.q.setFromEuler(T.e);
+    const vs = d.armor === 'inf' ? 1 : d.mech ? 0.85 : d.jet ? 1.1 : air ? 0.9 : 0.8;
+    if (pv.legs) {
+      animGait(rs, e, d, dt, pv.legs);
+      const sq = pv.squad || 1;
+      for (let m = 0; m < sq; m++) {
+        const ii = m === 0 ? i : U.n++; if (ii >= U.cap) { growIM(U, U.cap * 2); }
+        const ox = sq > 1 ? [0.18, -0.2, -0.2][m] : 0, oz = sq > 1 ? [0, 0.24, -0.24][m] : 0;
+        T.b.compose(T.p.set(rs.x, rs.z, rs.y), T.q, T.s.set(vs, vs, vs)); if (sq > 1) T.b.multiply(T.l.makeTranslation(ox, 0, oz));
+        poseRig(U, ii, T.b, rs, pv.legs, m * 1.7, 0);
+      }
+    } else {
+    T.b.compose(T.p.set(rs.x, rs.z + bob, rs.y), T.q, T.s.set(vs, vs, vs));
     U.parts.body.setMatrixAt(i, T.b);
+    }
     if (U.parts.turret) { T.e.set(0, -(rs.tang - rs.ang), 0); T.q.setFromEuler(T.e); T.l.compose(T.p.set(pv.turret[0] - rs.recoil, pv.turret[1], pv.turret[2]), T.q, T.one); U.parts.turret.setMatrixAt(i, T.t.multiplyMatrices(T.b, T.l)); }
     if (U.parts.rotor) { if (e.t === 'harv') T.e.set(0, 0, -rs.spin); else T.e.set(0, rs.spin, 0); T.q.setFromEuler(T.e); T.l.compose(T.p.set(pv.rotor[0], pv.rotor[1], pv.rotor[2]), T.q, T.one); U.parts.rotor.setMatrixAt(i, T.t.multiplyMatrices(T.b, T.l)); }
     if (U.parts.load) { const lf = e.load / HARV_CAP; T.l.compose(T.p.set(pv.load[0], pv.load[1], pv.load[2]), T.q.identity(), T.s.set(1, Math.max(0.001, lf), 1)); U.parts.load.setMatrixAt(i, T.t.multiplyMatrices(T.b, T.l)); }
@@ -206,6 +220,12 @@ function r3Render(dt) {
     if (!air && d.armor !== 'inf' && moving && Math.random() < dt * 8 * FX.mul) FX.smoke.spawn(rs.x - Math.cos(rs.ang) * d.r, rs.y - Math.sin(rs.ang) * d.r, gz + 0.08, rnd(0.3), rnd(0.3), 0.2, 1.0, 0.15, 0.5, 0.5, 0.45, 0.36, 0.35, 0);
     if (e.hp / e.mhp < 0.35 && d.armor !== 'inf' && Math.random() < dt * 8 * FX.mul) puff(rs.x, rs.y, rs.z + 0.4, 0.15, 1.4, 0.1, 0.7, 0.8);
   }
+  R3.corpses = R3.corpses.filter(c => R3.time - c.t0 < 9);
+  for (const c of R3.corpses) { const rs = c.rs; if (!inView(rs.x, rs.y)) continue; const U = unitIM(c.t, c.team), pv = U.model.piv; if (U.n + 3 >= U.cap) growIM(U, U.cap * 2);
+    const age = R3.time - c.t0, f = Math.min(1, age / 0.55), ease = f * f * (3 - 2 * f), sink = Math.max(0, age - 6) * 0.12, vs = UT[c.t].mech ? 0.85 : 1;
+    rs.dead = ease; T.e.set(0, -rs.tang, 0, 'YXZ'); T.q.setFromEuler(T.e);
+    const sq = pv.squad || 1; for (let m = 0; m < sq; m++) { const ii = U.n++; T.b.compose(T.p.set(rs.x, rs.z - sink, rs.y), T.q, T.s.set(vs, vs, vs)); if (sq > 1) T.b.multiply(T.l.makeTranslation([0.18, -0.2, -0.2][m], 0, [0, 0.24, -0.24][m]));
+      poseRig(U, ii, T.b, rs, pv.legs, m, c.rs.fallDir); } }
   for (const u of R3.uiMesh.values()) for (const kk in u.parts) { u.parts[kk].count = u.n; u.parts[kk].instanceMatrix.needsUpdate = true; }
   R3.ringSel.count = Math.min(nSel, 400); R3.ringEnemy.count = Math.min(nEn, 100); R3.ringHover.count = Math.min(nHov, 4); R3.blob.count = nBlob;
   R3.ringSel.instanceMatrix.needsUpdate = R3.ringEnemy.instanceMatrix.needsUpdate = R3.ringHover.instanceMatrix.needsUpdate = R3.blob.instanceMatrix.needsUpdate = true;
@@ -292,4 +312,40 @@ function setLevelDecor(o, e) {
   B.torus('d', 0.4, 0.035, COL.STEEL, PBR.METAL, 0, 0.42, 0, { rx: Math.PI / 2, seg: 24 });
   if (l >= 3) { B.torus('d', 0.47, 0.02, 'T', PBR.GLOW2, 0, 0.24, 0, { rx: Math.PI / 2, seg: 24 }); for (const a of [0.8, 2.4, 3.9, 5.5]) B.box('d', 0.12, 0.3, 0.06, COL.DARK, PBR.DARKM, Math.cos(a) * 0.4, 0.3, Math.sin(a) * 0.4, { ry: -a }); }
   const m = new THREE.Mesh(B.build().d, pbrMaterial()); m.castShadow = true; o.body.add(m); o.decor = m;
+}
+
+// ===== procedural infantry / mech animation =====
+// gait phase advances with distance travelled (no foot sliding); aim pose blends in when engaging; kick = recoil impulse
+function animGait(rs, e, d, dt, L) {
+  const px = rs.gx == null ? rs.x : rs.gx, py = rs.gy == null ? rs.y : rs.gy, dist = Math.hypot(rs.x - px, rs.y - py); rs.gx = rs.x; rs.gy = rs.y;
+  const v = dt > 0 ? Math.min(6, dist / dt) : 0; rs.spd = (rs.spd || 0) + (v - (rs.spd || 0)) * Math.min(1, dt * 8);
+  rs.ph = ((rs.ph || (e.id * 1.3)) + dist / L.stride * Math.PI * 2 * (L.mech ? 1 : 1 / 0.85)) % (Math.PI * 200);
+  const aimT = e.tgt && e.tgt.hp > 0 && rs.spd < 0.3 ? 1 : 0; rs.aim = (rs.aim || 0) + (aimT - (rs.aim || 0)) * Math.min(1, dt * 7);
+  rs.kick = Math.max(0, (rs.kick || 0) - dt * 6); rs.dead = 0; rs.idleT = R3.time + e.id;
+}
+const _RG = typeof THREE !== 'undefined' ? { P: m4(), A: m4(), B: m4(), C: m4(), q: new THREE.Quaternion(), e: new THREE.Euler(), v: new THREE.Vector3(), one: new THREE.Vector3(1, 1, 1) } : null;
+function rz(m, a) { _RG.e.set(0, 0, a); _RG.q.setFromEuler(_RG.e); return m.makeRotationFromQuaternion(_RG.q); }
+function poseRig(U, i, base, rs, L, seed, fall) {
+  const R = _RG, mech = L.mech, sp = rs.spd || 0, w = Math.min(1, sp / (mech ? 0.6 : 0.45)), run = Math.max(0, Math.min(1, (sp - 1.5) / 0.8));
+  const ph = (rs.ph || 0) + seed, aim = rs.aim || 0, dead = rs.dead || 0, kick = rs.kick || 0, t = R3.time + seed * 3.1 + (rs.idleT || 0) * 0.01;
+  const A = (mech ? 0.4 : 0.5 + 0.25 * run) * w;
+  let thL = Math.sin(ph) * A, thR = -Math.sin(ph) * A;
+  let knL = (0.15 + (mech ? 0.6 : 1.0) * Math.max(0, -Math.cos(ph))) * w, knR = (0.15 + (mech ? 0.6 : 1.0) * Math.max(0, Math.cos(ph))) * w;
+  // aiming stance: staggered feet, slight crouch
+  thL += aim * 0.22 * (1 - w); thR -= aim * 0.12 * (1 - w); knL += aim * 0.2 * (1 - w); knR += aim * 0.28 * (1 - w);
+  let bob = (Math.cos(ph * 2) * 0.5 - 0.5) * (mech ? 0.05 : 0.018 + 0.012 * run) * w - aim * 0.012 * (1 - w);
+  let lean = -(0.06 + 0.2 * run) * w - aim * 0.07 + kick * 0.12 + Math.sin(t * 1.6) * 0.012 * (1 - w);
+  let twist = Math.sin(ph) * 0.08 * w * (mech ? 0.5 : 1) + Math.sin(t * 0.7) * 0.02 * (1 - w);
+  // death fall: rotate whole body around feet, legs crumple
+  if (dead > 0) { knL = knR = dead * 0.9; thL = thR = dead * 0.5; bob = -dead * L.hip * 0.35; lean = 0; }
+  R.P.copy(base);
+  if (dead > 0) { R.P.multiply(rz(R.A, dead * 1.45 * (fall || 1))); }
+  R.P.multiply(R.A.makeTranslation(0, L.hip + bob * (L.mech ? 1 : 1), 0));
+  // upper body
+  R.B.copy(R.P).multiply(rz(R.A, lean)); R.e.set(0, twist, 0); R.q.setFromEuler(R.e); R.B.multiply(R.A.makeRotationFromQuaternion(R.q)); R.B.multiply(R.A.makeTranslation(-kick * 0.03, -L.hip, 0));
+  U.parts.body.setMatrixAt(i, R.B);
+  for (const [side, z, th, kn] of [['L', L.hz, thL, knL], ['R', -L.hz, thR, knR]]) {
+    R.B.copy(R.P).multiply(R.A.makeTranslation(0, 0, z)).multiply(rz(R.A, th)); U.parts['th' + side].setMatrixAt(i, R.B);
+    R.C.copy(R.B).multiply(R.A.makeTranslation(0, -L.tl, 0)).multiply(rz(R.A, -kn)); U.parts['sh' + side].setMatrixAt(i, R.C);
+  }
 }

@@ -53,6 +53,16 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('startBtn').onclick = () => { audioInit(); startGame(diff, { fog: document.getElementById('fogChk').checked }); };
   document.getElementById('resumeBtn').onclick = () => togglePause();
   document.querySelectorAll('.quitBtn').forEach(b => b.onclick = () => location.href = location.pathname);
+  if (QS.get('v34')) { startGame('easy', { seed: 4242 }); G.opts.fog = false; G.spectate = true; G.players[0].fac = 'fra'; G.players[1].fac = 'rus'; G.players[1].ai = false;
+    for (const [t, x, y] of [['power', 4, 12], ['barracks', 11, 3], ['refinery', 11, 12], ['factory', 15, 6], ['tech', 3, 15]]) addB(t, 0, x, y, true).born = -10;
+    const v = G.vents[0]; addB('extractor', 0, v[0], v[1], true).born = -10; addB('gcannon', 0, 16, 14, true).born = -10; const tu = addB('turret', 0, 19, 12, true); tu.born = -10; tu.lvl = 3;
+    const mk = (t, tm, x, y) => addU(t, tm, x, y);
+    const a0 = [], a1 = []; ['titan', 'kommando', 'rifle', 'sniper', 'pyro', 'medic', 'rocketeer', 'rifle', 'heavy', 'rifle'].forEach((t, i) => a0.push(mk(t, 0, 19 + (i % 4) * 0.9, 19 + (i / 4 | 0) * 0.9)));
+    ['tsar', 'rifle', 'rifle', 'rocketeer', 'pyro', 'kommando', 'light', 'rifle', 'sniper'].forEach((t, i) => a1.push(mk(t, 1, 26 + (i % 3) * 0.9, 25 + (i / 3 | 0) * 0.9)));
+    for (let i = 0; i < 30; i++) stepGame(); orderMove(a0, 24, 23, true); orderMove(a1, 21, 21, true);
+    for (let i = 0; i < 30 * (+QS.get('v34') || 5); i++) stepGame(); G.events.length = 0;
+    R3.cam.td = R3.cam.d = +(QS.get('zoom') || 16); jumpTo(+(QS.get('cx') || 22), +(QS.get('cy') || 21), true); paused = !!QS.get('freeze');
+  } else
   if (QS.get('showcase')) { startGame('easy', { seed: 4242 }); const P = G.players[0]; P.cr = 99999;
     for (const [t, x, y] of [['power', 4, 12], ['power', 1, 9], ['power', 4, 2], ['barracks', 11, 3], ['refinery', 11, 12], ['factory', 15, 6], ['tech', 3, 15]]) addB(t, 0, x, y, true).born = -10;
     const t1 = addB('turret', 0, 16, 14, true), t2 = addB('turret', 0, 19, 11, true), t3 = addB('aagun', 0, 18, 15, true); t1.lvl = 3; t2.lvl = 2; [t1, t2, t3].forEach(b => b.born = -10);

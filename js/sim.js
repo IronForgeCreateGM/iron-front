@@ -17,7 +17,7 @@ function newGame(opts) {
   G.vis = G.visT[0]; G.seen = G.seenT[0]; G.dens = new Uint8Array(MW * MH); G.starts = [[7.5, 7.5], [56.5, 56.5]];
   genMap(R);
   for (let t = 0; t < 2; t++) G.players.push({ team: t, cr: 5000, pow: 0, gen: 0, use: 0, ai: opts.aiTeams.includes(t), diff: opts.diff,
-    queues: { bld: [], def: [], inf: [], veh: [], air: [] }, ready: { bld: null, def: null }, stats: { kills: 0, lost: 0, mined: 0 } });
+    gas: 150, fac: (opts.facs || [])[t] || ['usa', 'rus', 'fra', 'ger'][(R() * 4) | 0], queues: { bld: [], def: [], inf: [], veh: [], air: [] }, ready: { bld: null, def: null }, stats: { kills: 0, lost: 0, mined: 0 } });
   const bases = [[6, 6], [55, 55]];
   bases.forEach(([x, y], t) => {
     addB('hq', t, x, y, true);
@@ -49,6 +49,7 @@ function genMap(R) {
   for (let k = 0; k <= 60; k++) { const t = k / 60; clear(8 + 47 * t, 8 + 47 * t + Math.sin(t * 9) * 4, 1.8); clear(8 + 47 * t + Math.sin(t * 7) * 10, 8 + 47 * t - Math.sin(t * 7) * 10, 1.4); }
   const field = (cx, cy, r) => { for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) if (inb(x, y)) {
       const d = Math.hypot(x - cx, y - cy); if (d <= r + 0.3) { const a = (350 + (r - d) * 120) * ORE_MULT; for (const j of [idx(x, y), N - 1 - idx(x, y)]) { G.map[j] = 0; G.ore[j] = a; } } } };
+  G.vents = []; for (const [vx, vy] of [[19, 16], [22, 40]]) { clear(vx + 0.5, vy + 0.5, 2.6); G.vents.push([vx, vy], [MW - 1 - vx, MH - 1 - vy]); }
   field(17, 9, 2); field(9, 19, 2); field(30, 29, 3); field(12, 44, 2); field(42, 15, 2);
   // flood fill from base: unreachable open tiles become rock
   const seen = new Uint8Array(N), st = [idx(8, 8)]; seen[st[0]] = 1;
@@ -81,6 +82,7 @@ function teamEnts(team, t) { return G.ents.filter(e => e.team === team && (!t ||
 function hasBuilt(team, t) { return G.ents.some(e => e.kind === 'b' && e.team === team && e.t === t && e.hp > 0 && e.sell < 0); }
 function reqOk(team, d) { return d.req.every(r => hasBuilt(team, r)); }
 function avail(team, t) {
+  const dd = BT[t] || UT[t]; if (dd.fac && G.players[team].fac !== dd.fac) return false;
   if (BT[t]) return hasBuilt(team, 'hq') && reqOk(team, BT[t]);
   const d = UT[t]; return (hasBuilt(team, d.from) || (d.alt || []).some(a => hasBuilt(team, a))) && reqOk(team, d);
 }
@@ -102,6 +104,8 @@ function canPlace(t, team, tx, ty) {
   if (tx < 0 || ty < 0 || tx + d.w > MW || ty + d.h > MH) return false;
   const g = getBlock();
   for (let y = ty; y < ty + d.h; y++) for (let x = tx; x < tx + d.w; x++) if (g[idx(x, y)] || G.ore[idx(x, y)] > 0) return false;
+  const onVent = (G.vents || []).some(([vx, vy]) => vx >= tx && vx < tx + d.w && vy >= ty && vy < ty + d.h);
+  if ((t === 'extractor') !== onVent) return false;
   for (const e of G.ents) if (e.kind === 'u' && !isAir(e) && e.team !== team && e.x > tx && e.x < tx + d.w && e.y > ty && e.y < ty + d.h) return false;
   const R = 5;
   return G.ents.some(e => e.kind === 'b' && e.team === team && e.t !== 'wall' && tx < e.tx + e.w + R && tx + d.w > e.tx - R && ty < e.ty + e.h + R && ty + d.h > e.ty - R);
@@ -121,13 +125,14 @@ function enqueue(team, t) {
   const q = P.queues[cat];
   if (q.length >= (cat === 'bld' || cat === 'def' ? 1 : 6)) return false;
   if ((cat === 'bld' || cat === 'def') && P.ready[cat]) return false;
-  q.push({ t, prog: 0, paid: 0 });
+  const gas = (BT[t] || UT[t]).gas || 0; if (P.gas < gas) return false; P.gas -= gas;
+  q.push({ t, prog: 0, paid: 0, gas });
   return true;
 }
 function cancel(team, t) {
   const P = G.players[team], cat = catOf(t), q = P.queues[cat];
-  if (P.ready[cat] === t && !q.length) { P.ready[cat] = null; P.cr += BT[t].cost; return true; }
-  for (let i = q.length - 1; i >= 0; i--) if (q[i].t === t) { P.cr += q[i].paid; q.splice(i, 1); return true; }
+  if (P.ready[cat] === t && !q.length) { P.ready[cat] = null; P.cr += BT[t].cost; P.gas += BT[t].gas || 0; return true; }
+  for (let i = q.length - 1; i >= 0; i--) if (q[i].t === t) { P.cr += q[i].paid; P.gas += q[i].gas || 0; q.splice(i, 1); return true; }
   return false;
 }
 function stepProduction(P) {
@@ -297,6 +302,7 @@ function stepBuilding(b) {
   if (b.repair && b.hp < b.mhp) { const dh = b.mhp * 0.04 * DT, c = d.cost * 0.4 * dh / b.mhp; if (P.cr >= c) { P.cr -= c; b.hp = Math.min(b.mhp, b.hp + dh); } }
   if (b.repair && b.hp >= b.mhp) b.repair = false;
   if (b.upT != null && G.time - b.upT >= b.upDur) { b.upT = null; if (b.upKind === 'def') { P.defUp = true; G.ents.forEach(e => { if (e.team === b.team && UPG[e.t]) { e.mhp = Math.round(BT[e.t].hp * DEF_RESEARCH.hp); e.hp = Math.min(e.mhp, e.hp * DEF_RESEARCH.hp); } }); } else b.lvl = (b.lvl || 1) + 1; G.events.push({ e: 'upgraded', b, team: b.team }); }
+  if (b.t === 'extractor' && G.time - b.born > 1.5 && b.sell < 0) { const m = P.ai ? DIFF[P.diff].income : 1; P.gas += GAS_RATE * DT * m * (P.pow < 0 ? 0.5 : 1); b.gasT = (b.gasT || 0) + DT; }
   if (!d.wpn || G.time - b.born < 1.5) return;
   if (P.pow < 0 && d.pow < 0) return; // offline
   const w = defW(b); combat(b, w, d.sight + (w.rng - W[d.wpn].rng), false);
@@ -366,7 +372,7 @@ function fire(e, w, t) {
   e.cd = w.cd * (0.9 + G.R() * 0.2);
   const z0 = e.kind === 'u' ? e.z : 0.8, tz = t.kind === 'u' ? t.z : 0.5;
   const shots = w.twin ? 2 : 1;
-  if (w.ammo) e.ammo = (e.ammo == null ? w.ammo : e.ammo) - 1;
+  e.lastFire = G.time; if (w.ammo) e.ammo = (e.ammo == null ? w.ammo : e.ammo) - 1;
   const est = w.dmg * DMG[w.type][armorOf(t)] * shots; t.inc = (t.inc || 0) + est;
   for (let s = 0; s < shots; s++) {
     const spread = w.spread || (w.type === 'shell' ? 0.8 : 0);
@@ -423,6 +429,7 @@ function stepUnit(u) {
     } else if (!u.path.length) setPath(u, t.x, t.y);
   }
   if (d.heal) medic(u, d);
+  if (d.regen && u.hp < u.mhp) u.hp = Math.min(u.mhp, u.hp + d.regen * DT);
   if (d.jet && jetStep(u, d)) return;
   let engaged = false;
   if (d.wpn && !(d.jet && u.ammo <= 0)) engaged = combat(u, W[d.wpn], Math.max(d.sight, W[d.wpn].rng + 0.5), true);
@@ -597,6 +604,7 @@ function updFog() {
 }
 function visibleTo(team, e) {
   if (e.team === team) return true;
+  if (e.kind === 'u' && UT[e.t].stealthy && G.time - (e.lastFire || -9) > 2) { for (const o of G.ents) if (o.team === team && Math.abs(o.x - e.x) < 3.2 && Math.abs(o.y - e.y) < 3.2 && Math.hypot(o.x - e.x, o.y - e.y) < 3.2) return true; return false; }
   const V = G.visT[team], S = G.seenT[team];
   if (e.kind === 'b') { for (let y = e.ty; y < e.ty + e.h; y++) for (let x = e.tx; x < e.tx + e.w; x++) if (S[idx(x, y)]) return true; return false; }
   return !!V[idx(Math.floor(e.x), Math.floor(e.y))];
@@ -610,13 +618,13 @@ function defW(b) { const d = BT[b.t], P = G.players[b.team], l = b.lvl || 1, k =
   if (!_defWC[k]) { const base = W[d.wpn]; _defWC[k] = Object.assign({}, base, { dmg: Math.round(base.dmg * UPG_DMG[l - 1] * (P.defUp ? DEF_RESEARCH.dmg : 1)), rng: base.rng + UPG_RNG[l - 1] + (P.defUp ? DEF_RESEARCH.rng : 0) }); }
   return _defWC[k]; }
 function upgradeInfo(b) {
-  if (b.t === 'tech') { const P = G.players[b.team]; if (P.defUp || b.upT != null) return null; return { cost: DEF_RESEARCH.cost, time: DEF_RESEARCH.time, kind: 'def' }; }
-  const u = UPG[b.t]; if (!u) return null; const l = b.lvl || 1; if (l >= 3) return null; return { cost: u[l - 1][0], time: u[l - 1][1], kind: 'lvl', next: l + 1 };
+  if (b.t === 'tech') { const P = G.players[b.team]; if (P.defUp || b.upT != null) return null; return { cost: DEF_RESEARCH.cost, gas: DEF_RESEARCH.gas, time: DEF_RESEARCH.time, kind: 'def' }; }
+  const u = UPG[b.t]; if (!u) return null; const l = b.lvl || 1; if (l >= 3) return null; return { cost: u[l - 1][0], time: u[l - 1][1], gas: u[l - 1][2] || 0, kind: 'lvl', next: l + 1 };
 }
 function upgradeB(b) {
-  if (b.upT != null || b.sell >= 0 || G.time - b.born < 1.5) return false; const P = G.players[b.team], inf = upgradeInfo(b); if (!inf || P.cr < inf.cost) return false;
+  if (b.upT != null || b.sell >= 0 || G.time - b.born < 1.5) return false; const P = G.players[b.team], inf = upgradeInfo(b); if (!inf || P.cr < inf.cost || P.gas < (inf.gas || 0)) return false;
   if (inf.kind === 'def' && G.ents.some(e => e.team === b.team && e.upKind === 'def' && e.upT != null)) return false;
-  P.cr -= inf.cost; b.upT = G.time; b.upDur = inf.time; b.upKind = inf.kind; return true;
+  P.cr -= inf.cost; P.gas -= inf.gas || 0; b.upT = G.time; b.upDur = inf.time; b.upKind = inf.kind; return true;
 }
 // ---------- formations & stances ----------
 const ROWOF = t => { const d = UT[t]; if (t === 'arty' || t === 'aa') return 2; if (d.armor === 'inf') return 1; if (d.air) return 1; return 0; };
