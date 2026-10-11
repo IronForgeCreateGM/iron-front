@@ -9,7 +9,7 @@ function startGame(diff, opts) {
   document.getElementById('menu').style.display = 'none';
   newGame({ diff, aiTeams: opts.demo || opts.watch ? [0, 1] : [1], fog: opts.fog !== false, seed: opts.seed });
   if (opts.demo) G.players[0].diff = 'normal';
-  if (opts.watch) { G.players[0].diff = 'chief'; aiInit(G.players[0]); G.spectate = true; G.watch = true; document.body.classList.add('watching'); const ff = +QS.get('ff') || 0; for (let i = 0; i < ff * 30 && !G.over; i++) { stepGame(); director(DT); G.events.length = 0; } if (DIR.cur) { R3 && 0; } }
+  if (opts.watch) { G.players[0].diff = 'chief'; aiInit(G.players[0]); G.spectate = true; G.watch = true; document.body.classList.add('watching'); const ff = +QS.get('ff') || 0, fft = +QS.get('fft') || ff * 30; for (let i = 0; i < fft && !G.over; i++) { stepGame(); director(DT); G.events.length = 0; } if (DIR.cur) { R3 && 0; } }
   r3Init(document.getElementById('view'));
   uiSetup();
   const hq = G.ents.find(e => e.team === 0 && e.t === 'hq'); R3.cam.td = R3.cam.d = 26; jumpTo(hq.x + 3, hq.y + 2, true);
@@ -28,7 +28,7 @@ function startGame(diff, opts) {
   started = true; lastT = performance.now(); requestAnimationFrame(frame);
 }
 const REC = QS.get('rec');
-window.__rec = n => { for (let i = 0; i < n && !G.over; i++) stepGame(); director(n * DT); uiFrame(n * DT); r3Render(n * DT); if (G.over && !UI.endShown) frame(performance.now(), true); return { t: G.time, over: G.over || null }; };
+window.__rec = n => { for (let i = 0; i < n && !G.over; i++) stepGame(); director(n * DT); uiFrame(n * DT); r3Render(n * DT); if (G.over && !UI.endShown) frame(performance.now(), true); return { t: G.time, tick: G.tick, over: G.over || null }; };
 function frame(t, once) {
   if (REC && !once) return;
   const dt = Math.max(0, Math.min(0.1, (t - lastT) / 1000)); lastT = t;
@@ -108,7 +108,7 @@ const DIR = { t: 0, hot: [], cur: null, hold: 0 };
 function director(dt) {
   for (const ev of G.events) if (ev.e === 'hit' || ev.e === 'die') DIR.hot.push({ x: ev.x != null ? ev.x : ev.ent.x, y: ev.y != null ? ev.y : ev.ent.y, t: G.time, w: ev.e === 'die' ? (ev.ent.kind === 'b' ? 8 : 3) : 1 });
   DIR.hot = DIR.hot.filter(h => G.time - h.t < 5);
-  const wt = document.getElementById('watchTag'); if (wt && G.tick % 15 === 0) { const av = t => Math.round(G.ents.filter(e => e.team === t && e.kind === 'u' && e.t !== 'harv').reduce((a, e) => a + UT[e.t].cost, 0) / 100) / 10; wt.textContent = `CHIEF (olive) ${av(0)}k army  ·  ${Math.floor(G.time / 60)}:${String(Math.floor(G.time % 60)).padStart(2, '0')}  ·  HARD AI (tan) ${av(1)}k army`; }
+  const wt = document.getElementById('watchTag'); if (wt && G.time - (DIR.tagT || -9) > 0.5) { DIR.tagT = G.time; } if (wt && DIR.tagT === G.time) { const av = t => Math.round(G.ents.filter(e => e.team === t && e.kind === 'u' && e.t !== 'harv').reduce((a, e) => a + UT[e.t].cost, 0) / 100) / 10; wt.textContent = `CHIEF (olive) ${av(0)}k army  ·  ${Math.floor(G.time / 60)}:${String(Math.floor(G.time % 60)).padStart(2, '0')}  ·  HARD AI (tan) ${av(1)}k army`; }
   DIR.t -= dt; DIR.hold -= dt;
   if (DIR.t <= 0) {
     DIR.t = 0.8; let best = null, bs = 0;

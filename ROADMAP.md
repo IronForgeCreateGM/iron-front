@@ -47,7 +47,7 @@
 - Infantry: Sniper, Pyro (flamethrower splash), Field Medic (heals infantry).
 - Air: Airfield (3x3), Falcon Strike Jet (bomb runs, 2 bombs, returns to rearm), Talon Interceptor (air-to-air missiles), Thunder Bomber (6-bomb carpet). Landed jets park on airfield.
 - Chief commander AI (`?watch=hard`, menu "Watch: Chief vs Hard"): faster eco, staged formation defense, attacks when army value > 1.4x seen enemy, regroups, retreats on bad trades, air strikes on eco. Spectator camera director.
-- Tests: test/units-test.js, test/chief-test.js, test/record.js (CDP frame capture -> ffmpeg).
+- Tests: test/units-test.js, test/chief-test.js. (test/record.js = optional CDP frame recorder; video skipped per user — watch live via ?watch=hard.)
 
 ## Rough edges / next
 - Chief vs Hard ~75% (6/8 seeds); losses vs early Hard pressure on some seeds.
