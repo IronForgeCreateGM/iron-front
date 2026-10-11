@@ -2,9 +2,25 @@
 // ===== Online lobby over Trystero (Nostr signalling, WebRTC data channels) =====
 // Host owns the lobby: assigns 4 slots, broadcasts seed/slots/version, starts when all remote humans are ready.
 const ONL = { room: null, host: false, code: null, peers: {}, acts: {}, handlers: {}, leaveCbs: [], hostId: null, name: '', ready: false, started: false };
-function onlAvailable() { return typeof window !== 'undefined' && window.Trystero && window.Trystero.nostr; }
+// Same-browser transport (two tabs, ?transport=local): BroadcastChannel with a Trystero-like API. For local testing.
+function bcTrystero() {
+  const selfId = Math.random().toString(36).slice(2, 10);
+  return { selfId, joinRoom(conf, roomId) {
+    const ch = new BroadcastChannel(conf.appId + ':' + roomId), acts = {}, peers = {}, room = { onPeerJoin: null, onPeerLeave: null };
+    const post = m => ch.postMessage(Object.assign({ from: selfId }, m));
+    const seen = pid => { const n = !peers[pid]; peers[pid] = Date.now(); if (n && room.onPeerJoin) room.onPeerJoin(pid); };
+    ch.onmessage = ({ data: m }) => { if (m.from === selfId || (m.to && m.to !== selfId)) return; if (m.t === 'bye') { if (peers[m.from]) { delete peers[m.from]; room.onPeerLeave && room.onPeerLeave(m.from); } return; }
+      seen(m.from); if (m.t === 'hi') post({ t: 'hb', to: m.from }); if (m.t === 'msg' && acts[m.n] && acts[m.n].onMessage) acts[m.n].onMessage(m.d, { peerId: m.from }); };
+    setInterval(() => { post({ t: 'hb' }); for (const p in peers) if (Date.now() - peers[p] > 4000) { delete peers[p]; room.onPeerLeave && room.onPeerLeave(p); } }, 1000);
+    addEventListener('pagehide', () => post({ t: 'bye' }));
+    room.makeAction = n => (acts[n] = { onMessage: null, send: (d, o) => post({ t: 'msg', n, d, to: o && o.target }) });
+    room.getPeers = () => Object.assign({}, peers); room.leave = () => { post({ t: 'bye' }); ch.close(); };
+    setTimeout(() => post({ t: 'hi' }), 30); return room; } };
+}
+function onlAvailable() { if (new URLSearchParams(location.search).get('transport') === 'local') { window.Trystero = { nostr: window.__bcT || (window.__bcT = bcTrystero()) }; } return typeof window !== 'undefined' && window.Trystero && window.Trystero.nostr; }
 function onlJoinRoom(code) {
   const cfg = window.IRONFRONT_NET || {}, T = window.Trystero.nostr;
+  const qr = new URLSearchParams(location.search).get('relays'); if (qr) cfg.relayUrls = qr.split(',').map(u => u.includes('://') ? u : 'wss://' + u);
   const conf = { appId: cfg.appId || 'ironfront-rts-v4' }; if (cfg.relayUrls) conf.relayConfig = { urls: cfg.relayUrls }; if (cfg.turnConfig) conf.turnConfig = cfg.turnConfig;
   const room = T.joinRoom(conf, 'room-' + code); ONL.room = room; ONL.code = code; ONL.selfId = T.selfId;
   for (const name of ['lobby', 'hello', 'ready', 'pref', 'chat', 'start', 'kick', 'in', 'turn', 'hash', 'desync']) {
@@ -93,7 +109,7 @@ function onlBegin(o) {
   announce('Online match — lockstep ' + NET.DELAY + ' ticks', 'net0', 1);
 }
 function onlInitUI() {
-  const pn = document.getElementById('pname'); if (!pn) return; pn.value = localStorage.getItem('if_name') || '';
+  const pn = document.getElementById('pname'); if (!pn) return; pn.value = new URLSearchParams(location.search).get('name') || localStorage.getItem('if_name') || '';
   document.getElementById('hostBtn').onclick = () => onlHost();
   document.getElementById('joinBtn').onclick = () => onlJoin(document.getElementById('joinCode').value);
   document.getElementById('readyBtn').onclick = () => { ONL.ready = !ONL.ready; ONL.acts.ready && ONL.acts.ready({ r: ONL.ready }); document.getElementById('readyBtn').textContent = ONL.ready ? '✔ Ready' : 'Ready'; };

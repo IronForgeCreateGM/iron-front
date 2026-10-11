@@ -54,12 +54,17 @@ function startGame(diff, opts) {
 }
 const REC = QS.get('rec');
 window.__rec = n => { for (let i = 0; i < n && !G.over; i++) stepGame(); director(n * DT); uiFrame(n * DT); r3Render(n * DT); if (G.over && !UI.endShown) frame(performance.now(), true); return { t: G.time, tick: G.tick, over: G.over || null }; };
+function simAdvance(dt, maxN) {
+  if (paused || G.over) return; acc += dt; let n = 0, stall = false; const extra = NET.online && NET.turns.size > NET.DELAY + 3 ? 4 : 0;
+  while ((acc >= DT || extra && n < extra) && n++ < maxN + extra) { if (!NET.ready()) { stall = true; break; } NET.tick(); acc = Math.max(0, acc - DT); }
+  if (stall) acc = Math.min(acc, DT * 6); else if (n >= maxN) acc = 0; netOverlay(stall, dt);
+}
+// online: keep the lockstep running when this tab is hidden (rAF stops in background tabs)
+setInterval(() => { if (!started || !NET.online) return; const now = performance.now(); if (now - lastT > 250) { const dt = Math.min(2, (now - lastT) / 1000); lastT = now; simAdvance(dt, 70); if (G.events.length > 3000) G.events.splice(0, G.events.length - 1000); } }, 100);
 function frame(t, once) {
   if (REC && !once) return;
   const dt = Math.max(0, Math.min(0.1, (t - lastT) / 1000)); lastT = t;
-  if (!paused && !G.over) { acc += dt; let n = 0, stall = false; const extra = NET.online && NET.turns.size > NET.DELAY + 3 ? 4 : 0;
-    while ((acc >= DT || extra && n < extra) && n++ < 6 + extra) { if (!NET.ready()) { stall = true; break; } NET.tick(); acc = Math.max(0, acc - DT); }
-    if (stall) acc = Math.min(acc, DT * 6); else if (n >= 6) acc = 0; netOverlay(stall, dt); }
+  simAdvance(dt, 6);
   if (QS.get('dbg') && G.tick % 30 === 0) document.title = 'IM ' + JSON.stringify([...R3.uiMesh.entries()].map(([k, u]) => k + ':' + u.n + ':' + u.parts.body.count + ':' + u.parts.body.visible + ':' + (R3.scene.children.includes(u.parts.body)) + ':' + Array.from(u.parts.body.instanceMatrix.array.slice(12, 15)).map(v => v.toFixed(1)))) + ' view ' + JSON.stringify(R3.view) + ' cam ' + JSON.stringify(R3.cam) + ' units ' + JSON.stringify(G.ents.filter(e => e.kind === 'u' && e.team === ME).map(e => [e.t, e.x.toFixed(1), e.y.toFixed(1)]));
   if (G.watch && !paused) director(dt);
   try { uiFrame(dt); r3Render(dt); } catch (e) { console.error(e); if (QS.get('stk')) document.title = 'STK ' + e.stack; throw e; }
