@@ -25,9 +25,11 @@ function newGame(opts) {
   const allyArr = {}; for (let t = 0; t < NP; t++) { const al = slots[t].ally; if (!allyArr[al]) allyArr[al] = [new Uint8Array(MW * MH), new Uint8Array(MW * MH)]; G.visT[t] = allyArr[al][0]; G.seenT[t] = allyArr[al][1]; }
   G.vis = G.visT[0]; G.seen = G.seenT[0];
   // colours by alliance order
-  const cnt = {}; slots.forEach((sl, t) => { const k = sl.ally === slots[0].ally ? 'A' : 'B', j = cnt[k] = (cnt[k] == null ? 0 : cnt[k] + 1); const pc = PALETTE[k][Math.min(1, j)]; TEAMPAINT[t] = pc[0]; TEAMCOL[t] = pc[1]; MMCOL[t] = pc[2]; });
+  // colours: each slot's chosen colour (unique), defaults blue/green for team A, red/yellow for team B
+  { const used = new Set(slots.map(sl => sl.color).filter(Boolean)), def = { 0: ['blue', 'green', 'yellow', 'red'], 1: ['red', 'yellow', 'green', 'blue'] };
+    slots.forEach((sl, t) => { let c = sl.color; if (!c || !TEAM_COLORS[c]) { c = (def[sl.ally] || def[0]).find(k => !used.has(k)) || 'blue'; used.add(c); } sl.color = c; const C = TEAM_COLORS[c]; TEAMPAINT[t] = C.paint; TEAMCOL[t] = C.acc; MMCOL[t] = C.css; }); }
   if (typeof MODEL_CACHE !== 'undefined') for (const k in MODEL_CACHE) delete MODEL_CACHE[k];
-  for (let t = 0; t < NP; t++) { const sl = slots[t]; G.players.push({ team: t, name: sl.name || (sl.ai ? sl.diff : 'Player ' + (t + 1)), ally: sl.ally, start: sl.start, cr: 5000, pow: 0, gen: 0, use: 0, ai: !!sl.ai, diff: sl.diff || opts.diff,
+  for (let t = 0; t < NP; t++) { const sl = slots[t]; G.players.push({ team: t, color: sl.color, name: sl.name || (sl.ai ? sl.diff : 'Player ' + (t + 1)), ally: sl.ally, start: sl.start, cr: 5000, pow: 0, gen: 0, use: 0, ai: !!sl.ai, diff: sl.diff || opts.diff,
     gas: 150, fac: sl.fac || ['usa', 'rus', 'fra', 'ger'][(R() * 4) | 0], queues: { bld: [], def: [], inf: [], veh: [], air: [] }, ready: { bld: null, def: null }, stats: { kills: 0, lost: 0, mined: 0, built: 0 }, out: false }); }
   G.players.forEach((P, t) => {
     const [sx, sy] = G.starts[P.start], x = Math.round(sx - 1.5), y = Math.round(sy - 1.5), dx = sx < MW / 2 ? 1 : -1, dy = sy < MH / 2 ? 1 : -1;
@@ -162,7 +164,7 @@ function enqueue(team, t) {
   if (!avail(team, t)) return false;
   const q = P.queues[cat];
   if (q.length >= (cat === 'bld' || cat === 'def' ? 1 : 6)) return false;
-  if (UT[t] && t !== 'harv' && popOf(team) >= POP_CAP) { if (team === 0) G.events.push({ e: 'popcap' }); return false; }
+  if (UT[t] && t !== 'harv' && popOf(team) >= POP_CAP) { G.events.push({ e: 'popcap', team }); return false; }
   if ((cat === 'bld' || cat === 'def') && P.ready[cat]) return false;
   const gas = (BT[t] || UT[t]).gas || 0; if (P.gas < gas) return false; P.gas -= gas;
   q.push({ t, prog: 0, paid: 0, gas });
@@ -329,8 +331,9 @@ function stepGame() {
   if (G.tick % 15 === 0) {
     const KEY = { hq: 1, cc: 1, barracks: 1, factory: 1, airfield: 1, airpad: 1, refinery: 1, tech: 1 };
     for (const P of G.players) if (!P.out && !G.ents.some(e => e.team === P.team && e.kind === 'b' && KEY[e.t])) { P.out = true; G.events.push({ e: 'eliminated', team: P.team }); for (const e of G.ents) if (e.team === P.team && e.kind === 'b') e.hp = 0; }
-    const alive = al => G.players.some(P => P.ally === al && !P.out), me = G.players[0].ally;
-    if (!alive(me)) G.over = 'defeat'; else if (!G.players.some(P => P.ally !== me && !P.out)) G.over = 'victory';
+    const live = new Set(G.players.filter(P => !P.out).map(P => P.ally)), me = G.players[ME] ? G.players[ME].ally : 0;
+    if (live.size <= 1) { G.winAlly = [...live][0]; G.over = G.winAlly === me ? 'victory' : 'defeat'; }
+    else if (!live.has(me) && !(typeof NET !== 'undefined' && NET.online)) G.over = 'defeat'; // offline: stop once my side is out
     if (G.tick % 300 === 0) G.hist.push({ t: G.time, p: G.players.map(P => ({ army: G.ents.reduce((a, e) => a + (e.team === P.team && e.kind === 'u' && e.t !== 'harv' ? UT[e.t].cost : 0), 0), mined: P.stats.mined | 0 })) });
   }
 }
@@ -653,7 +656,7 @@ function visibleTo(team, e) {
   if (e.kind === 'b') { for (let y = e.ty; y < e.ty + e.h; y++) for (let x = e.tx; x < e.tx + e.w; x++) if (S[idx(x, y)]) return true; return false; }
   return !!V[idx(Math.floor(e.x), Math.floor(e.y))];
 }
-function visibleTo0(e) { return G.spectate || visibleTo(0, e); }
+function visibleTo0(e) { return G.spectate || visibleTo(ME, e); }
 function vis0(i) { return G.spectate || !!G.vis[i]; }
 function seen0(i) { return G.spectate || !!G.seen[i]; }
 // ---------- defense upgrades ----------

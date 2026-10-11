@@ -45,7 +45,7 @@ const NET = {
   },
   // configure a lockstep session. tr = transport {send(type,data,to?), on(type,cb), onLeave(cb)}
   begin(tr, opts) {
-    Object.assign(this, { online: true, tr, host: opts.host, me: opts.me, humans: opts.humans.slice(), peerTeam: opts.peerTeam || {}, teamPeer: {}, turns: new Map(), inputs: new Map(), pending: [], hashes: new Map(), desync: null, log: [], dropped: new Set(), lastSent: 0 });
+    Object.assign(this, { online: true, tr, hostPeer: opts.hostPeer, status: '', host: opts.host, me: opts.me, humans: opts.humans.slice(), peerTeam: opts.peerTeam || {}, teamPeer: {}, turns: new Map(), inputs: new Map(), pending: [], hashes: new Map(), desync: null, log: [], dropped: new Set(), lastSent: 0 });
     for (const pid in this.peerTeam) this.teamPeer[this.peerTeam[pid]] = pid;
     for (let t = 1; t <= this.DELAY; t++) this.turns.set(t, []);
     tr.on('in', (d, from) => { if (!this.host) return; const team = this.peerTeam[from]; if (team == null) return; this._addInput(d.t, team, d.c); });
@@ -54,7 +54,7 @@ const NET = {
     tr.on('desync', d => { this.desync = d; });
     tr.onLeave(pid => {
       if (this.host) { const team = this.peerTeam[pid]; if (team != null && !this.dropped.has(team)) { this.dropped.add(team); this._dropQ = (this._dropQ || []).concat({ c: 'drop', p: team, diff: 'normal' }); this.status = G.players[team].name + ' disconnected — AI takes over'; } }
-      else if (this.teamPeer[0] === pid || this.hostPeer === pid) this.goOffline('Host disconnected — continuing offline vs AI');
+      else if (this.hostPeer === pid) this.goOffline('Host disconnected — continuing offline vs AI');
     });
   },
   _addInput(t, team, c) { let m = this.inputs.get(t); if (!m) this.inputs.set(t, m = new Map()); m.set(team, c); this._tryFinalize(); },
@@ -78,11 +78,11 @@ const NET = {
     const t = G.tick + 1; if (!this.turns.has(t)) return false;
     // submit my input for t + DELAY (also when empty)
     const tgt = t + this.DELAY, mine = this.pending; this.pending = [];
-    if (this.host) this._addInput(tgt, this.me, mine); else this.tr.send('in', { t: tgt, c: mine });
+    if (this.host) this._addInput(tgt, this.me, mine); else this.tr.send('in', { t: tgt, c: mine }, this.hostPeer);
     const cmds = this.turns.get(t); this.turns.delete(t);
     for (const [team, c] of cmds) execCmd(team, c);
     this.log.push([t, cmds]); stepGame();
-    if (G.tick % 30 === 0) { const h = stateHash(); if (this.host) this._checkHash(G.tick, h, this.me); else this.tr.send('hash', { t: G.tick, h }); if (this.hashes.size > 50) this.hashes.delete(this.hashes.keys().next().value); }
+    if (G.tick % 30 === 0) { const h = stateHash(); if (this.host) this._checkHash(G.tick, h, this.me); else this.tr.send('hash', { t: G.tick, h }, this.hostPeer); if (this.hashes.size > 50) this.hashes.delete(this.hashes.keys().next().value); }
     return true;
   },
   goOffline(msg) {

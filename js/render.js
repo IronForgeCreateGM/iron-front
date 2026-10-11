@@ -134,17 +134,17 @@ function handleEvents() {
         disposeObj(e.id); R3.rs.delete(e.id); break;
       }
       case 'place': for (let i = 0; i < 16 * FX.mul; i++) { const a = i / 16 * Math.PI * 2; FX.smoke.spawn(ev.b.x + Math.cos(a) * ev.b.w * 0.5, ev.b.y + Math.sin(a) * ev.b.h * 0.5, 0.2, Math.cos(a) * 1.2, Math.sin(a) * 1.2, 0.3, 1.6, 0.4, 1.4, 0.55, 0.5, 0.42, 0.55, 0); }
-        if (ev.b.team === 0) sfx('place'); break;
+        if (ev.b.team === ME) sfx('place'); break;
       case 'heal': if (visibleTo0(ev.src) && inView(ev.x, ev.y)) for (let i = 0; i < 3; i++) FX.spark.spawn(ev.x + rnd(0.3), ev.y + rnd(0.3), heightAt(ev.x, ev.y) + 0.3, 0, 0, 0.8, 0.6, 0.09, 0.03, 0.3, 1, 0.45, 1, 0); break;
-      case 'ready': if (ev.team === 0) { sfx('ready'); uiMsg(BT[ev.t].n + ' ready to place'); } break;
-      case 'unit': if (ev.team === 0) { sfx('unit'); if (ev.u && FACTIONS[G.players[0].fac].sp === ev.u.t) announce(UT[ev.u.t].n + ' ready for battle', 'spu', 5); } break;
-      case 'upgraded': if (ev.team === 0) { sfx('ready'); uiMsg(ev.b.upKind === 'def' ? 'Research complete: ' + DEF_RESEARCH.n : BT[ev.b.t].n + ' upgraded to level ' + ev.b.lvl); } flash(ev.b.x, ev.b.y, 1, 1.5, 0.6, 0.9, 1); break;
-      case 'capture': if (ev.team === 0 || ev.b.team === 0) { sfx('ready'); uiMsg('Structure captured!'); } disposeObj(ev.b.id); break;
-      case 'attacked': if (ev.team === 0 && typeof uiAlert === 'function') { uiAlert(ev); announce(ev.harv ? 'Harvester under attack' : 'Base under attack', 'atk' + !!ev.harv, 25); } else if (!foe(ev.team, 0) && ev.team !== 0) { announce('Ally under attack', 'ally', 30); UI.pings.push({ x: ev.x, y: ev.y, t: 3 }); } break;
-      case 'placed': if (ev.b.t === 'cc') { if (ev.team === 0) announce('Expansion established', 'cc', 3); else if (!foe(ev.team, 0)) announce('Ally expanding', 'acc', 20); } else if (ev.team === 0 && FACTIONS[G.players[0].fac].sp === ev.b.t) announce(BT[ev.b.t].n + ' deployed', 'sp', 5); break;
-      case 'eliminated': announce(ev.team === 0 ? 'You have been eliminated' : G.players[ev.team].name + (foe(ev.team, 0) ? ' (enemy)' : ' (ally)') + ' eliminated', 'el' + ev.team, 1); break;
-      case 'popcap': uiMsg('Unit cap reached (' + POP_CAP + ')'); break;
-      case 'allyAck': if (foe(ev.team, 0) || ev.team === 0) break; announce(G.players[ev.team].name + ': on my way', 'ack', 4); UI.pings.push({ x: ev.x, y: ev.y, t: 3 }); break;
+      case 'ready': if (ev.team === ME) { sfx('ready'); uiMsg(BT[ev.t].n + ' ready to place'); } break;
+      case 'unit': if (ev.team === ME) { sfx('unit'); if (ev.u && FACTIONS[G.players[ME].fac].sp === ev.u.t) announce(UT[ev.u.t].n + ' ready for battle', 'spu', 5); } break;
+      case 'upgraded': if (ev.team === ME) { sfx('ready'); uiMsg(ev.b.upKind === 'def' ? 'Research complete: ' + DEF_RESEARCH.n : BT[ev.b.t].n + ' upgraded to level ' + ev.b.lvl); } flash(ev.b.x, ev.b.y, 1, 1.5, 0.6, 0.9, 1); break;
+      case 'capture': if (ev.team === ME || ev.b.team === ME) { sfx('ready'); uiMsg('Structure captured!'); } disposeObj(ev.b.id); break;
+      case 'attacked': if (ev.team === ME && typeof uiAlert === 'function') { uiAlert(ev); announce(ev.harv ? 'Harvester under attack' : 'Base under attack', 'atk' + !!ev.harv, 25); } else if (!foe(ev.team, ME) && ev.team !== ME) { announce('Ally under attack', 'ally', 30); UI.pings.push({ x: ev.x, y: ev.y, t: 3 }); } break;
+      case 'placed': if (ev.b.t === 'cc') { if (ev.team === ME) announce('Expansion established', 'cc', 3); else if (!foe(ev.team, ME)) announce('Ally expanding', 'acc', 20); } else if (ev.team === ME && FACTIONS[G.players[ME].fac].sp === ev.b.t) announce(BT[ev.b.t].n + ' deployed', 'sp', 5); break;
+      case 'eliminated': announce(ev.team === ME ? 'You have been eliminated' : G.players[ev.team].name + (foe(ev.team, ME) ? ' (enemy)' : ' (ally)') + ' eliminated', 'el' + ev.team, 1); break;
+      case 'popcap': if (ev.team === ME) uiMsg('Unit cap reached (' + POP_CAP + ')'); break;
+      case 'allyAck': if (foe(ev.team, ME) || ev.team === ME) break; announce(G.players[ev.team].name + ': on my way', 'ack', 4); UI.pings.push({ x: ev.x, y: ev.y, t: 3 }); break;
     }
   }
   G.events.length = 0;
@@ -174,14 +174,14 @@ function r3Render(dt) {
       if ((e.lvl || 1) !== (o.lvl || 1)) setLevelDecor(o, e);
       if (e.upT != null && Math.random() < dt * 12) FX.spark.spawn(e.x + rnd(e.w), e.y + rnd(e.h), 0.5 + Math.random() * 0.6, rnd(1), rnd(1), 1.5, 0.5, 0.12, 0.04, 0.5, 0.9, 1, 1, 3);
       o.sc.visible = o.sc.visible || e.upT != null;
-      if ((e.sel || e.id === R3.hoverId) && BT[e.t].wpn && nRange < 6) { const rg = R3.rangeRings[nRange++], r = defW(e).rng; rg.visible = true; rg.scale.set(r, 1, r); rg.position.set(e.x, heightAt(e.x, e.y) + 0.15, e.y); rg.material.color.set(e.team === 0 ? 0xffd060 : 0xff6050); }
+      if ((e.sel || e.id === R3.hoverId) && BT[e.t].wpn && nRange < 6) { const rg = R3.rangeRings[nRange++], r = defW(e).rng; rg.visible = true; rg.scale.set(r, 1, r); rg.position.set(e.x, heightAt(e.x, e.y) + 0.15, e.y); rg.material.color.set(e.team === ME ? 0xffd060 : 0xff6050); }
       if (o.parts.glow) o.parts.glow.visible = Math.sin(R3.time * 4 + e.id) > -0.3;
       if (o.piv.smoke && Math.random() < dt * 4 * FX.mul) puff(e.x + o.piv.smoke[0], e.y + o.piv.smoke[2], o.piv.smoke[1] + heightAt(e.x, e.y), 0.2, 2.5, 0.45, 0.35, 0.8);
       const f = e.hp / e.mhp;
       if (f < 0.5 && Math.random() < dt * (f < 0.25 ? 14 : 6) * FX.mul) puff(e.tx + Math.random() * e.w, e.ty + Math.random() * e.h, 0.9, 0.35, 2.4, 0.09, 0.75, 1.0);
       if (f < 0.3 && Math.random() < dt * 14 * FX.mul) FX.fire.spawn(e.tx + Math.random() * e.w, e.ty + Math.random() * e.h, 0.7, 0, 0, 1.0, 0.6, 0.3, 0.6, 1, 0.5, 0.15, 0.9, -1);
       if (e.repair && Math.random() < dt * 6) FX.spark.spawn(e.x + rnd(e.w * 0.6), e.y + rnd(e.h * 0.6), 1.2, 0, 0, 1, 0.6, 0.15, 0.08, 0.3, 1, 0.4, 1, 0);
-      if (e.sel || e.id === R3.hoverId) { const im = e.sel ? (e.team === 0 ? R3.ringSel : R3.ringEnemy) : R3.ringHover; const i = e.sel ? (e.team === 0 ? nSel++ : nEn++) : nHov++; if (i < im.instanceMatrix.count) im.setMatrixAt(i, T.l.compose(T.p.set(e.x, heightAt(e.x, e.y) + 0.2, e.y), T.q.identity(), T.s.set(e.w * 0.78, 1, e.h * 0.78))); }
+      if (e.sel || e.id === R3.hoverId) { const im = e.sel ? (e.team === ME ? R3.ringSel : R3.ringEnemy) : R3.ringHover; const i = e.sel ? (e.team === ME ? nSel++ : nEn++) : nHov++; if (i < im.instanceMatrix.count) im.setMatrixAt(i, T.l.compose(T.p.set(e.x, heightAt(e.x, e.y) + 0.2, e.y), T.q.identity(), T.s.set(e.w * 0.78, 1, e.h * 0.78))); }
       continue;
     }
     // units
@@ -217,7 +217,7 @@ function r3Render(dt) {
     // contact shadow + rings
     const gz = heightAt(rs.x, rs.y), rr = d.r * (air ? 2.2 : 3.2);
     if (nBlob < 800) R3.blob.setMatrixAt(nBlob++, T.l.compose(T.p.set(rs.x, gz + 0.04, rs.y), T.q.identity(), T.s.set(rr, 1, rr)));
-    if (e.sel || e.id === R3.hoverId) { const im = e.sel ? (e.team === 0 ? R3.ringSel : R3.ringEnemy) : R3.ringHover; const j = e.sel ? (e.team === 0 ? nSel++ : nEn++) : nHov++; const s = d.r * 1.15 + 0.1; if (j < im.instanceMatrix.count) im.setMatrixAt(j, T.l.compose(T.p.set(rs.x, gz + 0.06, rs.y), T.q.identity(), T.s.set(s, 1, s))); }
+    if (e.sel || e.id === R3.hoverId) { const im = e.sel ? (e.team === ME ? R3.ringSel : R3.ringEnemy) : R3.ringHover; const j = e.sel ? (e.team === ME ? nSel++ : nEn++) : nHov++; const s = d.r * 1.15 + 0.1; if (j < im.instanceMatrix.count) im.setMatrixAt(j, T.l.compose(T.p.set(rs.x, gz + 0.06, rs.y), T.q.identity(), T.s.set(s, 1, s))); }
     // ambient unit fx
     if (e.t === 'harv' && e.hst === 'mine' && Math.random() < dt * 10 * FX.mul) FX.smoke.spawn(rs.x + Math.cos(rs.ang) * 0.7, rs.y + Math.sin(rs.ang) * 0.7, gz + 0.2, rnd(0.5), rnd(0.5), 0.5, 1.2, 0.2, 0.6, 0.55, 0.45, 0.28, 0.5, 0);
     if (d.jet && e.js !== 'landed' && Math.random() < dt * 25 * FX.mul) FX.smoke.spawn(rs.x - Math.cos(rs.ang) * 0.8, rs.y - Math.sin(rs.ang) * 0.8, rs.z, 0, 0, 0, 0.6, 0.05, 0.12, 0.85, 0.85, 0.85, 0.35, 0);

@@ -80,7 +80,7 @@ const CATS = { bld: 'Structures', def: 'Defenses', inf: 'Infantry', veh: 'Vehicl
 const FROMCAT = { barracks: 'inf', factory: 'veh', airpad: 'air', airfield: 'air' };
 const TEAMCOL = [0x3f7fd0, 0xd04a36, 0x2fc4d0, 0xf08a2a]; // accents only (re-assigned per game by alliance)
 const TEAMPAINT = [0x2e4a73, 0x7a2d25, 0x2a6a72, 0x8a5222];
-const PALETTE = { A: [[0x2e4a73, 0x3f7fd0, '#5fb0ff'], [0x2a6a72, 0x2fc4d0, '#5fe6f0']], B: [[0x7a2d25, 0xd04a36, '#ff5040'], [0x8a5222, 0xf08a2a, '#ffa040']] };
+const TEAM_COLORS = { blue: { n: 'Blue', paint: 0x2e4a73, acc: 0x3f7fd0, css: '#5fb0ff' }, red: { n: 'Red', paint: 0x7a2d25, acc: 0xd04a36, css: '#ff5040' }, yellow: { n: 'Yellow', paint: 0x8a7420, acc: 0xe0c030, css: '#ffd84a' }, green: { n: 'Green', paint: 0x2f5e2a, acc: 0x4caf50, css: '#6fdc6a' } };
 const MMCOL = ['#5fb0ff', '#ff5040', '#5fe6f0', '#ffa040']; // strong but realistic military blue / oxide red // olive drab vs desert tan
 const DIFF = {
   easy:   { expandAt: 1000, income: 0.55, think: 2.5, wave0: 3, waveMax: 7, waveInc: 1, harass: 0.15, harassAfter: 1080, firstAttack: 570, waveGap: 150, build: 0.6, scoutAfter: 600 },

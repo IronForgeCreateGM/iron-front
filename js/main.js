@@ -3,10 +3,10 @@
 let started = false, paused = false, acc = 0, lastT = 0;
 const QS = new URLSearchParams(location.search);
 window.addEventListener('error', e => { if (QS.get('stk')) document.title = 'STK ' + (e.error && e.error.stack); const d = document.getElementById('err'); if (d) { d.style.display = 'block'; d.textContent += (e.message || e) + ' @' + (e.filename || '').split('/').pop() + ':' + e.lineno + '\n'; } });
-function togglePause() { if (!started || G.over) return; paused = !paused; document.getElementById('pause').style.display = paused ? 'flex' : 'none'; }
+function togglePause() { if (!started || G.over) return; if (NET.online) { const pz = document.getElementById('pause'); pz.style.display = pz.style.display === 'flex' ? 'none' : 'flex'; return; } paused = !paused; document.getElementById('pause').style.display = paused ? 'flex' : 'none'; }
 const MENU = { fac: 'usa', aiFac: 'rand' };
 const DIFF_NAME = d => ({ si: 'Chief SI', chief: 'Chief', easy: 'Easy AI', normal: 'Medium AI', hard: 'Hard AI' })[d] || d;
-const SLOT_TYPES = { off: 'Closed', human: 'Human (you)', si: 'Chief SI', chief: 'Chief', easy: 'Easy AI', normal: 'Medium AI', hard: 'Hard AI' };
+const SLOT_TYPES = { off: 'Closed', human: 'Human (you)', remote: 'Human (remote)', si: 'Chief SI', chief: 'Chief', easy: 'Easy AI', normal: 'Medium AI', hard: 'Hard AI' };
 const PRESETS = {
   duel:   { n: '1v1 vs Medium', slots: [['human', 'A'], ['normal', 'B']] },
   coop:   { n: 'Me + Chief (SI) vs 2 Medium', slots: [['human', 'A'], ['si', 'A'], ['normal', 'B'], ['normal', 'B']] },
@@ -14,9 +14,9 @@ const PRESETS = {
   w1:     { n: 'Watch: Chief vs Hard', slots: [['chief', 'A'], ['hard', 'B']] },
   w2:     { n: 'Watch: Chief (SI) vs Hard', slots: [['si', 'A'], ['hard', 'B']] },
 };
-function buildSlots(list) { // list: [[type, team, fac?]]
+function buildSlots(list, names) { // list rows: [type, team, fac, color]; names: row -> player name
   const RF = () => ['usa', 'rus', 'fra', 'ger'][(Math.random() * 4) | 0], startsOf = { A: [0, 2], B: [3, 1] }, used = { A: 0, B: 0 };
-  return list.filter(r => r[0] !== 'off').map(([type, team, fac]) => ({ ai: type !== 'human', diff: type === 'human' ? 'normal' : type, ally: team === 'A' ? 0 : 1, fac: fac && fac !== 'rand' ? fac : RF(), start: startsOf[team][used[team]++ % 2], name: type === 'human' ? 'You' : SLOT_TYPES[type] }));
+  return list.map((r, row) => [r, row]).filter(([r]) => r[0] !== 'off').map(([[type, team, fac, color], row]) => ({ row, ai: type !== 'human' && type !== 'remote', local: type === 'human', diff: type === 'human' || type === 'remote' ? 'normal' : type, ally: team === 'A' ? 0 : 1, fac: fac && fac !== 'rand' ? fac : RF(), color: color && color !== 'auto' ? color : undefined, start: startsOf[team][used[team]++ % 2], name: (names && names[row]) || (type === 'human' ? 'You' : type === 'remote' ? 'Remote ' + (row + 1) : SLOT_TYPES[type]) }));
 }
 function startGame(diff, opts) {
   opts = opts || {};
@@ -27,13 +27,16 @@ function startGame(diff, opts) {
     else slots = buildSlots([[opts.demo ? 'normal' : 'human', 'A', MENU.fac], [diff, 'B', MENU.aiFac]]);
   }
   if (QS.get('fac')) slots[0].fac = QS.get('fac'); if (QS.get('aifac') && slots[1]) slots[1].fac = QS.get('aifac');
+  ME = opts.me != null ? opts.me : Math.max(0, slots.findIndex(s => s.local));
   newGame({ diff, fog: opts.fog !== false, seed: opts.seed, slots });
+  G.vis = G.visT[ME]; G.seen = G.seenT[ME];
   G.players.forEach((P, i) => P.name = slots[i].name || (P.ai ? DIFF_NAME(P.diff) : 'You'));
-  if (G.players[0].ai && !opts.demo) { DIR.auto = !!QS.get('auto'); G.spectate = true; G.watch = true; document.body.classList.add('watching'); }
+  if (opts.online) NET.begin(opts.online.tr, opts.online);
+  if (G.players[ME].ai && !opts.demo) { DIR.auto = !!QS.get('auto'); G.spectate = true; G.watch = true; document.body.classList.add('watching'); }
   { const ff = +QS.get('ff') || 0, fft = +QS.get('fft') || ff * 30; for (let i = 0; i < fft && !G.over; i++) { stepGame(); if (G.watch) director(DT); G.events.length = 0; } }
   r3Init(document.getElementById('view'));
   uiSetup();
-  const hq = G.ents.find(e => e.team === 0 && (e.t === 'hq' || e.t === 'cc')) || { x: G.starts[G.players[0].start][0], y: G.starts[G.players[0].start][1] }; R3.cam.td = R3.cam.d = 26; jumpTo(hq.x + 3, hq.y + 2, true);
+  const hq = G.ents.find(e => e.team === ME && (e.t === 'hq' || e.t === 'cc')) || { x: G.starts[G.players[ME].start][0], y: G.starts[G.players[ME].start][1] }; R3.cam.td = R3.cam.d = 26; jumpTo(hq.x + 3, hq.y + 2, true);
   if (G.watch && DIR.cur && DIR.auto) { R3.cam.td = R3.cam.d = 20; jumpTo(DIR.cur.x, DIR.cur.y, true); }
   if (QS.get('cx') && !QS.get('v34')) { R3.cam.td = R3.cam.d = +(QS.get('zoom') || 26); jumpTo(+QS.get('cx'), +QS.get('cy'), true); if (QS.get('nofog')) G.opts.fog = false; }
   if (opts.demo) {
@@ -41,9 +44,9 @@ function startGame(diff, opts) {
     for (let i = 0; i < opts.demo * 30; i++) { stepGame(); for (const ev of G.events) if (ev.e === 'hit') hits.push({ x: ev.x, y: ev.y, t: G.time }); G.events.length = 0; if (G.over) break; }
     const recent = hits.filter(h => h.t > G.time - 4 && vis0(idx(Math.floor(h.x), Math.floor(h.y)))); let best = null, bn = -1;
     for (const h of recent) { const n = recent.filter(o => Math.hypot(o.x - h.x, o.y - h.y) < 5).length; if (n > bn) { bn = n; best = h; } }
-    const u0 = G.ents.filter(e => e.kind === 'u' && e.team === 0 && e.t !== 'harv');
+    const u0 = G.ents.filter(e => e.kind === 'u' && e.team === ME && e.t !== 'harv');
     R3.cam.td = R3.cam.d = +(QS.get('zoom') || 22);
-    if (!best) { const army = G.ents.filter(e => e.team === 0 && e.kind === 'u' && e.t !== 'harv'); if (army.length) best = { x: army.reduce((a, e) => a + e.x, 0) / army.length, y: army.reduce((a, e) => a + e.y, 0) / army.length }; }
+    if (!best) { const army = G.ents.filter(e => e.team === ME && e.kind === 'u' && e.t !== 'harv'); if (army.length) best = { x: army.reduce((a, e) => a + e.x, 0) / army.length, y: army.reduce((a, e) => a + e.y, 0) / army.length }; }
     if (best) jumpTo(best.x + (+QS.get('ox') || 0), best.y + (+QS.get('oy') || 0), true);
     setSel(u0.filter(u => best && Math.hypot(u.x - best.x, u.y - best.y) < 8));
   }
@@ -54,11 +57,13 @@ window.__rec = n => { for (let i = 0; i < n && !G.over; i++) stepGame(); directo
 function frame(t, once) {
   if (REC && !once) return;
   const dt = Math.max(0, Math.min(0.1, (t - lastT) / 1000)); lastT = t;
-  if (!paused && !G.over) { acc += dt; let n = 0; while (acc >= DT && n++ < 6) { stepGame(); acc -= DT; } if (n >= 6) acc = 0; }
-  if (QS.get('dbg') && G.tick % 30 === 0) document.title = 'IM ' + JSON.stringify([...R3.uiMesh.entries()].map(([k, u]) => k + ':' + u.n + ':' + u.parts.body.count + ':' + u.parts.body.visible + ':' + (R3.scene.children.includes(u.parts.body)) + ':' + Array.from(u.parts.body.instanceMatrix.array.slice(12, 15)).map(v => v.toFixed(1)))) + ' view ' + JSON.stringify(R3.view) + ' cam ' + JSON.stringify(R3.cam) + ' units ' + JSON.stringify(G.ents.filter(e => e.kind === 'u' && e.team === 0).map(e => [e.t, e.x.toFixed(1), e.y.toFixed(1)]));
+  if (!paused && !G.over) { acc += dt; let n = 0, stall = false; const extra = NET.online && NET.turns.size > NET.DELAY + 3 ? 4 : 0;
+    while ((acc >= DT || extra && n < extra) && n++ < 6 + extra) { if (!NET.ready()) { stall = true; break; } NET.tick(); acc = Math.max(0, acc - DT); }
+    if (stall) acc = Math.min(acc, DT * 6); else if (n >= 6) acc = 0; netOverlay(stall, dt); }
+  if (QS.get('dbg') && G.tick % 30 === 0) document.title = 'IM ' + JSON.stringify([...R3.uiMesh.entries()].map(([k, u]) => k + ':' + u.n + ':' + u.parts.body.count + ':' + u.parts.body.visible + ':' + (R3.scene.children.includes(u.parts.body)) + ':' + Array.from(u.parts.body.instanceMatrix.array.slice(12, 15)).map(v => v.toFixed(1)))) + ' view ' + JSON.stringify(R3.view) + ' cam ' + JSON.stringify(R3.cam) + ' units ' + JSON.stringify(G.ents.filter(e => e.kind === 'u' && e.team === ME).map(e => [e.t, e.x.toFixed(1), e.y.toFixed(1)]));
   if (G.watch && !paused) director(dt);
   try { uiFrame(dt); r3Render(dt); } catch (e) { console.error(e); if (QS.get('stk')) document.title = 'STK ' + e.stack; throw e; }
-  if (G.over && !UI.endShown) { UI.endShown = true; const P = G.players[0];
+  if (G.over && !UI.endShown) { UI.endShown = true; const P = G.players[ME];
     document.getElementById('end').style.display = 'flex';
     document.getElementById('endTitle').textContent = G.watch ? (G.over === 'victory' ? 'BLUE TEAM WINS' : 'RED TEAM WINS') + ` · ${(G.time / 60).toFixed(1)} min` : G.over === 'victory' ? 'VICTORY' : 'DEFEAT';
     document.getElementById('endTitle').className = G.over;
@@ -72,11 +77,13 @@ window.addEventListener('DOMContentLoaded', () => {
   if (QS.get('preset')) { try { startGame('normal', { slots: buildSlots(PRESETS[QS.get('preset')].slots), seed: +QS.get('seed') || 5 }); } catch (er) { document.title = 'STK ' + er.stack; throw er; } }
   else if (QS.get('watch')) startGame(QS.get('watch') === 'si' ? 'hard' : QS.get('watch'), { watch: QS.get('watch') === 'si' ? 'si' : 1, seed: +QS.get('seed') || 5 });
   { const box = document.getElementById('facs'), desc = document.getElementById('facDesc');
-    const sel = f => { MENU.fac = f; const lf = document.querySelector('#lobby .lf'); if (lf) lf.value = f; box.querySelectorAll('.fcard').forEach(c => c.classList.toggle('on', c.dataset.f === f)); const F = FACTIONS[f]; desc.innerHTML = `<b>${F.flag} ${F.n}</b> — special: ${F.desc}`; };
+    const sel = f => { MENU.fac = f; if (ONL.room && !ONL.host && ONL.acts.pref) ONL.acts.pref({ fac: f }); const lf = document.querySelector('#lobby .lf'); if (lf) lf.value = f; box.querySelectorAll('.fcard').forEach(c => c.classList.toggle('on', c.dataset.f === f)); const F = FACTIONS[f]; desc.innerHTML = `<b>${F.flag} ${F.n}</b> — special: ${F.desc}`; };
     for (const f in FACTIONS) { const c = document.createElement('div'); c.className = 'fcard'; c.dataset.f = f; c.innerHTML = `<div class="fl">${FACTIONS[f].flag}</div>${FACTIONS[f].n}`; c.onclick = () => sel(f); box.appendChild(c); }
     sel('usa'); }
   lobbyInit();
-  document.getElementById('startBtn').onclick = () => { audioInit(); startGame('normal', { slots: buildSlots(lobbyRead()), fog: document.getElementById('fogChk').checked }); };
+  document.getElementById('startBtn').onclick = () => { audioInit(); if (ONL.room && ONL.host) { onlStartHost(); return; } const rows = lobbyRead(); if (rows.some(r => r[0] === 'remote')) { uiMsgMenu('Remote slots need an online game: press “Host online game”.'); return; } startGame('normal', { slots: buildSlots(rows), fog: document.getElementById('fogChk').checked }); };
+  onlInitUI();
+  document.getElementById('surrBtn').onclick = () => { if (!started || G.over) return; if (confirm('Surrender this match?')) { NET.issue({ c: 'surrender' }); document.getElementById('pause').style.display = 'none'; paused = false; } };
   document.getElementById('resumeBtn').onclick = () => togglePause();
   document.querySelectorAll('.quitBtn').forEach(b => b.onclick = () => location.href = location.pathname);
   if (QS.get('v34')) { startGame('easy', { seed: 4242 }); G.opts.fog = false; G.spectate = true; G.players[0].fac = 'fra'; G.players[1].fac = 'rus'; G.players[1].ai = false;
@@ -110,7 +117,7 @@ let extra = '';
 function selfTest() {
   try {
     const v = document.getElementById('view'), ev = (type, x, y, button, extra) => v.dispatchEvent(new MouseEvent(type, Object.assign({ clientX: x, clientY: y, button, bubbles: true }, extra || {})));
-    r3Render(0.016); const hq = G.ents.find(e => e.team === 0 && e.t === 'hq'), p = worldToScreen(hq.x + 3, hq.y + 4, 0);
+    r3Render(0.016); const hq = G.ents.find(e => e.team === ME && e.t === 'hq'), p = worldToScreen(hq.x + 3, hq.y + 4, 0);
     ev('mousedown', p.x - 150, p.y - 150, 0); ev('mousemove', p.x + 150, p.y + 150, 0); window.dispatchEvent(new MouseEvent('mouseup', { button: 0 }));
     const s = worldToScreen(hq.x + 8, hq.y + 8, 0); ev('mousedown', s.x, s.y, 2); ev('mousedown', s.x + 40, s.y, 2, { shiftKey: true }); setSel([hq]); clickItem('harv', false, false); r3Render(0.016); uiFrame(0.2);
     for (const k in CATS) { UI.tab = k; buildGrid(); }
@@ -124,9 +131,9 @@ function selfTest() {
     togglePause(); togglePause();
     for (const q of ['low', 'med', 'ultra', 'high']) { applyQuality(q); r3Render(0.016); }
     G.players[0].cr = 99999; addB('barracks', 0, 14, 4, true); addB('factory', 0, 14, 10, true); stepGame();
-    const bar = G.ents.find(e => e.t === 'barracks' && e.team === 0); setSel([bar]); const tabOk = UI.tab === 'inf';
+    const bar = G.ents.find(e => e.t === 'barracks' && e.team === ME); setSel([bar]); const tabOk = UI.tab === 'inf';
     clickItem('rifle', false, true); const q5 = G.players[0].queues.inf.length; clickItem('rifle', true, false); const q4 = G.players[0].queues.inf.length;
-    showTip('heavy', document.querySelector('.item')); sidebar(); setSel([G.ents.find(e => e.t === 'hq' && e.team === 0)]); sidebar();
+    showTip('heavy', document.querySelector('.item')); sidebar(); setSel([G.ents.find(e => e.t === 'hq' && e.team === ME)]); sidebar();
     const ctxBtns = document.querySelectorAll('#ctx .item').length;
     const tur2 = addB('turret', 0, 12, 13, true); tur2.born = -10; const lv0 = defW(tur2).rng; const okU = upgradeB(tur2); for (let i = 0; i < 30 * 16; i++) stepGame(); const lv = tur2.lvl;
     const army = []; for (let i = 0; i < 8; i++) army.push(addU(['heavy', 'rifle', 'arty', 'rocketeer'][i % 4], 0, 16 + i % 3, 16 + (i / 3 | 0)));
@@ -134,8 +141,8 @@ function selfTest() {
     extra += ` upg=${okU}:${lv}:${lv0}->${defW(tur2).rng} formation=${fmOk} stance=${agg}`;
     for (let i = 0; i < 300; i++) stepGame();
     for (let i = 0; i < 20; i++) { uiFrame(0.05); r3Render(0.05); }
-    extra += ` tab=${tabOk} q5=${q5} q4=${q4} hqBtns=${ctxBtns} units=${G.ents.filter(e => e.team === 0 && e.kind === 'u').length}`;
-    document.title = extra + ' SELFTEST OK sel=' + UI.sel.length + ' powerPlants=' + G.ents.filter(e => e.team === 0 && e.t === 'power').length;
+    extra += ` tab=${tabOk} q5=${q5} q4=${q4} hqBtns=${ctxBtns} units=${G.ents.filter(e => e.team === ME && e.kind === 'u').length}`;
+    document.title = extra + ' SELFTEST OK sel=' + UI.sel.length + ' powerPlants=' + G.ents.filter(e => e.team === ME && e.t === 'power').length;
   } catch (e) { document.title = 'SELFTEST FAIL ' + e.message; throw e; }
 }
 if (QS.get('selftest')) window.addEventListener('load', () => setTimeout(selfTest, 300));
@@ -164,16 +171,18 @@ function director(dt) {
 function lobbyInit() {
   const box = document.getElementById('lobby'); if (!box) return;
   const facOpt = '<option value="rand">Random</option>' + Object.keys(FACTIONS).map(f => `<option value="${f}">${FACTIONS[f].flag} ${FACTIONS[f].n}</option>`).join('');
-  box.innerHTML = '<div class="lrow lh"><span>Slot</span><span>Player</span><span>Team</span><span>Faction</span></div>' + [0, 1, 2, 3].map(i => `<div class="lrow"><span>${i + 1}</span>
-    <select class="lt">${Object.keys(SLOT_TYPES).filter(k => i === 0 || k !== 'human').map(k => `<option value="${k}">${SLOT_TYPES[k]}</option>`).join('')}</select>
-    <select class="la"><option value="A">A (blue)</option><option value="B">B (red)</option></select><select class="lf">${facOpt}</select></div>`).join('');
+  box.innerHTML = '<div class="lrow lh"><span>Slot</span><span>Player</span><span>Team</span><span>Faction</span><span>Colour</span></div>' + [0, 1, 2, 3].map(i => `<div class="lrow"><span>${i + 1}</span>
+    <select class="lt">${Object.keys(SLOT_TYPES).filter(k => i === 0 ? k !== 'remote' : k !== 'human').map(k => `<option value="${k}">${SLOT_TYPES[k]}</option>`).join('')}</select>
+    <select class="la"><option value="A">Team A</option><option value="B">Team B</option></select><select class="lf">${facOpt}</select><select class="lc"><option value="auto">Auto</option>${Object.keys(TEAM_COLORS).map(c => `<option value="${c}">${TEAM_COLORS[c].n}</option>`).join('')}</select></div>`).join('');
+  box.querySelectorAll('.lc').forEach(sel => sel.onchange = () => { if (sel.value === 'auto') return; box.querySelectorAll('.lc').forEach(o => { if (o !== sel && o.value === sel.value) o.value = 'auto'; }); if (typeof lobbyChanged === 'function') lobbyChanged(); });
+  box.querySelectorAll('select').forEach(sel => sel.addEventListener('change', () => { if (typeof lobbyChanged === 'function') lobbyChanged(); }));
   const pb = document.getElementById('presets'); pb.innerHTML = Object.keys(PRESETS).map(k => `<button data-p="${k}">${k[0] === 'w' ? '▶ ' : ''}${PRESETS[k].n}</button>`).join('');
   pb.querySelectorAll('button').forEach(b => b.onclick = () => { lobbySet(PRESETS[b.dataset.p].slots); if (b.dataset.p[0] === 'w') { audioInit(); startGame('normal', { slots: buildSlots(lobbyRead()), seed: (Math.random() * 1e6) | 0 }); } });
   lobbySet(PRESETS.duel.slots);
   box.querySelector('.lf').onchange = e => { if (e.target.value !== 'rand') MENU.fac = e.target.value; };
 }
-function lobbySet(list) { const rows = document.querySelectorAll('#lobby .lrow:not(.lh)'); rows.forEach((r, i) => { const s = list[i] || ['off', i % 2 ? 'B' : 'A']; r.querySelector('.lt').value = s[0]; r.querySelector('.la').value = s[1]; r.querySelector('.lf').value = i === 0 && s[0] === 'human' ? MENU.fac : 'rand'; }); }
-function lobbyRead() { return [...document.querySelectorAll('#lobby .lrow:not(.lh)')].map(r => [r.querySelector('.lt').value, r.querySelector('.la').value, r.querySelector('.lf').value]); }
+function lobbySet(list) { const rows = document.querySelectorAll('#lobby .lrow:not(.lh)'); rows.forEach((r, i) => { const s = list[i] || ['off', i % 2 ? 'B' : 'A']; r.querySelector('.lt').value = s[0]; r.querySelector('.la').value = s[1]; r.querySelector('.lf').value = s[2] || (i === 0 && s[0] === 'human' ? MENU.fac : 'rand'); r.querySelector('.lc').value = s[3] || 'auto'; }); }
+function lobbyRead() { return [...document.querySelectorAll('#lobby .lrow:not(.lh)')].map(r => [r.querySelector('.lt').value, r.querySelector('.la').value, r.querySelector('.lf').value, r.querySelector('.lc').value]); }
 
 // ===== end-game stats + army graph =====
 function endStatsHTML() {
@@ -185,3 +194,16 @@ function drawEndGraph() {
   x.strokeStyle = 'rgba(255,255,255,.12)'; for (let i = 1; i < 4; i++) { x.beginPath(); x.moveTo(0, i * 37.5); x.lineTo(520, i * 37.5); x.stroke(); }
   G.players.forEach((P, k) => { x.strokeStyle = MMCOL[k]; x.lineWidth = 2; x.beginPath(); H.forEach((h, i) => { const px = i / (H.length - 1) * 510 + 5, py = 145 - h.p[k].army / mx * 135; i ? x.lineTo(px, py) : x.moveTo(px, py); }); x.stroke(); });
 }
+
+// ===== online: stall / status overlay =====
+function netOverlay(stall, dt) {
+  const el = document.getElementById('netWait'); if (!el) return;
+  NET.waitT = stall ? NET.waitT + dt : 0;
+  let txt = '';
+  if (NET.desync) txt = `⚠ Desync detected at tick ${NET.desync.t} (player ${NET.desync.team + 1}). The game state differs between players — please restart the match.`;
+  else if (NET.online && NET.waitT > 0.4) txt = NET.host && NET.waiting ? 'Waiting for ' + NET.waiting.map(t => G.players[t].name).join(', ') + '…' : 'Waiting for host…';
+  if (NET.status) { uiMsg(NET.status); announce(NET.status, 'net' + NET.status, 5); NET.status = ''; }
+  el.textContent = txt; el.style.display = txt ? 'block' : 'none';
+}
+
+function uiMsgMenu(t) { const e = document.getElementById('onStatus'); if (e) e.textContent = t; }

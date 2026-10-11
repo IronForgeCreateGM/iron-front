@@ -38,7 +38,7 @@ function uiSetup() {
   const mm = $('minimap');
   const mmPos = e => { const r = mm.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * MW, y: (e.clientY - r.top) / r.height * MH }; };
   mm.addEventListener('contextmenu', e => e.preventDefault());
-  mm.addEventListener('mousedown', e => { const p = mmPos(e); if (e.button === 2) { const u = UI.sel.filter(s => s.kind === 'u' && s.team === 0); if (u.length) { orderMove(u, p.x, p.y, UI.mode === 'amove', e.shiftKey); marker(p.x, p.y); sfx('ack'); } } else { UI.mmDrag = true; jumpTo(p.x, p.y); } });
+  mm.addEventListener('mousedown', e => { const p = mmPos(e); if (e.button === 2) { const u = UI.sel.filter(s => s.kind === 'u' && s.team === ME); if (u.length) { NET.issue({ c: 'move', u: ids(u), x: p.x, y: p.y, am: UI.mode === 'amove', q: e.shiftKey }); marker(p.x, p.y); sfx('ack'); } } else { UI.mmDrag = true; jumpTo(p.x, p.y); } });
   mm.addEventListener('mousemove', e => { if (UI.mmDrag) { const p = mmPos(e); jumpTo(p.x, p.y, true); } });
   window.addEventListener('mouseup', () => { UI.mmDrag = false; });
   UI.mmBase = document.createElement('canvas'); UI.mmBase.width = MW; UI.mmBase.height = MH;
@@ -57,7 +57,7 @@ function uiSetup() {
 }
 function openSettings(on) { $('settings').style.display = on ? 'flex' : 'none'; }
 function jumpTo(x, y, instant) { R3.cam.tx = x; R3.cam.ty = y + R3.cam.d * 0.18; if (instant) { R3.cam.x = R3.cam.tx; R3.cam.y = R3.cam.ty; } }
-function listFor(cat) { const f = G.players[0].fac, ok = t => !(BT[t] || UT[t]).fac || (BT[t] || UT[t]).fac === f; return [...Object.keys(BT).filter(t => t !== 'hq' && BT[t].cat === cat && ok(t)), ...Object.keys(UT).filter(t => FROMCAT[UT[t].from] === cat && ok(t))]; }
+function listFor(cat) { const f = G.players[ME].fac, ok = t => !(BT[t] || UT[t]).fac || (BT[t] || UT[t]).fac === f; return [...Object.keys(BT).filter(t => t !== 'hq' && BT[t].cat === cat && ok(t)), ...Object.keys(UT).filter(t => FROMCAT[UT[t].from] === cat && ok(t))]; }
 function itemHTML(t, hk) { const d = BT[t] || UT[t]; return `<img src="${icon(t)}"><div class="nm">${d.n}</div><div class="cost">$${d.cost}${d.gas ? `<i class="gas"> ◆${d.gas}</i>` : ""}</div>${hk ? `<div class="hk">${hk.toUpperCase()}</div>` : ''}<div class="prog"></div><div class="cnt"></div><div class="rdy">READY</div><div class="lock">🔒</div>`; }
 function wireItem(b, t) {
   b.dataset.t = t;
@@ -93,11 +93,11 @@ function showTip(t, el) {
   UI.tip.innerHTML = h; UI.tip.style.display = 'block'; const r = el.getBoundingClientRect(); UI.tip.style.top = Math.max(8, Math.min(innerHeight - 200, r.top)) + 'px'; UI.tip.style.right = (innerWidth - r.left + 8) + 'px';
 }
 function clickItem(t, right, shift) {
-  const P = G.players[0], cat = catOf(t);
-  if (right) { let n = 0; for (let i = 0; i < (shift ? 5 : 1); i++) if (cancel(0, t)) n++; if (n) { sfx('click'); if (UI.placing === t) UI.placing = null; } return; }
+  const P = G.players[ME], cat = catOf(t);
+  if (right) { const n = NET.online ? (P.queues[cat].some(q => q.t === t) || P.ready[cat] === t ? 1 : 0) : 0; const r = NET.issue({ c: 'cancel', t, n: shift ? 5 : 1 }); if (NET.online ? n : r) { sfx('click'); if (UI.placing === t) UI.placing = null; } return; }
   if (BT[t] && P.ready[cat] === t) { UI.placing = t; UI.mode = null; sfx('click'); return; }
-  if (!avail(0, t)) { sfx('error'); const d = BT[t] || UT[t]; uiMsg('Requires: ' + [...(d.req || []), ...(UT[t] ? [UT[t].from] : [])].filter(r => r !== '__never' && !hasBuilt(0, r)).map(r => BT[r].n).join(', ')); return; }
-  let n = 0; for (let i = 0; i < (shift && UT[t] ? 5 : 1); i++) if (enqueue(0, t)) n++;
+  if (!avail(ME, t)) { sfx('error'); const d = BT[t] || UT[t]; uiMsg('Requires: ' + [...(d.req || []), ...(UT[t] ? [UT[t].from] : [])].filter(r => r !== '__never' && !hasBuilt(ME, r)).map(r => BT[r].n).join(', ')); return; }
+  const cnt = shift && UT[t] ? 5 : 1; let n; if (NET.online) { n = canEnqueue(ME, t) ? 1 : 0; if (n) NET.issue({ c: 'enq', t, n: cnt }); } else n = NET.issue({ c: 'enq', t, n: cnt });
   if (n) sfx('click'); else { sfx('error'); const gq = (BT[t] || UT[t]).gas || 0; uiMsg(gq > P.gas ? `Need ${gq} Plasma Gas (build a Gas Extractor on a vent)` : BT[t] ? 'Already building a structure' : 'Queue full (6)'); }
 }
 function pickAt(sx, sy) {
@@ -114,7 +114,7 @@ function pickAt(sx, sy) {
 const TABFOR = { barracks: 'inf', factory: 'veh', airpad: 'air', hq: 'bld' };
 function setSel(list) {
   G.ents.forEach(e => e.sel = false); UI.sel = list; list.forEach(e => e.sel = true);
-  if (list.length === 1 && list[0].kind === 'b' && list[0].team === 0 && TABFOR[list[0].t] && UI.tab !== TABFOR[list[0].t]) { UI.tab = TABFOR[list[0].t]; buildGrid(); }
+  if (list.length === 1 && list[0].kind === 'b' && list[0].team === ME && TABFOR[list[0].t] && UI.tab !== TABFOR[list[0].t]) { UI.tab = TABFOR[list[0].t]; buildGrid(); }
   UI.ctxKey = null;
 }
 function onDown(e) {
@@ -122,32 +122,32 @@ function onDown(e) {
   const m = UI.mouse; const r = $('view').getBoundingClientRect(); m.x = e.clientX - r.left; m.y = e.clientY - r.top;
   if (e.button === 1) { e.preventDefault(); UI.pan = true; return; }
   const w = screenToWorld(m.x, m.y);
-  if (e.altKey && w && !G.spectate) { e.preventDefault(); const en = G.ents.some(o => foe(o.team, 0) && visibleTo0(o) && Math.hypot(o.x - w.x, o.y - w.y) < 6); (G.pings = G.pings || []).push({ team: 0, x: w.x, y: w.y, t: G.time, kind: en ? 'attack' : 'defend' }); UI.pings.push({ x: w.x, y: w.y, t: 3 }); marker(w.x, w.y, en); uiMsg(en ? 'Ping: attack here!' : 'Ping: help here!'); sfx('alert'); return; }
+  if (e.altKey && w && !G.spectate) { e.preventDefault(); const en = G.ents.some(o => foe(o.team, ME) && visibleTo0(o) && Math.hypot(o.x - w.x, o.y - w.y) < 6); NET.issue({ c: 'ping', x: w.x, y: w.y, k: en ? 'attack' : 'defend' }); UI.pings.push({ x: w.x, y: w.y, t: 3 }); marker(w.x, w.y, en); uiMsg(en ? 'Ping: attack here!' : 'Ping: help here!'); sfx('alert'); return; }
   if (e.button === 2) {
     if (UI.placing || UI.mode) { UI.placing = null; UI.mode = null; return; }
     if (!w) return;
-    const tgt = pickAt(m.x, m.y), units = UI.sel.filter(s => s.kind === 'u' && s.team === 0);
+    const tgt = pickAt(m.x, m.y), units = UI.sel.filter(s => s.kind === 'u' && s.team === ME);
     if (units.length) {
-      if (tgt && foe(tgt.team, 0)) { orderAttack(units, tgt); marker(tgt.x, tgt.y, true); }
-      else if (tgt && tgt.kind === 'b' && units.some(u => UT[u.t].engineer)) { orderAttack(units.filter(u => UT[u.t].engineer), tgt); }
+      if (tgt && foe(tgt.team, ME)) { NET.issue({ c: 'attack', u: ids(units), t: tgt.id }); marker(tgt.x, tgt.y, true); }
+      else if (tgt && tgt.kind === 'b' && units.some(u => UT[u.t].engineer)) { NET.issue({ c: 'attack', u: ids(units.filter(u => UT[u.t].engineer)), t: tgt.id }); }
       else if (tgt && tgt.t === 'refinery' && units.some(u => u.t === 'harv')) { units.filter(u => u.t === 'harv').forEach(h => { h.hst = 'ret'; h.path = []; }); }
-      else { orderMove(units, w.x, w.y, UI.keys.control || false, e.shiftKey); marker(w.x, w.y); }
+      else { NET.issue({ c: 'move', u: ids(units), x: w.x, y: w.y, am: UI.keys.control || false, q: e.shiftKey }); marker(w.x, w.y); }
       sfx('ack');
-    } else { const bs = UI.sel.filter(s => s.kind === 'b' && s.team === 0 && ['barracks', 'factory', 'airpad', 'hq'].includes(s.t)); bs.forEach(b => b.rally = { x: w.x, y: w.y }); if (bs.length) { marker(w.x, w.y); sfx('ack'); uiMsg('Rally point set'); } }
+    } else { const bs = UI.sel.filter(s => s.kind === 'b' && s.team === ME && ['barracks', 'factory', 'airpad', 'hq'].includes(s.t)); if (bs.length) NET.issue({ c: 'rally', b: ids(bs), x: w.x, y: w.y }); if (bs.length) { marker(w.x, w.y); sfx('ack'); uiMsg('Rally point set'); } }
     return;
   }
   if (e.button !== 0) return;
   if (UI.placing) {
     const d = BT[UI.placing], tx = Math.floor(w.x - d.w / 2 + 0.5), ty = Math.floor(w.y - d.h / 2 + 0.5);
-    if (placeReady(0, BT[UI.placing].cat, tx, ty)) UI.placing = null; else { sfx('error'); uiMsg("Can't build there"); }
+    if (NET.online ? canPlace(UI.placing, ME, tx, ty) && (NET.issue({ c: 'place', cat: BT[UI.placing].cat, x: tx, y: ty }), true) : NET.issue({ c: 'place', cat: BT[UI.placing].cat, x: tx, y: ty })) UI.placing = null; else { sfx('error'); uiMsg("Can't build there"); }
     return;
   }
   if (UI.mode === 'sell' || UI.mode === 'repair') {
     const t = pickAt(m.x, m.y);
-    if (t && t.kind === 'b' && t.team === 0) { if (UI.mode === 'sell') { sellB(t); sfx('click'); } else { t.repair = !t.repair; sfx('click'); } }
+    if (t && t.kind === 'b' && t.team === ME) { if (UI.mode === 'sell') { NET.issue({ c: 'sell', b: t.id }); sfx('click'); } else { NET.issue({ c: 'repair', b: t.id, on: !t.repair }); sfx('click'); } }
     if (!e.shiftKey) UI.mode = null; return;
   }
-  if (UI.mode === 'amove') { const units = UI.sel.filter(s => s.kind === 'u' && s.team === 0); if (w && units.length) { orderMove(units, w.x, w.y, true, e.shiftKey); marker(w.x, w.y, true); sfx('ack'); } if (!e.shiftKey) UI.mode = null; return; }
+  if (UI.mode === 'amove') { const units = UI.sel.filter(s => s.kind === 'u' && s.team === ME); if (w && units.length) { NET.issue({ c: 'move', u: ids(units), x: w.x, y: w.y, am: true, q: e.shiftKey }); marker(w.x, w.y, true); sfx('ack'); } if (!e.shiftKey) UI.mode = null; return; }
   m.down = true; m.sx = m.x; m.sy = m.y; m.shift = e.shiftKey;
 }
 function onUp(e) {
@@ -158,14 +158,14 @@ function onUp(e) {
   if (x1 - x0 < 6 && y1 - y0 < 6) {
     const t = pickAt(m.x, m.y); list = t ? [t] : [];
     const now = performance.now();
-    if (t && t.team === 0 && t.kind === 'u' && now - UI.lastClick < 350 && UI.lastPick === t.t) list = G.ents.filter(o => o.team === 0 && o.t === t.t && inView(o.x, o.y));
+    if (t && t.team === ME && t.kind === 'u' && now - UI.lastClick < 350 && UI.lastPick === t.t) list = G.ents.filter(o => o.team === ME && o.t === t.t && inView(o.x, o.y));
     UI.lastClick = now; UI.lastPick = t && t.t;
   } else {
-    list = G.ents.filter(o => o.team === 0 && o.kind === 'u' && (() => { const rs = R3.rs.get(o.id) || o, p = worldToScreen(rs.x, rs.y, (rs.z || 0) + 0.2); return p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1; })());
+    list = G.ents.filter(o => o.team === ME && o.kind === 'u' && (() => { const rs = R3.rs.get(o.id) || o, p = worldToScreen(rs.x, rs.y, (rs.z || 0) + 0.2); return p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1; })());
     if (list.some(u => u.t !== 'harv')) list = list.filter(u => u.t !== 'harv');
   }
   if (m.shift) list = [...new Set([...UI.sel, ...list])];
-  setSel(list); if (list.length && list[0].team === 0) sfx('ack');
+  setSel(list); if (list.length && list[0].team === ME) sfx('ack');
 }
 function onKey(e) {
   const k = e.key.toLowerCase(); UI.keys[k] = true; UI.keys.control = e.ctrlKey || e.metaKey; UI.keys.shift = e.shiftKey;
@@ -177,51 +177,51 @@ function onKey(e) {
   if (paused) return;
   if (/^[1-9]$/.test(k)) {
     e.preventDefault();
-    if (e.ctrlKey || e.metaKey) { UI.groups[k] = UI.sel.filter(s => s.team === 0).map(s => s.id); uiMsg('Group ' + k + ' set'); return; }
+    if (e.ctrlKey || e.metaKey) { UI.groups[k] = UI.sel.filter(s => s.team === ME).map(s => s.id); uiMsg('Group ' + k + ' set'); return; }
     const list = (UI.groups[k] || []).map(byId).filter(Boolean); setSel(list);
     const now = performance.now(); if (UI.lastGroupKey === k && now - UI.lastGroupT < 400 && list.length) jumpTo(list[0].x, list[0].y);
     UI.lastGroupKey = k; UI.lastGroupT = now; return;
   }
   const hi = HOTKEYS.indexOf(k); if (hi >= 0 && UI.gridList[hi] && !e.ctrlKey && !e.metaKey) { clickItem(UI.gridList[hi], false, e.shiftKey); return; }
-  if (k === 's') orderStop(UI.sel.filter(s => s.team === 0));
+  if (k === 's') orderStop(UI.sel.filter(s => s.team === ME));
   if (k === 'g') { doFormation(e.shiftKey); return; }
   if (k === 'v') { toggleStance(); return; }
   if (k === 'z') { doUpgrade(); return; }
   if (k === 'a' && UI.sel.some(s => s.kind === 'u')) { UI.mode = 'amove'; uiMsg('Attack-move: left-click target (Shift = waypoint)'); }
-  if (k === 'h') { const hq = G.ents.find(e => e.team === 0 && e.t === 'hq') || G.ents.find(e => e.team === 0 && e.t === 'cc'); if (hq) jumpTo(hq.x, hq.y); }
+  if (k === 'h') { const hq = G.ents.find(e => e.team === ME && e.t === 'hq') || G.ents.find(e => e.team === ME && e.t === 'cc'); if (hq) jumpTo(hq.x, hq.y); }
   if (k === 'q') { UI.tab = Object.keys(CATS)[(Object.keys(CATS).indexOf(UI.tab) + 1) % 5]; buildGrid(); }
   if (k === 'x') $('sellBtn').onclick(); if (k === 'r') $('repBtn').onclick();
-  if (k === 'e') setSel(G.ents.filter(o => o.team === 0 && o.kind === 'u' && UT[o.t].wpn));
+  if (k === 'e') setSel(G.ents.filter(o => o.team === ME && o.kind === 'u' && UT[o.t].wpn));
   if (k === 'f') { UI.set.fps = !UI.set.fps; $('setFps').checked = UI.set.fps; saveSet(); }
   if (k === '.') selectIdle('harv'); if (k === ',') selectIdle('army');
 }
-function myUnits() { return UI.sel.filter(s => s.team === 0 && s.kind === 'u' && UT[s.t].wpn); }
+function myUnits() { return UI.sel.filter(s => s.team === ME && s.kind === 'u' && UT[s.t].wpn); }
 function enemyFacing(cx, cy) {
-  let best = null, bd = 1e9; for (const e of G.ents) if (foe(e.team, 0) && visibleTo0(e)) { const d = Math.hypot(e.x - cx, e.y - cy); if (d < bd) { bd = d; best = e; } }
-  const t = best && bd < 30 ? best : (st => ({ x: st[0], y: st[1] }))(G.starts[(G.players.find(Q => foe(Q.team, 0)) || G.players[1]).start]); return Math.atan2(t.y - cy, t.x - cx);
+  let best = null, bd = 1e9; for (const e of G.ents) if (foe(e.team, ME) && visibleTo0(e)) { const d = Math.hypot(e.x - cx, e.y - cy); if (d < bd) { bd = d; best = e; } }
+  const t = best && bd < 30 ? best : (st => ({ x: st[0], y: st[1] }))(G.starts[(G.players.find(Q => foe(Q.team, ME)) || G.players[1]).start]); return Math.atan2(t.y - cy, t.x - cx);
 }
 function doFormation(atBase) {
   const us = myUnits(); if (!us.length) { uiMsg('Select combat units first'); sfx('error'); return; }
   let cx = us.reduce((a, u) => a + u.x, 0) / us.length, cy = us.reduce((a, u) => a + u.y, 0) / us.length;
-  if (atBase) { const hq = G.ents.find(e => e.team === 0 && e.t === 'hq') || us[0]; const es = G.starts[(G.players.find(Q => foe(Q.team, 0)) || G.players[1]).start], a = Math.atan2(es[1] - hq.y, es[0] - hq.x); cx = hq.x + Math.cos(a) * 7; cy = hq.y + Math.sin(a) * 7; }
-  const n = orderFormation(us, cx, cy, enemyFacing(cx, cy)); marker(cx, cy); sfx('ack'); uiMsg(`Defensive formation: ${n} units holding (armor front, infantry middle, artillery/AA rear)`); UI.ctxKey = null;
+  if (atBase) { const hq = G.ents.find(e => e.team === ME && e.t === 'hq') || us[0]; const es = G.starts[(G.players.find(Q => foe(Q.team, ME)) || G.players[1]).start], a = Math.atan2(es[1] - hq.y, es[0] - hq.x); cx = hq.x + Math.cos(a) * 7; cy = hq.y + Math.sin(a) * 7; }
+  const fu = us.filter(u => UT[u.t].wpn && u.t !== 'harv'), n = fu.length; NET.issue({ c: 'form', u: ids(fu), x: cx, y: cy, a: enemyFacing(cx, cy) }); marker(cx, cy); sfx('ack'); uiMsg(`Defensive formation: ${n} units holding (armor front, infantry middle, artillery/AA rear)`); UI.ctxKey = null;
 }
-function toggleStance() { const us = myUnits(); if (!us.length) return; const st = us.every(u => u.stance === 'hold') ? 'aggr' : 'hold'; setStance(us, st); sfx('click'); uiMsg(st === 'hold' ? 'Stance: Hold position (engage in range, return)' : 'Stance: Aggressive (chase targets)'); UI.ctxKey = null; }
-function doUpgrade() { const b = UI.sel.length === 1 && UI.sel[0].kind === 'b' && UI.sel[0].team === 0 ? UI.sel[0] : null; if (!b) return; const inf = upgradeInfo(b);
-  if (!inf) return; if (upgradeB(b)) { sfx('click'); uiMsg(inf.kind === 'def' ? 'Researching ' + DEF_RESEARCH.n : 'Upgrading to level ' + inf.next); UI.ctxKey = null; } else { sfx('error'); uiMsg(b.upT != null ? 'Upgrade in progress' : (inf.gas || 0) > G.players[0].gas ? `Need ${inf.gas} Plasma Gas` : 'Insufficient funds'); } }
+function toggleStance() { const us = myUnits(); if (!us.length) return; const st = us.every(u => u.stance === 'hold') ? 'aggr' : 'hold'; NET.issue({ c: 'stance', u: ids(us), s: st }); sfx('click'); uiMsg(st === 'hold' ? 'Stance: Hold position (engage in range, return)' : 'Stance: Aggressive (chase targets)'); UI.ctxKey = null; }
+function doUpgrade() { const b = UI.sel.length === 1 && UI.sel[0].kind === 'b' && UI.sel[0].team === ME ? UI.sel[0] : null; if (!b) return; const inf = upgradeInfo(b);
+  if (!inf) return; if (NET.online ? canUpgrade(b) && (NET.issue({ c: 'upg', b: b.id }), true) : NET.issue({ c: 'upg', b: b.id })) { sfx('click'); uiMsg(inf.kind === 'def' ? 'Researching ' + DEF_RESEARCH.n : 'Upgrading to level ' + inf.next); UI.ctxKey = null; } else { sfx('error'); uiMsg(b.upT != null ? 'Upgrade in progress' : (inf.gas || 0) > G.players[ME].gas ? `Need ${inf.gas} Plasma Gas` : 'Insufficient funds'); } }
 function upgTip(b) {
   const inf = upgradeInfo(b); if (!inf) return 'Fully upgraded'; if (inf.kind === 'def') return `<b>${DEF_RESEARCH.n}</b> <span class="c">$${inf.cost}</span> <span class="gas">◆${inf.gas}</span> <span class="dim">· ${inf.time}s</span><br>All Guard Turrets & Flak Batteries: +${Math.round((DEF_RESEARCH.dmg - 1) * 100)}% damage, +${DEF_RESEARCH.rng} range, +${Math.round((DEF_RESEARCH.hp - 1) * 100)}% HP`;
-  const w = defW(b), l = b.lvl || 1, nd = Math.round(W[BT[b.t].wpn].dmg * UPG_DMG[l] * (G.players[0].defUp ? DEF_RESEARCH.dmg : 1)), nr = W[BT[b.t].wpn].rng + UPG_RNG[l] + (G.players[0].defUp ? DEF_RESEARCH.rng : 0);
+  const w = defW(b), l = b.lvl || 1, nd = Math.round(W[BT[b.t].wpn].dmg * UPG_DMG[l] * (G.players[ME].defUp ? DEF_RESEARCH.dmg : 1)), nr = W[BT[b.t].wpn].rng + UPG_RNG[l] + (G.players[ME].defUp ? DEF_RESEARCH.rng : 0);
   return `<b>Upgrade to level ${l + 1}</b> <span class="c">$${inf.cost}</span>${inf.gas ? ` <span class="gas">◆${inf.gas}</span>` : ''} <span class="dim">· ${inf.time}s</span> <kbd>Z</kbd><br>Damage ${w.dmg} → <span class="g">${nd}</span><br>Range ${w.rng} → <span class="g">${nr}</span>`;
 }
 function idleList(kind) {
-  return G.ents.filter(u => u.team === 0 && u.kind === 'u' && (kind === 'harv' ? u.t === 'harv' && (u.hst === 'idle' || u.hst === 'manual') && !u.path.length && (u.idleT || 0) > 2
+  return G.ents.filter(u => u.team === ME && u.kind === 'u' && (kind === 'harv' ? u.t === 'harv' && (u.hst === 'idle' || u.hst === 'manual') && !u.path.length && (u.idleT || 0) > 2
     : u.t !== 'harv' && UT[u.t].wpn && u.order === 'idle' && !u.tgt && !u.path.length && (u.idleT || 0) > 6));
 }
 function selectIdle(kind) { const l = idleList(kind); if (!l.length) return; setSel(kind === 'harv' ? [l[0]] : l); jumpTo(l[0].x, l[0].y); }
 function uiFrame(dt) {
   annFrame(dt);
-  const P = G.players[0], m = UI.mouse, el = R3.renderer.domElement, W_ = el.clientWidth, H_ = el.clientHeight;
+  const P = G.players[ME], m = UI.mouse, el = R3.renderer.domElement, W_ = el.clientWidth, H_ = el.clientHeight;
   // smooth camera scroll (edge + arrows), speed setting
   const sp = dt * R3.cam.d * 1.1 * UI.set.edge, ed = 14;
   let dx = 0, dy = 0;
@@ -229,13 +229,13 @@ function uiFrame(dt) {
   if (UI.keys.arrowup || (m.x >= 0 && m.y < ed)) dy -= 1; if (UI.keys.arrowdown || (m.x >= 0 && m.y > H_ - ed)) dy += 1;
   if (G.watch) { if (UI.keys.a) dx -= 1; if (UI.keys.d) dx += 1; if (UI.keys.w) dy -= 1; if (UI.keys.s) dy += 1; }
   if (!UI.mmDrag && !UI.pan) { R3.cam.tx += dx * sp; R3.cam.ty += dy * sp; }
-  UI.sel = UI.sel.filter(s => s.hp > 0 && !s.dead && (s.team === 0 || visibleTo0(s)));
-  for (const u of G.ents) if (u.team === 0 && u.kind === 'u') u.idleT = (u.path.length || u.tgt || (u.t === 'harv' && u.hst !== 'idle' && u.hst !== 'manual')) ? 0 : (u.idleT || 0) + dt;
+  UI.sel = UI.sel.filter(s => s.hp > 0 && !s.dead && (s.team === ME || visibleTo0(s)));
+  for (const u of G.ents) if (u.team === ME && u.kind === 'u') u.idleT = (u.path.length || u.tgt || (u.t === 'harv' && u.hst !== 'idle' && u.hst !== 'manual')) ? 0 : (u.idleT || 0) + dt;
   if (UI.placing && m.x >= 0) { const w = screenToWorld(m.x, m.y); if (w) { const d = BT[UI.placing], tx = Math.floor(w.x - d.w / 2 + 0.5), ty = Math.floor(w.y - d.h / 2 + 0.5); ghost(UI.placing, tx, ty, canPlace(UI.placing, 0, tx, ty)); } }
   else ghost(null);
   if (UI.placing && P.ready[BT[UI.placing].cat] !== UI.placing) UI.placing = null;
   if (UI.msgT > 0) { UI.msgT -= dt; if (UI.msgT <= 0) $('msg').style.opacity = 0; }
-  el.style.cursor = UI.pan ? 'grabbing' : UI.placing ? 'cell' : UI.mode === 'sell' ? 'not-allowed' : UI.mode === 'repair' ? 'help' : UI.mode === 'amove' ? 'crosshair' : (R3.hoverId && byId(R3.hoverId) && byId(R3.hoverId).team !== 0 && UI.sel.some(s => s.kind === 'u' && s.team === 0)) ? 'crosshair' : 'default';
+  el.style.cursor = UI.pan ? 'grabbing' : UI.placing ? 'cell' : UI.mode === 'sell' ? 'not-allowed' : UI.mode === 'repair' ? 'help' : UI.mode === 'amove' ? 'crosshair' : (R3.hoverId && byId(R3.hoverId) && byId(R3.hoverId).team !== ME && UI.sel.some(s => s.kind === 'u' && s.team === ME)) ? 'crosshair' : 'default';
   if ((UI.hovT = (UI.hovT || 0) + dt) > 0.05) { UI.hovT = 0; const h = m.x >= 0 && !m.down ? pickAt(m.x, m.y) : null; R3.hoverId = h ? h.id : null; }
   UI.t = (UI.t || 0) + dt; if (UI.t > 0.1) { UI.t = 0; sidebar(); }
   if ((UI.mmT = (UI.mmT || 0) + dt) > 0.2) { UI.mmT = 0; minimap(); }
@@ -244,20 +244,20 @@ function uiFrame(dt) {
   overlay();
 }
 function sidebar() {
-  const P = G.players[0];
+  const P = G.players[ME];
   $('cr').textContent = '$' + Math.floor(P.cr); $('gas').textContent = '◆ ' + Math.floor(P.gas);
   const pb = $('powbar'); const frac = P.gen ? Math.min(1, P.use / P.gen) : 1; pb.style.width = (frac * 100) + '%'; pb.style.background = P.pow < 0 ? '#ff4d3d' : frac > 0.85 ? '#ffc23d' : '#4dff7a';
   $('powtxt').textContent = `${P.use} / ${P.gen}` + (P.pow < 0 ? '  LOW POWER' : '');
   const upd = (b) => {
     const t = b.dataset.t, cat = catOf(t), q = P.queues[cat], d = BT[t] || UT[t];
-    b.classList.toggle('locked', !avail(0, t));
+    b.classList.toggle('locked', !avail(ME, t));
     const n = q.filter(i => i.t === t).length, first = q[0] && q[0].t === t ? q[0] : null;
     b.querySelector('.prog').style.height = first ? (100 - first.prog * 100) + '%' : n ? '100%' : '0%';
     b.querySelector('.cnt').textContent = n > 1 ? n : n === 1 && !first ? '1' : '';
     b.classList.toggle('ready', P.ready[cat] === t); b.classList.toggle('active', !!first); b.classList.toggle('poor', P.cr < d.cost * 0.1);
   };
   document.querySelectorAll('.item').forEach(upd);
-  document.querySelectorAll('.tab').forEach(b => { const c = b.dataset.cat; b.querySelector('i').textContent = P.ready[c] ? '!' : P.queues[c].length ? P.queues[c].length : ''; b.classList.toggle('dis', !listFor(c).some(t => avail(0, t))); });
+  document.querySelectorAll('.tab').forEach(b => { const c = b.dataset.cat; b.querySelector('i').textContent = P.ready[c] ? '!' : P.queues[c].length ? P.queues[c].length : ''; b.classList.toggle('dis', !listFor(c).some(t => avail(ME, t))); });
   $('sellBtn').classList.toggle('on', UI.mode === 'sell'); $('repBtn').classList.toggle('on', UI.mode === 'repair');
   // alerts
   const ih = idleList('harv').length, ia = idleList('army').length;
@@ -271,10 +271,10 @@ function sidebar() {
   if (key !== UI.ctxKey) {
     UI.ctxKey = key; let h = '';
     if (s.length === 1) { const e = s[0], d = defOf(e);
-      h = `<div class="pt"><img src="${icon(e.t)}"><div><b>${d.n}</b>${foe(e.team, 0) ? ' <span class="r">(enemy)</span>' : e.team !== 0 ? ' <span class="g">(ally)</span>' : ''}<div class="hpb"><div id="ctxhp"></div></div><div id="ctxinfo" class="dim"></div></div></div>`;
-      if (e.kind === 'b' && e.team === 0 && (UPG[e.t] || e.t === 'tech')) h += `<button id="upBtn" class="act"></button>`;
-      if (e.kind === 'u' && e.team === 0 && UT[e.t].wpn) h += `<div class="acts"><button id="fmBtn" class="act">⛨ Defensive Formation <kbd>G</kbd></button><button id="stBtn" class="act"></button></div>`;
-      if (e.kind === 'b' && e.team === 0) { const opts = Object.keys(UT).filter(t => UT[t].from === e.t || (UT[t].alt || []).includes(e.t)); if (opts.length) h += `<div class="cgrid">${opts.map(t => `<div class="item sm">${itemHTML(t)}</div>`).join('')}</div><div class="dim small">Right-click ground to set rally point</div>`; }
+      h = `<div class="pt"><img src="${icon(e.t)}"><div><b>${d.n}</b>${foe(e.team, ME) ? ' <span class="r">(enemy)</span>' : e.team !== ME ? ' <span class="g">(ally)</span>' : ''}<div class="hpb"><div id="ctxhp"></div></div><div id="ctxinfo" class="dim"></div></div></div>`;
+      if (e.kind === 'b' && e.team === ME && (UPG[e.t] || e.t === 'tech')) h += `<button id="upBtn" class="act"></button>`;
+      if (e.kind === 'u' && e.team === ME && UT[e.t].wpn) h += `<div class="acts"><button id="fmBtn" class="act">⛨ Defensive Formation <kbd>G</kbd></button><button id="stBtn" class="act"></button></div>`;
+      if (e.kind === 'b' && e.team === ME) { const opts = Object.keys(UT).filter(t => UT[t].from === e.t || (UT[t].alt || []).includes(e.t)); if (opts.length) h += `<div class="cgrid">${opts.map(t => `<div class="item sm">${itemHTML(t)}</div>`).join('')}</div><div class="dim small">Right-click ground to set rally point</div>`; }
     } else if (s.length > 1) { const c = {}; s.forEach(e => c[e.t] = (c[e.t] || 0) + 1); h = '<div class="chips">' + Object.entries(c).map(([t, n]) => `<span class="chip" data-t="${t}"><img src="${icon(t)}">${n}</span>`).join('') + '</div>';
       if (myUnits().length) h += `<div class="acts"><button id="fmBtn" class="act">⛨ Defensive Formation <kbd>G</kbd></button><button id="stBtn" class="act"></button></div>`; }
     ctx.innerHTML = h;
@@ -289,7 +289,7 @@ function sidebar() {
   const upb = $('upBtn'); if (upb && s[0]) { const b = s[0], inf = upgradeInfo(b); let t;
     if (b.upT != null) t = `⬆ Upgrading… ${Math.floor((G.time - b.upT) / b.upDur * 100)}%`; else if (!inf) t = b.t === 'tech' ? '✔ ' + DEF_RESEARCH.n + ' researched' : '★ Max level (3)';
     else t = inf.kind === 'def' ? `⬆ ${DEF_RESEARCH.n} $${inf.cost} <kbd>Z</kbd>` : `⬆ Upgrade to Lv${inf.next} $${inf.cost} <kbd>Z</kbd>`;
-    if (upb.innerHTML !== t) upb.innerHTML = t; upb.disabled = !inf || b.upT != null; upb.classList.toggle('poor', !!inf && G.players[0].cr < inf.cost); }
+    if (upb.innerHTML !== t) upb.innerHTML = t; upb.disabled = !inf || b.upT != null; upb.classList.toggle('poor', !!inf && G.players[ME].cr < inf.cost); }
   if (s.length === 1) { const e = s[0], f = e.hp / e.mhp, hp = $('ctxhp'); if (hp) { hp.style.width = (f * 100) + '%'; hp.style.background = f > 0.6 ? '#4dff7a' : f > 0.3 ? '#ffd23d' : '#ff4d3d'; }
     const inf = $('ctxinfo'); if (inf) inf.innerHTML = `HP ${Math.ceil(e.hp)} / ${e.mhp}` + (e.t === 'harv' ? `<br>Ore ${Math.floor(e.load)} / ${HARV_CAP} · ${e.hst}` : '') + (e.kind === 'u' && UT[e.t].wpn ? `<br>${W[UT[e.t].wpn].type} · range ${W[UT[e.t].wpn].rng} · ${e.order}${e.wq && e.wq.length ? ' +' + e.wq.length + ' wp' : ''}` : '') + (e.kind === 'b' ? `<br>Power ${BT[e.t].pow > 0 ? '+' : ''}${BT[e.t].pow}${e.repair ? ' · repairing' : ''}` + (BT[e.t].wpn ? `<br>Lv${e.lvl || 1} · dmg ${defW(e).dmg} · range ${defW(e).rng}` : '') : '') + (e.kind === 'u' && e.stance === 'hold' ? ' · HOLD' : ''); }
 }
@@ -322,10 +322,10 @@ function overlay() {
     x.fillStyle = 'rgba(0,0,0,.75)'; x.fillRect(p.x - w / 2 - 1, p.y - 1, w + 2, 5);
     x.fillStyle = f > 0.6 ? '#4dff7a' : f > 0.3 ? '#ffd23d' : '#ff4d3d'; x.fillRect(p.x - w / 2, p.y, w * f, 3);
     if (segs > 1 && segs < 30) { x.fillStyle = 'rgba(0,0,0,.45)'; for (let i = 1; i < segs; i++) x.fillRect(p.x - w / 2 + w * i / segs, p.y, 1, 3); }
-    if (foe(e.team, 0)) { x.fillStyle = '#ff5040'; x.fillRect(p.x - w / 2 - 4, p.y, 2, 3); }
+    if (foe(e.team, ME)) { x.fillStyle = '#ff5040'; x.fillRect(p.x - w / 2 - 4, p.y, 2, 3); }
     if (e.t === 'harv' && e.load > 0) { x.fillStyle = '#e8b030'; x.fillRect(p.x - w / 2, p.y + 4, w * e.load / HARV_CAP, 2); }
-    if (e.sel && e.kind === 'b' && e.rally && e.team === 0) { const r = worldToScreen(e.rally.x, e.rally.y, heightAt(e.rally.x, e.rally.y)); x.strokeStyle = 'rgba(120,255,140,.7)'; x.setLineDash([5, 5]); x.beginPath(); x.moveTo(p.x, p.y + 20); x.lineTo(r.x, r.y); x.stroke(); x.setLineDash([]); x.fillStyle = '#7f8'; x.fillRect(r.x - 1, r.y - 14, 2, 14); x.fillRect(r.x + 1, r.y - 14, 9, 6); }
-    if (e.sel && e.kind === 'u' && e.team === 0 && (e.path.length || (e.wq && e.wq.length))) {
+    if (e.sel && e.kind === 'b' && e.rally && e.team === ME) { const r = worldToScreen(e.rally.x, e.rally.y, heightAt(e.rally.x, e.rally.y)); x.strokeStyle = 'rgba(120,255,140,.7)'; x.setLineDash([5, 5]); x.beginPath(); x.moveTo(p.x, p.y + 20); x.lineTo(r.x, r.y); x.stroke(); x.setLineDash([]); x.fillStyle = '#7f8'; x.fillRect(r.x - 1, r.y - 14, 2, 14); x.fillRect(r.x + 1, r.y - 14, 9, 6); }
+    if (e.sel && e.kind === 'u' && e.team === ME && (e.path.length || (e.wq && e.wq.length))) {
       x.strokeStyle = e.order === 'amove' ? 'rgba(255,120,90,.55)' : 'rgba(120,255,140,.45)'; x.setLineDash([3, 4]); x.beginPath(); let q = worldToScreen(rs.x, rs.y, 0.05); x.moveTo(q.x, q.y);
       for (const pt of e.path) { q = worldToScreen(pt.x, pt.y, heightAt(pt.x, pt.y)); x.lineTo(q.x, q.y); }
       for (const pt of (e.wq || [])) { q = worldToScreen(pt.x, pt.y, heightAt(pt.x, pt.y)); x.lineTo(q.x, q.y); }
@@ -336,3 +336,8 @@ function overlay() {
   const m = UI.mouse;
   if (m.down) { x.strokeStyle = '#7dff9a'; x.fillStyle = 'rgba(125,255,154,.08)'; x.lineWidth = 1; x.fillRect(m.sx, m.sy, m.x - m.sx, m.y - m.sy); x.strokeRect(m.sx, m.sy, m.x - m.sx, m.y - m.sy); }
 }
+
+// ===== command helpers (lockstep-safe predictions; never mutate sim state) =====
+function ids(a) { return a.map(e => e.id); }
+function canEnqueue(team, t) { const P = G.players[team], cat = catOf(t), d = BT[t] || UT[t]; if (!avail(team, t)) return false; if (P.queues[cat].length >= (cat === 'bld' || cat === 'def' ? 1 : 6)) return false; if ((d.gas || 0) > P.gas) return false; if (UT[t] && t !== 'harv' && popOf(team) >= POP_CAP) return false; return !(cat === 'bld' || cat === 'def') || !P.ready[cat]; }
+function canUpgrade(b) { const P = G.players[b.team], inf = upgradeInfo(b); return !!inf && b.upT == null && P.cr >= inf.cost && P.gas >= (inf.gas || 0); }
