@@ -47,3 +47,18 @@ Headless: `node test/sim-test.js`; Chrome: `google-chrome --headless=new --use-a
 - Lobby: main.js has SLOT_TYPES, PRESETS, buildSlots(), lobbyInit() and lobbyRead(). Use `?preset=coop|wsi|w1|w2|duel` and `&ff=secs&auto=1&nofog=1&cx=&cy=&zoom=` for testing.
 - AI: aiGrowth() and aiSite() handle expansions and growth; aiFocus() and aiPing() handle ally cooperation; huntTarget() handles search. siExtras() can be ablated with globalThis.SIOFF flags.
 - Events: placed, eliminated, allyAck, popcap. Announcer: announce(text, key, gap) in ui.js. History: G.hist (every 10 s) feeds the end graph.
+
+## v4.1 networking architecture
+- `js/net.js` (no DOM; loaded in node tests too):
+  - `CMD` table + `execCmd(team, cmd)`. Commands reference entities by id, and ownership is checked at execution.
+  - `NET` holds the lockstep state. `issue()` and `begin(transport, {host, me, humans, peerTeam, hostPeer})`.
+  - `ready()` is true when a turn exists for `G.tick + 1`. `tick()` sends my input for t+DELAY, executes the turn's commands, then `stepGame()`, and hashes every 30 ticks.
+  - The host collects `inputs[t][team]`, finalizes once every non-dropped human has sent, and broadcasts `turn`.
+- Transport interface: `{ send(type, data, toPeer?), on(type, cb(data, fromPeer)), onLeave(cb(peer)) }`. `js/online.js` adapts Trystero rooms (actions: lobby/hello/ready/pref/chat/start/kick/in/turn/hash/desync). The node test supplies an in-memory laggy transport.
+- **Rules for sim code:**
+  - Use `dsin/dcos/datan2/dhypot`, never Math.sin/cos/atan2/hypot/pow/exp.
+  - Never use Math.random or Date in sim/ai.
+  - UI code must not mutate entities or consume `G.R`. Predict with pure helpers (`canEnqueue`, `canPlace`, `canUpgrade`) and issue commands.
+- `ME` (data.js) = local player index for UI/render (`G.vis = G.visT[ME]`). Sim decisions never depend on ME, except the `G.over` string; the over tick itself is alliance-based, so it's identical on all peers.
+- Main loop: `simAdvance(dt, maxN)` steps through `NET.tick()`, with catch-up when turns pile up. `netOverlay` shows waiting/desync/status.
+- Tests: `node test/net-test.js [min]` and `MODE=local node --experimental-websocket test/online-e2e.js`.

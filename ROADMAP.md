@@ -86,7 +86,35 @@
 - Units still overlap a bit in big crowds. Jams are reduced, not eliminated.
 - Gunships have no proper landing/rearm. There are no walls in the UI, and engineers only capture.
 
-## Next steps
+### v4.1 – Online multiplayer (lockstep P2P)
+- **Commands:** all player input (move, attack, formation, stance, queue/cancel, place, sell, repair, rally, upgrade, ping, surrender) goes through `NET.issue()` and is executed by `execCmd(team, cmd)` in `js/net.js`. Offline, a command executes immediately. Online, it is scheduled for tick + 4.
+- **Lockstep (host relay):**
+  - Each human sends its input for a tick (empty turns too). The host merges them and broadcasts the turn, and every peer executes it before `stepGame()`.
+  - A peer that lags makes everyone show "Waiting for <name>…".
+  - The sim keeps running in hidden tabs (interval fallback).
+  - Disconnects: if a client drops, the host injects a deterministic `drop` command and a Medium AI takes the slot. If the host drops, clients continue offline against AI.
+- **Determinism:**
+  - `dsin/dcos/datan2/dhypot` (only + − × ÷ and sqrt) replace Math.* in sim/ai.
+  - All randomness uses the seeded xorshift RNG.
+  - Every 30 ticks an FNV state hash (exact float bits) is checked by the host; a mismatch shows a "Desync detected" banner.
+  - The version hash (from the sim function sources) is checked when joining.
+- **Lobby:**
+  - Host online game / Join with code / `?room=CODE` share link. The host assigns 4 slots (Human you / Human remote / Chief SI / Chief / Easy / Medium / Hard / Closed), teams, factions and colours.
+  - Remote players are auto-seated, pick their faction, and Ready up; the host can only start when everyone is ready.
+  - Lobby chat. Surrender in the Esc menu.
+- **Transport:** Trystero (Nostr signalling + WebRTC) is vendored as a classic IIFE in `vendor/trystero-nostr.js`. Relays and TURN can be set in `js/net-config.js` or with `?relays=`. `?transport=local` uses BroadcastChannel for 2-tab testing.
+- **Team colours:** Blue / Red / Yellow / Green are selectable per slot and unique. They apply to paint, accents, minimap and UI.
+- **Local-player perspective (`ME`):** the UI and renderer no longer assume team 0. The end result is computed per alliance.
+- **Fix (v4.0 regression):** units rendered almost black. The ore's per-instance colour switched the shared PBR material to an instanceColor shader program, so other instanced meshes got a zero colour. Ore now has its own material.
+- GitHub Pages ready: relative paths, `.nojekyll`, README "Play online with friends".
+
+## Next (v4.2+)
+- Real-network soak test on GitHub Pages: WebRTC could not run in this sandbox. Tested with the node fake transport and two real Chrome tabs over BroadcastChannel.
+- Adaptive input delay (measure RTT, 3–8 ticks); reconnect/rejoin; spectators; in-game chat.
+- Client colour choice in lobby (host sets it today), map select, 2v2 balance (2v2 sims eliminate too fast).
+- Optional: replay files (the command log + seed already reproduce a game exactly).
+
+## Older next-steps steps
 1. A second faction with unique units and superweapon(s), plus a skirmish map selection/generator.
 2. Soft particles + depth-based SSAO (needs a depth pre-pass), GPU-timer-driven dynamic resolution.
 3. Flow-field pathing for large groups; formations with facing; unit veterancy.

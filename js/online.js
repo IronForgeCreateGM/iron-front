@@ -43,7 +43,7 @@ function onlCode() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; f
 function onlStatus(t) { const e = document.getElementById('onStatus'); if (e) e.innerHTML = t; }
 function onlChatLine(t) { const e = document.getElementById('chatLog'); if (!e) return; const d = document.createElement('div'); d.textContent = t; e.appendChild(d); e.scrollTop = 1e9; }
 function onlName() { const v = (document.getElementById('pname').value || '').trim().slice(0, 16); if (v) localStorage.setItem('if_name', v); return v || 'Commander' + ((Math.random() * 90 + 10) | 0); }
-function onlShowPanel(on) { document.getElementById('onPanel').style.display = on ? 'block' : 'none'; document.getElementById('presets').style.display = on ? 'none' : ''; }
+function onlShowPanel(on) { ['hostBtn', 'joinBtn'].forEach(id => document.getElementById(id).disabled = on); document.getElementById('onPanel').style.display = on ? 'block' : 'none'; document.getElementById('presets').style.display = on ? 'none' : ''; }
 // ---- host ----
 function onlHost() {
   if (!onlAvailable()) { onlStatus('Online play unavailable (network library failed to load).'); return; }
