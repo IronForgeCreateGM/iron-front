@@ -71,10 +71,11 @@ const DIFF = {
   easy:   { income: 0.55, think: 2.5, wave0: 3, waveMax: 7, waveInc: 1, harass: 0.15, harassAfter: 1080, firstAttack: 570, waveGap: 150, build: 0.6, scoutAfter: 600 },
   normal: { income: 1.0, think: 1.2, wave0: 6, waveMax: 14, waveInc: 2, harass: 0.3, harassAfter: 0, firstAttack: 0, waveGap: 30, build: 1.0, scoutAfter: 20 },
   chief:  { income: 1.0, think: 0.5, wave0: 10, waveMax: 30, waveInc: 3, harass: 0.4, harassAfter: 240, firstAttack: 0, waveGap: 45, build: 1.0, scoutAfter: 15, chief: 1 },
+  si:     { income: 1.0, think: 0.4, wave0: 10, waveMax: 30, waveInc: 3, harass: 0.4, harassAfter: 240, firstAttack: 0, waveGap: 40, build: 1.0, scoutAfter: 10, chief: 1, si: 1 },
   hard:   { income: 1.35, think: 0.7, wave0: 7, waveMax: 20, waveInc: 2, harass: 0.5, harassAfter: 0, firstAttack: 0, waveGap: 30, build: 1.3, scoutAfter: 20 },
 };
 // economy
-const ORE_VALUE = 0.7, HARV_CAP = 600, MINE_RATE = 40, UNLOAD_RATE = 300, ORE_REGROW = 0.8, ORE_MULT = 11; // per second
+const ORE_VALUE = 0.91, HARV_CAP = 600, MINE_RATE = 40, UNLOAD_RATE = 300, ORE_REGROW = 0.8, ORE_MULT = 11; // per second
 // defense upgrades: level 2/3 cost & time per structure; per-level multipliers
 const UPG = { turret: [[450, 15], [800, 25]], aagun: [[450, 15], [800, 25]] };
 const UPG_DMG = [1, 1.35, 1.75], UPG_RNG = [0, 1, 2];

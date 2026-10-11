@@ -165,6 +165,8 @@ function onKey(e) {
   if (!started) return;
   if (k === 'escape') { if ($('settings').style.display === 'flex') openSettings(false); else if (UI.placing || UI.mode) { UI.placing = null; UI.mode = null; } else togglePause(); return; }
   if (k === 'p') { togglePause(); return; }
+  if (G.watch && k === 'c') { DIR.auto = !DIR.auto; DIR.tagT = -9; return; }
+  if (G.watch && 'wasd'.includes(k) && k.length === 1) return;
   if (paused) return;
   if (/^[1-9]$/.test(k)) {
     e.preventDefault();
@@ -217,6 +219,7 @@ function uiFrame(dt) {
   let dx = 0, dy = 0;
   if (UI.keys.arrowleft || (m.x >= 0 && m.x < ed)) dx -= 1; if (UI.keys.arrowright || (m.x >= 0 && m.x > W_ - ed)) dx += 1;
   if (UI.keys.arrowup || (m.x >= 0 && m.y < ed)) dy -= 1; if (UI.keys.arrowdown || (m.x >= 0 && m.y > H_ - ed)) dy += 1;
+  if (G.watch) { if (UI.keys.a) dx -= 1; if (UI.keys.d) dx += 1; if (UI.keys.w) dy -= 1; if (UI.keys.s) dy += 1; }
   if (!UI.mmDrag && !UI.pan) { R3.cam.tx += dx * sp; R3.cam.ty += dy * sp; }
   UI.sel = UI.sel.filter(s => s.hp > 0 && !s.dead && (s.team === 0 || visibleTo0(s)));
   for (const u of G.ents) if (u.team === 0 && u.kind === 'u') u.idleT = (u.path.length || u.tgt || (u.t === 'harv' && u.hst !== 'idle' && u.hst !== 'manual')) ? 0 : (u.idleT || 0) + dt;

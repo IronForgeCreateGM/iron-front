@@ -9,11 +9,11 @@ function startGame(diff, opts) {
   document.getElementById('menu').style.display = 'none';
   newGame({ diff, aiTeams: opts.demo || opts.watch ? [0, 1] : [1], fog: opts.fog !== false, seed: opts.seed });
   if (opts.demo) G.players[0].diff = 'normal';
-  if (opts.watch) { G.players[0].diff = 'chief'; aiInit(G.players[0]); G.spectate = true; G.watch = true; document.body.classList.add('watching'); const ff = +QS.get('ff') || 0, fft = +QS.get('fft') || ff * 30; for (let i = 0; i < fft && !G.over; i++) { stepGame(); director(DT); G.events.length = 0; } if (DIR.cur) { R3 && 0; } }
+  if (opts.watch) { G.players[0].diff = opts.watch === 'si' ? 'si' : 'chief'; aiInit(G.players[0]); DIR.auto = false; G.spectate = true; G.watch = true; document.body.classList.add('watching'); const ff = +QS.get('ff') || 0, fft = +QS.get('fft') || ff * 30; for (let i = 0; i < fft && !G.over; i++) { stepGame(); director(DT); G.events.length = 0; } if (DIR.cur) { R3 && 0; } }
   r3Init(document.getElementById('view'));
   uiSetup();
   const hq = G.ents.find(e => e.team === 0 && e.t === 'hq'); R3.cam.td = R3.cam.d = 26; jumpTo(hq.x + 3, hq.y + 2, true);
-  if (G.watch && DIR.cur) { R3.cam.td = R3.cam.d = 20; jumpTo(DIR.cur.x, DIR.cur.y, true); }
+  if (G.watch && DIR.cur && DIR.auto) { R3.cam.td = R3.cam.d = 20; jumpTo(DIR.cur.x, DIR.cur.y, true); }
   if (opts.demo) {
     const hits = [];
     for (let i = 0; i < opts.demo * 30; i++) { stepGame(); for (const ev of G.events) if (ev.e === 'hit') hits.push({ x: ev.x, y: ev.y, t: G.time }); G.events.length = 0; if (G.over) break; }
@@ -38,7 +38,7 @@ function frame(t, once) {
   try { uiFrame(dt); r3Render(dt); } catch (e) { console.error(e); throw e; }
   if (G.over && !UI.endShown) { UI.endShown = true; const P = G.players[0];
     document.getElementById('end').style.display = 'flex';
-    document.getElementById('endTitle').textContent = G.watch ? (G.over === 'victory' ? 'CHIEF WINS' : 'HARD AI WINS') + ` · ${(G.time / 60).toFixed(1)} min` : G.over === 'victory' ? 'VICTORY' : 'DEFEAT';
+    document.getElementById('endTitle').textContent = G.watch ? (G.over === 'victory' ? (G.players[0].diff === 'si' ? 'CHIEF SI WINS' : 'CHIEF WINS') : 'HARD AI WINS') + ` · ${(G.time / 60).toFixed(1)} min` : G.over === 'victory' ? 'VICTORY' : 'DEFEAT';
     document.getElementById('endTitle').className = G.over;
     document.getElementById('endStats').innerHTML = `Time ${Math.floor(G.time / 60)}:${String(Math.floor(G.time % 60)).padStart(2, '0')} · Kills ${P.stats.kills} · Losses ${P.stats.lost} · Ore mined $${Math.floor(P.stats.mined)}`; sfx(G.over === 'victory' ? 'ready' : 'alert'); }
   if (!once) requestAnimationFrame(frame);
@@ -48,7 +48,8 @@ window.addEventListener('DOMContentLoaded', () => {
   let diff = 'normal';
   document.querySelectorAll('#diff button').forEach(b => b.onclick = () => { diff = b.dataset.d; document.querySelectorAll('#diff button').forEach(x => x.classList.toggle('on', x === b)); });
   document.getElementById('watchBtn').onclick = () => { audioInit(); startGame('hard', { watch: 1, seed: (Math.random() * 1e6) | 0 }); };
-  if (QS.get('watch')) startGame(QS.get('watch'), { watch: 1, seed: +QS.get('seed') || 5 });
+  document.getElementById('watchSiBtn').onclick = () => { audioInit(); startGame('hard', { watch: 'si', seed: (Math.random() * 1e6) | 0 }); };
+  if (QS.get('watch')) startGame(QS.get('watch') === 'si' ? 'hard' : QS.get('watch'), { watch: QS.get('watch') === 'si' ? 'si' : 1, seed: +QS.get('seed') || 5 });
   document.getElementById('startBtn').onclick = () => { audioInit(); startGame(diff, { fog: document.getElementById('fogChk').checked }); };
   document.getElementById('resumeBtn').onclick = () => togglePause();
   document.querySelectorAll('.quitBtn').forEach(b => b.onclick = () => location.href = location.pathname);
@@ -104,11 +105,11 @@ function selfTest() {
 if (QS.get('selftest')) window.addEventListener('load', () => setTimeout(selfTest, 300));
 
 // ===== spectator camera director: follows fights, cycles key moments =====
-const DIR = { t: 0, hot: [], cur: null, hold: 0 };
+const DIR = { auto: false, t: 0, hot: [], cur: null, hold: 0 };
 function director(dt) {
   for (const ev of G.events) if (ev.e === 'hit' || ev.e === 'die') DIR.hot.push({ x: ev.x != null ? ev.x : ev.ent.x, y: ev.y != null ? ev.y : ev.ent.y, t: G.time, w: ev.e === 'die' ? (ev.ent.kind === 'b' ? 8 : 3) : 1 });
   DIR.hot = DIR.hot.filter(h => G.time - h.t < 5);
-  const wt = document.getElementById('watchTag'); if (wt && G.time - (DIR.tagT || -9) > 0.5) { DIR.tagT = G.time; } if (wt && DIR.tagT === G.time) { const av = t => Math.round(G.ents.filter(e => e.team === t && e.kind === 'u' && e.t !== 'harv').reduce((a, e) => a + UT[e.t].cost, 0) / 100) / 10; wt.textContent = `CHIEF (olive) ${av(0)}k army  ·  ${Math.floor(G.time / 60)}:${String(Math.floor(G.time % 60)).padStart(2, '0')}  ·  HARD AI (tan) ${av(1)}k army`; }
+  const wt = document.getElementById('watchTag'); if (wt && G.time - (DIR.tagT || -9) > 0.5) { DIR.tagT = G.time; } if (wt && DIR.tagT === G.time) { const av = t => Math.round(G.ents.filter(e => e.team === t && e.kind === 'u' && e.t !== 'harv').reduce((a, e) => a + UT[e.t].cost, 0) / 100) / 10; wt.textContent = `${G.players[0].diff === 'si' ? 'CHIEF SI' : 'CHIEF'} (olive) ${av(0)}k army  ·  ${Math.floor(G.time / 60)}:${String(Math.floor(G.time % 60)).padStart(2, '0')}  ·  HARD AI (tan) ${av(1)}k army  ·  [C] auto-cam ${DIR.auto ? 'ON' : 'OFF'}`; }
   DIR.t -= dt; DIR.hold -= dt;
   if (DIR.t <= 0) {
     DIR.t = 0.8; let best = null, bs = 0;
@@ -119,6 +120,6 @@ function director(dt) {
       if (DIR.hold <= 0) { const opts = []; for (const t of [0, 1]) { const army = G.ents.filter(e => e.team === t && e.kind === 'u' && e.t !== 'harv'); if (army.length) opts.push({ x: army.reduce((a, e) => a + e.x, 0) / army.length, y: army.reduce((a, e) => a + e.y, 0) / army.length }); const hq = G.ents.find(e => e.team === t && e.t === 'hq'); if (hq) opts.push({ x: hq.x + 2, y: hq.y + 2 }); }
         DIR.tour = ((DIR.tour || 0) + 1) % Math.max(1, opts.length); DIR.cur = opts[DIR.tour] || { x: 32, y: 32 }; DIR.curS = 0; DIR.hold = 7; R3.cam.td = 21; }
     }
-    if (DIR.cur) { R3.cam.tx = DIR.cur.x; R3.cam.ty = DIR.cur.y + R3.cam.td * 0.18; }
+    if (DIR.cur && DIR.auto) { R3.cam.tx = DIR.cur.x; R3.cam.ty = DIR.cur.y + R3.cam.td * 0.18; }
   }
 }
