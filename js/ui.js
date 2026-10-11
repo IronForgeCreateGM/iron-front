@@ -194,7 +194,7 @@ function onKey(e) {
 function myUnits() { return UI.sel.filter(s => s.team === 0 && s.kind === 'u' && UT[s.t].wpn); }
 function enemyFacing(cx, cy) {
   let best = null, bd = 1e9; for (const e of G.ents) if (e.team === 1 && visibleTo0(e)) { const d = Math.hypot(e.x - cx, e.y - cy); if (d < bd) { bd = d; best = e; } }
-  const t = best && bd < 30 ? best : { x: G.starts[1][0], y: G.starts[1][1] }; return Math.atan2(t.y - cy, t.x - cx);
+  const t = best && bd < 30 ? best : (st => ({ x: st[0], y: st[1] }))(G.starts[(G.players.find(Q => foe(Q.team, 0)) || G.players[1]).start]); return Math.atan2(t.y - cy, t.x - cx);
 }
 function doFormation(atBase) {
   const us = myUnits(); if (!us.length) { uiMsg('Select combat units first'); sfx('error'); return; }

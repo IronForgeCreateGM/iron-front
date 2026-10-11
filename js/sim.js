@@ -8,55 +8,91 @@ const isAir = e => e.kind === 'u' && !!UT[e.t].air;
 const defOf = e => e.kind === 'b' ? BT[e.t] : UT[e.t];
 const armorOf = e => e.kind === 'b' ? 'bldg' : UT[e.t].armor;
 
+// players = slots. Each player has .ally (alliance id); entities' .team = player index.
+function foe(a, b) { if (a === b) return false; if (a == null || b == null) return true; const A = G.players[a], B = G.players[b]; return !A || !B || A.ally !== B.ally; }
 function newGame(opts) {
   opts = Object.assign({ seed: (Math.random() * 1e9) | 0, diff: 'normal', aiTeams: [1], fog: true }, opts || {});
   const R = mkRng(opts.seed);
+  // slots: [{ ai, diff, ally, fac, start }]; default 1v1 from legacy opts
+  const slots = opts.slots || [0, 1].map(t => ({ ai: opts.aiTeams.includes(t), diff: t === 0 && opts.p0diff ? opts.p0diff : opts.diff, ally: t, fac: (opts.facs || [])[t], start: t ? 3 : 0 }));
+  const NP = slots.length;
   G = { R, opts, tick: 0, time: 0, ents: [], projs: [], events: [], nid: 1, over: null, bver: 1, blockVer: 0, block: null,
-    map: new Uint8Array(MW * MH), ore: new Float32Array(MW * MH), elev: new Float32Array(MW * MH),
-    visT: [new Uint8Array(MW * MH), new Uint8Array(MW * MH)], seenT: [new Uint8Array(MW * MH), new Uint8Array(MW * MH)], oreVer: 0, players: [] };
-  G.vis = G.visT[0]; G.seen = G.seenT[0]; G.dens = new Uint8Array(MW * MH); G.starts = [[7.5, 7.5], [56.5, 56.5]];
+    map: new Uint8Array(MW * MH), ore: new Float32Array(MW * MH), elev: new Float32Array(MW * MH), rich: new Uint8Array(MW * MH), bridge: new Uint8Array(MW * MH), forest: new Uint8Array(MW * MH),
+    visT: [], seenT: [], oreVer: 0, players: [], hist: [] };
+  G.dens = new Uint8Array(MW * MH);
   genMap(R);
-  for (let t = 0; t < 2; t++) G.players.push({ team: t, cr: 5000, pow: 0, gen: 0, use: 0, ai: opts.aiTeams.includes(t), diff: opts.diff,
-    gas: 150, fac: (opts.facs || [])[t] || ['usa', 'rus', 'fra', 'ger'][(R() * 4) | 0], queues: { bld: [], def: [], inf: [], veh: [], air: [] }, ready: { bld: null, def: null }, stats: { kills: 0, lost: 0, mined: 0 } });
-  const bases = [[6, 6], [55, 55]];
-  bases.forEach(([x, y], t) => {
+  // shared vision per alliance
+  const allyArr = {}; for (let t = 0; t < NP; t++) { const al = slots[t].ally; if (!allyArr[al]) allyArr[al] = [new Uint8Array(MW * MH), new Uint8Array(MW * MH)]; G.visT[t] = allyArr[al][0]; G.seenT[t] = allyArr[al][1]; }
+  G.vis = G.visT[0]; G.seen = G.seenT[0];
+  // colours by alliance order
+  const cnt = {}; slots.forEach((sl, t) => { const k = sl.ally === slots[0].ally ? 'A' : 'B', j = cnt[k] = (cnt[k] == null ? 0 : cnt[k] + 1); const pc = PALETTE[k][Math.min(1, j)]; TEAMPAINT[t] = pc[0]; TEAMCOL[t] = pc[1]; MMCOL[t] = pc[2]; });
+  if (typeof MODEL_CACHE !== 'undefined') for (const k in MODEL_CACHE) delete MODEL_CACHE[k];
+  for (let t = 0; t < NP; t++) { const sl = slots[t]; G.players.push({ team: t, ally: sl.ally, start: sl.start, cr: 5000, pow: 0, gen: 0, use: 0, ai: !!sl.ai, diff: sl.diff || opts.diff,
+    gas: 150, fac: sl.fac || ['usa', 'rus', 'fra', 'ger'][(R() * 4) | 0], queues: { bld: [], def: [], inf: [], veh: [], air: [] }, ready: { bld: null, def: null }, stats: { kills: 0, lost: 0, mined: 0, built: 0 }, out: false }); }
+  G.players.forEach((P, t) => {
+    const [sx, sy] = G.starts[P.start], x = Math.round(sx - 1.5), y = Math.round(sy - 1.5), dx = sx < MW / 2 ? 1 : -1, dy = sy < MH / 2 ? 1 : -1;
     addB('hq', t, x, y, true);
-    addU('harv', t, x + (t ? -1.5 : 4.5), y + (t ? -1.5 : 4.5));
-    for (let i = 0; i < 3; i++) addU('rifle', t, x + 1 + i * 0.6 + (t ? -2 : 3), y + (t ? -2 : 4));
-    addU('light', t, x + (t ? -2.5 : 5.5), y + (t ? 1 : 1.5));
+    addU('harv', t, sx + dx * 3, sy + dy * 3);
+    for (let i = 0; i < 3; i++) addU('rifle', t, sx + dx * (3 + i * 0.6), sy + dy * 4.2);
+    addU('light', t, sx + dx * 4.5, sy + dy * 1.5);
   });
   if (typeof aiInit === 'function') G.players.forEach(p => p.ai && aiInit(p));
   updFog();
   return G;
 }
+// 96x96 four-fold mirrored map: mains in corners (cliff ring + 2 ramps), two naturals each,
+// contested mid bases with rich (gold) fields, central monument, river with 4 bridges, forests.
 function genMap(R) {
-  const N = MW * MH, gs = 8, gw = MW / gs + 2;
+  const N = MW * MH, Q = MW / 2, gs = 8, gw = MW / gs + 2;
   const mk = () => { const a = []; for (let i = 0; i < gw * gw; i++) a.push(R()); return a; };
-  const g1 = mk(), g2 = mk();
+  const g1 = mk(), g2 = mk(), g3 = mk();
   const sm = t => t * t * (3 - 2 * t);
   const vn = (g, x, y, s) => { x /= s; y /= s; const xi = Math.floor(x), yi = Math.floor(y), fx = sm(x - xi), fy = sm(y - yi);
     const w = Math.ceil(MW / s) + 2, v = (a, b) => g[(b * w + a) % g.length];
     return (v(xi, yi) * (1 - fx) + v(xi + 1, yi) * fx) * (1 - fy) + (v(xi, yi + 1) * (1 - fx) + v(xi + 1, yi + 1) * fx) * fy; };
-  for (let i = 0; i < N / 2; i++) {
-    const x = i % MW, y = (i / MW) | 0;
-    const n = vn(g1, x, y, 8) * 0.7 + vn(g2, x, y, 4) * 0.3;
-    let t = 0; if (n > 0.66) t = 1; else if (n < 0.27) t = 2;
-    G.map[i] = t; G.map[N - 1 - i] = t; G.elev[i] = G.elev[N - 1 - i] = n;
+  const mir = (x, y) => [[x, y], [MW - 1 - x, y], [x, MH - 1 - y], [MW - 1 - x, MH - 1 - y]];
+  const setQ = (x, y, f) => { if (x < 0 || y < 0 || x >= Q || y >= Q) return; for (const [a, b] of mir(x, y)) f(idx(a, b)); };
+  for (let y = 0; y < Q; y++) for (let x = 0; x < Q; x++) {
+    const n = vn(g1, x, y, 8) * 0.7 + vn(g2, x, y, 4) * 0.3, fo = vn(g3, x, y, 6);
+    let t = 0; if (n > 0.7) t = 1; else if (n < 0.22) t = 2;
+    setQ(x, y, i => { G.map[i] = t; G.elev[i] = n; G.forest[i] = fo > 0.62 && t === 0 ? 1 : 0; });
   }
-  const clear = (cx, cy, r) => { for (let y = Math.floor(cy - r); y <= cy + r; y++) for (let x = Math.floor(cx - r); x <= cx + r; x++)
-    if (inb(x, y) && Math.hypot(x - cx, y - cy) <= r) { G.map[idx(x, y)] = 0; G.map[N - 1 - idx(x, y)] = 0; } };
-  clear(8, 8, 11);
-  for (let k = 0; k <= 60; k++) { const t = k / 60; clear(8 + 47 * t, 8 + 47 * t + Math.sin(t * 9) * 4, 1.8); clear(8 + 47 * t + Math.sin(t * 7) * 10, 8 + 47 * t - Math.sin(t * 7) * 10, 1.4); }
-  const field = (cx, cy, r) => { for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) if (inb(x, y)) {
-      const d = Math.hypot(x - cx, y - cy); if (d <= r + 0.3) { const a = (350 + (r - d) * 120) * ORE_MULT; for (const j of [idx(x, y), N - 1 - idx(x, y)]) { G.map[j] = 0; G.ore[j] = a; } } } };
-  G.vents = []; for (const [vx, vy] of [[19, 16], [22, 40]]) { clear(vx + 0.5, vy + 0.5, 2.6); G.vents.push([vx, vy], [MW - 1 - vx, MH - 1 - vy]); }
-  field(17, 9, 2); field(9, 19, 2); field(30, 29, 3); field(12, 44, 2); field(42, 15, 2);
-  // flood fill from base: unreachable open tiles become rock
-  const seen = new Uint8Array(N), st = [idx(8, 8)]; seen[st[0]] = 1;
+  const disc = (cx, cy, r, f) => { for (let y = Math.floor(cy - r); y <= cy + r; y++) for (let x = Math.floor(cx - r); x <= cx + r; x++) if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= r) setQ(x, y, f); };
+  const clear = (cx, cy, r) => disc(cx, cy, r, i => { G.map[i] = 0; G.forest[i] = 0; });
+  const rock = (cx, cy, r) => disc(cx, cy, r, i => { G.map[i] = 1; G.forest[i] = 0; });
+  const line = (x0, y0, x1, y1, r) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 2); for (let k = 0; k <= n; k++) clear(x0 + (x1 - x0) * k / n, y0 + (y1 - y0) * k / n, r); };
+  // main base + cliff ring with two ramps
+  const MX = 11, MY = 11;
+  for (let a = 0; a <= Math.PI / 2 + 0.01; a += 0.02) { const ramp = Math.abs(a - 0.32) < 0.12 || Math.abs(a - 1.25) < 0.12; if (ramp) continue; for (let r = 12.5; r <= 14.5; r += 0.5) rock(MX + Math.cos(a) * r, MY + Math.sin(a) * r, 0.7); }
+  clear(MX, MY, 11.5);
+  // corridors: ramps -> naturals -> mid -> bridges -> centre
+  line(MX + Math.cos(0.32) * 11, MY + Math.sin(0.32) * 11, 31, 10, 1.6); line(MX + Math.cos(1.25) * 11, MY + Math.sin(1.25) * 11, 10, 31, 1.6);
+  line(31, 10, 33, 33, 1.4); line(10, 31, 33, 33, 1.4); line(33, 33, 40, 40, 1.6); line(10, 31, 19, 44, 1.5); line(33, 33, 37, 44, 1.5); line(31, 10, Q, 10, 1.3); line(40, 40, Q, Q - 6, 1.5);
+  // naturals & mid
+  clear(31, 10, 6.5); clear(10, 31, 6.5); clear(33, 33, 6);
+  // river (y 45..47 mirrored -> 45..50) with bridges at x 18..20 and 36..38
+  for (let y = 45; y < Q; y++) for (let x = 0; x < Q; x++) setQ(x, y, i => { G.map[i] = 2; G.forest[i] = 0; G.elev[i] = 0.1; });
+  for (const bx of [18, 36]) for (let y = 43; y < Q; y++) for (let x = bx; x < bx + 3; x++) setQ(x, y, i => { G.map[i] = 0; G.bridge[i] = y >= 45 ? 1 : 0; });
+  // centre plaza + monument (blocking 4x4)
+  clear(Q, Q - 7.5, 4); for (let y = 46; y < Q; y++) for (let x = 46; x < Q; x++) setQ(x, y, i => { G.map[i] = 1; G.bridge[i] = 0; });
+  G.monument = [Q, Q];
+  // resources
+  const field = (cx, cy, r, rich) => disc(cx, cy, r + 0.3, i => { const x = i % MW, y = (i / MW) | 0; const d = 0; G.map[i] = 0; G.forest[i] = 0; G.ore[i] = (rich ? 520 : 400) * ORE_MULT * (0.8 + 0.4 * R()); G.rich[i] = rich ? 1 : 0; });
+  field(19.5, 5.5, 2.2); field(5.5, 19.5, 2.2);          // main
+  field(35, 6, 2); field(6, 35, 2);                      // naturals
+  field(37.5, 37.5, 1.6, 1);                             // rich gold at mid
+  field(Q - 3, 41, 1.2, 1);                              // gold near centre (mirrored pairs)
+  G.vents = []; const vent = (x, y) => { clear(x + 0.5, y + 0.5, 1.8); for (const [a, b] of mir(x, y)) G.vents.push([a, b]); };
+  vent(17, 16); vent(26, 13); vent(13, 26); vent(29, 33);
+  // starts (4 corners) and expansion sites (CC centres)
+  G.starts = mir(MX, MY).map(([x, y]) => [x + 0.5, y + 0.5]);
+  G.sites = []; for (const [x, y, k] of [[MX, MY, 'main'], [30, 9, 'nat'], [9, 30, 'nat'], [32, 31, 'mid']]) for (const [a, b] of mir(x, y)) G.sites.push({ x: a + 0.5, y: b + 0.5, k });
+  // flood fill from each start: unreachable open tiles become rock
+  const seen = new Uint8Array(N), st = [idx(MX, MY)]; seen[st[0]] = 1;
   while (st.length) { const c = st.pop(), x = c % MW, y = (c / MW) | 0;
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (!inb(nx, ny)) continue; const n = idx(nx, ny);
       if (!seen[n] && G.map[n] === 0) { seen[n] = 1; st.push(n); } } }
-  for (let i = 0; i < N; i++) if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.ore[i] = 0; }
+  for (let i = 0; i < N; i++) if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.ore[i] = 0; G.forest[i] = 0; }
   G.oreMax = Float32Array.from(G.ore);
 }
 function addB(t, team, tx, ty, instant) {
@@ -106,9 +142,9 @@ function canPlace(t, team, tx, ty) {
   for (let y = ty; y < ty + d.h; y++) for (let x = tx; x < tx + d.w; x++) if (g[idx(x, y)] || G.ore[idx(x, y)] > 0) return false;
   const onVent = (G.vents || []).some(([vx, vy]) => vx >= tx && vx < tx + d.w && vy >= ty && vy < ty + d.h);
   if ((t === 'extractor') !== onVent) return false;
-  for (const e of G.ents) if (e.kind === 'u' && !isAir(e) && e.team !== team && e.x > tx && e.x < tx + d.w && e.y > ty && e.y < ty + d.h) return false;
-  const R = t === 'extractor' ? 14 : 5;
-  return G.ents.some(e => e.kind === 'b' && e.team === team && e.t !== 'wall' && tx < e.tx + e.w + R && tx + d.w > e.tx - R && ty < e.ty + e.h + R && ty + d.h > e.ty - R);
+  for (const e of G.ents) if (e.kind === 'u' && !isAir(e) && foe(e.team, team) && e.x > tx && e.x < tx + d.w && e.y > ty && e.y < ty + d.h) return false;
+  if (t === 'cc') { const cx = tx + 1.5, cy = ty + 1.5; if (G.ents.some(e => e.kind === 'b' && foe(e.team, team) && Math.hypot(e.x - cx, e.y - cy) < 12)) return false; if (G.ents.some(e => e.kind === 'b' && (e.t === 'cc' || e.t === 'hq') && Math.hypot(e.x - cx, e.y - cy) < 9)) return false; return !!G.seenT[team][idx(Math.floor(cx), Math.floor(cy))] || G.ents.some(e => e.kind === 'b' && e.team === team && Math.hypot(e.x - cx, e.y - cy) < 26); }
+  return G.ents.some(e => { if (e.kind !== 'b' || e.team !== team || e.t === 'wall') return false; const R = e.t === 'hq' || e.t === 'cc' ? 10 : t === 'extractor' ? 12 : 5; return tx < e.tx + e.w + R && tx + d.w > e.tx - R && ty < e.ty + e.h + R && ty + d.h > e.ty - R; });
 }
 function placeReady(team, cat, tx, ty) {
   const P = G.players[team], t = P.ready[cat];
@@ -287,9 +323,13 @@ function stepGame() {
   if (G.ents.some(e => e.dead)) { G.ents = G.ents.filter(e => !e.dead); G.bver++; }
   for (const P of G.players) if (P.ai && typeof aiStep === 'function') aiStep(P);
   if (G.tick % 6 === 0) updFog();
-  const alive = t => G.ents.some(e => e.team === t && e.kind === 'b' && e.t === 'hq') ||
-    G.ents.some(e => e.team === t && e.kind === 'b' && e.t !== 'wall' && e.t !== 'turret' && e.t !== 'aagun' && e.t !== 'power');
-  if (!alive(0)) G.over = 'defeat'; else if (!alive(1)) G.over = 'victory';
+  if (G.tick % 15 === 0) {
+    const KEY = { hq: 1, cc: 1, barracks: 1, factory: 1, airfield: 1, airpad: 1, refinery: 1, tech: 1 };
+    for (const P of G.players) if (!P.out && !G.ents.some(e => e.team === P.team && e.kind === 'b' && KEY[e.t])) { P.out = true; G.events.push({ e: 'eliminated', team: P.team }); for (const e of G.ents) if (e.team === P.team && e.kind === 'b') e.hp = 0; }
+    const alive = al => G.players.some(P => P.ally === al && !P.out), me = G.players[0].ally;
+    if (!alive(me)) G.over = 'defeat'; else if (!G.players.some(P => P.ally !== me && !P.out)) G.over = 'victory';
+    if (G.tick % 300 === 0) G.hist.push({ t: G.time, p: G.players.map(P => ({ army: G.ents.reduce((a, e) => a + (e.team === P.team && e.kind === 'u' && e.t !== 'harv' ? UT[e.t].cost : 0), 0), mined: P.stats.mined | 0 })) });
+  }
 }
 function onDeath(e) {
   G.events.push({ e: 'die', ent: e });
@@ -322,7 +362,7 @@ function tscore(e, w, o, d) {
 function acquire(e, w, range) {
   let best = null, bs = 1e9;
   for (const o of G.ents) {
-    if (o.team === e.team || o.hp <= 0 || !canHit(w, o)) continue;
+    if (!foe(o.team, e.team) || o.hp <= 0 || !canHit(w, o)) continue;
     const d = distTo(e, o); if (d > range) continue;
     if (e.team != null && G.visT && !visibleTo(e.team, o)) continue;
     const s = tscore(e, w, o, d); if (s < bs) { bs = s; best = o; }
@@ -331,7 +371,7 @@ function acquire(e, w, range) {
 }
 // returns true if engaging (in range or chasing)
 function combat(e, w, sight, mobile) {
-  if (e.tgt && (e.tgt.hp <= 0 || e.tgt.dead || e.tgt.team === e.team)) e.tgt = null;
+  if (e.tgt && (e.tgt.hp <= 0 || e.tgt.dead || !foe(e.tgt.team, e.team))) e.tgt = null;
   if (e.cd > 0) e.cd -= DT;
   const forced = e.order === 'attack';
   if (!e.tgt && e.order !== 'move' && (G.tick + e.id) % 8 === 0) e.tgt = acquire(e, w, sight);
@@ -401,17 +441,17 @@ function respond(u, src) {
   if (!u.tgt || u.tgt.hp <= 0 || distTo(u, u.tgt) > w.rng) u.tgt = src;
 }
 function damage(t, amt, w, team, src) {
-  if (src && t.team !== team && t.kind === 'u') { respond(t, src); if (G.time - (t.helpT || 0) > 1) { t.helpT = G.time; for (const o of G.ents) if (o.team === t.team && o.kind === 'u' && o !== t && !o.tgt && Math.hypot(o.x - t.x, o.y - t.y) < 5) respond(o, src); } }
+  if (src && foe(t.team, team) && t.kind === 'u') { respond(t, src); if (G.time - (t.helpT || 0) > 1) { t.helpT = G.time; for (const o of G.ents) if (o.team === t.team && o.kind === 'u' && o !== t && !o.tgt && Math.hypot(o.x - t.x, o.y - t.y) < 5) respond(o, src); } }
   if (t.hp <= 0) return;
   t.hp -= amt * DMG[w.type][armorOf(t)];
   t.lastHitBy = team; t.hitT = G.time;
   const TP = G.players[t.team]; if (TP && G.time - (TP.alertT || -99) > 12) { TP.alertT = G.time; G.events.push({ e: 'attacked', team: t.team, x: t.x, y: t.y, harv: t.t === 'harv' }); }
-  if (t.kind === 'u' && t.order === 'idle' && !t.tgt && t.team !== team) t.underFire = G.time;
+  if (t.kind === 'u' && t.order === 'idle' && !t.tgt && foe(t.team, team)) t.underFire = G.time;
 }
 function impact(p) {
   const w = p.w; if (p.tgt) p.tgt.inc = Math.max(0, (p.tgt.inc || 0) - (p.est || 0));
   if (w.splash) {
-    for (const o of G.ents) { if (o.team === p.team) continue; if (isAir(o) !== (p.tz > 1.5)) continue;
+    for (const o of G.ents) { if (!foe(o.team, p.team)) continue; if (isAir(o) !== (p.tz > 1.5)) continue;
       const d = distTo(p, o); if (d < w.splash) damage(o, w.dmg * (1 - 0.6 * d / w.splash), w, p.team, p.src); }
   } else if (p.tgt && p.tgt.hp > 0 && distTo(p, p.tgt) < 1.2) damage(p.tgt, w.dmg, w, p.team, p.src);
   G.events.push({ e: 'hit', x: p.x, y: p.y, z: p.z, kind: w.type });
@@ -531,7 +571,7 @@ function oreScore(u, i, refs) {
   return d;
 }
 function nearestOre(u, pref) {
-  const refs = G.ents.filter(e => e.team === u.team && e.t === 'refinery');
+  const refs = G.ents.filter(e => e.team === u.team && (e.t === 'refinery' || e.t === 'cc'));
   if (pref != null && G.ore[pref] > 0 && oreScore(u, pref, refs) < 1e9) return pref;
   let b = -1, bd = 1e9;
   for (let i = 0; i < G.ore.length; i++) if (G.ore[i] > 30) { const d = oreScore(u, i, refs); if (d < bd) { bd = d; b = i; } }
@@ -559,17 +599,17 @@ function harvest(h) {
     case 'mine': {
       const i = h.oreT;
       if (i == null) { h.hst = 'idle'; break; }
-      if (G.ore[i] > 0) { const a = Math.min(G.ore[i], MINE_RATE * DT, CAP - h.load); G.ore[i] -= a; h.load += a; if (G.ore[i] <= 0) { G.ore[i] = 0; G.oreVer++; } }
+      if (G.ore[i] > 0) { const a = Math.min(G.ore[i], MINE_RATE * DT, CAP - h.load); G.ore[i] -= a; h.load += a; h.loadV = (h.loadV || 0) + a * (G.rich[i] ? 1.8 : 1); if (G.ore[i] <= 0) { G.ore[i] = 0; G.oreVer++; } }
       if (h.load >= CAP - 0.01) { h.hst = 'ret'; h.oreT = null; break; }
       if (G.ore[i] <= 0) { // next patch nearby (unreserved)
-        const x = i % MW, y = (i / MW) | 0, refs = G.ents.filter(e => e.team === h.team && e.t === 'refinery'); let n = -1, bs = 1e9;
+        const x = i % MW, y = (i / MW) | 0, refs = G.ents.filter(e => e.team === h.team && (e.t === 'refinery' || e.t === 'cc')); let n = -1, bs = 1e9;
         for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const j = idx(x + dx, y + dy); if (inb(x + dx, y + dy) && G.ore[j] > 30) { const sc = oreScore(h, j, refs); if (sc < bs) { bs = sc; n = j; } } }
         if (n >= 0) { h.oreT = n; h.toT = G.time; h.hst = 'toOre'; setPath(h, n % MW + 0.5, ((n / MW) | 0) + 0.5); } else { h.hst = h.load > CAP * 0.3 ? 'ret' : 'idle'; h.oreT = null; }
       }
       break;
     }
     case 'ret': {
-      let r = null, bd = 1e9; for (const e of G.ents) if (e.team === h.team && e.t === 'refinery' && e.sell < 0) { const busy = e.dockBy && e.dockBy !== h.id && byId(e.dockBy) ? 8 : 0; const d = Math.hypot(e.x - h.x, e.y - h.y) + busy; if (d < bd) { bd = d; r = e; } }
+      let r = null, bd = 1e9; for (const e of G.ents) if (e.team === h.team && (e.t === 'refinery' || e.t === 'cc') && e.sell < 0 && G.time - e.born > 1.5) { const busy = e.dockBy && e.dockBy !== h.id && byId(e.dockBy) ? 8 : 0; const d = Math.hypot(e.x - h.x, e.y - h.y) + busy; if (d < bd) { bd = d; r = e; } }
       if (!r) break;
       const dock = { x: r.x, y: r.ty + r.h + 0.5 };
       const free = !r.dockBy || r.dockBy === h.id || !byId(r.dockBy) || byId(r.dockBy).hst !== 'unload' && byId(r.dockBy).dockR !== r.id;
@@ -581,8 +621,8 @@ function harvest(h) {
       break;
     }
     case 'unload': {
-      const a = Math.min(h.load, UNLOAD_RATE * DT); h.load -= a;
-      const mult = (P.ai ? DIFF[P.diff].income : 1) * ORE_VALUE; P.cr += a * mult; P.stats.mined += a * mult;
+      const a = Math.min(h.load, UNLOAD_RATE * DT), vr = h.load > 0 ? (h.loadV || h.load) / h.load : 1; h.loadV = Math.max(0, (h.loadV || 0) - a * vr); h.load -= a;
+      const mult = (P.ai ? DIFF[P.diff].income : 1) * ORE_VALUE * vr; P.cr += a * mult; P.stats.mined += a * mult;
       if (h.load <= 0) { h.load = 0; h.hst = 'idle'; const r = byId(h.dockR); if (r && r.dockBy === h.id) r.dockBy = null; h.dockR = null; h.path = []; setPath(h, h.x, h.y + 1.5); }
       break;
     }
@@ -590,10 +630,11 @@ function harvest(h) {
 }
 // ---------- fog (per team) ----------
 function updFog() {
-  for (let t = 0; t < 2; t++) {
-    const v = G.visT[t], sn = G.seenT[t]; v.fill(0);
+  const done = new Set();
+  for (let t = 0; t < G.players.length; t++) {
+    const v = G.visT[t], sn = G.seenT[t]; if (done.has(v)) continue; done.add(v); v.fill(0);
     for (const e of G.ents) {
-      if (e.team !== t) continue;
+      if (foe(e.team, t)) continue;
       const r = e.kind === 'b' ? (BT[e.t].sight || 5) + e.w / 2 : UT[e.t].sight, cx = e.x, cy = e.y, r2 = r * r;
       for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(MH - 1, cy + r); y++)
         for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(MW - 1, cx + r); x++)
@@ -603,8 +644,8 @@ function updFog() {
   }
 }
 function visibleTo(team, e) {
-  if (e.team === team) return true;
-  if (e.kind === 'u' && UT[e.t].stealthy && G.time - (e.lastFire || -9) > 2) { for (const o of G.ents) if (o.team === team && Math.abs(o.x - e.x) < 3.2 && Math.abs(o.y - e.y) < 3.2 && Math.hypot(o.x - e.x, o.y - e.y) < 3.2) return true; return false; }
+  if (!foe(e.team, team)) return true;
+  if (e.kind === 'u' && UT[e.t].stealthy && G.time - (e.lastFire || -9) > 2) { for (const o of G.ents) if (!foe(o.team, team) && Math.abs(o.x - e.x) < 3.2 && Math.abs(o.y - e.y) < 3.2 && Math.hypot(o.x - e.x, o.y - e.y) < 3.2) return true; return false; }
   const V = G.visT[team], S = G.seenT[team];
   if (e.kind === 'b') { for (let y = e.ty; y < e.ty + e.h; y++) for (let x = e.tx; x < e.tx + e.w; x++) if (S[idx(x, y)]) return true; return false; }
   return !!V[idx(Math.floor(e.x), Math.floor(e.y))];

@@ -1,6 +1,6 @@
 'use strict';
 // ===== Static data tables (all original names) =====
-const MW = 64, MH = 64, DT = 1 / 30;
+const MW = 96, MH = 96, DT = 1 / 30;
 // damage-type x armor multipliers (counter system)
 const DMG = {
   bullet: { inf: 1.0, light: 0.45, heavy: 0.2, bldg: 0.2, air: 0.6 },
@@ -48,6 +48,7 @@ const BT = {
   turret:  { n: 'Guard Turret', w: 1, h: 1, hp: 700, cost: 600, pow: -20, time: 5, cat: 'def', req: ['barracks'], wpn: 'tcannon', sight: 7 },
   aagun:   { n: 'Flak Battery', w: 1, h: 1, hp: 500, cost: 700, pow: -25, time: 5, cat: 'def', req: ['barracks'], wpn: 'flak', sight: 8 },
   airfield:{ n: 'Airfield', w: 3, h: 3, hp: 1200, cost: 1500, pow: -50, time: 12, cat: 'bld', req: ['factory', 'tech'] },
+  cc:      { n: 'Command Center', w: 3, h: 3, hp: 2200, cost: 2200, pow: 10, time: 25, cat: 'bld', req: ['refinery'] },
   extractor:{ n: 'Gas Extractor', w: 2, h: 2, hp: 900, cost: 800, pow: -20, time: 8, cat: 'bld', req: ['refinery'] },
   gcannon: { n: 'Grand Cannon', w: 2, h: 2, hp: 2200, cost: 2500, gas: 300, pow: -80, time: 20, cat: 'def', req: ['tech'], wpn: 'gcan', sight: 15, fac: 'fra' },
   wall:    { n: 'Wall', w: 1, h: 1, hp: 400, cost: 50, pow: 0, time: 1, cat: 'def', req: ['barracks'] },
@@ -68,7 +69,7 @@ const UT = {
   aa:     { n: 'Skyguard', hp: 320, sp: 2.2, armor: 'light', wpn: 'flak', cost: 700, time: 7, from: 'factory', sight: 8, r: 0.45, req: [], turret: 1 },
   titan:  { n: 'Titan Walker', hp: 1500, sp: 1.3, armor: 'heavy', wpn: 'titan', cost: 2600, gas: 250, time: 18, from: 'factory', sight: 8, r: 0.75, req: ['tech'], turret: 1, mech: 1 },
   tsar:   { n: 'Tsar Siege Tank', hp: 2600, sp: 1.0, armor: 'heavy', wpn: 'tsarc', cost: 3200, gas: 300, time: 24, from: 'factory', sight: 8, r: 0.9, req: ['tech'], turret: 1, regen: 6, fac: 'rus' },
-  harv:   { n: 'Ore Hauler', hp: 1000, sp: 1.5, armor: 'heavy', wpn: null, cost: 1400, time: 10, from: 'factory', alt: ['hq'], sight: 5, r: 0.6, req: [] },
+  harv:   { n: 'Ore Hauler', hp: 1000, sp: 1.5, armor: 'heavy', wpn: null, cost: 1400, time: 10, from: 'factory', alt: ['hq', 'cc'], sight: 5, r: 0.6, req: [] },
   jet:    { n: 'Falcon Strike Jet', hp: 420, sp: 7.0, armor: 'air', wpn: 'jbomb', cost: 2000, gas: 150, time: 14, from: 'airfield', sight: 8, r: 0.6, req: [], air: 1, jet: 1 },
   intercept:{ n: 'Talon Interceptor', hp: 360, sp: 7.5, armor: 'air', wpn: 'aam', cost: 1300, time: 10, from: 'airfield', sight: 10, r: 0.55, req: [], air: 1, jet: 1 },
   bomber: { n: 'Thunder Bomber', hp: 950, sp: 3.6, armor: 'air', wpn: 'cbomb', cost: 2800, gas: 250, time: 20, from: 'airfield', sight: 8, r: 0.9, req: [], air: 1, jet: 1 },
@@ -77,14 +78,16 @@ const UT = {
 };
 const CATS = { bld: 'Structures', def: 'Defenses', inf: 'Infantry', veh: 'Vehicles', air: 'Aircraft' };
 const FROMCAT = { barracks: 'inf', factory: 'veh', airpad: 'air', airfield: 'air' };
-const TEAMCOL = [0x3f7fd0, 0xd04a36, 0x33dd66, 0xffcc22]; // accents only
-const TEAMPAINT = [0x2e4a73, 0x7a2d25]; // strong but realistic military blue / oxide red // olive drab vs desert tan
+const TEAMCOL = [0x3f7fd0, 0xd04a36, 0x2fc4d0, 0xf08a2a]; // accents only (re-assigned per game by alliance)
+const TEAMPAINT = [0x2e4a73, 0x7a2d25, 0x2a6a72, 0x8a5222];
+const PALETTE = { A: [[0x2e4a73, 0x3f7fd0, '#5fb0ff'], [0x2a6a72, 0x2fc4d0, '#5fe6f0']], B: [[0x7a2d25, 0xd04a36, '#ff5040'], [0x8a5222, 0xf08a2a, '#ffa040']] };
+const MMCOL = ['#5fb0ff', '#ff5040', '#5fe6f0', '#ffa040']; // strong but realistic military blue / oxide red // olive drab vs desert tan
 const DIFF = {
-  easy:   { income: 0.55, think: 2.5, wave0: 3, waveMax: 7, waveInc: 1, harass: 0.15, harassAfter: 1080, firstAttack: 570, waveGap: 150, build: 0.6, scoutAfter: 600 },
-  normal: { income: 1.0, think: 1.2, wave0: 6, waveMax: 14, waveInc: 2, harass: 0.3, harassAfter: 0, firstAttack: 0, waveGap: 30, build: 1.0, scoutAfter: 20 },
-  chief:  { income: 1.0, think: 0.5, wave0: 10, waveMax: 30, waveInc: 3, harass: 0.4, harassAfter: 240, firstAttack: 0, waveGap: 45, build: 1.0, scoutAfter: 15, chief: 1 },
-  si:     { income: 1.0, think: 0.4, wave0: 10, waveMax: 30, waveInc: 3, harass: 0.4, harassAfter: 240, firstAttack: 0, waveGap: 40, build: 1.0, scoutAfter: 10, chief: 1, si: 1 },
-  hard:   { income: 1.35, think: 0.7, wave0: 7, waveMax: 20, waveInc: 2, harass: 0.5, harassAfter: 0, firstAttack: 0, waveGap: 30, build: 1.3, scoutAfter: 20 },
+  easy:   { expandAt: 1000, income: 0.55, think: 2.5, wave0: 3, waveMax: 7, waveInc: 1, harass: 0.15, harassAfter: 1080, firstAttack: 570, waveGap: 150, build: 0.6, scoutAfter: 600 },
+  normal: { expandAt: 480, income: 1.0, think: 1.2, wave0: 6, waveMax: 14, waveInc: 2, harass: 0.3, harassAfter: 0, firstAttack: 0, waveGap: 30, build: 1.0, scoutAfter: 20 },
+  chief:  { expandAt: 330, income: 1.0, think: 0.5, wave0: 10, waveMax: 30, waveInc: 3, harass: 0.4, harassAfter: 240, firstAttack: 0, waveGap: 45, build: 1.0, scoutAfter: 15, chief: 1 },
+  si:     { expandAt: 260, income: 1.0, think: 0.4, wave0: 10, waveMax: 30, waveInc: 3, harass: 0.4, harassAfter: 240, firstAttack: 0, waveGap: 40, build: 1.0, scoutAfter: 10, chief: 1, si: 1 },
+  hard:   { expandAt: 300, income: 1.35, think: 0.7, wave0: 7, waveMax: 20, waveInc: 2, harass: 0.5, harassAfter: 0, firstAttack: 0, waveGap: 30, build: 1.3, scoutAfter: 20 },
 };
 // economy
 const ORE_VALUE = 0.91, HARV_CAP = 600, MINE_RATE = 40, UNLOAD_RATE = 300, ORE_REGROW = 0.8, ORE_MULT = 11; // per second

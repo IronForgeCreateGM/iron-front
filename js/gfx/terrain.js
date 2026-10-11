@@ -122,7 +122,7 @@ function buildWater() {
         col = mix(col + spec, vec3(0.85, 0.9, 0.92), foam);
         float a = clamp(0.55 + depth*0.6 + fres*0.3, 0.0, 0.94); a = max(a, foam);
         a *= smoothstep(0.0, 0.14, depth + 0.03);
-        float fa = texture2D(uFow, vec2(vW.x / 64.0, 1.0 - vW.z / 64.0)).a; col = mix(col, uFowC, fa * 0.97);
+        float fa = texture2D(uFow, vec2(vW.x / ${MW}.0, 1.0 - vW.z / ${MH}.0)).a; col = mix(col, uFowC, fa * 0.97);
         gl_FragColor = vec4(col, a);
       }`,
   });
