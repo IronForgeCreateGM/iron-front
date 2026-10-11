@@ -38,7 +38,7 @@ function terrainMaterial() {
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec4 vSplat;\nvarying vec3 vW;\n' + GLSL_NOISE)
       .replace('#include <map_fragment>', `
         vec2 q = vW.xz;
-        float n1 = fbm(q * 0.35), n2 = fbm(q * 1.7 + 3.1), n3 = vnoise(q * 9.0), n4 = vnoise(q * 31.0);
+        float fwq = length(fwidth(q)); float n1 = fbm(q * 0.35), n2 = fbm(q * 1.7 + 3.1), n3 = mix(0.5, vnoise(q * 9.0), clamp(1.0 - fwq * 9.0 * 0.6, 0.0, 1.0)), n4 = mix(0.5, vnoise(q * 31.0), clamp(1.0 - fwq * 31.0 * 0.6, 0.0, 1.0));
         vec3 grass = mix(vec3(0.075,0.15,0.035), vec3(0.17,0.25,0.06), n1) * (0.8 + 0.35*n3) * (0.9 + 0.2*n4);
         grass = mix(grass, vec3(0.24,0.22,0.09), smoothstep(0.55, 0.75, n2) * 0.45);
         vec3 dirt = mix(vec3(0.16,0.10,0.05), vec3(0.28,0.19,0.10), n2) * (0.75 + 0.45*n3);
@@ -51,7 +51,7 @@ function terrainMaterial() {
         float tRock = w.z; float tGrass = w.x;`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(0.95, 0.72, tRock) - n4*0.08;')
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
-        { float hb = fbm(q*2.0)*(0.03 + 0.3*tRock) + vnoise(q*9.0)*0.006;
+        { float hb = (fbm(q*2.0)*(0.03 + 0.3*tRock) + vnoise(q*9.0)*0.006) * clamp(1.0 - fwq * 4.0, 0.0, 1.0);
           vec3 dpx = dFdx(-vViewPosition), dpy = dFdy(-vViewPosition); float dhx = dFdx(hb), dhy = dFdy(hb);
           vec3 r1 = cross(dpy, normal), r2 = cross(normal, dpx); float det = dot(dpx, r1);
           vec3 grad = sign(det) * (dhx * r1 + dhy * r2); normal = normalize(abs(det) * normal - grad * 2.5); }`);
@@ -101,11 +101,11 @@ function buildWater() {
     fragmentShader: GLSL_NOISE + `
       uniform float uTime; uniform sampler2D uH, uFow; uniform vec3 uFowC; uniform vec3 uSun, uSky, uDeep, uShallow; varying vec3 vW;
       void main(){
-        vec2 q = vW.xz; float t = uTime;
+        vec2 q = vW.xz; float t = mod(uTime, 628.3185); float aa = clamp(1.0 - length(fwidth(q)) * 2.5, 0.0, 1.0);
         vec2 g = vec2(0.0);
         g += vec2(cos(q.x*1.3 + t*1.1), sin(q.y*1.1 - t*0.9)) * 0.08;
-        g += vec2(cos(q.x*3.1 - q.y*2.0 + t*2.0), sin(q.y*2.7 + q.x*1.7 + t*1.7)) * 0.04;
-        g += (vec2(vnoise(q*4.0 + t*0.6), vnoise(q*4.0 - t*0.5)) - 0.5) * 0.12;
+        g += vec2(cos(q.x*3.1 - q.y*2.0 + t*2.0), sin(q.y*2.7 + q.x*1.7 + t*1.7)) * 0.04 * aa;
+        g += (vec2(vnoise(q*4.0 + t*0.6), vnoise(q*4.0 - t*0.5)) - 0.5) * 0.12 * aa;
         vec3 N = normalize(vec3(g.x, 1.0, g.y));
         vec3 V = normalize(cameraPosition - vW);
         float th = texture2D(uH, vec2(vW.x/${MW}.0, vW.z/${MH}.0)).r * 4.0 - 1.5;
@@ -115,27 +115,27 @@ function buildWater() {
         vec3 R = reflect(-V, N);
         vec3 sky = mix(uSky*0.7, uSky*1.25, clamp(R.y, 0.0, 1.0));
         col = mix(col, sky, fres*0.8);
-        float spec = pow(max(dot(R, uSun), 0.0), 220.0) * 6.0;
-        float foamN = vnoise(q*6.0 + vec2(t*0.4, -t*0.3)) * vnoise(q*13.0 - t*0.5);
+        float spec = pow(max(dot(R, uSun), 0.0), 90.0) * 1.6 * aa;
+        float foamN = vnoise(q*6.0 + vec2(t*0.4, -t*0.3)) * mix(0.5, vnoise(q*13.0 - t*0.5), aa);
         float foam = smoothstep(0.32, 0.0, depth) * (0.55 + 0.9*foamN) + smoothstep(0.55, 0.45, abs(depth - 0.25 - 0.1*sin(t*1.5 + q.x*2.0)))*0.25*foamN;
         foam = clamp(foam, 0.0, 1.0);
         col = mix(col + spec, vec3(0.85, 0.9, 0.92), foam);
         float a = clamp(0.55 + depth*0.6 + fres*0.3, 0.0, 0.94); a = max(a, foam);
-        a *= smoothstep(0.0, 0.05, depth + 0.02);
+        a *= smoothstep(0.0, 0.14, depth + 0.03);
         float fa = texture2D(uFow, vec2(vW.x / 64.0, 1.0 - vW.z / 64.0)).a; col = mix(col, uFowC, fa * 0.97);
         gl_FragColor = vec4(col, a);
       }`,
   });
-  const w = new THREE.Mesh(new THREE.PlaneGeometry(MW, MH, 1, 1).rotateX(-Math.PI / 2), mat); w.position.set(MW / 2, -0.32, MH / 2); w.renderOrder = 2; R3.scene.add(w); R3.water = w;
+  const w = new THREE.Mesh(new THREE.PlaneGeometry(MW, MH, 1, 1).rotateX(-Math.PI / 2), mat); w.position.set(MW / 2, -0.3, MH / 2); w.renderOrder = 2; mat.polygonOffset = true; mat.polygonOffsetFactor = -1; mat.polygonOffsetUnits = -2; R3.scene.add(w); R3.water = w;
 }
 function buildFogOverlay() {
   R3.fogData = new Uint8Array(MW * MH * 4); for (let i = 0; i < MW * MH; i++) R3.fogData[i * 4 + 3] = 255;
   R3.fogTex = new THREE.DataTexture(R3.fogData, MW, MH, THREE.RGBAFormat); R3.fogTex.magFilter = R3.fogTex.minFilter = THREE.LinearFilter; R3.fogTex.needsUpdate = true;
   FOW.uFow.value = R3.fogTex;
 }
-function updFogTex() {
-  const d = R3.fogData;
-  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x, j = ((MH - 1 - y) * MW + x) * 4; const a = vis0(i) ? 0 : seen0(i) ? 135 : 250; d[j + 3] += (a - d[j + 3]) * 0.3; }
+function updFogTex(dt) {
+  const d = R3.fogData, f = R3.fogF || (R3.fogF = new Float32Array(MW * MH).fill(250)), k = 1 - Math.exp(-(dt || 0.016) * 7);
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x, j = ((MH - 1 - y) * MW + x) * 4; const a = vis0(i) ? 0 : seen0(i) ? 135 : 250; f[i] += (a - f[i]) * k; d[j + 3] = Math.round(f[i]); }
   R3.fogTex.needsUpdate = true;
 }
 function buildOre() {

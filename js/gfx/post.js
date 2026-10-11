@@ -13,10 +13,11 @@ function postInit(renderer) {
   P.blur = mk(`uniform sampler2D tD; uniform vec2 uDir; varying vec2 vUv; void main(){ vec3 c = texture2D(tD, vUv).rgb * 0.227027;
     c += texture2D(tD, vUv + uDir * 1.3846).rgb * 0.3162162; c += texture2D(tD, vUv - uDir * 1.3846).rgb * 0.3162162;
     c += texture2D(tD, vUv + uDir * 3.2308).rgb * 0.0702703; c += texture2D(tD, vUv - uDir * 3.2308).rgb * 0.0702703; gl_FragColor = vec4(c, 1.0); }`, { tD: { value: null }, uDir: { value: new THREE.Vector2() } });
-  P.final = mk(`uniform sampler2D tD, tB1, tB2, tB3; uniform float uBloom, uExpo, uVig, uSat, uHasBloom, uCon, uBri; uniform vec3 uLift, uGain; varying vec2 vUv;
+  P.final = mk(`uniform sampler2D tD, tB1, tB2, tB3; uniform float uBloom, uExpo, uVig, uSat, uHasBloom, uCon, uBri, uSharp; uniform vec2 uPx; uniform vec3 uLift, uGain; varying vec2 vUv;
     vec3 aces(vec3 x){ x *= 0.6; return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
     vec3 toSRGB(vec3 c){ return mix(c * 12.92, 1.055 * pow(c, vec3(1.0/2.4)) - 0.055, step(0.0031308, c)); }
     void main(){ vec3 c = texture2D(tD, vUv).rgb;
+      if (uSharp > 0.0) { vec3 nb = texture2D(tD, vUv + vec2(uPx.x, 0.0)).rgb + texture2D(tD, vUv - vec2(uPx.x, 0.0)).rgb + texture2D(tD, vUv + vec2(0.0, uPx.y)).rgb + texture2D(tD, vUv - vec2(0.0, uPx.y)).rgb; c = max(c + (c - nb * 0.25) * uSharp, 0.0); }
       if (uHasBloom > 0.5) c += (texture2D(tB1, vUv).rgb * 0.5 + texture2D(tB2, vUv).rgb * 0.8 + texture2D(tB3, vUv).rgb * 1.1) * uBloom;
       c = min(c, vec3(12.0)); c = aces(c * uExpo);
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(l), c, uSat);
@@ -25,7 +26,7 @@ function postInit(renderer) {
       c = clamp((c - 0.5) * uCon + 0.5 + uBri, 0.0, 1.0);
       vec2 d = vUv - 0.5; c *= 1.0 - uVig * smoothstep(0.35, 0.85, length(d * vec2(1.25, 1.0)));
       gl_FragColor = vec4(c, 1.0); }`,
-    { tD: { value: null }, tB1: { value: null }, tB2: { value: null }, tB3: { value: null }, uBloom: { value: 0.32 }, uExpo: { value: 0.8 }, uVig: { value: 0.4 }, uSat: { value: 1.22 }, uCon: { value: 1.15 }, uBri: { value: 0 }, uHasBloom: { value: 1 },
+    { tD: { value: null }, tB1: { value: null }, tB2: { value: null }, tB3: { value: null }, uBloom: { value: 0.32 }, uSharp: { value: 0 }, uPx: { value: new THREE.Vector2(1 / 1280, 1 / 720) }, uExpo: { value: 0.8 }, uVig: { value: 0.4 }, uSat: { value: 1.22 }, uCon: { value: 1.15 }, uBri: { value: 0 }, uHasBloom: { value: 1 },
       uLift: { value: new THREE.Vector3(0.0, 0.006, 0.018) }, uGain: { value: new THREE.Vector3(1.04, 1.0, 0.95) } });
   P.fxaa = mk(`uniform sampler2D tD; uniform vec2 uRes; varying vec2 vUv;
     void main(){ vec2 px = 1.0 / uRes;
@@ -47,7 +48,7 @@ function postResize(w, h, q) {
   P.main = new THREE.WebGLRenderTarget(w, h, o({ depthBuffer: true, samples: P.isGL2 && q.msaa ? q.msaa : 0 }));
   P.ldr = new THREE.WebGLRenderTarget(w, h, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false });
   const s = [2, 4, 8]; [1, 2, 3].forEach((i, k) => { const bw = Math.max(1, Math.floor(w / s[k])), bh = Math.max(1, Math.floor(h / s[k])); P['b' + i] = new THREE.WebGLRenderTarget(bw, bh, o()); P['t' + i] = new THREE.WebGLRenderTarget(bw, bh, o()); });
-  P.fxaa.uniforms.uRes.value.set(w, h);
+  P.fxaa.uniforms.uRes.value.set(w, h); P.final.uniforms.uPx.value.set(1 / w, 1 / h); P.final.uniforms.uSharp.value = q.sharpen || 0;
 }
 function pass(mat, target) { POST.quad.material = mat; POST.r.setRenderTarget(target); POST.r.render(POST.scene, POST.cam); }
 function postRender(scene, camera) {

@@ -2,9 +2,9 @@
 // ===== Renderer orchestrator: quality, lighting/env, instanced units, buildings, events, camera, picking =====
 const QUALITY = {
   low:   { pr: 0.75, shadows: false, shadowSize: 1024, bloom: false, fxaa: false, msaa: 0, grass: 0, fx: 0.5, label: 'Low' },
-  med:   { pr: 1.0, shadows: true, shadowSize: 1024, bloom: true, fxaa: true, msaa: 0, grass: 0.3, fx: 0.75, label: 'Medium' },
-  high:  { pr: 1.25, shadows: true, shadowSize: 2048, bloom: true, fxaa: false, msaa: 4, grass: 0.55, fx: 1, label: 'High' },
-  ultra: { pr: 2.0, shadows: true, shadowSize: 4096, bloom: true, fxaa: false, msaa: 4, grass: 0.85, fx: 1.2, label: 'Ultra' },
+  med:   { pr: 1.25, sharpen: 0.2, shadows: true, shadowSize: 1024, bloom: true, fxaa: true, msaa: 0, grass: 0.3, fx: 0.75, label: 'Medium' },
+  high:  { pr: 2.0, sharpen: 0.25, shadows: true, shadowSize: 2048, bloom: true, fxaa: false, msaa: 2, grass: 0.55, fx: 1, label: 'High' },
+  ultra: { pr: 2.0, sharpen: 0.3, shadows: true, shadowSize: 4096, bloom: true, fxaa: false, msaa: 4, grass: 0.85, fx: 1.2, label: 'Ultra' },
 };
 const R3 = { corpses: [], objs: new Map(), rs: new Map(), uiMesh: new Map(), markers: [], cam: { x: 12, y: 14, d: 30, tx: 12, ty: 14, td: 30 }, time: 0, uTime: { value: 0 }, sunDir: null, fps: 60, frames: 0, fpsT: 0, view: { x0: 0, y0: 0, x1: MW, y1: MH } };
 function detectQuality() {
@@ -23,7 +23,7 @@ function r3Init(el) {
   R3.camera = new THREE.PerspectiveCamera(34, 1, 0.5, 260);
   R3.sunDir = new THREE.Vector3(-0.45, 0.78, -0.42).normalize();
   R3.hemi = new THREE.HemisphereLight(0xc8dcff, 0x40351f, 0.15); S.add(R3.hemi);
-  const sun = R3.sun = new THREE.DirectionalLight(0xffe2bc, 3.0); sun.castShadow = true; sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.025; sun.shadow.radius = 3;
+  const sun = R3.sun = new THREE.DirectionalLight(0xffe2bc, 3.0); sun.castShadow = true; sun.shadow.bias = -0.00025; sun.shadow.normalBias = 0.035; sun.shadow.radius = 3;
   S.add(sun); S.add(sun.target);
   buildEnv();
   postInit(r);
@@ -150,7 +150,7 @@ function inView(x, y) { const v = R3.view; return x > v.x0 && x < v.x1 && y > v.
 // ---------- per-frame ----------
 function r3Render(dt) {
   R3.time += dt; R3.uTime.value = R3.time; R3.renderer.info.reset();
-  updCamera(dt); updView();
+  updCamera(dt); updView(); if (!R3.anisoDone && R3.time > 0.5) { R3.anisoDone = true; applyAniso(); }
   handleEvents();
   const k = 1 - Math.exp(-dt * 16);
   for (const u of R3.uiMesh.values()) u.n = 0;
@@ -235,21 +235,27 @@ function r3Render(dt) {
   if (G.tick % 300 === 0) for (const id of [...R3.rs.keys()]) if (!alive.has(id)) R3.rs.delete(id);
   for (const mk of R3.markPool) if (mk.t > 0) { mk.t -= dt; mk.m.scale.setScalar(0.2 + mk.t * 1.4); mk.m.material.opacity = mk.t * 2; if (mk.t <= 0) mk.m.visible = false; }
   updFx(dt);
-  if (G.tick !== R3.fogTick) { R3.fogTick = G.tick; updFogTex(); }
+  updFogTex(dt);
   if (G.oreVer !== R3.oreVer) { R3.oreVer = G.oreVer; updOre(); }
   // sun/shadow follow camera (texel snapped)
-  const c = R3.cam, half = Math.max(14, c.d * 0.85), sh = R3.sun.shadow.camera;
+  const c = R3.cam, half = Math.max(14, Math.ceil(c.d * 0.85 / 4) * 4), sh = R3.sun.shadow.camera;
   if (sh.right !== half) { sh.left = -half; sh.right = half; sh.top = half; sh.bottom = -half; sh.near = 1; sh.far = 120; sh.updateProjectionMatrix(); }
-  const texel = half * 2 / R3.sun.shadow.mapSize.x, fx = Math.round(c.x / texel) * texel, fy = Math.round(c.y / texel) * texel;
-  R3.sun.position.set(fx + R3.sunDir.x * 60, R3.sunDir.y * 60, fy + R3.sunDir.z * 60); R3.sun.target.position.set(fx, 0, fy); R3.sun.target.updateMatrixWorld();
+  // stable shadows: snap the shadow frustum centre to whole texels in light space (no swimming while panning)
+  const texel = half * 2 / R3.sun.shadow.mapSize.x, L = R3.sunDir, rt = R3._srt || (R3._srt = new THREE.Vector3()), up = R3._sup || (R3._sup = new THREE.Vector3());
+  rt.set(0, 1, 0).cross(L).normalize(); up.copy(L).cross(rt).normalize();
+  const ctr = new THREE.Vector3(c.x, 0, c.y), a = Math.round(ctr.dot(rt) / texel) * texel, b = Math.round(ctr.dot(up) / texel) * texel, dl = ctr.dot(L);
+  ctr.copy(rt).multiplyScalar(a).addScaledVector(up, b).addScaledVector(L, dl);
+  R3.sun.position.copy(ctr).addScaledVector(L, 60); R3.sun.target.position.copy(ctr); R3.sun.target.updateMatrixWorld();
   postRender(R3.scene, R3.camera);
   // fps + auto quality
   R3.frames++; R3.fpsT += dt;
   if (R3.fpsT >= 1) { R3.fps = R3.frames / R3.fpsT; R3.frames = 0; R3.fpsT = 0; R3.calls = R3.renderer.info.render.calls; R3.tris = R3.renderer.info.render.triangles;
     if (R3.auto && G.time > 5) { R3.lowN = R3.fps < 38 ? (R3.lowN || 0) + 1 : 0; if (R3.lowN >= 4) { const order = ['ultra', 'high', 'med', 'low'], i = order.indexOf(R3.qName); if (i < 3) { applyQuality(order[i + 1]); uiMsg('Graphics quality lowered to ' + R3.q.label + ' (auto)'); } R3.lowN = 0; } } }
 }
+function applyAniso() { const mx = R3.renderer.capabilities.getMaxAnisotropy(); R3.scene.traverse(o => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; for (const m of ms) for (const k of ['map', 'aoMap', 'roughnessMap', 'normalMap', 'alphaMap']) if (m[k] && m[k].anisotropy !== mx) { m[k].anisotropy = mx; m[k].needsUpdate = true; } }); }
 function updCamera(dt) {
   const c = R3.cam, k = 1 - Math.exp(-dt * 9);
+  if (R3.camera) { const nn = Math.max(0.8, c.d * 0.35), ff = c.d * 3.2 + 50; if (Math.abs(R3.camera.near - nn) > 0.05 || Math.abs(R3.camera.far - ff) > 1) { R3.camera.near = nn; R3.camera.far = ff; R3.camera.updateProjectionMatrix(); } }
   c.tx = Math.max(3, Math.min(MW - 3, c.tx)); c.ty = Math.max(4, Math.min(MH + 6, c.ty)); c.td = Math.max(10, Math.min(50, c.td));
   c.x += (c.tx - c.x) * k; c.y += (c.ty - c.y) * k; c.d += (c.td - c.d) * k;
   const pitch = 0.82 + (c.d - 10) / 40 * 0.3; let sx = 0, sz = 0;
