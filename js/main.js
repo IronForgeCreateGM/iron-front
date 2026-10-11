@@ -80,6 +80,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let diff = 'normal';
   document.querySelectorAll('#diff button').forEach(b => b.onclick = () => { diff = b.dataset.d; document.querySelectorAll('#diff button').forEach(x => x.classList.toggle('on', x === b)); });
   if (QS.get('preset')) { try { startGame('normal', { slots: buildSlots(PRESETS[QS.get('preset')].slots), seed: +QS.get('seed') || 5 }); } catch (er) { document.title = 'STK ' + er.stack; throw er; } }
+  else if (QS.get('slots')) startGame('normal', { slots: buildSlots(QS.get('slots').split(',').map(r => r.split(':'))), seed: +QS.get('seed') || 5 }); // e.g. ?slots=si:A:usa:yellow,hard:B
   else if (QS.get('watch')) startGame(QS.get('watch') === 'si' ? 'hard' : QS.get('watch'), { watch: QS.get('watch') === 'si' ? 'si' : 1, seed: +QS.get('seed') || 5 });
   { const box = document.getElementById('facs'), desc = document.getElementById('facDesc');
     const sel = f => { MENU.fac = f; if (ONL.room && !ONL.host && ONL.acts.pref) ONL.acts.pref({ fac: f }); const lf = document.querySelector('#lobby .lf'); if (lf) lf.value = f; box.querySelectorAll('.fcard').forEach(c => c.classList.toggle('on', c.dataset.f === f)); const F = FACTIONS[f]; desc.innerHTML = `<b>${F.flag} ${F.n}</b> — special: ${F.desc}`; };

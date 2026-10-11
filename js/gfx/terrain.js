@@ -142,7 +142,9 @@ function buildOre() {
   R3.oreTiles = []; for (let i = 0; i < MW * MH; i++) if (G.oreMax[i] > 0) R3.oreTiles.push(i);
   const geo = new THREE.OctahedronGeometry(0.2, 0); geo.scale(1, 1.7, 1);
   const B = new MB(0); B.add('c', geo, COL.ORE, PBR.ORE, 0, 0, 0); const g = B.build().c;
-  R3.oreMesh = new THREE.InstancedMesh(g, pbrMaterial(), R3.oreTiles.length * 4); R3.oreMesh.castShadow = true; R3.oreMesh.receiveShadow = true; R3.oreMesh.frustumCulled = false; R3.scene.add(R3.oreMesh);
+  // own material: ore uses per-instance colour (rich gold); sharing PBR_MAT made other instanced meshes pick the instanceColor program (black units)
+  const om = pbrMaterial().clone(); om.onBeforeCompile = pbrMaterial().onBeforeCompile; om.customProgramCacheKey = () => 'pbrv2ic';
+  R3.oreMesh = new THREE.InstancedMesh(g, om, R3.oreTiles.length * 4); R3.oreMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(R3.oreTiles.length * 12).fill(1), 3); R3.oreMesh.castShadow = true; R3.oreMesh.receiveShadow = true; R3.oreMesh.frustumCulled = false; R3.scene.add(R3.oreMesh);
   const R = mkRng(5); R3.oreJ = R3.oreTiles.map(() => [0, 1, 2, 3].map(() => [R(), R(), R(), R()]));
 }
 function updOre() {
