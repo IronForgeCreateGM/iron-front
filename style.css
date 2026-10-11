@@ -54,3 +54,7 @@ select{background:#16263a;color:#e3eefa;border:1px solid #2f5a88;border-radius:4
 
 .acts{display:flex;gap:4px;margin-top:6px}.act{flex:1;font-size:11px;padding:5px 4px;background:#16304a;border:1px solid #2f5a88;color:#dfeefc;border-radius:4px;cursor:pointer;margin-top:6px;width:100%}.acts .act{margin-top:0}.act:hover{background:#1f4466}.act:disabled{opacity:.6;cursor:default}.act.poor{color:#ff8a7a}
 #watchTag{display:none;position:absolute;top:44px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#ffd27a;font:600 13px system-ui;letter-spacing:.12em;padding:5px 14px;border-radius:4px;z-index:3;pointer-events:none}.watching #watchTag{display:block}.watching #hint{display:none}#watchBtn{margin-top:8px}
+#gas{color:#5fe8c4;font-weight:700;font-size:15px;margin-left:8px}.gas{color:#5fe8c4;font-style:normal}
+.fsel{margin:10px 0}.flbl{font-size:12px;letter-spacing:.1em;color:#9ab;margin:6px 0 4px}#facs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.fcard{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:6px 4px;cursor:pointer;text-align:center;font-size:12px;color:#dde}.fcard .fl{font-size:22px}.fcard.on{border-color:#ffd27a;background:rgba(255,210,122,.12)}
+#facDesc{font-size:12px;color:#cfd8e0;min-height:34px;margin-top:6px;line-height:1.35}#aiFac{margin-left:6px;background:#1b2530;color:#dde;border:1px solid #456}

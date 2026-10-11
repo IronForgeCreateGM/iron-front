@@ -107,7 +107,7 @@ function canPlace(t, team, tx, ty) {
   const onVent = (G.vents || []).some(([vx, vy]) => vx >= tx && vx < tx + d.w && vy >= ty && vy < ty + d.h);
   if ((t === 'extractor') !== onVent) return false;
   for (const e of G.ents) if (e.kind === 'u' && !isAir(e) && e.team !== team && e.x > tx && e.x < tx + d.w && e.y > ty && e.y < ty + d.h) return false;
-  const R = 5;
+  const R = t === 'extractor' ? 14 : 5;
   return G.ents.some(e => e.kind === 'b' && e.team === team && e.t !== 'wall' && tx < e.tx + e.w + R && tx + d.w > e.tx - R && ty < e.ty + e.h + R && ty + d.h > e.ty - R);
 }
 function placeReady(team, cat, tx, ty) {

@@ -87,7 +87,7 @@ function buildTerrain3() {
   const sk = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x1c2416, roughness: 1 }));
   sk.position.set(MW / 2, -0.6, MH / 2); R3.scene.add(sk);
   const edge = new THREE.Mesh(new THREE.BoxGeometry(MW + 0.6, 0.6, MH + 0.6), new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.9 })); edge.position.set(MW / 2, -0.62, MH / 2); R3.scene.add(edge);
-  buildFogOverlay(); buildWater(); buildOre(); buildFoliage();
+  buildFogOverlay(); buildWater(); buildOre(); buildFoliage(); buildVents();
 }
 function buildWater() {
   // height texture for shoreline foam (bytes)
@@ -212,4 +212,18 @@ function clearFoliage(b) { // remove grass/trees under a new building
   for (let y = b.ty - 1; y <= b.ty + b.h; y++) for (let x = b.tx - 1; x <= b.tx + b.w; x++) { if (!inb(x, y)) continue; const i = y * MW + x;
     const gl = R3.grassTile[i]; if (gl) { for (const k of gl) R3.grass.setMatrixAt(k, m0); R3.grass.instanceMatrix.needsUpdate = true; R3.grassTile[i] = null; }
     if (R3.treeTile && R3.treeTile[i] != null && x >= b.tx && x < b.tx + b.w && y >= b.ty && y < b.ty + b.h) { R3.trees.setMatrixAt(R3.treeTile[i], m0); R3.trees.instanceMatrix.needsUpdate = true; } }
+}
+
+// Plasma Gas vents: dark rocky crater with glowing teal core + rising gas wisps (render.js spawns wisps)
+function buildVents() {
+  R3.vents = [];
+  for (const [vx, vy] of G.vents || []) {
+    const x = vx + 0.5, y = vy + 0.5, h = heightAt(x, y), g = new THREE.Group(); g.position.set(x, h, y);
+    const B = new MB(0);
+    B.cyl('body', 0.62, 0.12, 0x2b2722, PBR.CONC, 0, 0.04, 0, { rt: 0.85, seg: 14 });
+    const R = mkRng(vx * 31 + vy); for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2 + R(); B.box('body', 0.22 + R() * 0.15, 0.12 + R() * 0.12, 0.18 + R() * 0.1, 0x3a352e, PBR.CONC, Math.cos(a) * 0.6, 0.08, Math.sin(a) * 0.6, { ry: R() * 3 }); }
+    B.cyl('body', 0.34, 0.03, 0x5fffd0, PBR.GLOW2, 0, 0.11, 0, { seg: 16 });
+    const m = B.build(); const mesh = new THREE.Mesh(m.body, pbrMaterial()); mesh.castShadow = mesh.receiveShadow = true; g.add(mesh);
+    R3.scene.add(g); R3.vents.push({ x, y, g });
+  }
 }

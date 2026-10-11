@@ -54,8 +54,8 @@ function uiSetup() {
 }
 function openSettings(on) { $('settings').style.display = on ? 'flex' : 'none'; }
 function jumpTo(x, y, instant) { R3.cam.tx = x; R3.cam.ty = y + R3.cam.d * 0.18; if (instant) { R3.cam.x = R3.cam.tx; R3.cam.y = R3.cam.ty; } }
-function listFor(cat) { return [...Object.keys(BT).filter(t => t !== 'hq' && BT[t].cat === cat), ...Object.keys(UT).filter(t => FROMCAT[UT[t].from] === cat)]; }
-function itemHTML(t, hk) { const d = BT[t] || UT[t]; return `<img src="${icon(t)}"><div class="nm">${d.n}</div><div class="cost">$${d.cost}</div>${hk ? `<div class="hk">${hk.toUpperCase()}</div>` : ''}<div class="prog"></div><div class="cnt"></div><div class="rdy">READY</div><div class="lock">🔒</div>`; }
+function listFor(cat) { const f = G.players[0].fac, ok = t => !(BT[t] || UT[t]).fac || (BT[t] || UT[t]).fac === f; return [...Object.keys(BT).filter(t => t !== 'hq' && BT[t].cat === cat && ok(t)), ...Object.keys(UT).filter(t => FROMCAT[UT[t].from] === cat && ok(t))]; }
+function itemHTML(t, hk) { const d = BT[t] || UT[t]; return `<img src="${icon(t)}"><div class="nm">${d.n}</div><div class="cost">$${d.cost}${d.gas ? `<i class="gas"> ◆${d.gas}</i>` : ""}</div>${hk ? `<div class="hk">${hk.toUpperCase()}</div>` : ''}<div class="prog"></div><div class="cnt"></div><div class="rdy">READY</div><div class="lock">🔒</div>`; }
 function wireItem(b, t) {
   b.dataset.t = t;
   b.onmousedown = e => { e.preventDefault(); audioInit(); clickItem(t, e.button === 2, e.shiftKey); };
@@ -75,12 +75,15 @@ function counters(wpn) {
 }
 function showTip(t, el) {
   const d = BT[t] || UT[t], u = UT[t], wpn = u ? u.wpn : BT[t].wpn, c = counters(wpn), i = UI.gridList.indexOf(t);
-  let h = `<b>${d.n}</b> <span class="c">$${d.cost}</span> <span class="dim">· ${d.time}s</span>${i >= 0 && HOTKEYS[i] ? ` <kbd>${HOTKEYS[i].toUpperCase()}</kbd>` : ''}<br>`;
+  let h = `<b>${d.n}</b> <span class="c">$${d.cost}</span>${d.gas ? ` <span class="gas">◆${d.gas}</span>` : ''} <span class="dim">· ${d.time}s</span>${i >= 0 && HOTKEYS[i] ? ` <kbd>${HOTKEYS[i].toUpperCase()}</kbd>` : ''}<br>`;
   h += `HP ${d.hp}` + (u ? ` · ${u.armor} armor · speed ${u.sp}` : ` · power ${d.pow > 0 ? '+' : ''}${d.pow}`) + '<br>';
   if (wpn) h += `Weapon: ${W[wpn].type}, ${W[wpn].dmg} dmg, range ${W[wpn].rng}${W[wpn].splash ? ', splash' : ''}<br>`;
   if (c.good.length) h += `<span class="g">Strong vs: ${c.good.join(', ')}</span><br>`; if (c.bad.length) h += `<span class="r">Weak / can't hit: ${c.bad.join(', ')}</span><br>`;
   if (u && u.engineer) h += 'Captures enemy structures, repairs your own.<br>';
   if (UPG[t]) h += `<span class="dim">Upgradable to level 3 (+dmg, +range) when selected.</span><br>`;
+  if (d.fac) h += `<span class="g">${FACTIONS[d.fac].flag} ${FACTIONS[d.fac].n} special.</span> ${FACTIONS[d.fac].desc}<br>`;
+  if (t === 'extractor') h += `Must be placed on a Plasma Gas vent (glowing teal). Produces ${GAS_RATE} gas/s.<br>`;
+  if (u && u.heal) h += 'Heals nearby infantry.<br>'; if (u && u.mech) h += 'Walker: fires rockets at ground and air.<br>'; if (u && u.jet) h += 'Bomb/missile runs, returns to Airfield to rearm.<br>';
   if (t === 'harv') h += `Carries ${HARV_CAP} ore. Built at War Factory or Command Yard.<br>`;
   const req = (d.req || []).filter(r => r !== '__never'); if (req.length) h += `<span class="dim">Requires: ${req.map(r => BT[r].n).join(', ')}</span><br>`;
   h += `<span class="dim">${BT[t] ? 'Click to build, then place' : 'Shift+click: queue 5'} · Right-click: cancel</span>`;
@@ -92,7 +95,7 @@ function clickItem(t, right, shift) {
   if (BT[t] && P.ready[cat] === t) { UI.placing = t; UI.mode = null; sfx('click'); return; }
   if (!avail(0, t)) { sfx('error'); const d = BT[t] || UT[t]; uiMsg('Requires: ' + [...(d.req || []), ...(UT[t] ? [UT[t].from] : [])].filter(r => r !== '__never' && !hasBuilt(0, r)).map(r => BT[r].n).join(', ')); return; }
   let n = 0; for (let i = 0; i < (shift && UT[t] ? 5 : 1); i++) if (enqueue(0, t)) n++;
-  if (n) sfx('click'); else { sfx('error'); uiMsg(BT[t] ? 'Already building a structure' : 'Queue full (6)'); }
+  if (n) sfx('click'); else { sfx('error'); const gq = (BT[t] || UT[t]).gas || 0; uiMsg(gq > P.gas ? `Need ${gq} Plasma Gas (build a Gas Extractor on a vent)` : BT[t] ? 'Already building a structure' : 'Queue full (6)'); }
 }
 function pickAt(sx, sy) {
   const w = screenToWorld(sx, sy); if (!w) return null;
@@ -201,11 +204,11 @@ function doFormation(atBase) {
 }
 function toggleStance() { const us = myUnits(); if (!us.length) return; const st = us.every(u => u.stance === 'hold') ? 'aggr' : 'hold'; setStance(us, st); sfx('click'); uiMsg(st === 'hold' ? 'Stance: Hold position (engage in range, return)' : 'Stance: Aggressive (chase targets)'); UI.ctxKey = null; }
 function doUpgrade() { const b = UI.sel.length === 1 && UI.sel[0].kind === 'b' && UI.sel[0].team === 0 ? UI.sel[0] : null; if (!b) return; const inf = upgradeInfo(b);
-  if (!inf) return; if (upgradeB(b)) { sfx('click'); uiMsg(inf.kind === 'def' ? 'Researching ' + DEF_RESEARCH.n : 'Upgrading to level ' + inf.next); UI.ctxKey = null; } else { sfx('error'); uiMsg(b.upT != null ? 'Upgrade in progress' : 'Insufficient funds'); } }
+  if (!inf) return; if (upgradeB(b)) { sfx('click'); uiMsg(inf.kind === 'def' ? 'Researching ' + DEF_RESEARCH.n : 'Upgrading to level ' + inf.next); UI.ctxKey = null; } else { sfx('error'); uiMsg(b.upT != null ? 'Upgrade in progress' : (inf.gas || 0) > G.players[0].gas ? `Need ${inf.gas} Plasma Gas` : 'Insufficient funds'); } }
 function upgTip(b) {
-  const inf = upgradeInfo(b); if (!inf) return 'Fully upgraded'; if (inf.kind === 'def') return `<b>${DEF_RESEARCH.n}</b> <span class="c">$${inf.cost}</span> <span class="dim">· ${inf.time}s</span><br>All Guard Turrets & Flak Batteries: +${Math.round((DEF_RESEARCH.dmg - 1) * 100)}% damage, +${DEF_RESEARCH.rng} range, +${Math.round((DEF_RESEARCH.hp - 1) * 100)}% HP`;
+  const inf = upgradeInfo(b); if (!inf) return 'Fully upgraded'; if (inf.kind === 'def') return `<b>${DEF_RESEARCH.n}</b> <span class="c">$${inf.cost}</span> <span class="gas">◆${inf.gas}</span> <span class="dim">· ${inf.time}s</span><br>All Guard Turrets & Flak Batteries: +${Math.round((DEF_RESEARCH.dmg - 1) * 100)}% damage, +${DEF_RESEARCH.rng} range, +${Math.round((DEF_RESEARCH.hp - 1) * 100)}% HP`;
   const w = defW(b), l = b.lvl || 1, nd = Math.round(W[BT[b.t].wpn].dmg * UPG_DMG[l] * (G.players[0].defUp ? DEF_RESEARCH.dmg : 1)), nr = W[BT[b.t].wpn].rng + UPG_RNG[l] + (G.players[0].defUp ? DEF_RESEARCH.rng : 0);
-  return `<b>Upgrade to level ${l + 1}</b> <span class="c">$${inf.cost}</span> <span class="dim">· ${inf.time}s</span> <kbd>Z</kbd><br>Damage ${w.dmg} → <span class="g">${nd}</span><br>Range ${w.rng} → <span class="g">${nr}</span>`;
+  return `<b>Upgrade to level ${l + 1}</b> <span class="c">$${inf.cost}</span>${inf.gas ? ` <span class="gas">◆${inf.gas}</span>` : ''} <span class="dim">· ${inf.time}s</span> <kbd>Z</kbd><br>Damage ${w.dmg} → <span class="g">${nd}</span><br>Range ${w.rng} → <span class="g">${nr}</span>`;
 }
 function idleList(kind) {
   return G.ents.filter(u => u.team === 0 && u.kind === 'u' && (kind === 'harv' ? u.t === 'harv' && (u.hst === 'idle' || u.hst === 'manual') && !u.path.length && (u.idleT || 0) > 2
@@ -237,7 +240,7 @@ function uiFrame(dt) {
 }
 function sidebar() {
   const P = G.players[0];
-  $('cr').textContent = '$' + Math.floor(P.cr);
+  $('cr').textContent = '$' + Math.floor(P.cr); $('gas').textContent = '◆ ' + Math.floor(P.gas);
   const pb = $('powbar'); const frac = P.gen ? Math.min(1, P.use / P.gen) : 1; pb.style.width = (frac * 100) + '%'; pb.style.background = P.pow < 0 ? '#ff4d3d' : frac > 0.85 ? '#ffc23d' : '#4dff7a';
   $('powtxt').textContent = `${P.use} / ${P.gen}` + (P.pow < 0 ? '  LOW POWER' : '');
   const upd = (b) => {
@@ -295,6 +298,7 @@ function minimap() {
   }
   b.putImageData(img, 0, 0); x.imageSmoothingEnabled = true; x.drawImage(UI.mmBase, 0, 0, c.width, c.height);
   for (const e of G.ents) { if (!visibleTo0(e)) continue; x.fillStyle = e.team === 0 ? '#5fb0ff' : '#ff5040'; if (e.kind === 'b') x.fillRect(e.tx * s, e.ty * s, e.w * s, e.h * s); else x.fillRect(e.x * s - 1.5, e.y * s - 1.5, 3, 3); }
+  x.fillStyle = '#5fe8c4'; for (const [vx, vy] of G.vents || []) { x.beginPath(); x.arc((vx + 0.5) * s, (vy + 0.5) * s, 3, 0, 7); x.fill(); }
   for (const p of UI.pings) { x.strokeStyle = `rgba(255,80,60,${p.t / 3})`; x.lineWidth = 2; x.beginPath(); x.arc(p.x * s, p.y * s, (3 - p.t) * 10 % 12 + 4, 0, 7); x.stroke(); }
   if (R3.viewPts) { const v = R3.viewPts; x.strokeStyle = 'rgba(255,255,255,.85)'; x.lineWidth = 1; x.beginPath(); x.moveTo(v[0].x * s, v[0].y * s); x.lineTo(v[1].x * s, v[1].y * s); x.lineTo(v[3].x * s, v[3].y * s); x.lineTo(v[2].x * s, v[2].y * s); x.closePath(); x.stroke(); }
 }

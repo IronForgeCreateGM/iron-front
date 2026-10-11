@@ -4,10 +4,14 @@ let started = false, paused = false, acc = 0, lastT = 0;
 const QS = new URLSearchParams(location.search);
 window.addEventListener('error', e => { const d = document.getElementById('err'); if (d) { d.style.display = 'block'; d.textContent += (e.message || e) + ' @' + (e.filename || '').split('/').pop() + ':' + e.lineno + '\n'; } });
 function togglePause() { if (!started || G.over) return; paused = !paused; document.getElementById('pause').style.display = paused ? 'flex' : 'none'; }
+const MENU = { fac: 'usa', aiFac: 'rand' };
 function startGame(diff, opts) {
   opts = opts || {};
   document.getElementById('menu').style.display = 'none';
-  newGame({ diff, aiTeams: opts.demo || opts.watch ? [0, 1] : [1], fog: opts.fog !== false, seed: opts.seed });
+  const RF = () => ['usa', 'rus', 'fra', 'ger'][(Math.random() * 4) | 0];
+  const facs = [opts.watch || opts.demo ? RF() : (MENU.fac || 'usa'), MENU.aiFac && MENU.aiFac !== 'rand' && !opts.watch ? MENU.aiFac : RF()];
+  if (QS.get('fac')) facs[0] = QS.get('fac'); if (QS.get('aifac')) facs[1] = QS.get('aifac');
+  newGame({ diff, aiTeams: opts.demo || opts.watch ? [0, 1] : [1], fog: opts.fog !== false, seed: opts.seed, facs });
   if (opts.demo) G.players[0].diff = 'normal';
   if (opts.watch) { G.players[0].diff = opts.watch === 'si' ? 'si' : 'chief'; aiInit(G.players[0]); DIR.auto = false; G.spectate = true; G.watch = true; document.body.classList.add('watching'); const ff = +QS.get('ff') || 0, fft = +QS.get('fft') || ff * 30; for (let i = 0; i < fft && !G.over; i++) { stepGame(); director(DT); G.events.length = 0; } if (DIR.cur) { R3 && 0; } }
   r3Init(document.getElementById('view'));
@@ -50,6 +54,10 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('watchBtn').onclick = () => { audioInit(); startGame('hard', { watch: 1, seed: (Math.random() * 1e6) | 0 }); };
   document.getElementById('watchSiBtn').onclick = () => { audioInit(); startGame('hard', { watch: 'si', seed: (Math.random() * 1e6) | 0 }); };
   if (QS.get('watch')) startGame(QS.get('watch') === 'si' ? 'hard' : QS.get('watch'), { watch: QS.get('watch') === 'si' ? 'si' : 1, seed: +QS.get('seed') || 5 });
+  { const box = document.getElementById('facs'), desc = document.getElementById('facDesc');
+    const sel = f => { MENU.fac = f; box.querySelectorAll('.fcard').forEach(c => c.classList.toggle('on', c.dataset.f === f)); const F = FACTIONS[f]; desc.innerHTML = `<b>${F.flag} ${F.n}</b> — special: ${F.desc}`; };
+    for (const f in FACTIONS) { const c = document.createElement('div'); c.className = 'fcard'; c.dataset.f = f; c.innerHTML = `<div class="fl">${FACTIONS[f].flag}</div>${FACTIONS[f].n}`; c.onclick = () => sel(f); box.appendChild(c); }
+    sel('usa'); document.getElementById('aiFac').onchange = e => MENU.aiFac = e.target.value; }
   document.getElementById('startBtn').onclick = () => { audioInit(); startGame(diff, { fog: document.getElementById('fogChk').checked }); };
   document.getElementById('resumeBtn').onclick = () => togglePause();
   document.querySelectorAll('.quitBtn').forEach(b => b.onclick = () => location.href = location.pathname);
@@ -119,7 +127,7 @@ const DIR = { auto: false, t: 0, hot: [], cur: null, hold: 0 };
 function director(dt) {
   for (const ev of G.events) if (ev.e === 'hit' || ev.e === 'die') DIR.hot.push({ x: ev.x != null ? ev.x : ev.ent.x, y: ev.y != null ? ev.y : ev.ent.y, t: G.time, w: ev.e === 'die' ? (ev.ent.kind === 'b' ? 8 : 3) : 1 });
   DIR.hot = DIR.hot.filter(h => G.time - h.t < 5);
-  const wt = document.getElementById('watchTag'); if (wt && G.time - (DIR.tagT || -9) > 0.5) { DIR.tagT = G.time; } if (wt && DIR.tagT === G.time) { const av = t => Math.round(G.ents.filter(e => e.team === t && e.kind === 'u' && e.t !== 'harv').reduce((a, e) => a + UT[e.t].cost, 0) / 100) / 10; wt.textContent = `${G.players[0].diff === 'si' ? 'CHIEF SI' : 'CHIEF'} (olive) ${av(0)}k army  ·  ${Math.floor(G.time / 60)}:${String(Math.floor(G.time % 60)).padStart(2, '0')}  ·  HARD AI (tan) ${av(1)}k army  ·  [C] auto-cam ${DIR.auto ? 'ON' : 'OFF'}`; }
+  const wt = document.getElementById('watchTag'); if (wt && G.time - (DIR.tagT || -9) > 0.5) { DIR.tagT = G.time; } if (wt && DIR.tagT === G.time) { const av = t => Math.round(G.ents.filter(e => e.team === t && e.kind === 'u' && e.t !== 'harv').reduce((a, e) => a + UT[e.t].cost, 0) / 100) / 10; wt.textContent = `${G.players[0].diff === 'si' ? 'CHIEF SI' : 'CHIEF'} (blue ${FACTIONS[G.players[0].fac].flag}) ${av(0)}k army  ·  ${Math.floor(G.time / 60)}:${String(Math.floor(G.time % 60)).padStart(2, '0')}  ·  HARD AI (red ${FACTIONS[G.players[1].fac].flag}) ${av(1)}k army  ·  [C] auto-cam ${DIR.auto ? 'ON' : 'OFF'}`; }
   DIR.t -= dt; DIR.hold -= dt;
   if (DIR.t <= 0) {
     DIR.t = 0.8; let best = null, bs = 0;

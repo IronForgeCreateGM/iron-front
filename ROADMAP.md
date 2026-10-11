@@ -53,3 +53,17 @@
 - Chief vs Hard ~75% (6/8 seeds); losses vs early Hard pressure on some seeds.
 - Jets are simplified (hover-free but no true circling flight paths); no transport yet.
 - Camo pattern is object-space, can stretch on long panels.
+
+## v3.4 (done)
+- Procedural infantry animation: jointed legs (thigh/shin/boot parts), distance-synced gait phase (no foot sliding), walk→run blend, torso bob/lean/twist, idle sway, aim stance + recoil kick, death fall (corpses crumple, linger, sink). All infantry incl. Kommando squad (3 soldiers per unit) and the Titan mech walker.
+- Rendering stability: light-space texel-snapped shadow frustum (quantized size), dynamic near/far planes, tuned shadow bias, derivative-faded high-frequency terrain/water noise (no shimmer), water polygonOffset + softer shore alpha, wrapped water time, per-frame smoothed fog-of-war (float buffer), anisotropic filtering on textures.
+- HD: pixel ratio up to 2 on Medium(1.25)/High/Ultra, sharpening pass (uSharp), High uses MSAA 2x at retina.
+- Plasma Gas: 4 symmetric vents (2 per side, one contested), Gas Extractor (on vent, 3 gas/s), HUD ◆ counter, minimap markers. Gas costs: Pyro 25, Bastion 75, Jet 150, Bomber 250, turret/flak Lv3 100, Hardened Defenses 200, Titan 250, faction specials 150-300. Refunded on cancel.
+- Factions (menu cards + enemy faction select; AI random): USA Nightshade Stealth Fighter (hidden unless enemies within 3.2 tiles or it fired), Russia Tsar Siege Tank (2600 HP, twin guns, self-repair), France Grand Cannon (15-range fortress artillery), Germany Jäger Kommando Squad (3 elite commandos, demolition-grade damage vs buildings). Elite for all: Titan Walker.
+- Team colour ~50%: military blue vs oxide-red paint on hulls/uniforms, building walls tinted; camo/grime/metal on the rest.
+- Test scene: ?v34=<seconds>&zoom=&cx=&cy= ; extractors allowed on any vent within 14 tiles of your buildings.
+
+## Rough edges
+- No true TAA (MSAA/FXAA + sharpen instead). Arms are part of the upper body (weapon held, no swing).
+- Squad takes damage as one unit. Stealth reveal is simple distance-based.
+- Corpses ignore terrain slope; Tsar model is chunky.

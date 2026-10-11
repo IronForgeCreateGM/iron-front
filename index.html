@@ -9,7 +9,7 @@
   <div id="side">
     <div class="brand">IRON<span>FRONT</span><button id="setBtn" class="ico" title="Settings">⚙</button><button id="muteBtn" class="ico">🔊</button><button id="pauseBtn" class="ico">⏸</button></div>
     <canvas id="minimap" width="256" height="256"></canvas>
-    <div class="res"><div id="cr">$0</div><div class="pw"><div class="pwl">POWER <span id="powtxt"></span></div><div class="pwb"><div id="powbar"></div></div></div></div>
+    <div class="res"><div id="cr">$0</div><div id="gas" title="Plasma Gas">◆ 0</div><div class="pw"><div class="pwl">POWER <span id="powtxt"></span></div><div class="pwb"><div id="powbar"></div></div></div></div>
     <div id="alerts"></div>
     <div id="tabs"></div>
     <div id="grid"></div>
@@ -19,8 +19,10 @@
 </div>
 <div id="tip"></div>
 <div id="menu" class="screen"><div class="panel">
-  <h1>IRON<span>FRONT</span></h1><p class="sub">Real-time strategy · v3</p>
+  <h1>IRON<span>FRONT</span></h1><p class="sub">Real-time strategy · v3.4</p>
   <div id="diff"><button data-d="easy">Easy</button><button data-d="normal" class="on">Normal</button><button data-d="hard">Hard</button></div>
+  <div class="fsel"><div class="flbl">Your faction</div><div id="facs"></div><div id="facDesc"></div>
+  <div class="flbl">Enemy faction <select id="aiFac"><option value="rand">Random</option><option value="usa">United States</option><option value="rus">Russia</option><option value="fra">France</option><option value="ger">Germany</option></select></div></div>
   <label><input type="checkbox" id="fogChk" checked> Fog of war</label>
   <button id="startBtn" class="big">DEPLOY</button>
   <button id="watchBtn">▶ Watch: Chief vs Hard</button>
