@@ -119,7 +119,7 @@ function hasBuilt(team, t) { return G.ents.some(e => e.kind === 'b' && e.team ==
 function reqOk(team, d) { return d.req.every(r => hasBuilt(team, r)); }
 function avail(team, t) {
   const dd = BT[t] || UT[t]; if (dd.fac && G.players[team].fac !== dd.fac) return false;
-  if (BT[t]) return hasBuilt(team, 'hq') && reqOk(team, BT[t]);
+  if (BT[t]) return (hasBuilt(team, 'hq') || hasBuilt(team, 'cc')) && reqOk(team, BT[t]);
   const d = UT[t]; return (hasBuilt(team, d.from) || (d.alt || []).some(a => hasBuilt(team, a))) && reqOk(team, d);
 }
 function catOf(t) { return BT[t] ? BT[t].cat : FROMCAT[UT[t].from]; }
@@ -150,16 +150,19 @@ function placeReady(team, cat, tx, ty) {
   const P = G.players[team], t = P.ready[cat];
   if (!t || !canPlace(t, team, tx, ty)) return null;
   P.ready[cat] = null;
-  const b = addB(t, team, tx, ty);
+  const b = addB(t, team, tx, ty); P.stats.built = (P.stats.built || 0) + 1; G.events.push({ e: 'placed', team, b });
   if (t === 'refinery') { const h = addU('harv', team, b.x, b.ty + b.h + 0.6); h.born = G.time; }
   return b;
 }
 // ---------- production ----------
+const POP_CAP = 100;
+function popOf(team) { let n = 0; for (const e of G.ents) if (e.team === team && e.kind === 'u' && e.t !== 'harv') n++; const P = G.players[team]; for (const c of ['inf', 'veh', 'air']) n += P.queues[c].filter(q => q.t !== 'harv').length; return n; }
 function enqueue(team, t) {
   const P = G.players[team], cat = catOf(t);
   if (!avail(team, t)) return false;
   const q = P.queues[cat];
   if (q.length >= (cat === 'bld' || cat === 'def' ? 1 : 6)) return false;
+  if (UT[t] && t !== 'harv' && popOf(team) >= POP_CAP) { if (team === 0) G.events.push({ e: 'popcap' }); return false; }
   if ((cat === 'bld' || cat === 'def') && P.ready[cat]) return false;
   const gas = (BT[t] || UT[t]).gas || 0; if (P.gas < gas) return false; P.gas -= gas;
   q.push({ t, prog: 0, paid: 0, gas });
@@ -178,7 +181,7 @@ function stepProduction(P) {
     if ((cat === 'bld' || cat === 'def') && P.ready[cat]) continue;
     const it = q[0], d = BT[it.t] || UT[it.t];
     const src = BT[it.t] ? 'hq' : d.from;
-    let prod = G.ents.filter(e => e.kind === 'b' && e.team === P.team && e.t === src && e.sell < 0 && G.time - e.born > 1.5);
+    let prod = G.ents.filter(e => e.kind === 'b' && e.team === P.team && (e.t === src || src === 'hq' && e.t === 'cc') && e.sell < 0 && G.time - e.born > 1.5);
     if (!prod.length && d.alt) prod = G.ents.filter(e => e.kind === 'b' && e.team === P.team && d.alt.includes(e.t) && e.sell < 0 && G.time - e.born > 1.5);
     if (!prod.length || !reqOk(P.team, d)) continue;
     const dp = Math.min(1 - it.prog, DT * (1 + 0.5 * (prod.length - 1)) * slow * ai / d.time), c = d.cost * dp;

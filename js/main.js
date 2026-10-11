@@ -2,22 +2,40 @@
 // ===== Boot, menu, loop =====
 let started = false, paused = false, acc = 0, lastT = 0;
 const QS = new URLSearchParams(location.search);
-window.addEventListener('error', e => { const d = document.getElementById('err'); if (d) { d.style.display = 'block'; d.textContent += (e.message || e) + ' @' + (e.filename || '').split('/').pop() + ':' + e.lineno + '\n'; } });
+window.addEventListener('error', e => { if (QS.get('stk')) document.title = 'STK ' + (e.error && e.error.stack); const d = document.getElementById('err'); if (d) { d.style.display = 'block'; d.textContent += (e.message || e) + ' @' + (e.filename || '').split('/').pop() + ':' + e.lineno + '\n'; } });
 function togglePause() { if (!started || G.over) return; paused = !paused; document.getElementById('pause').style.display = paused ? 'flex' : 'none'; }
 const MENU = { fac: 'usa', aiFac: 'rand' };
+const DIFF_NAME = d => ({ si: 'Chief SI', chief: 'Chief', easy: 'Easy AI', normal: 'Medium AI', hard: 'Hard AI' })[d] || d;
+const SLOT_TYPES = { off: 'Closed', human: 'Human (you)', si: 'Chief SI', chief: 'Chief', easy: 'Easy AI', normal: 'Medium AI', hard: 'Hard AI' };
+const PRESETS = {
+  duel:   { n: '1v1 vs Medium', slots: [['human', 'A'], ['normal', 'B']] },
+  coop:   { n: 'Me + Chief (SI) vs 2 Medium', slots: [['human', 'A'], ['si', 'A'], ['normal', 'B'], ['normal', 'B']] },
+  wsi:    { n: 'Watch: Chief SI + Chief vs 2 Hard', slots: [['si', 'A'], ['chief', 'A'], ['hard', 'B'], ['hard', 'B']] },
+  w1:     { n: 'Watch: Chief vs Hard', slots: [['chief', 'A'], ['hard', 'B']] },
+  w2:     { n: 'Watch: Chief (SI) vs Hard', slots: [['si', 'A'], ['hard', 'B']] },
+};
+function buildSlots(list) { // list: [[type, team, fac?]]
+  const RF = () => ['usa', 'rus', 'fra', 'ger'][(Math.random() * 4) | 0], startsOf = { A: [0, 2], B: [3, 1] }, used = { A: 0, B: 0 };
+  return list.filter(r => r[0] !== 'off').map(([type, team, fac]) => ({ ai: type !== 'human', diff: type === 'human' ? 'normal' : type, ally: team === 'A' ? 0 : 1, fac: fac && fac !== 'rand' ? fac : RF(), start: startsOf[team][used[team]++ % 2], name: type === 'human' ? 'You' : SLOT_TYPES[type] }));
+}
 function startGame(diff, opts) {
   opts = opts || {};
   document.getElementById('menu').style.display = 'none';
-  const RF = () => ['usa', 'rus', 'fra', 'ger'][(Math.random() * 4) | 0];
-  const facs = [opts.watch || opts.demo ? RF() : (MENU.fac || 'usa'), MENU.aiFac && MENU.aiFac !== 'rand' && !opts.watch ? MENU.aiFac : RF()];
-  if (QS.get('fac')) facs[0] = QS.get('fac'); if (QS.get('aifac')) facs[1] = QS.get('aifac');
-  newGame({ diff, aiTeams: opts.demo || opts.watch ? [0, 1] : [1], fog: opts.fog !== false, seed: opts.seed, facs });
-  if (opts.demo) G.players[0].diff = 'normal';
-  if (opts.watch) { G.players[0].diff = opts.watch === 'si' ? 'si' : 'chief'; aiInit(G.players[0]); DIR.auto = false; G.spectate = true; G.watch = true; document.body.classList.add('watching'); const ff = +QS.get('ff') || 0, fft = +QS.get('fft') || ff * 30; for (let i = 0; i < fft && !G.over; i++) { stepGame(); director(DT); G.events.length = 0; } if (DIR.cur) { R3 && 0; } }
+  let slots = opts.slots;
+  if (!slots) {
+    if (opts.watch) slots = buildSlots([[opts.watch === 'si' ? 'si' : 'chief', 'A'], ['hard', 'B']]);
+    else slots = buildSlots([[opts.demo ? 'normal' : 'human', 'A', MENU.fac], [diff, 'B', MENU.aiFac]]);
+  }
+  if (QS.get('fac')) slots[0].fac = QS.get('fac'); if (QS.get('aifac') && slots[1]) slots[1].fac = QS.get('aifac');
+  newGame({ diff, fog: opts.fog !== false, seed: opts.seed, slots });
+  G.players.forEach((P, i) => P.name = slots[i].name || (P.ai ? DIFF_NAME(P.diff) : 'You'));
+  if (G.players[0].ai && !opts.demo) { DIR.auto = !!QS.get('auto'); G.spectate = true; G.watch = true; document.body.classList.add('watching'); }
+  { const ff = +QS.get('ff') || 0, fft = +QS.get('fft') || ff * 30; for (let i = 0; i < fft && !G.over; i++) { stepGame(); if (G.watch) director(DT); G.events.length = 0; } }
   r3Init(document.getElementById('view'));
   uiSetup();
-  const hq = G.ents.find(e => e.team === 0 && e.t === 'hq'); R3.cam.td = R3.cam.d = 26; jumpTo(hq.x + 3, hq.y + 2, true);
+  const hq = G.ents.find(e => e.team === 0 && (e.t === 'hq' || e.t === 'cc')) || { x: G.starts[G.players[0].start][0], y: G.starts[G.players[0].start][1] }; R3.cam.td = R3.cam.d = 26; jumpTo(hq.x + 3, hq.y + 2, true);
   if (G.watch && DIR.cur && DIR.auto) { R3.cam.td = R3.cam.d = 20; jumpTo(DIR.cur.x, DIR.cur.y, true); }
+  if (QS.get('cx') && !QS.get('v34')) { R3.cam.td = R3.cam.d = +(QS.get('zoom') || 26); jumpTo(+QS.get('cx'), +QS.get('cy'), true); if (QS.get('nofog')) G.opts.fog = false; }
   if (opts.demo) {
     const hits = [];
     for (let i = 0; i < opts.demo * 30; i++) { stepGame(); for (const ev of G.events) if (ev.e === 'hit') hits.push({ x: ev.x, y: ev.y, t: G.time }); G.events.length = 0; if (G.over) break; }
@@ -39,26 +57,26 @@ function frame(t, once) {
   if (!paused && !G.over) { acc += dt; let n = 0; while (acc >= DT && n++ < 6) { stepGame(); acc -= DT; } if (n >= 6) acc = 0; }
   if (QS.get('dbg') && G.tick % 30 === 0) document.title = 'IM ' + JSON.stringify([...R3.uiMesh.entries()].map(([k, u]) => k + ':' + u.n + ':' + u.parts.body.count + ':' + u.parts.body.visible + ':' + (R3.scene.children.includes(u.parts.body)) + ':' + Array.from(u.parts.body.instanceMatrix.array.slice(12, 15)).map(v => v.toFixed(1)))) + ' view ' + JSON.stringify(R3.view) + ' cam ' + JSON.stringify(R3.cam) + ' units ' + JSON.stringify(G.ents.filter(e => e.kind === 'u' && e.team === 0).map(e => [e.t, e.x.toFixed(1), e.y.toFixed(1)]));
   if (G.watch && !paused) director(dt);
-  try { uiFrame(dt); r3Render(dt); } catch (e) { console.error(e); throw e; }
+  try { uiFrame(dt); r3Render(dt); } catch (e) { console.error(e); if (QS.get('stk')) document.title = 'STK ' + e.stack; throw e; }
   if (G.over && !UI.endShown) { UI.endShown = true; const P = G.players[0];
     document.getElementById('end').style.display = 'flex';
-    document.getElementById('endTitle').textContent = G.watch ? (G.over === 'victory' ? (G.players[0].diff === 'si' ? 'CHIEF SI WINS' : 'CHIEF WINS') : 'HARD AI WINS') + ` · ${(G.time / 60).toFixed(1)} min` : G.over === 'victory' ? 'VICTORY' : 'DEFEAT';
+    document.getElementById('endTitle').textContent = G.watch ? (G.over === 'victory' ? 'BLUE TEAM WINS' : 'RED TEAM WINS') + ` · ${(G.time / 60).toFixed(1)} min` : G.over === 'victory' ? 'VICTORY' : 'DEFEAT';
     document.getElementById('endTitle').className = G.over;
-    document.getElementById('endStats').innerHTML = `Time ${Math.floor(G.time / 60)}:${String(Math.floor(G.time % 60)).padStart(2, '0')} · Kills ${P.stats.kills} · Losses ${P.stats.lost} · Ore mined $${Math.floor(P.stats.mined)}`; sfx(G.over === 'victory' ? 'ready' : 'alert'); }
+    document.getElementById('endStats').innerHTML = endStatsHTML(); drawEndGraph(); sfx(G.over === 'victory' ? 'ready' : 'alert'); }
   if (!once) requestAnimationFrame(frame);
 }
 window.addEventListener('DOMContentLoaded', () => {
   if (typeof THREE === 'undefined') { document.getElementById('err').style.display = 'block'; document.getElementById('err').textContent = 'Three.js failed to load (vendor/three.min.js)'; return; }
   let diff = 'normal';
   document.querySelectorAll('#diff button').forEach(b => b.onclick = () => { diff = b.dataset.d; document.querySelectorAll('#diff button').forEach(x => x.classList.toggle('on', x === b)); });
-  document.getElementById('watchBtn').onclick = () => { audioInit(); startGame('hard', { watch: 1, seed: (Math.random() * 1e6) | 0 }); };
-  document.getElementById('watchSiBtn').onclick = () => { audioInit(); startGame('hard', { watch: 'si', seed: (Math.random() * 1e6) | 0 }); };
-  if (QS.get('watch')) startGame(QS.get('watch') === 'si' ? 'hard' : QS.get('watch'), { watch: QS.get('watch') === 'si' ? 'si' : 1, seed: +QS.get('seed') || 5 });
+  if (QS.get('preset')) { try { startGame('normal', { slots: buildSlots(PRESETS[QS.get('preset')].slots), seed: +QS.get('seed') || 5 }); } catch (er) { document.title = 'STK ' + er.stack; throw er; } }
+  else if (QS.get('watch')) startGame(QS.get('watch') === 'si' ? 'hard' : QS.get('watch'), { watch: QS.get('watch') === 'si' ? 'si' : 1, seed: +QS.get('seed') || 5 });
   { const box = document.getElementById('facs'), desc = document.getElementById('facDesc');
-    const sel = f => { MENU.fac = f; box.querySelectorAll('.fcard').forEach(c => c.classList.toggle('on', c.dataset.f === f)); const F = FACTIONS[f]; desc.innerHTML = `<b>${F.flag} ${F.n}</b> — special: ${F.desc}`; };
+    const sel = f => { MENU.fac = f; const lf = document.querySelector('#lobby .lf'); if (lf) lf.value = f; box.querySelectorAll('.fcard').forEach(c => c.classList.toggle('on', c.dataset.f === f)); const F = FACTIONS[f]; desc.innerHTML = `<b>${F.flag} ${F.n}</b> — special: ${F.desc}`; };
     for (const f in FACTIONS) { const c = document.createElement('div'); c.className = 'fcard'; c.dataset.f = f; c.innerHTML = `<div class="fl">${FACTIONS[f].flag}</div>${FACTIONS[f].n}`; c.onclick = () => sel(f); box.appendChild(c); }
-    sel('usa'); document.getElementById('aiFac').onchange = e => MENU.aiFac = e.target.value; }
-  document.getElementById('startBtn').onclick = () => { audioInit(); startGame(diff, { fog: document.getElementById('fogChk').checked }); };
+    sel('usa'); }
+  lobbyInit();
+  document.getElementById('startBtn').onclick = () => { audioInit(); startGame('normal', { slots: buildSlots(lobbyRead()), fog: document.getElementById('fogChk').checked }); };
   document.getElementById('resumeBtn').onclick = () => togglePause();
   document.querySelectorAll('.quitBtn').forEach(b => b.onclick = () => location.href = location.pathname);
   if (QS.get('v34')) { startGame('easy', { seed: 4242 }); G.opts.fog = false; G.spectate = true; G.players[0].fac = 'fra'; G.players[1].fac = 'rus'; G.players[1].ai = false;
@@ -127,7 +145,7 @@ const DIR = { auto: false, t: 0, hot: [], cur: null, hold: 0 };
 function director(dt) {
   for (const ev of G.events) if (ev.e === 'hit' || ev.e === 'die') DIR.hot.push({ x: ev.x != null ? ev.x : ev.ent.x, y: ev.y != null ? ev.y : ev.ent.y, t: G.time, w: ev.e === 'die' ? (ev.ent.kind === 'b' ? 8 : 3) : 1 });
   DIR.hot = DIR.hot.filter(h => G.time - h.t < 5);
-  const wt = document.getElementById('watchTag'); if (wt && G.time - (DIR.tagT || -9) > 0.5) { DIR.tagT = G.time; } if (wt && DIR.tagT === G.time) { const av = t => Math.round(G.ents.filter(e => e.team === t && e.kind === 'u' && e.t !== 'harv').reduce((a, e) => a + UT[e.t].cost, 0) / 100) / 10; wt.textContent = `${G.players[0].diff === 'si' ? 'CHIEF SI' : 'CHIEF'} (blue ${FACTIONS[G.players[0].fac].flag}) ${av(0)}k army  ·  ${Math.floor(G.time / 60)}:${String(Math.floor(G.time % 60)).padStart(2, '0')}  ·  HARD AI (red ${FACTIONS[G.players[1].fac].flag}) ${av(1)}k army  ·  [C] auto-cam ${DIR.auto ? 'ON' : 'OFF'}`; }
+  const wt = document.getElementById('watchTag'); if (wt && G.time - (DIR.tagT || -9) > 0.5) { DIR.tagT = G.time; const av = t => Math.round(G.ents.filter(e => e.team === t && e.kind === 'u' && e.t !== 'harv').reduce((a, e) => a + UT[e.t].cost, 0) / 100) / 10; const side = al => G.players.filter(P => P.ally === al).map(P => `${P.name} ${FACTIONS[P.fac].flag} ${P.out ? '✖' : av(P.team) + 'k'}`).join(' + '); wt.textContent = `${side(0)}  ·  ${Math.floor(G.time / 60)}:${String(Math.floor(G.time % 60)).padStart(2, '0')}  ·  ${side(1)}  ·  [C] auto-cam ${DIR.auto ? 'ON' : 'OFF'}`; }
   DIR.t -= dt; DIR.hold -= dt;
   if (DIR.t <= 0) {
     DIR.t = 0.8; let best = null, bs = 0;
@@ -140,4 +158,30 @@ function director(dt) {
     }
     if (DIR.cur && DIR.auto) { R3.cam.tx = DIR.cur.x; R3.cam.ty = DIR.cur.y + R3.cam.td * 0.18; }
   }
+}
+
+// ===== lobby =====
+function lobbyInit() {
+  const box = document.getElementById('lobby'); if (!box) return;
+  const facOpt = '<option value="rand">Random</option>' + Object.keys(FACTIONS).map(f => `<option value="${f}">${FACTIONS[f].flag} ${FACTIONS[f].n}</option>`).join('');
+  box.innerHTML = '<div class="lrow lh"><span>Slot</span><span>Player</span><span>Team</span><span>Faction</span></div>' + [0, 1, 2, 3].map(i => `<div class="lrow"><span>${i + 1}</span>
+    <select class="lt">${Object.keys(SLOT_TYPES).filter(k => i === 0 || k !== 'human').map(k => `<option value="${k}">${SLOT_TYPES[k]}</option>`).join('')}</select>
+    <select class="la"><option value="A">A (blue)</option><option value="B">B (red)</option></select><select class="lf">${facOpt}</select></div>`).join('');
+  const pb = document.getElementById('presets'); pb.innerHTML = Object.keys(PRESETS).map(k => `<button data-p="${k}">${k[0] === 'w' ? '▶ ' : ''}${PRESETS[k].n}</button>`).join('');
+  pb.querySelectorAll('button').forEach(b => b.onclick = () => { lobbySet(PRESETS[b.dataset.p].slots); if (b.dataset.p[0] === 'w') { audioInit(); startGame('normal', { slots: buildSlots(lobbyRead()), seed: (Math.random() * 1e6) | 0 }); } });
+  lobbySet(PRESETS.duel.slots);
+  box.querySelector('.lf').onchange = e => { if (e.target.value !== 'rand') MENU.fac = e.target.value; };
+}
+function lobbySet(list) { const rows = document.querySelectorAll('#lobby .lrow:not(.lh)'); rows.forEach((r, i) => { const s = list[i] || ['off', i % 2 ? 'B' : 'A']; r.querySelector('.lt').value = s[0]; r.querySelector('.la').value = s[1]; r.querySelector('.lf').value = i === 0 && s[0] === 'human' ? MENU.fac : 'rand'; }); }
+function lobbyRead() { return [...document.querySelectorAll('#lobby .lrow:not(.lh)')].map(r => [r.querySelector('.lt').value, r.querySelector('.la').value, r.querySelector('.lf').value]); }
+
+// ===== end-game stats + army graph =====
+function endStatsHTML() {
+  const rows = G.players.map(P => `<tr style="color:${MMCOL[P.team]}"><td>${FACTIONS[P.fac].flag} ${P.name}</td><td>${P.ally ? 'B' : 'A'}</td><td>${P.stats.kills}</td><td>${P.stats.lost}</td><td>$${Math.floor(P.stats.mined)}</td><td>${P.stats.built || 0}</td><td>${P.out ? 'eliminated' : 'alive'}</td></tr>`).join('');
+  return `Time ${Math.floor(G.time / 60)}:${String(Math.floor(G.time % 60)).padStart(2, '0')}<table class="est"><tr><th>Player</th><th>Team</th><th>Kills</th><th>Lost</th><th>Mined</th><th>Built</th><th></th></tr>${rows}</table><canvas id="endGraph" width="520" height="150"></canvas><div style="font-size:11px;color:#9ab">Army value over time</div>`;
+}
+function drawEndGraph() {
+  const c = document.getElementById('endGraph'); if (!c || G.hist.length < 2) return; const x = c.getContext('2d'), H = G.hist, mx = Math.max(1, ...H.flatMap(h => h.p.map(p => p.army)));
+  x.strokeStyle = 'rgba(255,255,255,.12)'; for (let i = 1; i < 4; i++) { x.beginPath(); x.moveTo(0, i * 37.5); x.lineTo(520, i * 37.5); x.stroke(); }
+  G.players.forEach((P, k) => { x.strokeStyle = MMCOL[k]; x.lineWidth = 2; x.beginPath(); H.forEach((h, i) => { const px = i / (H.length - 1) * 510 + 5, py = 145 - h.p[k].army / mx * 135; i ? x.lineTo(px, py) : x.moveTo(px, py); }); x.stroke(); });
 }

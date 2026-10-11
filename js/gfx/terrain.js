@@ -87,7 +87,7 @@ function buildTerrain3() {
   const sk = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x1c2416, roughness: 1 }));
   sk.position.set(MW / 2, -0.6, MH / 2); R3.scene.add(sk);
   const edge = new THREE.Mesh(new THREE.BoxGeometry(MW + 0.6, 0.6, MH + 0.6), new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.9 })); edge.position.set(MW / 2, -0.62, MH / 2); R3.scene.add(edge);
-  buildFogOverlay(); buildWater(); buildOre(); buildFoliage(); buildVents();
+  buildFogOverlay(); buildWater(); buildOre(); buildFoliage(); buildVents(); buildLandmarks();
 }
 function buildWater() {
   // height texture for shoreline foam (bytes)
@@ -150,7 +150,8 @@ function updOre() {
   R3.oreTiles.forEach((i, k) => { const a = G.ore[i], seen = seen0(i), x = i % MW, y = (i / MW) | 0;
     for (let j = 0; j < 4; j++) { const r = R3.oreJ[k][j], f = a / Math.max(1, G.oreMax[i]); const sc = seen && a > 1 && f > j * 0.22 ? (0.3 + 0.45 * Math.sqrt(f)) * (0.6 + r[2] * 0.7) : 0;
       e.set((r[0] - 0.5) * 0.6, r[1] * 6, (r[3] - 0.5) * 0.6); q.setFromEuler(e); const px = x + 0.15 + r[0] * 0.7, pz = y + 0.15 + r[1] * 0.7; p.set(px, heightAt(px, pz) + sc * 0.12, pz); s.set(sc, sc, sc);
-      m4.compose(p, q, s); R3.oreMesh.setMatrixAt(k * 4 + j, m4); } });
+      m4.compose(p, q, s); R3.oreMesh.setMatrixAt(k * 4 + j, m4); if (!R3.oreCol) R3.oreMesh.setColorAt(k * 4 + j, G.rich && G.rich[i] ? new THREE.Color(2.2, 1.35, 0.25) : new THREE.Color(1, 1, 1)); } });
+  if (!R3.oreCol) { R3.oreCol = 1; R3.oreMesh.instanceColor.needsUpdate = true; }
   R3.oreMesh.instanceMatrix.needsUpdate = true;
 }
 function windMat(upNormal, rough) {
@@ -193,7 +194,7 @@ function buildFoliage() {
   const treeGeo = B.build().t; const trees = [];
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x; if (G.map[i] !== 0 || G.oreMax[i] > 0 || nearBase(x + 0.5, y + 0.5)) continue;
     const nearRock = [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [0, 2], [-2, 0], [0, -2]].some(([a, b]) => inb(x + a, y + b) && G.map[(y + b) * MW + x + a] === 1);
-    if (R() < (nearRock ? 0.5 : 0.015)) trees.push([x + 0.2 + R() * 0.6, y + 0.2 + R() * 0.6, 0.7 + R() * 0.7]); }
+    if (R() < (G.forest && G.forest[i] ? 0.6 : nearRock ? 0.45 : 0.012)) trees.push([x + 0.2 + R() * 0.6, y + 0.2 + R() * 0.6, 0.7 + R() * 0.7]); }
   const tm = new THREE.InstancedMesh(treeGeo, windMat(false, 0.8), trees.length); tm.castShadow = true; tm.receiveShadow = true; tm.frustumCulled = false;
   trees.forEach((t, j) => { e.set((R() - 0.5) * 0.1, R() * 6.28, (R() - 0.5) * 0.1); q.setFromEuler(e); m4.compose(new THREE.Vector3(t[0], heightAt(t[0], t[1]) - 0.05, t[1]), q, new THREE.Vector3(t[2], t[2] * (0.9 + R() * 0.4), t[2])); tm.setMatrixAt(j, m4);
     cl.setRGB(0.8 + R() * 0.4, 0.8 + R() * 0.4, 0.8 + R() * 0.3); tm.setColorAt(j, cl); (R3.treeTile = R3.treeTile || {})[Math.floor(t[1]) * MW + Math.floor(t[0])] = j; });
@@ -206,6 +207,26 @@ function buildFoliage() {
   const rm = new THREE.InstancedMesh(rgeo, pbrMaterial(), rocks.length); rm.castShadow = true; rm.receiveShadow = true; rm.frustumCulled = false;
   rocks.forEach((r, j) => { e.set(R() * 3, R() * 6, R() * 3); q.setFromEuler(e); m4.compose(new THREE.Vector3(r[0], heightAt(r[0], r[1]) + r[2] * 0.1, r[1]), q, new THREE.Vector3(r[2], r[2], r[2])); rm.setMatrixAt(j, m4); });
   R3.scene.add(rm);
+}
+function buildLandmarks() {
+  // bridges: plank decks + rails over river causeways
+  const tiles = []; for (let i = 0; i < MW * MH; i++) if (G.bridge && G.bridge[i]) tiles.push(i);
+  if (tiles.length) {
+    const B = new MB(0); B.box('d', 1.0, 0.1, 1.0, 0x5a4330, PBR.RUB, 0, 0.05, 0, { bevel: 0.01 }); for (let k = -2; k <= 2; k++) B.box('d', 0.98, 0.02, 0.04, 0x3a2a1c, PBR.RUB, 0, 0.105, k * 0.2, { bevel: 0 });
+    const RB = new MB(0); RB.box('r', 0.08, 0.32, 1.0, 0x6d6e70, PBR.METAL, 0, 0.2, 0, { bevel: 0.01 }); RB.box('r', 0.12, 0.05, 1.0, 0x8a8c90, PBR.METAL, 0, 0.36, 0, { bevel: 0.01 });
+    const dm = new THREE.InstancedMesh(B.build().d, pbrMaterial(), tiles.length), rails = [];
+    const m4 = new THREE.Matrix4(); tiles.forEach((i, k) => { const x = i % MW, y = (i / MW) | 0; m4.makeTranslation(x + 0.5, 0.06, y + 0.5); dm.setMatrixAt(k, m4);
+      if (!G.bridge[i - 1]) rails.push([x + 0.06, y + 0.5]); if (!G.bridge[i + 1]) rails.push([x + 0.94, y + 0.5]); });
+    const rm = new THREE.InstancedMesh(RB.build().r, pbrMaterial(), rails.length); rails.forEach(([x, y], k) => { m4.makeTranslation(x, 0.06, y); rm.setMatrixAt(k, m4); });
+    for (const m of [dm, rm]) { m.castShadow = m.receiveShadow = true; m.frustumCulled = false; R3.scene.add(m); }
+  }
+  // central landmark: ancient reactor spire
+  if (G.monument) { const [mx, my] = G.monument, B = new MB(0);
+    for (let k = 0; k < 3; k++) B.box('m', 3.8 - k * 0.8, 0.35, 3.8 - k * 0.8, 0x8d877c, [0, 0.8, 0], 0, 0.2 + k * 0.35, 0, { bevel: 0.04 });
+    B.cyl('m', 0.55, 4.2, 0x5b5f66, PBR.METAL, 0, 3.1, 0, { seg: 8 }); B.cone('m', 0.55, 1.0, 0x5b5f66, PBR.METAL, 0, 5.7, 0, { seg: 8 });
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + Math.PI / 4; B.box('m', 0.35, 2.4, 0.35, 0x7d776c, [0, 0.8, 0], Math.cos(a) * 1.5, 2.2, Math.sin(a) * 1.5, { bevel: 0.03 }); B.box('m', 0.2, 0.2, 0.2, 0x40e0ff, PBR.GLOW, Math.cos(a) * 1.5, 3.5, Math.sin(a) * 1.5, { bevel: 0 }); }
+    for (let k = 0; k < 3; k++) B.cyl('m', 0.62, 0.08, 0x40e0ff, PBR.GLOW, 0, 2.0 + k * 1.1, 0, { seg: 12 });
+    const g = B.build(); { const mesh = new THREE.Mesh(g.m, pbrMaterial()); mesh.position.set(mx, heightAt(mx, my) + 0.4, my); mesh.castShadow = mesh.receiveShadow = true; R3.scene.add(mesh); R3.monument = mesh; } }
 }
 function clearFoliage(b) { // remove grass/trees under a new building
   const m0 = new THREE.Matrix4().makeScale(0, 0, 0);

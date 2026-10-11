@@ -397,6 +397,7 @@ const BLD_MODELS = {
     B.box('body', 0.4, 0.8, 0.4, COL.LIGHT, PBR.PAINT, 1.1, 0.45, -0.95); B.box('body', 0.5, 0.18, 0.5, COL.GLASS, PBR.GLASS, 1.1, 0.95, -0.95, { bevel: 0.02 }); B.cyl('body', 0.01, 0.4, COL.GUN, PBR.DARKM, 1.1, 1.25, -0.95, { seg: 4 });
     B.piv.spin = [1.1, 1.06, -0.95]; B.box('spin', 0.4, 0.04, 0.05, COL.LIGHT, PBR.METAL, 0, 0, 0); B.glow('spin', 0.03, 0.03, 0.03, COL.RED, 0.2, 0.02, 0);
   },
+  cc(B) { BLD_MODELS.hq(B); for (const [x, z] of [[-1.2, -1.2], [1.2, -1.2]]) { B.cyl('body', 0.03, 1.4, COL.STEEL, PBR.METAL, x, 1.2, z, { seg: 6 }); B.glow('body', 0.06, 0.06, 0.06, 'TA', x, 1.92, z); } },
   extractor(B) {
     B.box('body', 1.9, 0.12, 1.9, 0x47494a, PBR.CONC, 0, 0.06, 0, { bevel: 0.04 });
     B.cyl('body', 0.5, 0.9, 'T', PBR.PAINT, -0.2, 0.55, -0.2, { seg: 16 }); B.cyl('body', 0.52, 0.08, COL.STEEL, PBR.METAL, -0.2, 0.95, -0.2, { seg: 16 });

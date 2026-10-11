@@ -40,6 +40,7 @@ function aiStep(P) {
     else if ((cnt.cc || 0) > 0 && (cnt.refinery || 0) < 2 + (cnt.cc || 0) && (S.bad.refinery || 0) < G.time) want = 'refinery';
     else { const need = {}; for (const b of (D.si ? AI_ORDER_SI : D.chief ? AI_ORDER_CHIEF : D.firstAttack ? AI_ORDER : AI_ORDER_AIR)) { if (BT[b].cat !== 'bld') continue; need[b] = (need[b] || 0) + 1; if ((cnt[b] || 0) < need[b] && avail(P.team, b) && (S.bad[b] || 0) < G.time) { if (!aiSpot(P, b, hq, foes)) { S.bad[b] = G.time + 45; continue; } want = b; break; } } }
     if (!want) want = aiGrowth(P, S, D, cnt, hq, foes);
+    S.saving = want && avail(P.team, want) && P.cr <= BT[want].cost * 0.3 && ['refinery', 'cc', 'factory', 'power', 'extractor', 'barracks'].includes(want) ? want : null;
     if (want && avail(P.team, want) && P.cr > BT[want].cost * 0.3) enqueue(P.team, want);
   }
   if (!P.queues.def.length && !P.ready.def && (cnt.factory || 0) > 0) {
@@ -50,7 +51,7 @@ function aiStep(P) {
   // 3) harvesters
   const refs = cnt.refinery || 0, harvs = cnt.harv || 0;
   const threat = D.chief && G.time < 240 ? armyVal(foes.filter(f => f.kind === 'u' && UT[f.t].wpn)) > armyVal(me.filter(u => u.kind === 'u' && UT[u.t].wpn)) * 1.3 : false;
-  const wantH = threat ? Math.min(2, refs * 2) : Math.min((D.chief ? 8 : 6) + (cnt.cc || 0) * 3, Math.max(1, refs) * 2);
+  const wantH = threat ? Math.min(2, refs * 2) : Math.min((D.chief ? 8 : 6) + (cnt.cc || 0) * 3, (refs ? refs * 2 + (D.si && !SIOFF.harv ? me.filter(e => e.t === 'refinery').length : 0) : 2));
   if (harvs < wantH && avail(P.team, 'harv') && !P.queues.veh.some(q => q.t === 'harv')) { if (P.queues.veh.length >= 2) cancel(P.team, P.queues.veh[P.queues.veh.length - 1].t); enqueue(P.team, 'harv'); }
   // money stall breaker: no harvesters and broke -> sell non-essential structures
   const realH = me.filter(e => e.t === 'harv').length;
@@ -59,6 +60,9 @@ function aiStep(P) {
     if (sac) { sellB(sac); S.sellT = G.time + 15; }
   }
   if (realH < 2 && P.cr < UT.harv.cost + 200) return; // save for harvesters
+  if (!me.some(e => e.t === 'refinery' || e.t === 'cc') && P.cr < 1500 && G.time < 240) return; // never starve the first refinery
+  if (S.saving && !intrudersEarly(P, foes, me) && G.time - (S.saveT0 || (S.saveT0 = G.time)) < 25) return; // save up for eco/production structures
+  if (!S.saving) S.saveT0 = 0;
   // 4) army composition: counter what enemy fields
   const ft = { inf: 0, armor: 0, air: 0 };
   for (const f of foes) if (f.kind === 'u' && f.t !== 'harv') { const a = UT[f.t].armor; if (a === 'inf') ft.inf++; else if (a === 'air') ft.air++; else ft.armor++; }
@@ -67,7 +71,7 @@ function aiStep(P) {
     const myInf = me.filter(e => e.kind === 'u' && UT[e.t].armor === 'inf').length;
     if (P.queues.inf.length < 2) { const t = pick([['rifle', 2 + ft.inf], ['rocketeer', 1 + ft.armor * 1.5 + ft.air], ['sniper', ft.inf > 3 ? 1 + ft.inf * 0.25 : 0.2], ['pyro', 0.8 + ft.inf * 0.25], ['kommando', P.gas > 200 ? 1.5 : 0], ['medic', myInf > 6 && (cnt.medic || 0) < 2 + myInf / 10 ? 1.2 : 0]]); if (t) enqueue(P.team, t); }
     if (P.queues.veh.length < 2 && harvs >= Math.min(2, refs * 2)) {
-      const t = pick([['light', 3], ['heavy', 2 + ft.armor], ['titan', P.gas > 300 ? 1.5 + ft.air * 0.3 : 0], ['tsar', P.gas > 350 ? 2 : 0], ['scout', 1 + ft.inf * 0.5], ['arty', 1 + ft.inf * 0.4], ['aa', ft.air * 2]]);
+      const t = pick([['light', 3], ['heavy', 2 + ft.armor], ['titan', P.gas > 300 ? 1.5 + ft.air * 0.3 + (P.gas > 1200 ? 4 : 0) : 0], ['tsar', P.gas > 350 ? 2 + (P.gas > 1200 ? 4 : 0) : 0], ['scout', 1 + ft.inf * 0.5], ['arty', 1 + ft.inf * 0.4], ['aa', ft.air * 2]]);
       if (t) enqueue(P.team, t);
     }
     const airN = (cnt.gunship || 0) + (cnt.jet || 0) + (cnt.intercept || 0) + (cnt.bomber || 0);
@@ -80,8 +84,9 @@ function aiStep(P) {
   G.danger = G.danger || {}; G.danger[P.team] = intruders.map(f => ({ x: f.x, y: f.y }));
   const home = army.filter(u => !S.attackers.has(u.id));
   if (intruders.length) {
-    const c = intruders[0];
-    const defenders = home.filter(u => u.order !== 'attack' && Math.hypot(u.x - c.x, u.y - c.y) < 25);
+    const mine = intruders.filter(f => myB.some(b => Math.hypot(b.x - f.x, b.y - f.y) < 12)), c = mine[0] || intruders[0];
+    let defenders = home.filter(u => u.order !== 'attack' && Math.hypot(u.x - c.x, u.y - c.y) < 25);
+    if (!mine.length && G.time > (S.helpT || 0) && armyVal(intruders) > 800) { S.helpT = G.time + 25; defenders = home.filter(u => u.t !== 'harv' && !UT[u.t].jet).slice(0, Math.ceil(home.length * 0.6)); defenders.forEach(u => S.attackers.add(u.id)); G.events.push({ e: 'allyAck', team: P.team, x: c.x, y: c.y }); }
     if (D.firstAttack && G.time < D.firstAttack) defenders.forEach(u => S.attackers.delete(u.id));
     if (defenders.length) orderMove(defenders, c.x, c.y, true);
   }
@@ -167,12 +172,12 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
     } else if (G.time > (S.regT || 0)) {
       S.regT = G.time + 4;
       // regroup stragglers: leaders wait for the pack
-      const far = S.grp.filter(u => Math.hypot(u.x - c.x, u.y - c.y) > 6);
-      if (far.length > S.grp.length * 0.3 && !near.length) { orderMove(S.grp, c.x, c.y, true); }
+      const far = S.grp.filter(u => Math.hypot(u.x - c.x, u.y - c.y) > 5 + Math.sqrt(S.grp.length) * 0.9);
+      if (far.length > S.grp.length * 0.3 && !near.length && G.time > (S.regroupT || 0) && (S.regroupT = G.time + 12)) { orderMove(S.grp, c.x, c.y, true); }
       else {
-        const tgts = knownB.slice(); const pref = ['turret', 'aagun', 'refinery', 'factory', 'barracks', 'power', 'airfield', 'tech', 'hq'];
+        const tgts = knownB.slice(); const pref = D.si && !SIOFF.pref ? ['cc', 'factory', 'barracks', 'refinery', 'hq', 'airfield', 'turret', 'aagun', 'tech', 'power'] : ['turret', 'aagun', 'refinery', 'factory', 'barracks', 'power', 'airfield', 'tech', 'hq'];
         tgts.sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) * 0.3 + (pref.indexOf(a.t) + 1 || 9) - Math.hypot(b.x - c.x, b.y - c.y) * 0.3 - (pref.indexOf(b.t) + 1 || 9));
-        const t = tgts[0] || { x: estart[0], y: estart[1] };
+        const t = tgts[0] || huntTarget(P, S, c, estart);
         const step = Math.min(8, Math.hypot(t.x - c.x, t.y - c.y)), a2 = Math.atan2(t.y - c.y, t.x - c.x);
         if (!near.length && step > 3) orderMove(S.grp.filter(u => u.order !== 'attack'), c.x + Math.cos(a2) * step, c.y + Math.sin(a2) * step, true);
         else if (!near.length && tgts[0]) orderMove(S.grp.filter(u => u.order !== 'attack'), t.x, t.y, true);
@@ -185,29 +190,47 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
   // launch attack when strong enough
   const av = armyVal(idle);
   const need = Math.max(S.wave * 650, (S.eArmy || 0) * 1.4);
-  if (!S.grp.length && !intruders.length && av >= need && G.time - S.lastAttack > D.waveGap && G.time > (S.retreatT || -99) + 25) {
+  // reinforce a running attack with what has gathered at home
+  if (S.grp.length && !intruders.length && (av > 5000 || idle.length > 14) && G.time > (S.reinfT || 0)) { S.reinfT = G.time + 20; const c = S.grp[0]; orderMove(idle, c.x, c.y, true); idle.forEach(u => { S.grp.push(u); S.attackers.add(u.id); u.stance = 'aggr'; u.guard = null; u.face = null; }); }
+  if (!S.grp.length && !intruders.length && (av >= need || idle.length >= 30) && G.time - S.lastAttack > D.waveGap && G.time > (S.retreatT || -99) + 25) {
     S.grp = idle.slice(); S.grpV0 = armyVal(S.grp); S.grp.forEach(u => { S.attackers.add(u.id); u.stance = 'aggr'; u.guard = null; u.face = null; });
     S.lastAttack = G.time; S.regT = 0; S.wave = Math.min(D.waveMax, S.wave + D.waveInc);
   }
 }
 
 // ===== Chief SI extras: rush defense, wounded retreat, coordinated jet strikes w/ escort =====
+const SIOFF = (typeof globalThis !== 'undefined' && globalThis.SIOFF) || {};
 function siExtras(P, S, me, foes, knownB, hq, estart, intruders) {
   const ang = Math.atan2(estart[1] - hq.y, estart[0] - hq.x), stage = { x: hq.x + Math.cos(ang) * 8, y: hq.y + Math.sin(ang) * 8 };
   const army = me.filter(u => u.kind === 'u' && UT[u.t].wpn && !UT[u.t].air);
-  // early rush: pull everything home, hold stance near base
-  if (false && intruders.length && G.time < 360) { const inn = army.filter(u => Math.hypot(u.x - hq.x, u.y - hq.y) > 10 && !(S.grp || []).includes(u)); if (inn.length) orderMove(inn, hq.x + Math.cos(ang) * 4, hq.y + Math.sin(ang) * 4, true); }
+  // early rush defense: recall everything when base attacked in the first 6 minutes
+  // base defense recall (any time): bring the attack group home if the base faces a real threat
+  if (!SIOFF.recall2 && intruders.length && S.grp && S.grp.length && G.time > (S.recallT || 0)) { const iv = armyVal(intruders.filter(f => me.some(b => b.kind === 'b' && Math.hypot(b.x - f.x, b.y - f.y) < 12))), hv = armyVal(army.filter(u => !S.grp.includes(u) && Math.hypot(u.x - hq.x, u.y - hq.y) < 20));
+    if (iv > Math.max(4500, hv * 1.5)) { const c = intruders[0]; S.recallT = G.time + 10; S.grp.forEach(u => S.attackers.delete(u.id)); orderMove(S.grp, c.x, c.y, true); S.grp = []; S.retreatT = G.time; } }
+  if (!SIOFF.recall && intruders.length && G.time < 360) { const c = intruders.reduce((a, f) => (a.x += f.x / intruders.length, a.y += f.y / intruders.length, a), { x: 0, y: 0 });
+    if (armyVal(intruders) > 500 && G.time > (S.recallT || 0)) { S.recallT = G.time + 6; const all = army.filter(u => u.t !== 'harv'); if (S.grp && S.grp.length) { S.grp.forEach(u => S.attackers.delete(u.id)); S.grp = []; } orderMove(all, c.x, c.y, true); } }
+  // 2 early turrets toward the enemy, gas-first upgrades
+  const tur = me.filter(e => e.t === 'turret').length + P.queues.def.filter(q => q.t === 'turret').length + (P.ready.def === 'turret' ? 1 : 0);
+  if (intruders.length && G.time < 360) S.rushed = true;
+  if (!SIOFF.turrets && S.rushed && tur < 2 && !P.queues.def.length && !P.ready.def && P.cr > 250 && avail(P.team, 'turret')) enqueue(P.team, 'turret');
+  // faction special as win condition
+  const sp = FACTIONS[P.fac].sp, spD = UT[sp] || BT[sp];
+  if (!SIOFF.special && spD && G.time > 300 && avail(P.team, sp) && P.gas >= (spD.gas || 0) && P.cr > spD.cost * 0.5) { const qc = UT[sp] ? (spD.from === 'barracks' ? 'inf' : spD.air ? 'air' : 'veh') : spD.cat; const have = me.filter(e => e.t === sp).length + P.queues[qc].filter(q => q.t === sp).length + (P.ready[qc] === sp ? 1 : 0); if (have < (BT[sp] ? 2 : 4) && P.queues[qc].length < 2) enqueue(P.team, sp); }
   // retreat badly wounded units (not when defending at home)
-  for (const u of army) if (u.hp < u.mhp * 0.3 && !u.retreating && Math.hypot(u.x - hq.x, u.y - hq.y) > 14 && u.t !== 'harv') { u.retreating = true; orderMove([u], stage.x, stage.y, false); if (S.grp) S.grp = S.grp.filter(x => x !== u); S.attackers.delete(u.id); }
+  if (!SIOFF.retreat) for (const u of army) if (u.hp < u.mhp * 0.3 && !u.retreating && Math.hypot(u.x - hq.x, u.y - hq.y) > 14 && u.t !== 'harv') { u.retreating = true; orderMove([u], stage.x, stage.y, false); if (S.grp) S.grp = S.grp.filter(x => x !== u); S.attackers.delete(u.id); }
   for (const u of army) if (u.retreating && (u.hp > u.mhp * 0.7 || Math.hypot(u.x - stage.x, u.y - stage.y) < 3)) u.retreating = false;
-  // jet strike package: >=2 armed jets, escort interceptors follow
+  // jet strike waves (>=3 armed jets); interceptor escorts orbit the target instead of hovering
   const jets = me.filter(u => u.t === 'jet' && u.js === 'landed' && u.ammo >= W.jbomb.ammo);
-  if (jets.length >= 2 && knownB.length && G.time > (S.strikeT || 0)) {
-    const pri = ['refinery', 'power', 'factory', 'airfield', 'tech', 'barracks', 'hq'];
+  if (!SIOFF.jets && jets.length >= 3 && knownB.length && G.time > (S.strikeT || 0)) {
+    const pri = ['refinery', 'extractor', 'power', 'factory', 'airfield', 'tech', 'barracks', 'cc', 'hq'];
     const aaNear = b => knownB.filter(k => k.t === 'aagun' && Math.hypot(k.x - b.x, k.y - b.y) < 7).length;
-    const tg = knownB.filter(b => BT[b.t].cat !== 'def').sort((a, b) => (pri.indexOf(a.t) + aaNear(a) * 3) - (pri.indexOf(b.t) + aaNear(b) * 3))[0];
-    if (tg) { orderAttack(jets, tg); const esc = me.filter(u => u.t === 'intercept' && (u.order === 'idle' || u.js === 'landed')); if (esc.length) orderMove(esc, tg.x, tg.y, true); S.strikeT = G.time + 25; }
+    const tg = knownB.filter(b => BT[b.t].cat !== 'def').sort((a, b) => ((pri.indexOf(a.t) + 1 || 9) + aaNear(a) * 3) - ((pri.indexOf(b.t) + 1 || 9) + aaNear(b) * 3))[0];
+    if (tg) { orderAttack(jets, tg); S.strike = { tg, until: G.time + 30 }; S.strikeT = G.time + 22; }
   }
+  if (S.strike && (G.time > S.strike.until || S.strike.tg.hp <= 0)) S.strike = null;
+  const esc = me.filter(u => u.t === 'intercept');
+  if (!SIOFF.escort && esc.length) { S.escA = (S.escA || 0) + 0.9; const c = S.strike ? S.strike.tg : { x: hq.x + Math.cos(ang) * 6, y: hq.y + Math.sin(ang) * 6 }, r = S.strike ? 4 : 5;
+    esc.forEach((u, k) => { if (u.tgt && u.tgt.hp > 0 && UT[u.tgt.t] && UT[u.tgt.t].air) return; const a = S.escA + k * 2 * Math.PI / esc.length; orderMove([u], Math.max(1, Math.min(MW - 1, c.x + Math.cos(a) * r)), Math.max(1, Math.min(MH - 1, c.y + Math.sin(a) * r)), true); }); }
   // scouting: keep enemy base memory fresh with a cheap unit
   if (G.time > (S.siScoutT || 60) && !knownB.length) { const sc = me.find(u => u.t === 'scout' || u.t === 'rifle'); if (sc) orderMove([sc], estart[0], estart[1], false); S.siScoutT = G.time + 60; }
 }
@@ -220,7 +243,7 @@ function aiSite(P, hq) {
     if (G.ents.some(e => foe(e.team, P.team) && Math.hypot(e.x - st.x, e.y - st.y) < 12)) continue;
     let ore = 0; for (let dy = -9; dy <= 9; dy++) for (let dx = -9; dx <= 9; dx++) { const x = Math.floor(st.x) + dx, y = Math.floor(st.y) + dy; if (inb(x, y)) ore += G.ore[idx(x, y)]; }
     if (ore < 4000) continue;
-    const d = Math.hypot(st.x - hq.x, st.y - hq.y) - (st.k === 'mid' && DIFF[P.diff].expandAt < 320 ? 4 : 0);
+    const d = Math.hypot(st.x - hq.x, st.y - hq.y) - (st.k === 'mid' && DIFF[P.diff].expandAt < 320 && !(DIFF[P.diff].si && !(globalThis.SIOFF || {}).nomid) ? 4 : 0) + (st.k === 'mid' && DIFF[P.diff].si && !(globalThis.SIOFF || {}).nomid ? 12 : 0);
     if (d < bd) { bd = d; best = st; }
   }
   return best;
@@ -232,7 +255,7 @@ function aiGrowth(P, S, D, cnt, hq, foes) {
   if ((cnt.refinery || 0) < 2 + nCC && nCC > 0 && ok('refinery')) return 'refinery';
   if ((cnt.extractor || 0) < 1 + nCC && ok('extractor')) return 'extractor';
   // extra production when floating money
-  if (P.cr > 3000 && (cnt.factory || 0) < (D.si ? 3 : D.chief || P.diff === 'hard' ? 2 : 1) && ok('factory')) return 'factory';
+  if (P.cr > 3000 && (cnt.factory || 0) < (D.si && !SIOFF.fac3 ? 3 : D.chief || P.diff === 'hard' ? 2 : 1) && ok('factory')) return 'factory';
   if (P.cr > 2500 && (cnt.barracks || 0) < (D.si || P.diff === 'hard' ? 2 : 1) && ok('barracks')) return 'barracks';
   if (P.cr > 3500 && (cnt.airfield || 0) < (D.si ? 2 : 1) && (cnt.airfield || 0) > 0 && ok('airfield')) return 'airfield';
   if (P.pow < 40 && ok('power')) return 'power';
@@ -251,4 +274,14 @@ function aiPing(P, S, me) {
     if (n.length) { orderMove(n, pg.x, pg.y, true); n.forEach(u => S.attackers.add(u.id)); }
     G.events.push({ e: 'allyAck', team: P.team, x: pg.x, y: pg.y });
   }
+}
+
+function intrudersEarly(P, foes, me) { return foes.some(f => f.kind === 'u' && UT[f.t].wpn && me.some(b => b.kind === 'b' && Math.hypot(b.x - f.x, b.y - f.y) < 12)); }
+
+// with no known enemy buildings: sweep expansion sites / starts, nearest unvisited first
+function huntTarget(P, S, c, estart) {
+  S.hunted = S.hunted || {}; const vis = G.visT[P.team];
+  const cands = [...G.starts.map(s => ({ x: s[0], y: s[1] })), ...(G.sites || [])].filter(s => { const k = (s.x | 0) + ',' + (s.y | 0); if (vis[idx(Math.floor(s.x), Math.floor(s.y))]) S.hunted[k] = G.time; return G.time - (S.hunted[k] ?? -999) > 90; });
+  if (!cands.length) return { x: estart[0], y: estart[1] };
+  cands.sort((a, b) => Math.hypot(a.x - estart[0], a.y - estart[1]) * 1.5 + Math.hypot(a.x - c.x, a.y - c.y) * 0.5 - Math.hypot(b.x - estart[0], b.y - estart[1]) * 1.5 - Math.hypot(b.x - c.x, b.y - c.y) * 0.5); return cands[0];
 }

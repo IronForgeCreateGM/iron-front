@@ -7,6 +7,9 @@ const $ = id => document.getElementById(id);
 function saveSet() { localStorage.setItem('if_settings', JSON.stringify(UI.set)); localStorage.setItem('if_quality', UI.set.quality); }
 function uiMsg(s) { const m = $('msg'); if (!m) return; m.textContent = s; m.style.opacity = 1; UI.msgT = 3; }
 function icon(t) { return (R3.portraits && R3.portraits[t]) || ''; }
+const ANN = { last: {}, q: [], t: 0 };
+function announce(txt, key, gap) { if (G.time - (ANN.last[key] ?? -999) < (gap || 10)) return; ANN.last[key] = G.time; ANN.q.push(txt); if (ANN.q.length > 3) ANN.q.shift(); }
+function annFrame(dt) { const el = document.getElementById('announce'); if (!el) return; ANN.t -= dt; if (ANN.t <= 0 && ANN.q.length) { el.textContent = ANN.q.shift(); el.classList.add('on'); ANN.t = 2.6; } else if (ANN.t <= 0.4) el.classList.remove('on'); }
 function uiAlert(ev) {
   sfx('alert'); UI.pings.push({ x: ev.x, y: ev.y, t: 3 });
   UI.alerts.unshift({ txt: ev.harv ? 'Harvester under attack' : 'Under attack', x: ev.x, y: ev.y, t: 8 }); UI.alerts.length = Math.min(UI.alerts.length, 2);
@@ -119,12 +122,13 @@ function onDown(e) {
   const m = UI.mouse; const r = $('view').getBoundingClientRect(); m.x = e.clientX - r.left; m.y = e.clientY - r.top;
   if (e.button === 1) { e.preventDefault(); UI.pan = true; return; }
   const w = screenToWorld(m.x, m.y);
+  if (e.altKey && w && !G.spectate) { e.preventDefault(); const en = G.ents.some(o => foe(o.team, 0) && visibleTo0(o) && Math.hypot(o.x - w.x, o.y - w.y) < 6); (G.pings = G.pings || []).push({ team: 0, x: w.x, y: w.y, t: G.time, kind: en ? 'attack' : 'defend' }); UI.pings.push({ x: w.x, y: w.y, t: 3 }); marker(w.x, w.y, en); uiMsg(en ? 'Ping: attack here!' : 'Ping: help here!'); sfx('alert'); return; }
   if (e.button === 2) {
     if (UI.placing || UI.mode) { UI.placing = null; UI.mode = null; return; }
     if (!w) return;
     const tgt = pickAt(m.x, m.y), units = UI.sel.filter(s => s.kind === 'u' && s.team === 0);
     if (units.length) {
-      if (tgt && tgt.team !== 0) { orderAttack(units, tgt); marker(tgt.x, tgt.y, true); }
+      if (tgt && foe(tgt.team, 0)) { orderAttack(units, tgt); marker(tgt.x, tgt.y, true); }
       else if (tgt && tgt.kind === 'b' && units.some(u => UT[u.t].engineer)) { orderAttack(units.filter(u => UT[u.t].engineer), tgt); }
       else if (tgt && tgt.t === 'refinery' && units.some(u => u.t === 'harv')) { units.filter(u => u.t === 'harv').forEach(h => { h.hst = 'ret'; h.path = []; }); }
       else { orderMove(units, w.x, w.y, UI.keys.control || false, e.shiftKey); marker(w.x, w.y); }
@@ -184,7 +188,7 @@ function onKey(e) {
   if (k === 'v') { toggleStance(); return; }
   if (k === 'z') { doUpgrade(); return; }
   if (k === 'a' && UI.sel.some(s => s.kind === 'u')) { UI.mode = 'amove'; uiMsg('Attack-move: left-click target (Shift = waypoint)'); }
-  if (k === 'h') { const hq = G.ents.find(e => e.team === 0 && e.t === 'hq'); if (hq) jumpTo(hq.x, hq.y); }
+  if (k === 'h') { const hq = G.ents.find(e => e.team === 0 && e.t === 'hq') || G.ents.find(e => e.team === 0 && e.t === 'cc'); if (hq) jumpTo(hq.x, hq.y); }
   if (k === 'q') { UI.tab = Object.keys(CATS)[(Object.keys(CATS).indexOf(UI.tab) + 1) % 5]; buildGrid(); }
   if (k === 'x') $('sellBtn').onclick(); if (k === 'r') $('repBtn').onclick();
   if (k === 'e') setSel(G.ents.filter(o => o.team === 0 && o.kind === 'u' && UT[o.t].wpn));
@@ -193,13 +197,13 @@ function onKey(e) {
 }
 function myUnits() { return UI.sel.filter(s => s.team === 0 && s.kind === 'u' && UT[s.t].wpn); }
 function enemyFacing(cx, cy) {
-  let best = null, bd = 1e9; for (const e of G.ents) if (e.team === 1 && visibleTo0(e)) { const d = Math.hypot(e.x - cx, e.y - cy); if (d < bd) { bd = d; best = e; } }
+  let best = null, bd = 1e9; for (const e of G.ents) if (foe(e.team, 0) && visibleTo0(e)) { const d = Math.hypot(e.x - cx, e.y - cy); if (d < bd) { bd = d; best = e; } }
   const t = best && bd < 30 ? best : (st => ({ x: st[0], y: st[1] }))(G.starts[(G.players.find(Q => foe(Q.team, 0)) || G.players[1]).start]); return Math.atan2(t.y - cy, t.x - cx);
 }
 function doFormation(atBase) {
   const us = myUnits(); if (!us.length) { uiMsg('Select combat units first'); sfx('error'); return; }
   let cx = us.reduce((a, u) => a + u.x, 0) / us.length, cy = us.reduce((a, u) => a + u.y, 0) / us.length;
-  if (atBase) { const hq = G.ents.find(e => e.team === 0 && e.t === 'hq') || us[0]; const a = Math.atan2(G.starts[1][1] - hq.y, G.starts[1][0] - hq.x); cx = hq.x + Math.cos(a) * 7; cy = hq.y + Math.sin(a) * 7; }
+  if (atBase) { const hq = G.ents.find(e => e.team === 0 && e.t === 'hq') || us[0]; const es = G.starts[(G.players.find(Q => foe(Q.team, 0)) || G.players[1]).start], a = Math.atan2(es[1] - hq.y, es[0] - hq.x); cx = hq.x + Math.cos(a) * 7; cy = hq.y + Math.sin(a) * 7; }
   const n = orderFormation(us, cx, cy, enemyFacing(cx, cy)); marker(cx, cy); sfx('ack'); uiMsg(`Defensive formation: ${n} units holding (armor front, infantry middle, artillery/AA rear)`); UI.ctxKey = null;
 }
 function toggleStance() { const us = myUnits(); if (!us.length) return; const st = us.every(u => u.stance === 'hold') ? 'aggr' : 'hold'; setStance(us, st); sfx('click'); uiMsg(st === 'hold' ? 'Stance: Hold position (engage in range, return)' : 'Stance: Aggressive (chase targets)'); UI.ctxKey = null; }
@@ -216,6 +220,7 @@ function idleList(kind) {
 }
 function selectIdle(kind) { const l = idleList(kind); if (!l.length) return; setSel(kind === 'harv' ? [l[0]] : l); jumpTo(l[0].x, l[0].y); }
 function uiFrame(dt) {
+  annFrame(dt);
   const P = G.players[0], m = UI.mouse, el = R3.renderer.domElement, W_ = el.clientWidth, H_ = el.clientHeight;
   // smooth camera scroll (edge + arrows), speed setting
   const sp = dt * R3.cam.d * 1.1 * UI.set.edge, ed = 14;
@@ -266,7 +271,7 @@ function sidebar() {
   if (key !== UI.ctxKey) {
     UI.ctxKey = key; let h = '';
     if (s.length === 1) { const e = s[0], d = defOf(e);
-      h = `<div class="pt"><img src="${icon(e.t)}"><div><b>${d.n}</b>${e.team !== 0 ? ' <span class="r">(enemy)</span>' : ''}<div class="hpb"><div id="ctxhp"></div></div><div id="ctxinfo" class="dim"></div></div></div>`;
+      h = `<div class="pt"><img src="${icon(e.t)}"><div><b>${d.n}</b>${foe(e.team, 0) ? ' <span class="r">(enemy)</span>' : e.team !== 0 ? ' <span class="g">(ally)</span>' : ''}<div class="hpb"><div id="ctxhp"></div></div><div id="ctxinfo" class="dim"></div></div></div>`;
       if (e.kind === 'b' && e.team === 0 && (UPG[e.t] || e.t === 'tech')) h += `<button id="upBtn" class="act"></button>`;
       if (e.kind === 'u' && e.team === 0 && UT[e.t].wpn) h += `<div class="acts"><button id="fmBtn" class="act">⛨ Defensive Formation <kbd>G</kbd></button><button id="stBtn" class="act"></button></div>`;
       if (e.kind === 'b' && e.team === 0) { const opts = Object.keys(UT).filter(t => UT[t].from === e.t || (UT[t].alt || []).includes(e.t)); if (opts.length) h += `<div class="cgrid">${opts.map(t => `<div class="item sm">${itemHTML(t)}</div>`).join('')}</div><div class="dim small">Right-click ground to set rally point</div>`; }
@@ -297,7 +302,7 @@ function minimap() {
     const f = vis0(i) ? 1 : seen0(i) ? 0.5 : 0.08; img.data.set([r * f, g * f, bl * f, 255], i * 4);
   }
   b.putImageData(img, 0, 0); x.imageSmoothingEnabled = true; x.drawImage(UI.mmBase, 0, 0, c.width, c.height);
-  for (const e of G.ents) { if (!visibleTo0(e)) continue; x.fillStyle = e.team === 0 ? '#5fb0ff' : '#ff5040'; if (e.kind === 'b') x.fillRect(e.tx * s, e.ty * s, e.w * s, e.h * s); else x.fillRect(e.x * s - 1.5, e.y * s - 1.5, 3, 3); }
+  for (const e of G.ents) { if (!visibleTo0(e)) continue; x.fillStyle = MMCOL[e.team] || '#ff5040'; if (e.kind === 'b') x.fillRect(e.tx * s, e.ty * s, e.w * s, e.h * s); else x.fillRect(e.x * s - 1.5, e.y * s - 1.5, 3, 3); }
   x.fillStyle = '#5fe8c4'; for (const [vx, vy] of G.vents || []) { x.beginPath(); x.arc((vx + 0.5) * s, (vy + 0.5) * s, 3, 0, 7); x.fill(); }
   for (const p of UI.pings) { x.strokeStyle = `rgba(255,80,60,${p.t / 3})`; x.lineWidth = 2; x.beginPath(); x.arc(p.x * s, p.y * s, (3 - p.t) * 10 % 12 + 4, 0, 7); x.stroke(); }
   if (R3.viewPts) { const v = R3.viewPts; x.strokeStyle = 'rgba(255,255,255,.85)'; x.lineWidth = 1; x.beginPath(); x.moveTo(v[0].x * s, v[0].y * s); x.lineTo(v[1].x * s, v[1].y * s); x.lineTo(v[3].x * s, v[3].y * s); x.lineTo(v[2].x * s, v[2].y * s); x.closePath(); x.stroke(); }
@@ -317,7 +322,7 @@ function overlay() {
     x.fillStyle = 'rgba(0,0,0,.75)'; x.fillRect(p.x - w / 2 - 1, p.y - 1, w + 2, 5);
     x.fillStyle = f > 0.6 ? '#4dff7a' : f > 0.3 ? '#ffd23d' : '#ff4d3d'; x.fillRect(p.x - w / 2, p.y, w * f, 3);
     if (segs > 1 && segs < 30) { x.fillStyle = 'rgba(0,0,0,.45)'; for (let i = 1; i < segs; i++) x.fillRect(p.x - w / 2 + w * i / segs, p.y, 1, 3); }
-    if (e.team !== 0) { x.fillStyle = '#ff5040'; x.fillRect(p.x - w / 2 - 4, p.y, 2, 3); }
+    if (foe(e.team, 0)) { x.fillStyle = '#ff5040'; x.fillRect(p.x - w / 2 - 4, p.y, 2, 3); }
     if (e.t === 'harv' && e.load > 0) { x.fillStyle = '#e8b030'; x.fillRect(p.x - w / 2, p.y + 4, w * e.load / HARV_CAP, 2); }
     if (e.sel && e.kind === 'b' && e.rally && e.team === 0) { const r = worldToScreen(e.rally.x, e.rally.y, heightAt(e.rally.x, e.rally.y)); x.strokeStyle = 'rgba(120,255,140,.7)'; x.setLineDash([5, 5]); x.beginPath(); x.moveTo(p.x, p.y + 20); x.lineTo(r.x, r.y); x.stroke(); x.setLineDash([]); x.fillStyle = '#7f8'; x.fillRect(r.x - 1, r.y - 14, 2, 14); x.fillRect(r.x + 1, r.y - 14, 9, 6); }
     if (e.sel && e.kind === 'u' && e.team === 0 && (e.path.length || (e.wq && e.wq.length))) {

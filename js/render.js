@@ -137,10 +137,14 @@ function handleEvents() {
         if (ev.b.team === 0) sfx('place'); break;
       case 'heal': if (visibleTo0(ev.src) && inView(ev.x, ev.y)) for (let i = 0; i < 3; i++) FX.spark.spawn(ev.x + rnd(0.3), ev.y + rnd(0.3), heightAt(ev.x, ev.y) + 0.3, 0, 0, 0.8, 0.6, 0.09, 0.03, 0.3, 1, 0.45, 1, 0); break;
       case 'ready': if (ev.team === 0) { sfx('ready'); uiMsg(BT[ev.t].n + ' ready to place'); } break;
-      case 'unit': if (ev.team === 0) sfx('unit'); break;
+      case 'unit': if (ev.team === 0) { sfx('unit'); if (ev.u && FACTIONS[G.players[0].fac].sp === ev.u.t) announce(UT[ev.u.t].n + ' ready for battle', 'spu', 5); } break;
       case 'upgraded': if (ev.team === 0) { sfx('ready'); uiMsg(ev.b.upKind === 'def' ? 'Research complete: ' + DEF_RESEARCH.n : BT[ev.b.t].n + ' upgraded to level ' + ev.b.lvl); } flash(ev.b.x, ev.b.y, 1, 1.5, 0.6, 0.9, 1); break;
       case 'capture': if (ev.team === 0 || ev.b.team === 0) { sfx('ready'); uiMsg('Structure captured!'); } disposeObj(ev.b.id); break;
-      case 'attacked': if (ev.team === 0 && typeof uiAlert === 'function') uiAlert(ev); break;
+      case 'attacked': if (ev.team === 0 && typeof uiAlert === 'function') { uiAlert(ev); announce(ev.harv ? 'Harvester under attack' : 'Base under attack', 'atk' + !!ev.harv, 25); } else if (!foe(ev.team, 0) && ev.team !== 0) { announce('Ally under attack', 'ally', 30); UI.pings.push({ x: ev.x, y: ev.y, t: 3 }); } break;
+      case 'placed': if (ev.b.t === 'cc') { if (ev.team === 0) announce('Expansion established', 'cc', 3); else if (!foe(ev.team, 0)) announce('Ally expanding', 'acc', 20); } else if (ev.team === 0 && FACTIONS[G.players[0].fac].sp === ev.b.t) announce(BT[ev.b.t].n + ' deployed', 'sp', 5); break;
+      case 'eliminated': announce(ev.team === 0 ? 'You have been eliminated' : G.players[ev.team].name + (foe(ev.team, 0) ? ' (enemy)' : ' (ally)') + ' eliminated', 'el' + ev.team, 1); break;
+      case 'popcap': uiMsg('Unit cap reached (' + POP_CAP + ')'); break;
+      case 'allyAck': if (foe(ev.team, 0) || ev.team === 0) break; announce(G.players[ev.team].name + ': on my way', 'ack', 4); UI.pings.push({ x: ev.x, y: ev.y, t: 3 }); break;
     }
   }
   G.events.length = 0;
@@ -257,7 +261,7 @@ function applyAniso() { const mx = R3.renderer.capabilities.getMaxAnisotropy(); 
 function updCamera(dt) {
   const c = R3.cam, k = 1 - Math.exp(-dt * 9);
   if (R3.camera) { const nn = Math.max(0.8, c.d * 0.35), ff = c.d * 3.2 + 50; if (Math.abs(R3.camera.near - nn) > 0.05 || Math.abs(R3.camera.far - ff) > 1) { R3.camera.near = nn; R3.camera.far = ff; R3.camera.updateProjectionMatrix(); } }
-  c.tx = Math.max(3, Math.min(MW - 3, c.tx)); c.ty = Math.max(4, Math.min(MH + 6, c.ty)); c.td = Math.max(7, Math.min(50, c.td));
+  c.tx = Math.max(3, Math.min(MW - 3, c.tx)); c.ty = Math.max(4, Math.min(MH + 6, c.ty)); c.td = Math.max(7, Math.min(60, c.td));
   c.x += (c.tx - c.x) * k; c.y += (c.ty - c.y) * k; c.d += (c.td - c.d) * k;
   const pitch = 0.82 + (c.d - 10) / 40 * 0.3; let sx = 0, sz = 0;
   if (R3.shake > 0) { R3.shake -= dt; sx = rnd(R3.shake * 0.6); sz = rnd(R3.shake * 0.6); }
