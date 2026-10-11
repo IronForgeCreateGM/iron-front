@@ -86,7 +86,7 @@ function aiStep(P) {
   if (intruders.length) {
     const mine = intruders.filter(f => myB.some(b => Math.hypot(b.x - f.x, b.y - f.y) < 12)), c = mine[0] || intruders[0];
     let defenders = home.filter(u => u.order !== 'attack' && Math.hypot(u.x - c.x, u.y - c.y) < 25);
-    if (!mine.length && G.time > (S.helpT || 0) && armyVal(intruders) > 800) { S.helpT = G.time + 25; defenders = home.filter(u => u.t !== 'harv' && !UT[u.t].jet).slice(0, Math.ceil(home.length * 0.6)); defenders.forEach(u => S.attackers.add(u.id)); G.events.push({ e: 'allyAck', team: P.team, x: c.x, y: c.y }); }
+    if (!mine.length && G.time > (S.helpT || 0) && armyVal(intruders) > 800 && armyVal(home) > 4000) { S.helpT = G.time + 40; defenders = home.filter(u => u.t !== 'harv' && !UT[u.t].jet).slice(0, Math.ceil(home.length * 0.4)); defenders.forEach(u => S.attackers.add(u.id)); G.events.push({ e: 'allyAck', team: P.team, x: c.x, y: c.y }); }
     if (D.firstAttack && G.time < D.firstAttack) defenders.forEach(u => S.attackers.delete(u.id));
     if (defenders.length) orderMove(defenders, c.x, c.y, true);
   }
