@@ -27,7 +27,7 @@ function newGame(opts) {
   // colours by alliance order
   const cnt = {}; slots.forEach((sl, t) => { const k = sl.ally === slots[0].ally ? 'A' : 'B', j = cnt[k] = (cnt[k] == null ? 0 : cnt[k] + 1); const pc = PALETTE[k][Math.min(1, j)]; TEAMPAINT[t] = pc[0]; TEAMCOL[t] = pc[1]; MMCOL[t] = pc[2]; });
   if (typeof MODEL_CACHE !== 'undefined') for (const k in MODEL_CACHE) delete MODEL_CACHE[k];
-  for (let t = 0; t < NP; t++) { const sl = slots[t]; G.players.push({ team: t, ally: sl.ally, start: sl.start, cr: 5000, pow: 0, gen: 0, use: 0, ai: !!sl.ai, diff: sl.diff || opts.diff,
+  for (let t = 0; t < NP; t++) { const sl = slots[t]; G.players.push({ team: t, name: sl.name || (sl.ai ? sl.diff : 'Player ' + (t + 1)), ally: sl.ally, start: sl.start, cr: 5000, pow: 0, gen: 0, use: 0, ai: !!sl.ai, diff: sl.diff || opts.diff,
     gas: 150, fac: sl.fac || ['usa', 'rus', 'fra', 'ger'][(R() * 4) | 0], queues: { bld: [], def: [], inf: [], veh: [], air: [] }, ready: { bld: null, def: null }, stats: { kills: 0, lost: 0, mined: 0, built: 0 }, out: false }); }
   G.players.forEach((P, t) => {
     const [sx, sy] = G.starts[P.start], x = Math.round(sx - 1.5), y = Math.round(sy - 1.5), dx = sx < MW / 2 ? 1 : -1, dy = sy < MH / 2 ? 1 : -1;
@@ -57,16 +57,16 @@ function genMap(R) {
     let t = 0; if (n > 0.7) t = 1; else if (n < 0.22) t = 2;
     setQ(x, y, i => { G.map[i] = t; G.elev[i] = n; G.forest[i] = fo > 0.62 && t === 0 ? 1 : 0; });
   }
-  const disc = (cx, cy, r, f) => { for (let y = Math.floor(cy - r); y <= cy + r; y++) for (let x = Math.floor(cx - r); x <= cx + r; x++) if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= r) setQ(x, y, f); };
+  const disc = (cx, cy, r, f) => { for (let y = Math.floor(cy - r); y <= cy + r; y++) for (let x = Math.floor(cx - r); x <= cx + r; x++) if (dhypot(x + 0.5 - cx, y + 0.5 - cy) <= r) setQ(x, y, f); };
   const clear = (cx, cy, r) => disc(cx, cy, r, i => { G.map[i] = 0; G.forest[i] = 0; });
   const rock = (cx, cy, r) => disc(cx, cy, r, i => { G.map[i] = 1; G.forest[i] = 0; });
-  const line = (x0, y0, x1, y1, r) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 2); for (let k = 0; k <= n; k++) clear(x0 + (x1 - x0) * k / n, y0 + (y1 - y0) * k / n, r); };
+  const line = (x0, y0, x1, y1, r) => { const n = Math.ceil(dhypot(x1 - x0, y1 - y0) * 2); for (let k = 0; k <= n; k++) clear(x0 + (x1 - x0) * k / n, y0 + (y1 - y0) * k / n, r); };
   // main base + cliff ring with two ramps
   const MX = 11, MY = 11;
-  for (let a = 0; a <= Math.PI / 2 + 0.01; a += 0.02) { const ramp = Math.abs(a - 0.32) < 0.12 || Math.abs(a - 1.25) < 0.12; if (ramp) continue; for (let r = 12.5; r <= 14.5; r += 0.5) rock(MX + Math.cos(a) * r, MY + Math.sin(a) * r, 0.7); }
+  for (let a = 0; a <= Math.PI / 2 + 0.01; a += 0.02) { const ramp = Math.abs(a - 0.32) < 0.12 || Math.abs(a - 1.25) < 0.12; if (ramp) continue; for (let r = 12.5; r <= 14.5; r += 0.5) rock(MX + dcos(a) * r, MY + dsin(a) * r, 0.7); }
   clear(MX, MY, 11.5);
   // corridors: ramps -> naturals -> mid -> bridges -> centre
-  line(MX + Math.cos(0.32) * 11, MY + Math.sin(0.32) * 11, 31, 10, 1.6); line(MX + Math.cos(1.25) * 11, MY + Math.sin(1.25) * 11, 10, 31, 1.6);
+  line(MX + dcos(0.32) * 11, MY + dsin(0.32) * 11, 31, 10, 1.6); line(MX + dcos(1.25) * 11, MY + dsin(1.25) * 11, 10, 31, 1.6);
   line(31, 10, 33, 33, 1.4); line(10, 31, 33, 33, 1.4); line(33, 33, 40, 40, 1.6); line(10, 31, 19, 44, 1.5); line(33, 33, 37, 44, 1.5); line(31, 10, Q, 10, 1.3); line(40, 40, Q, Q - 6, 1.5);
   // naturals & mid
   clear(31, 10, 6.5); clear(10, 31, 6.5); clear(33, 33, 6);
@@ -143,7 +143,7 @@ function canPlace(t, team, tx, ty) {
   const onVent = (G.vents || []).some(([vx, vy]) => vx >= tx && vx < tx + d.w && vy >= ty && vy < ty + d.h);
   if ((t === 'extractor') !== onVent) return false;
   for (const e of G.ents) if (e.kind === 'u' && !isAir(e) && foe(e.team, team) && e.x > tx && e.x < tx + d.w && e.y > ty && e.y < ty + d.h) return false;
-  if (t === 'cc') { const cx = tx + 1.5, cy = ty + 1.5; if (G.ents.some(e => e.kind === 'b' && foe(e.team, team) && Math.hypot(e.x - cx, e.y - cy) < 12)) return false; if (G.ents.some(e => e.kind === 'b' && (e.t === 'cc' || e.t === 'hq') && Math.hypot(e.x - cx, e.y - cy) < 9)) return false; return !!G.seenT[team][idx(Math.floor(cx), Math.floor(cy))] || G.ents.some(e => e.kind === 'b' && e.team === team && Math.hypot(e.x - cx, e.y - cy) < 26); }
+  if (t === 'cc') { const cx = tx + 1.5, cy = ty + 1.5; if (G.ents.some(e => e.kind === 'b' && foe(e.team, team) && dhypot(e.x - cx, e.y - cy) < 12)) return false; if (G.ents.some(e => e.kind === 'b' && (e.t === 'cc' || e.t === 'hq') && dhypot(e.x - cx, e.y - cy) < 9)) return false; return !!G.seenT[team][idx(Math.floor(cx), Math.floor(cy))] || G.ents.some(e => e.kind === 'b' && e.team === team && dhypot(e.x - cx, e.y - cy) < 26); }
   return G.ents.some(e => { if (e.kind !== 'b' || e.team !== team || e.t === 'wall') return false; const R = e.t === 'hq' || e.t === 'cc' ? 10 : t === 'extractor' ? 12 : 5; return tx < e.tx + e.w + R && tx + d.w > e.tx - R && ty < e.ty + e.h + R && ty + d.h > e.ty - R; });
 }
 function placeReady(team, cat, tx, ty) {
@@ -251,7 +251,7 @@ function findPath(sx, sy, gx, gy) {
   return out;
 }
 function los(a, b) {
-  const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy); if (d < 0.01) return true;
+  const dx = b.x - a.x, dy = b.y - a.y, d = dhypot(dx, dy); if (d < 0.01) return true;
   const px = -dy / d * 0.35, py = dx / d * 0.35, n = Math.ceil(d / 0.2);
   for (let k = 1; k <= n; k++) { const x = a.x + dx * k / n, y = a.y + dy * k / n;
     if (blk(x, y) || blk(x + px, y + py) || blk(x - px, y - py)) return false; }
@@ -266,18 +266,18 @@ function setPath(u, x, y) {
 function orderMove(units, x, y, attackMove, queue) {
   units = units.filter(u => u.kind === 'u'); if (!units.length) return;
   let cx = 0, cy = 0; units.forEach(u => { cx += u.x; cy += u.y; }); cx /= units.length; cy /= units.length;
-  const dir = Math.atan2(y - cy, x - cx), cols = Math.ceil(Math.sqrt(units.length * 1.5)), sp = units.some(u => UT[u.t].armor !== 'inf') ? 1.25 : 0.85;
+  const dir = datan2(y - cy, x - cx), cols = Math.ceil(Math.sqrt(units.length * 1.5)), sp = units.some(u => UT[u.t].armor !== 'inf') ? 1.25 : 0.85;
   const slots = [];
   for (let i = 0; i < units.length; i++) {
     const r = Math.floor(i / cols), c = i % cols, rowN = Math.min(cols, units.length - r * cols);
     const lat = (c - (rowN - 1) / 2) * sp, back = -r * sp;
-    let sx = x + Math.cos(dir) * back - Math.sin(dir) * lat, sy = y + Math.sin(dir) * back + Math.cos(dir) * lat;
+    let sx = x + dcos(dir) * back - dsin(dir) * lat, sy = y + dsin(dir) * back + dcos(dir) * lat;
     if (blk(sx, sy)) { const f = nearFree(Math.floor(sx), Math.floor(sy), 4); sx = f[0] + 0.5; sy = f[1] + 0.5; }
     slots.push({ x: sx, y: sy });
   }
   // fastest/frontline first: greedy nearest assignment
   const left = units.slice();
-  for (const s of slots) { let bi = 0, bd = 1e9; left.forEach((u, i) => { const d = Math.hypot(u.x - s.x, u.y - s.y); if (d < bd) { bd = d; bi = i; } });
+  for (const s of slots) { let bi = 0, bd = 1e9; left.forEach((u, i) => { const d = dhypot(u.x - s.x, u.y - s.y); if (d < bd) { bd = d; bi = i; } });
     const u = left.splice(bi, 1)[0]; u.grp = units.length;
     if (queue && (u.path.length || (u.wq && u.wq.length))) { (u.wq = u.wq || []).push({ x: s.x, y: s.y, am: attackMove }); continue; }
     u.wq = []; u.order = attackMove ? 'amove' : 'move'; u.face = null; if (u.stance === 'hold') u.guard = { x: s.x, y: s.y }; u.tgt = null; u.anchor = { x: s.x, y: s.y };
@@ -296,9 +296,9 @@ function orderAttack(units, tgt) {
 function orderStop(units) { for (const u of units) if (u.kind === 'u') { u.path = []; u.order = 'idle'; u.tgt = null; u.anchor = { x: u.x, y: u.y }; if (u.t === 'harv') u.hst = 'idle'; } }
 function canHit(w, e) { return !!w && e && e.hp > 0 && (isAir(e) ? !!w.air : !!w.ground) && (e.kind !== 'b' || e.t !== 'wall' || true); }
 function distTo(a, e) {
-  if (e.kind !== 'b') return Math.hypot(a.x - e.x, a.y - e.y);
+  if (e.kind !== 'b') return dhypot(a.x - e.x, a.y - e.y);
   const cx = Math.max(e.tx, Math.min(a.x, e.tx + e.w)), cy = Math.max(e.ty, Math.min(a.y, e.ty + e.h));
-  return Math.hypot(a.x - cx, a.y - cy);
+  return dhypot(a.x - cx, a.y - cy);
 }
 function sellB(b) { if (b.kind === 'b' && b.sell < 0 && b.t !== 'hq' || (b.kind === 'b' && b.t === 'hq' && b.sell < 0 && G.ents.filter(e => e.team === b.team && e.t === 'hq').length > 1)) { b.sell = G.time; G.events.push({ e: 'sell', b }); } }
 // ---------- main step ----------
@@ -387,13 +387,13 @@ function combat(e, w, sight, mobile) {
   }
   if (!e.tgt) return false;
   const t = e.tgt, d = distTo(e, t), tr = t.kind === 'u' ? UT[t.t].r : 0;
-  const want = Math.atan2(t.y - e.y, t.x - e.x);
+  const want = datan2(t.y - e.y, t.x - e.x);
   const jetRun = mobile && UT[e.t].jet && w.type === 'bomb';
   if (d <= w.rng + tr && (!w.minRng || d >= w.minRng)) {
-    if (jetRun) { e.tang = e.ang; if (e.cd <= 0 && e.ammo > 0) { fire(e, w, t); e.passT = G.time + 1.4; setPath(e, t.x + Math.cos(e.ang) * 4, t.y + Math.sin(e.ang) * 4); } else if (!e.path.length) setPath(e, t.x, t.y); return true; }
+    if (jetRun) { e.tang = e.ang; if (e.cd <= 0 && e.ammo > 0) { fire(e, w, t); e.passT = G.time + 1.4; setPath(e, t.x + dcos(e.ang) * 4, t.y + dsin(e.ang) * 4); } else if (!e.path.length) setPath(e, t.x, t.y); return true; }
     // kite: keep range advantage vs slower-ranged threats
     if (mobile && !forced && e.stance !== 'hold' && !UT[e.t].air && t.kind === 'u' && UT[t.t].wpn && e.cd > 0.3 && G.time > (e.kiteT || 0)) {
-      const tw = W[UT[t.t].wpn]; if (w.rng > tw.rng + 1.2 && d < tw.rng + 0.6 && canHit(tw, e)) { const kx = e.x - Math.cos(want) * 1.6, ky = e.y - Math.sin(want) * 1.6; if (!blk(Math.floor(kx), Math.floor(ky))) { setPath(e, kx, ky); e.kiteT = G.time + 0.9; } }
+      const tw = W[UT[t.t].wpn]; if (w.rng > tw.rng + 1.2 && d < tw.rng + 0.6 && canHit(tw, e)) { const kx = e.x - dcos(want) * 1.6, ky = e.y - dsin(want) * 1.6; if (!blk(Math.floor(kx), Math.floor(ky))) { setPath(e, kx, ky); e.kiteT = G.time + 0.9; } }
     }
     if (mobile && G.time > (e.kiteT || 0)) e.path = [];
     e.tang = turnTo(e.tang, want, 5 * DT);
@@ -402,7 +402,7 @@ function combat(e, w, sight, mobile) {
     return true;
   }
   if (mobile) {
-    if (w.minRng && d < w.minRng) { if (!e.path.length) setPath(e, e.x - Math.cos(want) * 3, e.y - Math.sin(want) * 3); return true; }
+    if (w.minRng && d < w.minRng) { if (!e.path.length) setPath(e, e.x - dcos(want) * 3, e.y - dsin(want) * 3); return true; }
     e.repathT = (e.repathT || 0) - DT;
     if (jetRun && G.time < (e.passT || 0)) return true;
     if (!e.path.length || e.repathT <= 0) { setPath(e, t.x, t.y); e.repathT = 1 + G.R(); }
@@ -428,10 +428,10 @@ function stepProjs() {
   for (const p of G.projs) {
     if (p.delay > 0) { p.delay -= DT; continue; }
     if (p.home && p.tgt && p.tgt.hp > 0) { p.tx = p.tgt.x; p.ty = p.tgt.y; p.tz = p.tgt.kind === 'u' ? p.tgt.z : 0.5; }
-    const dx = p.tx - p.x, dy = p.ty - p.y, d = Math.hypot(dx, dy), st = p.w.spd * DT;
+    const dx = p.tx - p.x, dy = p.ty - p.y, d = dhypot(dx, dy), st = p.w.spd * DT;
     if (d <= st) { p.x = p.tx; p.y = p.ty; p.done = true; impact(p); continue; }
     p.x += dx / d * st; p.y += dy / d * st;
-    if (p.w.arc) { const tot = Math.hypot(p.tx - p.sx, p.ty - p.sy) || 1, f = 1 - d / tot; p.z = 0.8 + Math.sin(f * Math.PI) * tot * 0.35; }
+    if (p.w.arc) { const tot = dhypot(p.tx - p.sx, p.ty - p.sy) || 1, f = 1 - d / tot; p.z = 0.8 + dsin(f * Math.PI) * tot * 0.35; }
     else p.z += (p.tz - p.z) * Math.min(1, st / Math.max(d, 0.01));
   }
   G.projs = G.projs.filter(p => !p.done);
@@ -444,7 +444,7 @@ function respond(u, src) {
   if (!u.tgt || u.tgt.hp <= 0 || distTo(u, u.tgt) > w.rng) u.tgt = src;
 }
 function damage(t, amt, w, team, src) {
-  if (src && foe(t.team, team) && t.kind === 'u') { respond(t, src); if (G.time - (t.helpT || 0) > 1) { t.helpT = G.time; for (const o of G.ents) if (o.team === t.team && o.kind === 'u' && o !== t && !o.tgt && Math.hypot(o.x - t.x, o.y - t.y) < 5) respond(o, src); } }
+  if (src && foe(t.team, team) && t.kind === 'u') { respond(t, src); if (G.time - (t.helpT || 0) > 1) { t.helpT = G.time; for (const o of G.ents) if (o.team === t.team && o.kind === 'u' && o !== t && !o.tgt && dhypot(o.x - t.x, o.y - t.y) < 5) respond(o, src); } }
   if (t.hp <= 0) return;
   t.hp -= amt * DMG[w.type][armorOf(t)];
   t.lastHitBy = team; t.hitT = G.time;
@@ -478,48 +478,48 @@ function stepUnit(u) {
   if (d.wpn && !(d.jet && u.ammo <= 0)) engaged = combat(u, W[d.wpn], Math.max(d.sight, W[d.wpn].rng + 0.5), true);
   if (!engaged && u.order === 'attack') { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; }
   if (u.stance === 'hold' && u.guard && u.order === 'idle') u.anchor = u.guard;
-  if (!engaged && u.order === 'idle' && !u.path.length && Math.hypot(u.x - u.anchor.x, u.y - u.anchor.y) > (u.stance === 'hold' ? 0.5 : 2.5) && u.t !== 'harv') setPath(u, u.anchor.x, u.anchor.y);
+  if (!engaged && u.order === 'idle' && !u.path.length && dhypot(u.x - u.anchor.x, u.y - u.anchor.y) > (u.stance === 'hold' ? 0.5 : 2.5) && u.t !== 'harv') setPath(u, u.anchor.x, u.anchor.y);
   if (!engaged && u.order === 'idle' && !u.path.length && u.face != null && u.stance === 'hold') { u.ang = turnTo(u.ang, u.face, 2 * DT); u.tang = turnTo(u.tang, u.face, 2 * DT); }
-  if (!engaged && u.order === 'amove' && !u.path.length && u.dest && Math.hypot(u.x - u.dest.x, u.y - u.dest.y) > 1.5) setPath(u, u.dest.x, u.dest.y);
+  if (!engaged && u.order === 'amove' && !u.path.length && u.dest && dhypot(u.x - u.dest.x, u.y - u.dest.y) > 1.5) setPath(u, u.dest.x, u.dest.y);
   // movement
   if (u.path.length) {
-    const p = u.path[0], dx = p.x - u.x, dy = p.y - u.y, dist = Math.hypot(dx, dy);
+    const p = u.path[0], dx = p.x - u.x, dy = p.y - u.y, dist = dhypot(dx, dy);
     const last = u.path.length === 1;
     const crowdArrive = last && u.grp > 1 && dist < 0.6 + 0.35 * Math.sqrt(u.grp) && u.blockedT > 0.6;
     if (dist < (last ? 0.12 : 0.4) || crowdArrive) { u.path.shift(); if (crowdArrive) u.path = [];
       if (!u.path.length && u.wq && u.wq.length) { const w = u.wq.shift(); u.order = w.am ? 'amove' : 'move'; u.anchor = { x: w.x, y: w.y }; setPath(u, w.x, w.y); }
       else if (!u.path.length && (u.order === 'move' || u.order === 'amove')) { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; } }
     else {
-      const want = Math.atan2(dy, dx);
+      const want = datan2(dy, dx);
       const veh = d.armor !== 'inf';
       u.ang = turnTo(u.ang, want, (veh ? 4 : 10) * DT);
-      const f = veh ? Math.max(0, Math.cos(angDiff(u.ang, want))) : 1;
+      const f = veh ? Math.max(0, dcos(angDiff(u.ang, want))) : 1;
       const sp = Math.min(dist, d.sp * DT * f * (d.armor === 'inf' && u.underFire && G.time - u.underFire < 2 ? 1.2 : 1));
-      const nx = u.x + Math.cos(u.ang) * sp, ny = u.y + Math.sin(u.ang) * sp;
+      const nx = u.x + dcos(u.ang) * sp, ny = u.y + dsin(u.ang) * sp;
       const ox = u.x, oy = u.y;
       if (d.air || !blk(nx, ny)) { u.x = nx; u.y = ny; }
       else if (!blk(nx, u.y)) u.x = nx; else if (!blk(u.x, ny)) u.y = ny;
       if (!UT[u.t].turret && !u.tgt) u.tang = u.ang;
       u.prevP = { x: ox, y: oy };
     }
-    if (u.prevP) { const prog = Math.hypot(u.x - u.prevP.x, u.y - u.prevP.y); u.blockedT = prog < d.sp * DT * 0.25 ? (u.blockedT || 0) + DT : 0; }
+    if (u.prevP) { const prog = dhypot(u.x - u.prevP.x, u.y - u.prevP.y); u.blockedT = prog < d.sp * DT * 0.25 ? (u.blockedT || 0) + DT : 0; }
     u.moveT += DT;
     if (u.moveT > 2) { // stuck detection
-      if (Math.hypot(u.x - u.lastP.x, u.y - u.lastP.y) < 0.3 && u.dest) { const dd = u.dest; u.stuckN = (u.stuckN || 0) + 1; if (u.stuckN > 3 && Math.hypot(u.x - dd.x, u.y - dd.y) < 3) { u.path = []; u.stuckN = 0; } else setPath(u, dd.x + (G.R() - 0.5) * u.stuckN, dd.y + (G.R() - 0.5) * u.stuckN); } else u.stuckN = 0;
+      if (dhypot(u.x - u.lastP.x, u.y - u.lastP.y) < 0.3 && u.dest) { const dd = u.dest; u.stuckN = (u.stuckN || 0) + 1; if (u.stuckN > 3 && dhypot(u.x - dd.x, u.y - dd.y) < 3) { u.path = []; u.stuckN = 0; } else setPath(u, dd.x + (G.R() - 0.5) * u.stuckN, dd.y + (G.R() - 0.5) * u.stuckN); } else u.stuckN = 0;
       u.moveT = 0; u.lastP = { x: u.x, y: u.y };
     }
   } else if (UT[u.t].turret && !u.tgt) u.tang = turnTo(u.tang, u.ang, 2 * DT);
   if (d.jet) u.z += ((u.js === 'landed' ? 0.32 : 3.4) - u.z) * 0.05;
-  else if (d.air) u.z = 2.6 + Math.sin(G.time * 2 + u.id) * 0.1;
+  else if (d.air) u.z = 2.6 + dsin(G.time * 2 + u.id) * 0.1;
 }
-function airBase(u) { let b = null, bd = 1e9; for (const e of G.ents) if (e.team === u.team && e.kind === 'b' && (e.t === 'airfield' || e.t === 'airpad') && e.sell < 0) { const d = Math.hypot(e.x - u.x, e.y - u.y) + (e.t === 'airfield' ? 0 : 6); if (d < bd) { bd = d; b = e; } } return b || G.ents.find(e => e.team === u.team && e.t === 'hq'); }
+function airBase(u) { let b = null, bd = 1e9; for (const e of G.ents) if (e.team === u.team && e.kind === 'b' && (e.t === 'airfield' || e.t === 'airpad') && e.sell < 0) { const d = dhypot(e.x - u.x, e.y - u.y) + (e.t === 'airfield' ? 0 : 6); if (d < bd) { bd = d; b = e; } } return b || G.ents.find(e => e.team === u.team && e.t === 'hq'); }
 function jetStep(u, d) {
   const w = W[d.wpn]; if (u.ammo == null) u.ammo = w.ammo;
   if (u.js === 'rtb' || (u.ammo <= 0 && u.js !== 'landed')) {
     const b = airBase(u); if (!b) return false;
     const px = b.x + ((u.id % 3) - 1) * 0.8, py = b.y + 0.3;
     if (u.js !== 'rtb') { u.js = 'rtb'; u.tgt = null; u.order = 'rtb'; u.wq = []; setPath(u, px, py); }
-    if (Math.hypot(u.x - px, u.y - py) < 0.4) { u.js = 'landed'; u.path = []; u.order = 'idle'; u.reloadT = 0; u.anchor = { x: u.x, y: u.y }; }
+    if (dhypot(u.x - px, u.y - py) < 0.4) { u.js = 'landed'; u.path = []; u.order = 'idle'; u.reloadT = 0; u.anchor = { x: u.x, y: u.y }; }
     else if (!u.path.length) setPath(u, px, py);
     return false;
   }
@@ -528,13 +528,13 @@ function jetStep(u, d) {
     if (u.path.length || u.order === 'attack' || u.order === 'amove') u.js = 'fly'; else { u.ang = turnTo(u.ang, -Math.PI / 2, DT); return u.ammo < w.ammo; }
   }
   u.js = 'fly';
-  if (u.order === 'idle' && !u.tgt && !u.path.length && (G.tick + u.id) % 60 === 0) { const b = airBase(u); if (b && Math.hypot(b.x - u.x, b.y - u.y) > 2.5) u.js = 'rtb'; else if (b) { u.js = 'rtb'; } }
+  if (u.order === 'idle' && !u.tgt && !u.path.length && (G.tick + u.id) % 60 === 0) { const b = airBase(u); if (b && dhypot(b.x - u.x, b.y - u.y) > 2.5) u.js = 'rtb'; else if (b) { u.js = 'rtb'; } }
   return false;
 }
 function medic(u, d) {
-  if ((G.tick + u.id) % 15 === 0) { let best = null, bs = 0; for (const o of G.ents) if (o.team === u.team && o.kind === 'u' && UT[o.t].armor === 'inf' && o.hp < o.mhp && o.hp > 0) { const dd = Math.hypot(o.x - u.x, o.y - u.y); if (dd < 7) { const sc = (1 - o.hp / o.mhp) * 10 - dd; if (!best || sc > bs) { bs = sc; best = o; } } } u.healT = best; }
+  if ((G.tick + u.id) % 15 === 0) { let best = null, bs = 0; for (const o of G.ents) if (o.team === u.team && o.kind === 'u' && UT[o.t].armor === 'inf' && o.hp < o.mhp && o.hp > 0) { const dd = dhypot(o.x - u.x, o.y - u.y); if (dd < 7) { const sc = (1 - o.hp / o.mhp) * 10 - dd; if (!best || sc > bs) { bs = sc; best = o; } } } u.healT = best; }
   const o = u.healT; if (!o || o.hp <= 0 || o.hp >= o.mhp) { u.healT = null; return; }
-  const dd = Math.hypot(o.x - u.x, o.y - u.y);
+  const dd = dhypot(o.x - u.x, o.y - u.y);
   if (dd > 1.6) { if ((u.order === 'idle' || u.order === 'amove') && (!u.path.length || (G.tick + u.id) % 20 === 0)) setPath(u, o.x, o.y); }
   else { if (u.order === 'idle') u.path = []; o.hp = Math.min(o.mhp, o.hp + d.heal * DT); if ((G.tick + u.id) % 15 === 0) G.events.push({ e: 'heal', x: o.x, y: o.y, src: u }); }
 }
@@ -546,9 +546,9 @@ function separate(hash) {
       const l = hash.get((gx << 8) | gy | (air ? 1 << 20 : 0)); if (!l) continue;
       for (const b of l) {
         if (b === a || b.id < a.id) continue;
-        let dx = a.x - b.x, dy = a.y - b.y, dd = Math.hypot(dx, dy); const min = ra + UT[b.t].r;
+        let dx = a.x - b.x, dy = a.y - b.y, dd = dhypot(dx, dy); const min = ra + UT[b.t].r;
         if (dd >= min) continue;
-        if (dd < 1e-4) { dx = G.R() - 0.5; dy = G.R() - 0.5; dd = Math.hypot(dx, dy); }
+        if (dd < 1e-4) { dx = G.R() - 0.5; dy = G.R() - 0.5; dd = dhypot(dx, dy); }
         const soft = a.t === 'harv' && b.t === 'harv' ? 0.4 : 1, ov = (min - dd) * 0.5 * soft, am = a.path.length ? 0.3 : 1, bm = b.path.length ? 0.3 : 1, tot = am + bm;
         const pa = ov * am / tot * 2 * 0.5, pb = ov * bm / tot * 2 * 0.5;
         const ax = a.x + dx / dd * pa, ay = a.y + dy / dd * pa, bx = b.x - dx / dd * pb, by = b.y - dy / dd * pb;
@@ -563,13 +563,13 @@ function separate(hash) {
 // ---------- harvester ----------
 function oreScore(u, i, refs) {
   const x = i % MW + 0.5, y = ((i / MW) | 0) + 0.5;
-  let d = Math.hypot(x - u.x, y - u.y) * 0.6;
-  let rd = 1e9; for (const r of refs) rd = Math.min(rd, Math.hypot(x - r.x, y - r.y)); d += Math.min(rd, 60) * 0.9;
+  let d = dhypot(x - u.x, y - u.y) * 0.6;
+  let rd = 1e9; for (const r of refs) rd = Math.min(rd, dhypot(x - r.x, y - r.y)); d += Math.min(rd, 60) * 0.9;
   for (const o of G.ents) if (o !== u && o.t === 'harv' && o.team === u.team && o.oreT != null) {
     if (o.oreT === i) return 1e9; // reserved
-    const ox = o.oreT % MW + 0.5, oy = ((o.oreT / MW) | 0) + 0.5; const dd = Math.hypot(ox - x, oy - y); if (dd < 3) d += (3 - dd) * 2.5; // spread across patches
+    const ox = o.oreT % MW + 0.5, oy = ((o.oreT / MW) | 0) + 0.5; const dd = dhypot(ox - x, oy - y); if (dd < 3) d += (3 - dd) * 2.5; // spread across patches
   }
-  if (G.danger && G.danger[u.team] && G.danger[u.team].some(p => Math.hypot(p.x - x, p.y - y) < 6)) d += 40;
+  if (G.danger && G.danger[u.team] && G.danger[u.team].some(p => dhypot(p.x - x, p.y - y) < 6)) d += 40;
   if (G.ore[i] < 200) d += 6;
   return d;
 }
@@ -594,7 +594,7 @@ function harvest(h) {
     case 'toOre': {
       if (h.oreT == null || G.ore[h.oreT] <= 0) { h.hst = 'idle'; break; }
       const tx = h.oreT % MW + 0.5, ty = ((h.oreT / MW) | 0) + 0.5;
-      if (Math.hypot(h.x - tx, h.y - ty) < 1.1) { h.path = []; h.hst = 'mine'; h.ang = turnTo(h.ang, Math.atan2(ty - h.y, tx - h.x), 1); break; }
+      if (dhypot(h.x - tx, h.y - ty) < 1.1) { h.path = []; h.hst = 'mine'; h.ang = turnTo(h.ang, datan2(ty - h.y, tx - h.x), 1); break; }
       if (G.time - h.toT > 15) { h.hst = 'idle'; break; }
       if (!h.path.length) setPath(h, tx, ty);
       break;
@@ -612,11 +612,11 @@ function harvest(h) {
       break;
     }
     case 'ret': {
-      let r = null, bd = 1e9; for (const e of G.ents) if (e.team === h.team && (e.t === 'refinery' || e.t === 'cc') && e.sell < 0 && G.time - e.born > 1.5) { const busy = e.dockBy && e.dockBy !== h.id && byId(e.dockBy) ? 8 : 0; const d = Math.hypot(e.x - h.x, e.y - h.y) + busy; if (d < bd) { bd = d; r = e; } }
+      let r = null, bd = 1e9; for (const e of G.ents) if (e.team === h.team && (e.t === 'refinery' || e.t === 'cc') && e.sell < 0 && G.time - e.born > 1.5) { const busy = e.dockBy && e.dockBy !== h.id && byId(e.dockBy) ? 8 : 0; const d = dhypot(e.x - h.x, e.y - h.y) + busy; if (d < bd) { bd = d; r = e; } }
       if (!r) break;
       const dock = { x: r.x, y: r.ty + r.h + 0.5 };
       const free = !r.dockBy || r.dockBy === h.id || !byId(r.dockBy) || byId(r.dockBy).hst !== 'unload' && byId(r.dockBy).dockR !== r.id;
-      const dd = Math.hypot(h.x - dock.x, h.y - dock.y);
+      const dd = dhypot(h.x - dock.x, h.y - dock.y);
       if (free) { r.dockBy = h.id; h.dockR = r.id; }
       if (free && dd < 0.9) { h.hst = 'unload'; h.path = []; h.ang = -Math.PI / 2; }
       else if (!free && dd < 3) { h.path = []; } // wait in line
@@ -641,14 +641,14 @@ function updFog() {
       const r = e.kind === 'b' ? (BT[e.t].sight || 5) + e.w / 2 : UT[e.t].sight, cx = e.x, cy = e.y, r2 = r * r;
       for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(MH - 1, cy + r); y++)
         for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(MW - 1, cx + r); x++)
-          if ((x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 <= r2) { v[idx(x, y)] = 1; sn[idx(x, y)] = 1; }
+          if ((x + 0.5 - cx) * (x + 0.5 - cx) + (y + 0.5 - cy) * (y + 0.5 - cy) <= r2) { v[idx(x, y)] = 1; sn[idx(x, y)] = 1; }
     }
     if (!G.opts.fog && t === 0) { v.fill(1); sn.fill(1); }
   }
 }
 function visibleTo(team, e) {
   if (!foe(e.team, team)) return true;
-  if (e.kind === 'u' && UT[e.t].stealthy && G.time - (e.lastFire || -9) > 2) { for (const o of G.ents) if (!foe(o.team, team) && Math.abs(o.x - e.x) < 3.2 && Math.abs(o.y - e.y) < 3.2 && Math.hypot(o.x - e.x, o.y - e.y) < 3.2) return true; return false; }
+  if (e.kind === 'u' && UT[e.t].stealthy && G.time - (e.lastFire || -9) > 2) { for (const o of G.ents) if (!foe(o.team, team) && Math.abs(o.x - e.x) < 3.2 && Math.abs(o.y - e.y) < 3.2 && dhypot(o.x - e.x, o.y - e.y) < 3.2) return true; return false; }
   const V = G.visT[team], S = G.seenT[team];
   if (e.kind === 'b') { for (let y = e.ty; y < e.ty + e.h; y++) for (let x = e.tx; x < e.tx + e.w; x++) if (S[idx(x, y)]) return true; return false; }
   return !!V[idx(Math.floor(e.x), Math.floor(e.y))];
@@ -674,7 +674,7 @@ function upgradeB(b) {
 const ROWOF = t => { const d = UT[t]; if (t === 'arty' || t === 'aa') return 2; if (d.armor === 'inf') return 1; if (d.air) return 1; return 0; };
 function formationSlots(units, cx, cy, face) {
   const rows = [[], [], []]; for (const u of units) rows[ROWOF(u.t)].push(u);
-  const fx = Math.cos(face), fy = Math.sin(face), px = -fy, py = fx, out = [];
+  const fx = dcos(face), fy = dsin(face), px = -fy, py = fx, out = [];
   let depth = 0.0;
   rows.forEach((row, ri) => { if (!row.length) return; const sp = ri === 1 ? 0.8 : 1.25, perLine = Math.max(3, Math.ceil(Math.sqrt(row.length * 3)));
     // sort by lateral position to reduce crossing

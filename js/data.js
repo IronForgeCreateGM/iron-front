@@ -103,3 +103,25 @@ const FACTIONS = {
   fra: { n: 'France', flag: '🇫🇷', sp: 'gcannon', desc: 'Grand Cannon — fortress artillery with 15-tile range and 280 splash damage. Locks down a whole front.' },
   ger: { n: 'Germany', flag: '🇩🇪', sp: 'kommando', desc: 'Jäger Kommando Squad — three elite commandos in one unit: rapid long-range fire, demolition charges wreck buildings.' },
 };
+
+// ===== deterministic math (lockstep): only + - * / and sqrt (IEEE-exact) =====
+let ME = 0; // local player index (UI/render perspective)
+const D_PI = 3.141592653589793, D_2PI = 6.283185307179586, D_HPI = 1.5707963267948966;
+function dsin(x) {
+  x = x - Math.round(x / D_2PI) * D_2PI;            // [-pi, pi]
+  if (x > D_HPI) x = D_PI - x; else if (x < -D_HPI) x = -D_PI - x; // [-pi/2, pi/2]
+  const x2 = x * x;
+  return x * (1 + x2 * (-1 / 6 + x2 * (1 / 120 + x2 * (-1 / 5040 + x2 * (1 / 362880 + x2 * (-1 / 39916800 + x2 * (1 / 6227020800)))))));
+}
+function dcos(x) { return dsin(x + D_HPI); }
+function datan01(a) { // atan for a in [0,1]
+  let off = 0; if (a > 0.41421356237309503) { off = D_PI / 4; a = (a - 1) / (a + 1); }
+  const a2 = a * a; let r = 0, t = a; for (let k = 0; k < 14; k++) { r += t / (2 * k + 1) * (k & 1 ? -1 : 1); t *= a2; }
+  return off + r;
+}
+function datan2(y, x) {
+  if (x === 0 && y === 0) return 0;
+  const ax = Math.abs(x), ay = Math.abs(y); let r = ay <= ax ? datan01(ay / ax) : D_HPI - datan01(ax / ay);
+  if (x < 0) r = D_PI - r; return y < 0 ? -r : r;
+}
+function dhypot(x, y) { return Math.sqrt(x * x + y * y); }
