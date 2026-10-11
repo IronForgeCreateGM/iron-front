@@ -40,3 +40,10 @@ Headless: `node test/sim-test.js`; Chrome: `google-chrome --headless=new --use-a
 - ai.js: chiefArmy() (group S.grp, staging formation, retreat), AI_ORDER_CHIEF, air strikes block.
 - models.js: MB colours 'T' paint, 'TD' dark paint, 'TA' accent, 'TL' accent light. Shader: camo on PBR.PAINT (rough 0.62, units only), buildings use BPAINT; grime + base dirt via vLoc.
 - main.js: ?watch=<diff>&seed=N&ff=seconds; ?rec=1 exposes window.__rec(ticks) for frame capture; director() camera.
+
+## v4 architecture
+- Players: `G.players[i]` has `{team:i, ally, start, ai, diff, fac, name, out}`. `foe(a,b)` decides hostility. `G.visT/seenT[i]` are shared arrays per alliance. Colours are written into TEAMPAINT/TEAMCOL/MMCOL per game (MODEL_CACHE is cleared).
+- Map: genMap builds one 48x48 quadrant and mirrors it with mir(). It sets G.rich, G.bridge, G.forest, G.monument, G.vents, G.starts (4) and G.sites ({x,y,k:main|nat|mid}). Rendering of these is in terrain.js buildLandmarks().
+- Lobby: main.js has SLOT_TYPES, PRESETS, buildSlots(), lobbyInit() and lobbyRead(). Use `?preset=coop|wsi|w1|w2|duel` and `&ff=secs&auto=1&nofog=1&cx=&cy=&zoom=` for testing.
+- AI: aiGrowth() and aiSite() handle expansions and growth; aiFocus() and aiPing() handle ally cooperation; huntTarget() handles search. siExtras() can be ablated with globalThis.SIOFF flags.
+- Events: placed, eliminated, allyAck, popcap. Announcer: announce(text, key, gap) in ui.js. History: G.hist (every 10 s) feeds the end graph.

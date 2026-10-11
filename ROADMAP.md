@@ -24,6 +24,59 @@
 - Defense upgrades: Guard Turret and Flak Battery go up to level 3 (+35% / +75% damage, +1 / +2 range, costs $450 / $800, 15 s / 25 s). Each level changes the look (bigger head, rank chevrons, armor collar, glowing ring). A range ring appears when selected, hovered or placing. The Research Lab offers "Hardened Defenses" (+15% damage, +0.5 range, +25% HP for all defenses). Upgrade button and hotkey Z, with tooltips. Normal/Hard AI also upgrades its defenses when rich.
 - Defensive Formation (G; Shift+G = in front of base): armor in front, infantry/air in the middle, artillery/AA at the back, facing the nearest visible enemy (or the enemy start), units set to hold stance. Stance toggle (V): Aggressive chases; Hold engages in range, then returns to its spot and faces the guard direction.
 
+### v4.0 – Make it FUN: expansions, 2v2, big map
+- **Fix:** the AI checks that a building can be placed before queueing it. Unplaceable items (for example a 2nd Gas Extractor) get a 45–60 s cooldown and the AI moves on.
+- **Map "Iron Valley" (96x96, 2.25x the area):** four-fold mirrored, so all four corners are fair.
+  - Each corner has a main base on a plateau ringed by cliffs, with two ramps.
+  - Each corner has two natural expansions with ore and gas, plus a contested mid base with a rich gold field (1.8x value).
+  - The middle has small gold fields near the centre and a river crossed by 4 bridges (plank decks with rails).
+  - There are forests (noise mask), a central landmark (an "Ancient Reactor Spire" monument) and 16 gas vents.
+  - G.sites lists every base site for the AI.
+- **Command Center (cc):** $2200, needs a Refinery.
+  - It works as a full construction yard (builds structures and haulers) and a harvester drop-off.
+  - It can be placed on explored ground or within 26 tiles of your own buildings. It cannot go within 12 tiles of enemy buildings or within 9 tiles of another HQ/CC.
+  - HQ and CC give a build radius of 10; other buildings give 5.
+- **Win condition:** a player is eliminated when they have no HQ/CC/production/refinery/lab left, and their walls and defenses are then removed. An alliance loses when all its players are out.
+- **Players and lobby:**
+  - 2–4 players. Entities keep `team` = player index, and `P.ally` = alliance. `foe(a,b)` replaces every old `team !==` check. Vision arrays are shared per alliance.
+  - The lobby has 4 slots: Human / Chief SI / Chief / Easy / Medium / Hard / Closed, plus team A/B and faction for each slot.
+  - Presets: 1v1, *Me + Chief (SI) vs 2 Medium*, *Watch: Chief SI + Chief vs 2 Hard*, and the two 1v1 watch modes.
+  - Ally colours: blue + cyan vs red + orange.
+  - Alt-click pings an ally. An ally AI sends its army to an "attack" ping or most of it to a "help" ping.
+  - Ally AIs defend allied bases and follow the human's army when picking attack targets.
+- **AI on all difficulties expands:** expandAt is 1000 s for Easy, 480 s for Medium, 300 s for Hard, 330 s for Chief and 210 s for SI. More CCs bring more refineries, extractors and harvesters.
+  - Extra factories and barracks are built when money is floating.
+  - The AI saves money for economy structures and no longer starves its first refinery.
+  - Attack groups with no known targets sweep the enemy start and sites, nearest-to-enemy first.
+  - Groups regroup with a radius that scales with group size and a cooldown.
+  - New idle units reinforce a running attack.
+  - There is a unit cap of 100 per player (harvesters excluded).
+- **Chief SI:**
+  - Turrets are reactive: 2 are built once rushed. Building them pre-emptively lost more games in the ablation runs.
+  - The army is recalled if the base is attacked in the first 6 min, and the attack group comes home against a big raid at any time.
+  - Wounded units retreat.
+  - The SI aims for 3 refinery-harvesters per refinery, 3 factories and 2 barracks.
+  - When gas piles up it builds gas-heavy units (Titan/Tsar). It builds its faction special after 5 min as a win condition.
+  - Jets strike in waves of at least 3. Interceptor escorts circle the target (or the staging point) instead of hovering.
+  - Its attack groups target CCs and production first.
+  - It avoids the exposed mid base when expanding.
+- **Polish:**
+  - Announcer banner: Base / Harvester / Ally under attack, Expansion established, Ally expanding, X eliminated, ally "on my way", and special unit or building ready.
+  - The end screen has a per-player stats table (kills, losses, mined, built) and an army-value graph.
+  - New sim tools: test/v4-test.js, test/one.js and test/batch.sh (8-way parallel; SIOFF=flag ablations).
+
+### v4.0 sim results (1v1 vs Hard, seeds 101..1010, 30-min cap)
+- Chief SI: 7 W / 0 L / 3 timeouts. Chief: 2 W / 6 L / 2 T.
+- 2v2 SI+Chief vs 2 Medium: 2/2 wins. 2v2 SI+Chief vs 2 Hard: 0/3 (they survive 9–13 min).
+- The Easy timing check still passes (first attack at 9.5 min).
+
+## Rough edges (v4)
+- 2v2 against two Hard AIs is too tough for the AI team: Hard's +35% income compounds with expansions. Balance ideas are to drop Hard to 1.25 or to stagger the two Hards' attack timing.
+- Some SI games time out at 30 min while SI is clearly ahead. Hard rebuilds from scattered CCs, so finishing takes a long time.
+- Water shows blotchy white patches in some unexplored or remembered areas (FOW sampling on water). It is cosmetic only.
+- The game ends for the human when their alliance is gone. If you are eliminated while your ally lives, you keep spectating with your ally's shared vision. No "continue watching" option yet.
+- Only one map; it serves 1v1, 2v2 and FFA. A map selector is a next step.
+
 ## Rough edges
 - Formation slots ignore cliffs (a blocked slot snaps to the nearest free tile). Hold-stance units still pursue up to 1.5 tiles past their weapon range.
 - On Easy, the AI may sit on a large army before the first attack, but waves are capped at wave size + 2 units.
