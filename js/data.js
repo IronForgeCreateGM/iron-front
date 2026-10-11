@@ -66,7 +66,7 @@ const UT = {
 const CATS = { bld: 'Structures', def: 'Defenses', inf: 'Infantry', veh: 'Vehicles', air: 'Aircraft' };
 const FROMCAT = { barracks: 'inf', factory: 'veh', airpad: 'air', airfield: 'air' };
 const TEAMCOL = [0x3f7fd0, 0xd04a36, 0x33dd66, 0xffcc22]; // accents only
-const TEAMPAINT = [0x4b5638, 0x8c7a5a]; // olive drab vs desert tan
+const TEAMPAINT = [0x464d36, 0x7a705c]; // olive drab vs desert tan
 const DIFF = {
   easy:   { income: 0.55, think: 2.5, wave0: 3, waveMax: 7, waveInc: 1, harass: 0.15, harassAfter: 1080, firstAttack: 570, waveGap: 150, build: 0.6, scoutAfter: 600 },
   normal: { income: 1.0, think: 1.2, wave0: 6, waveMax: 14, waveInc: 2, harass: 0.3, harassAfter: 0, firstAttack: 0, waveGap: 30, build: 1.0, scoutAfter: 20 },

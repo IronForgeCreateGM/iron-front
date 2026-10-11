@@ -1,8 +1,13 @@
 'use strict';
 // ===== Procedural PBR models: merged geometry with per-vertex color + pbr(metal, rough, emissive) =====
-const PBR = { PAINT: [0.35, 0.42, 0], METAL: [0.85, 0.3, 0], DARKM: [0.7, 0.5, 0], RUB: [0, 0.92, 0], CONC: [0, 0.88, 0], GLASS: [0.2, 0.05, 0.25], GLOW: [0, 0.5, 2.0], GLOW2: [0, 0.5, 1.4], ORE: [0.55, 0.28, 0.22] };
-const COL = { STEEL: 0x5f6770, DARK: 0x2b2f35, GUN: 0x1c1f23, RUB: 0x151617, LIGHT: 0xb8c0c9, YEL: 0xe0a51a, GLASS: 0x86d4ff, HEAD: 0xfff1c4, RED: 0xff3322, GRN: 0x33ff66, CONC: 0x8d9094, CONCD: 0x6c6f73, SKIN: 0xd9a37a, ORE: 0xffc23a, SAND: 0xa59872 };
+const PBR = { PAINT: [0.12, 0.62, 0], METAL: [0.7, 0.48, 0], DARKM: [0.45, 0.62, 0], RUB: [0, 0.92, 0], CONC: [0, 0.9, 0], GLASS: [0.1, 0.18, 0.12], CLOTH: [0, 0.9, 0.001], ACC: [0.1, 0.5, 0.25], BPAINT: [0.1, 0.66, 0], GLOW: [0, 0.5, 2.0], GLOW2: [0, 0.5, 1.4], ORE: [0.55, 0.28, 0.22] };
+const COL = { STEEL: 0x585d61, DARK: 0x2a2c2b, GUN: 0x1b1c1c, RUB: 0x151617, LIGHT: 0x8e8f88, KHAKI: 0x6b6446, PANTS: 0x4a4a36, WHITE: 0xc8c8c0, YEL: 0xb88a1c, GLASS: 0x86d4ff, HEAD: 0xfff1c4, RED: 0xff3322, GRN: 0x33ff66, CONC: 0x8d9094, CONCD: 0x6c6f73, SKIN: 0xd9a37a, ORE: 0xffc23a, SAND: 0xa59872 };
 let PBR_MAT = null;
+const GLSL_NOISE_M = `
+float h12m(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * .1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+float vnoise3(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.0-2.0*f); return mix(mix(h12m(i), h12m(i+vec2(1,0)), u.x), mix(h12m(i+vec2(0,1)), h12m(i+vec2(1,1)), u.x), u.y); }
+float fbm3(vec2 p){ return 0.5*vnoise3(p) + 0.3*vnoise3(p*2.1+7.0) + 0.2*vnoise3(p*4.3+3.0); }
+`;
 // fog-of-war applied inside shaders (sampled from a 64x64 alpha texture in world space)
 const FOW = { uFow: { value: null }, uFowC: { value: new THREE.Color(0x04070b) }, uFowOn: { value: 1 } };
 function fowPatch(sh) {
@@ -19,16 +24,26 @@ function fowPatch(sh) {
 }
 function pbrMaterial() {
   if (PBR_MAT) return PBR_MAT;
-  const m = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 1, roughness: 1, envMapIntensity: 0.65 });
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 1, roughness: 1, envMapIntensity: 0.42 });
   m.onBeforeCompile = sh => {
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 pbr;\nvarying vec3 vPbr;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvPbr = pbr;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vPbr;')
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 pbr;\nvarying vec3 vPbr;\nvarying vec3 vLoc;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvPbr = pbr; vLoc = position;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vPbr;\nvarying vec3 vLoc;\n' + GLSL_NOISE_M)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        if (vPbr.z < 0.01) {
+          float paint = 1.0 - step(0.006, abs(vPbr.y - 0.62));
+          float cm = fbm3(vLoc.xz * 5.0 + vLoc.y * 2.5);
+          diffuseColor.rgb *= mix(1.0, mix(0.78, 1.08, smoothstep(0.42, 0.52, cm)) * mix(1.0, 0.86, smoothstep(0.6, 0.66, cm)), paint);
+          float gr = vnoise3(vLoc.xz * 22.0 + vLoc.y * 17.0);
+          diffuseColor.rgb *= 1.0 - 0.22 * gr * gr;
+          float dirt = 1.0 - smoothstep(0.02, 0.3, vLoc.y);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.13, 0.105, 0.075), dirt * 0.5);
+        }`)
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vPbr.x;')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vPbr.y;')
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += diffuseColor.rgb * vPbr.z;');
     fowPatch(sh);
   };
-  m.customProgramCacheKey = () => 'pbrv1';
+  m.customProgramCacheKey = () => 'pbrv2';
   return PBR_MAT = m;
 }
 const _geoCache = {};
@@ -44,8 +59,9 @@ function bevelBoxGeo(w, h, d, b) {
 }
 class MB {
   constructor(team) { this.team = team; this.parts = {}; this.piv = {}; }
-  col(c) { if (c === 'T') return new THREE.Color(TEAMCOL[this.team]); if (c === 'TD') return new THREE.Color(TEAMCOL[this.team]).multiplyScalar(0.45); if (c === 'TL') return new THREE.Color(TEAMCOL[this.team]).lerp(new THREE.Color(0xffffff), 0.35); return new THREE.Color(c); }
+  col(c) { if (c === 'T') return new THREE.Color(TEAMPAINT[this.team]); if (c === 'TD') return new THREE.Color(TEAMPAINT[this.team]).multiplyScalar(0.62); if (c === 'TA') return new THREE.Color(TEAMCOL[this.team]); if (c === 'TL') return new THREE.Color(TEAMCOL[this.team]).lerp(new THREE.Color(0xffffff), 0.3); return new THREE.Color(c); }
   add(part, geo, c, pbr, x, y, z, o) {
+    if (this.bld && pbr === PBR.PAINT) pbr = PBR.BPAINT;
     o = o || {}; const g = (geo.index ? geo.toNonIndexed() : geo.clone());
     if (g.attributes.uv) g.deleteAttribute('uv'); if (g.attributes.uv2) g.deleteAttribute('uv2');
     const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(o.rx || 0, o.ry || 0, o.rz || 0, 'YXZ')), new THREE.Vector3(1, 1, 1));
@@ -63,7 +79,7 @@ class MB {
   // barrel pointing along +x with elevation a
   barrel(p, len, r, x, y, z, a, c) { a = a || 0; const cx = x + Math.cos(a) * len / 2, cy = y + Math.sin(a) * len / 2; this.cyl(p, r, len, c || COL.GUN, PBR.DARKM, cx, cy, z, { rz: a - Math.PI / 2, seg: 10 });
     this.cyl(p, r * 1.5, len * 0.14, COL.GUN, PBR.DARKM, x + Math.cos(a) * len * 0.95, y + Math.sin(a) * len * 0.95, z, { rz: a - Math.PI / 2, seg: 10 }); return this; }
-  glow(p, w, h, d, c, x, y, z, o) { return this.box(p, w, h, d, c, PBR.GLOW, x, y, z, Object.assign({ bevel: 0 }, o || {})); }
+  glow(p, w, h, d, c, x, y, z, o) { if (c === 'T') c = 'TA'; return this.box(p, w, h, d, c, PBR.GLOW, x, y, z, Object.assign({ bevel: 0 }, o || {})); }
   build() { const out = {}; for (const k in this.parts) out[k] = mergeGeos(this.parts[k]); out.piv = this.piv; return out; }
 }
 function mergeGeos(list) {
@@ -85,7 +101,7 @@ function tracks(B, L, W, H, wheels) {
   }
 }
 const UNIT_MODELS = {
-  rifle(B) { inf(B, 'rifle'); }, rocketeer(B) { inf(B, 'rocketeer'); }, engineer(B) { inf(B, 'engineer'); },
+  rifle(B) { inf(B, 'rifle'); }, sniper(B) { inf(B, 'sniper'); }, pyro(B) { inf(B, 'pyro'); }, medic(B) { inf(B, 'medic'); }, rocketeer(B) { inf(B, 'rocketeer'); }, engineer(B) { inf(B, 'engineer'); },
   light(B) {
     tracks(B, 0.92, 0.6, 0.2, 5);
     B.box('body', 0.78, 0.17, 0.44, 'T', PBR.PAINT, -0.02, 0.29, 0);
@@ -158,6 +174,38 @@ const UNIT_MODELS = {
     const R = mkRng(9); for (let i = 0; i < 14; i++) B.add('load', new THREE.OctahedronGeometry(0.08 + R() * 0.06, 0), COL.ORE, PBR.ORE, (R() - 0.5) * 0.55, R() * 0.12 + 0.05, (R() - 0.5) * 0.5, { rx: R() * 3, ry: R() * 3 });
     B.box('load', 0.6, 0.08, 0.56, 0xb88a20, PBR.ORE, 0, 0.04, 0, { bevel: 0.02 });
   },
+  jet(B) {
+    B.cyl('body', 0.09, 1.3, 'T', PBR.PAINT, 0, 0, 0, { rz: -Math.PI / 2, rt: 0.02, seg: 12 }); B.cyl('body', 0.11, 0.5, 'T', PBR.PAINT, -0.45, 0, 0, { rz: -Math.PI / 2, rt: 0.09, seg: 12 });
+    B.sph('body', 0.08, COL.GLASS, PBR.GLASS, 0.25, 0.07, 0, { sx: 2.2, sy: 0.8, sz: 0.8, seg: 10 });
+    const wing = new THREE.Shape(); wing.moveTo(0.15, 0); wing.lineTo(-0.35, 0.62); wing.lineTo(-0.5, 0.62); wing.lineTo(-0.4, 0); wing.lineTo(-0.5, -0.62); wing.lineTo(-0.35, -0.62); wing.lineTo(0.15, 0);
+    const wg = new THREE.ExtrudeGeometry(wing, { depth: 0.025, bevelEnabled: false }); wg.rotateX(Math.PI / 2); B.add('body', wg, 'T', PBR.PAINT, 0, 0.0, 0);
+    for (const z of [0.12, -0.12]) B.box('body', 0.22, 0.25, 0.02, 'TD', PBR.PAINT, -0.6, 0.13, z, { rx: z > 0 ? -0.35 : 0.35, bevel: 0 });
+    B.cyl('body', 0.07, 0.06, COL.DARK, PBR.DARKM, -0.72, 0, 0, { rz: Math.PI / 2 }); B.glow('body', 0.02, 0.1, 0.1, 0xff8a3a, -0.76, 0, 0);
+    for (const z of [0.3, -0.3]) B.cyl('body', 0.035, 0.28, COL.STEEL, PBR.METAL, -0.15, -0.05, z, { rz: Math.PI / 2, seg: 8 });
+    B.glow('body', 0.03, 0.02, 0.03, COL.RED, -0.5, 0.02, 0.62); B.glow('body', 0.03, 0.02, 0.03, COL.GRN, -0.5, 0.02, -0.62); B.glow('body', 0.08, 0.015, 0.05, 'TA', -0.3, 0.03, 0.35); B.glow('body', 0.08, 0.015, 0.05, 'TA', -0.3, 0.03, -0.35);
+    B.piv.tip = 0.3;
+  },
+  intercept(B) {
+    B.cyl('body', 0.075, 1.2, 0x6c7378, PBR.PAINT, 0, 0, 0, { rz: -Math.PI / 2, rt: 0.015, seg: 12 });
+    B.sph('body', 0.07, COL.GLASS, PBR.GLASS, 0.22, 0.06, 0, { sx: 2.4, sy: 0.8, sz: 0.8, seg: 10 });
+    const wing = new THREE.Shape(); wing.moveTo(0.05, 0); wing.lineTo(-0.4, 0.5); wing.lineTo(-0.48, 0.5); wing.lineTo(-0.42, 0); wing.lineTo(-0.48, -0.5); wing.lineTo(-0.4, -0.5); wing.lineTo(0.05, 0);
+    const wg = new THREE.ExtrudeGeometry(wing, { depth: 0.02, bevelEnabled: false }); wg.rotateX(Math.PI / 2); B.add('body', wg, 0x6c7378, PBR.PAINT, 0, 0, 0);
+    for (const z of [0.1, -0.1]) B.box('body', 0.2, 0.22, 0.02, 0x5b6166, PBR.PAINT, -0.55, 0.12, z, { rx: z > 0 ? -0.3 : 0.3, bevel: 0 });
+    for (const z of [0.4, -0.4, 0.25, -0.25]) { B.cyl('body', 0.018, 0.26, COL.WHITE, PBR.PAINT, -0.2, -0.03, z, { rz: Math.PI / 2, seg: 6 }); }
+    for (const z of [0.05, -0.05]) B.glow('body', 0.02, 0.06, 0.06, 0xff8a3a, -0.64, 0, z);
+    B.glow('body', 0.06, 0.015, 0.04, 'TA', -0.32, 0.03, 0.3); B.glow('body', 0.06, 0.015, 0.04, 'TA', -0.32, 0.03, -0.3);
+    B.piv.tip = 0.3;
+  },
+  bomber(B) {
+    B.cyl('body', 0.17, 1.8, 'T', PBR.PAINT, 0, 0, 0, { rz: -Math.PI / 2, rt: 0.08, seg: 14 });
+    B.sph('body', 0.12, COL.GLASS, PBR.GLASS, 0.72, 0.06, 0, { sx: 1.6, sy: 0.7, sz: 1.0, seg: 10 });
+    const wing = new THREE.Shape(); wing.moveTo(0.3, 0); wing.lineTo(-0.3, 1.25); wing.lineTo(-0.5, 1.25); wing.lineTo(-0.3, 0); wing.lineTo(-0.5, -1.25); wing.lineTo(-0.3, -1.25); wing.lineTo(0.3, 0);
+    const wg = new THREE.ExtrudeGeometry(wing, { depth: 0.04, bevelEnabled: false }); wg.rotateX(Math.PI / 2); B.add('body', wg, 'T', PBR.PAINT, 0, 0.02, 0);
+    for (const z of [0.5, -0.5, 0.85, -0.85]) { B.cyl('body', 0.07, 0.32, COL.STEEL, PBR.METAL, -0.1, -0.08, z, { rz: Math.PI / 2, seg: 10 }); B.glow('body', 0.02, 0.09, 0.09, 0xff8a3a, -0.27, -0.08, z); }
+    B.box('body', 0.3, 0.3, 0.025, 'TD', PBR.PAINT, -0.85, 0.18, 0, { bevel: 0 }); B.box('body', 0.25, 0.025, 0.7, 'TD', PBR.PAINT, -0.85, 0.05, 0, { bevel: 0 });
+    B.glow('body', 0.12, 0.015, 0.08, 'TA', -0.4, 0.05, 0.9); B.glow('body', 0.12, 0.015, 0.08, 'TA', -0.4, 0.05, -0.9);
+    B.piv.tip = 0.2;
+  },
   gunship(B) {
     B.sph('body', 0.3, 'T', PBR.PAINT, 0, 0, 0, { sx: 1.8, sy: 0.85, sz: 0.9, seg: 16 });
     B.sph('body', 0.2, COL.GLASS, PBR.GLASS, 0.3, 0.06, 0, { sx: 1.4, sy: 0.8, sz: 0.85 });
@@ -172,15 +220,31 @@ const UNIT_MODELS = {
   },
 };
 function inf(B, kind) {
-  const s = 1.25, P = (part, w, h, d, c, m, x, y, z, o) => B.box(part, w * s, h * s, d * s, c, m, x * s, y * s, z * s, o);
-  P('body', 0.06, 0.2, 0.06, COL.DARK, PBR.RUB, 0, 0.1, 0.045); P('body', 0.06, 0.2, 0.06, COL.DARK, PBR.RUB, 0, 0.1, -0.045);
-  P('body', 0.12, 0.17, 0.17, 'T', PBR.PAINT, 0, 0.29, 0); P('body', 0.08, 0.12, 0.14, 'TD', PBR.PAINT, -0.09, 0.3, 0);
-  B.sph('body', 0.055 * s, COL.SKIN, PBR.RUB, 0.01 * s, 0.43 * s, 0);
-  B.sph('body', 0.064 * s, kind === 'engineer' ? COL.YEL : 'TD', PBR.PAINT, 0, 0.455 * s, 0, { half: true });
-  P('body', 0.05, 0.16, 0.05, 'T', PBR.PAINT, 0.05, 0.3, 0.1, { rz: -0.9 }); P('body', 0.05, 0.16, 0.05, 'T', PBR.PAINT, 0.05, 0.3, -0.1, { rz: -0.9 });
-  if (kind === 'rifle') { P('body', 0.32, 0.035, 0.035, COL.GUN, PBR.DARKM, 0.13, 0.3, 0.06, { bevel: 0 }); P('body', 0.06, 0.06, 0.03, COL.GUN, PBR.DARKM, 0.08, 0.27, 0.06, { bevel: 0 }); }
-  if (kind === 'rocketeer') { B.cyl('body', 0.04 * s, 0.42 * s, COL.STEEL, PBR.METAL, 0.04 * s, 0.42 * s, 0.07 * s, { rz: Math.PI / 2 }); B.glow('body', 0.02, 0.05, 0.05, 0xff5522, 0.26 * s, 0.42 * s, 0.07 * s); }
-  if (kind === 'engineer') { P('body', 0.12, 0.08, 0.06, COL.YEL, PBR.PAINT, 0.04, 0.17, 0.12); B.glow('body', 0.02, 0.02, 0.02, COL.GRN, 0.07 * s, 0.32 * s, 0); }
+  const s = 1.2, P = (part, w, h, d, c, m, x, y, z, o) => B.box(part, w * s, h * s, d * s, c, m, x * s, y * s, z * s, Object.assign({ bevel: 0.006 }, o || {}));
+  const pants = kind === 'medic' ? COL.KHAKI : 'T', top = kind === 'pyro' ? 0x5a4a32 : 'T';
+  for (const z of [0.042, -0.042]) { P('body', 0.055, 0.03, 0.07, COL.DARK, PBR.RUB, 0.012, 0.015, z); P('body', 0.045, 0.13, 0.045, pants, PBR.PAINT, 0, 0.095, z); P('body', 0.05, 0.11, 0.05, pants, PBR.PAINT, 0, 0.215, z); }
+  P('body', 0.09, 0.05, 0.13, COL.DARK, PBR.CLOTH, 0, 0.28, 0);
+  P('body', 0.085, 0.15, 0.13, top, PBR.PAINT, 0, 0.36, 0);
+  P('body', 0.1, 0.12, 0.14, kind === 'medic' ? COL.WHITE : COL.KHAKI, PBR.CLOTH, 0.006, 0.37, 0);            // plate carrier
+  for (let i = 0; i < 3; i++) P('body', 0.02, 0.03, 0.025, COL.DARK, PBR.CLOTH, 0.06, 0.34, -0.04 + i * 0.04); // pouches
+  P('body', 0.06, 0.13, 0.11, kind === 'pyro' ? COL.STEEL : COL.PANTS, PBR.CLOTH, -0.075, 0.37, 0);            // backpack
+  B.cyl('body', 0.018 * s, 0.03 * s, COL.SKIN, PBR.RUB, 0, 0.455 * s, 0, { seg: 8 });
+  B.sph('body', 0.036 * s, COL.SKIN, PBR.RUB, 0.004 * s, 0.495 * s, 0, { seg: 10 });
+  B.sph('body', 0.045 * s, kind === 'medic' ? COL.WHITE : 'T', PBR.PAINT, 0, 0.505 * s, 0, { half: true, seg: 12, sy: 0.85 });
+  B.box('body', 0.012 * s, 0.01 * s, 0.07 * s, COL.DARK, PBR.DARKM, 0.035 * s, 0.505 * s, 0, { bevel: 0 });
+  // arms holding weapon forward
+  for (const z of [0.075, -0.075]) { P('body', 0.11, 0.035, 0.035, top, PBR.PAINT, 0.04, 0.4, z, { rz: -0.5 }); P('body', 0.1, 0.03, 0.03, top, PBR.PAINT, 0.1, 0.36, z * 0.6, { ry: z > 0 ? 0.5 : -0.5 }); }
+  B.box('body', 0.02 * s, 0.025 * s, 0.012 * s, 'TA', PBR.ACC, 0, 0.42 * s, 0.07 * s, { bevel: 0 });   // shoulder patch
+  const gy = 0.36;
+  if (kind === 'rifle' || kind === 'engineer') { P('body', 0.3, 0.03, 0.025, COL.GUN, PBR.DARKM, 0.14, gy, 0.03); P('body', 0.03, 0.06, 0.02, COL.GUN, PBR.DARKM, 0.1, gy - 0.04, 0.03); }
+  if (kind === 'sniper') { P('body', 0.48, 0.025, 0.022, COL.GUN, PBR.DARKM, 0.18, gy, 0.03); B.cyl('body', 0.012 * s, 0.1 * s, COL.GUN, PBR.DARKM, 0.12 * s, (gy + 0.03) * s, 0.03 * s, { rz: Math.PI / 2 });
+    const R = mkRng(3); for (let i = 0; i < 9; i++) B.sph('body', (0.025 + R() * 0.02) * s, R() < 0.5 ? 0x3d4a26 : 0x55502e, PBR.CLOTH, (-0.06 + R() * 0.08) * s, (0.4 + R() * 0.12) * s, (R() - 0.5) * 0.12 * s, { seg: 6 }); }
+  if (kind === 'rocketeer') { B.cyl('body', 0.035 * s, 0.42 * s, 0x4d5238, PBR.PAINT, 0.04 * s, 0.45 * s, 0.07 * s, { rz: Math.PI / 2, seg: 10 }); B.glow('body', 0.01, 0.04, 0.04, 0xff5522, 0.25 * s, 0.45 * s, 0.07 * s); }
+  if (kind === 'pyro') { for (const z of [0.03, -0.03]) B.cyl('body', 0.03 * s, 0.17 * s, 0x7a2c1c, PBR.PAINT, -0.1 * s, 0.38 * s, z * s, { seg: 8 }); P('body', 0.22, 0.035, 0.03, COL.STEEL, PBR.METAL, 0.12, gy, 0.03); B.glow('body', 0.015, 0.015, 0.015, 0x66aaff, 0.24 * s, gy * s, 0.03 * s);
+    B.sph('body', 0.04 * s, COL.DARK, PBR.RUB, 0.02 * s, 0.495 * s, 0, { seg: 8 }); }
+  if (kind === 'medic') { P('body', 0.2, 0.025, 0.02, COL.GUN, PBR.DARKM, 0.1, gy, 0.03); P('body', 0.005, 0.03, 0.01, 0xcc2222, PBR.PAINT, -0.106, 0.4, 0, { bevel: 0 }); P('body', 0.005, 0.01, 0.03, 0xcc2222, PBR.PAINT, -0.106, 0.4, 0, { bevel: 0 });
+    B.glow('body', 0.01 * s, 0.012 * s, 0.03 * s, 0xff3333, 0, 0.545 * s, 0); P('body', 0.06, 0.06, 0.04, COL.WHITE, PBR.CLOTH, 0.02, 0.25, -0.08); }
+  if (kind === 'engineer') { B.sph('body', 0.047 * s, COL.YEL, PBR.PAINT, 0, 0.51 * s, 0, { half: true, seg: 12 }); P('body', 0.12, 0.08, 0.06, COL.YEL, PBR.PAINT, -0.02, 0.17, 0.11); }
   B.piv.tip = 0.45;
 }
 // ---------- buildings ----------
@@ -208,7 +272,7 @@ const BLD_MODELS = {
     B.box('body', 1.6, 0.42, 0.7, COL.STEEL, PBR.METAL, 0, 0.36, 0.5); windows(B, 0, 0.42, 0.86, 1.3, 'x', 4, 0xffd27a);
     for (const x of [-0.45, 0.45]) {
       B.cyl('body', 0.36, 0.7, COL.LIGHT, PBR.PAINT, x, 0.5, -0.32, { rt: 0.27, seg: 20 }); B.cyl('body', 0.27, 0.5, COL.LIGHT, PBR.PAINT, x, 1.1, -0.32, { rt: 0.31, seg: 20 });
-      B.torus('body', 0.3, 0.025, 'T', PBR.GLOW2, x, 1.33, -0.32, { rx: Math.PI / 2 }); B.cyl('body', 0.26, 0.02, 'TL', PBR.GLOW2, x, 1.31, -0.32, { seg: 20 });
+      B.torus('body', 0.3, 0.025, 'TA', PBR.GLOW2, x, 1.33, -0.32, { rx: Math.PI / 2 }); B.cyl('body', 0.26, 0.02, 'TL', PBR.GLOW2, x, 1.31, -0.32, { seg: 20 });
       for (let i = 0; i < 3; i++) B.torus('body', 0.33 - i * 0.02, 0.012, COL.CONCD, PBR.CONC, x, 0.3 + i * 0.25, -0.32, { rx: Math.PI / 2 });
     }
     for (const x of [-0.6, -0.2, 0.2, 0.6]) { B.box('body', 0.18, 0.2, 0.18, COL.DARK, PBR.DARKM, x, 0.68, 0.5); B.cyl('body', 0.03, 0.12, COL.LIGHT, PBR.PAINT, x, 0.84, 0.5, { seg: 8 }); }
@@ -232,7 +296,7 @@ const BLD_MODELS = {
     B.cyl('body', 0.62, 1.55, 'TD', PBR.PAINT, 0, 0.72, -0.1, { seg: 3, rz: Math.PI / 2, rx: Math.PI / 2 * 0 });
     B.box('body', 0.42, 0.34, 0.04, COL.DARK, PBR.DARKM, 0, 0.32, 0.56); B.glow('body', 0.3, 0.03, 0.02, COL.HEAD, 0, 0.53, 0.58);
     for (let i = 0; i < 6; i++) B.sph('body', 0.1, COL.SAND, PBR.RUB, -0.75 + i * 0.12, 0.2, 0.8, { sy: 0.55 }); for (let i = 0; i < 6; i++) B.sph('body', 0.1, COL.SAND, PBR.RUB, 0.15 + i * 0.12, 0.2, 0.8, { sy: 0.55 });
-    B.cyl('body', 0.015, 1.3, COL.LIGHT, PBR.METAL, 0.8, 0.8, 0.7, { seg: 6 }); B.box('body', 0.34, 0.2, 0.01, 'T', PBR.GLOW2, 0.98, 1.32, 0.7, { bevel: 0 });
+    B.cyl('body', 0.015, 1.3, COL.LIGHT, PBR.METAL, 0.8, 0.8, 0.7, { seg: 6 }); B.box('body', 0.34, 0.2, 0.01, 'TA', PBR.GLOW2, 0.98, 1.32, 0.7, { bevel: 0 });
     B.glow('body', 0.06, 0.06, 0.06, COL.HEAD, -0.75, 0.75, 0.55);
   },
   factory(B) {
@@ -249,7 +313,7 @@ const BLD_MODELS = {
   airpad(B) {
     B.cyl('body', 0.98, 0.14, COL.CONCD, PBR.CONC, 0, 0.07, 0, { seg: 8 }); B.cyl('body', 0.85, 0.03, COL.DARK, PBR.DARKM, 0, 0.155, 0, { seg: 8 });
     B.box('body', 0.08, 0.01, 0.6, COL.LIGHT, PBR.PAINT, -0.22, 0.175, 0, { bevel: 0 }); B.box('body', 0.08, 0.01, 0.6, COL.LIGHT, PBR.PAINT, 0.22, 0.175, 0, { bevel: 0 }); B.box('body', 0.44, 0.01, 0.08, COL.LIGHT, PBR.PAINT, 0, 0.175, 0, { bevel: 0 });
-    B.torus('body', 0.72, 0.015, 'T', PBR.GLOW2, 0, 0.17, 0, { rx: Math.PI / 2, seg: 32 });
+    B.torus('body', 0.72, 0.015, 'TA', PBR.GLOW2, 0, 0.17, 0, { rx: Math.PI / 2, seg: 32 });
     for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; B.glow('body', 0.05, 0.05, 0.05, i % 2 ? COL.GRN : 'T', Math.cos(a) * 0.9, 0.18, Math.sin(a) * 0.9); }
     B.box('body', 0.3, 0.6, 0.3, COL.LIGHT, PBR.PAINT, 0.8, 0.3, -0.8); B.box('body', 0.34, 0.12, 0.34, COL.GLASS, PBR.GLASS, 0.8, 0.66, -0.8, { bevel: 0 });
   },
@@ -277,11 +341,21 @@ const BLD_MODELS = {
     B.box('head', 0.05, 0.16, 0.2, COL.LIGHT, PBR.METAL, -0.2, 0.22, 0); B.glow('head', 0.04, 0.04, 0.04, COL.GRN, -0.2, 0.32, 0);
     B.piv.tip = 0.5;
   },
+  airfield(B) {
+    B.box('body', 2.94, 0.1, 2.94, 0x3a3b3a, PBR.CONC, 0, 0.05, 0, { bevel: 0.04 });
+    B.box('body', 2.6, 0.02, 0.9, 0x2c2d2d, PBR.CONC, 0, 0.11, 0.6, { bevel: 0 });
+    for (let i = 0; i < 6; i++) B.box('body', 0.22, 0.01, 0.05, COL.WHITE, PBR.PAINT, -1.1 + i * 0.44, 0.125, 0.6, { bevel: 0 });
+    for (let i = 0; i < 8; i++) { B.glow('body', 0.05, 0.03, 0.05, i % 2 ? 0xffd27a : 'TA', -1.25 + i * 0.36, 0.13, 1.1); B.glow('body', 0.05, 0.03, 0.05, i % 2 ? 0xffd27a : 'TA', -1.25 + i * 0.36, 0.13, 0.1); }
+    B.cyl('body', 0.55, 1.6, 'T', PBR.PAINT, -0.5, 0.1, -0.75, { rz: Math.PI / 2, seg: 14 }); B.box('body', 0.03, 0.45, 0.9, COL.DARK, PBR.DARKM, 0.31, 0.3, -0.75);
+    B.box('body', 0.4, 0.8, 0.4, COL.LIGHT, PBR.PAINT, 1.1, 0.45, -0.95); B.box('body', 0.5, 0.18, 0.5, COL.GLASS, PBR.GLASS, 1.1, 0.95, -0.95, { bevel: 0.02 }); B.cyl('body', 0.01, 0.4, COL.GUN, PBR.DARKM, 1.1, 1.25, -0.95, { seg: 4 });
+    B.piv.spin = [1.1, 1.06, -0.95]; B.box('spin', 0.4, 0.04, 0.05, COL.LIGHT, PBR.METAL, 0, 0, 0); B.glow('spin', 0.03, 0.03, 0.03, COL.RED, 0.2, 0.02, 0);
+  },
   wall(B) { B.box('body', 0.98, 0.62, 0.98, COL.CONC, PBR.CONC, 0, 0.31, 0, { bevel: 0.08 }); B.box('body', 1.0, 0.06, 1.0, 'TD', PBR.PAINT, 0, 0.6, 0, { bevel: 0.02 }); },
 };
 const MODEL_CACHE = {};
 function getModel(kind, t, team) {
   const k = kind + t + team; if (MODEL_CACHE[k]) return MODEL_CACHE[k];
-  const B = new MB(team); (kind === 'u' ? UNIT_MODELS : BLD_MODELS)[t](B);
+  const B = new MB(team); B.bld = kind !== 'u'; (kind === 'u' ? UNIT_MODELS : BLD_MODELS)[t](B);
+  if (kind === 'u' && UT[t].armor !== 'inf' && !UT[t].air && t !== 'harv') { const g = mergeGeos(B.parts.body); const bb = g.boundingBox; for (const z of [bb.max.z + 0.004, bb.min.z - 0.004]) B.box('body', (bb.max.x - bb.min.x) * 0.3, 0.03, 0.006, 'TA', PBR.ACC, bb.min.x + (bb.max.x - bb.min.x) * 0.35, bb.min.y + (bb.max.y - bb.min.y) * 0.62, z, { bevel: 0 }); }
   return MODEL_CACHE[k] = B.build();
 }

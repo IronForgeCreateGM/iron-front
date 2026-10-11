@@ -135,7 +135,7 @@ function buildFogOverlay() {
 }
 function updFogTex() {
   const d = R3.fogData;
-  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x, j = ((MH - 1 - y) * MW + x) * 4; const a = G.vis[i] ? 0 : G.seen[i] ? 135 : 250; d[j + 3] += (a - d[j + 3]) * 0.3; }
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x, j = ((MH - 1 - y) * MW + x) * 4; const a = vis0(i) ? 0 : seen0(i) ? 135 : 250; d[j + 3] += (a - d[j + 3]) * 0.3; }
   R3.fogTex.needsUpdate = true;
 }
 function buildOre() {
@@ -147,7 +147,7 @@ function buildOre() {
 }
 function updOre() {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), p = new THREE.Vector3();
-  R3.oreTiles.forEach((i, k) => { const a = G.ore[i], seen = G.seen[i], x = i % MW, y = (i / MW) | 0;
+  R3.oreTiles.forEach((i, k) => { const a = G.ore[i], seen = seen0(i), x = i % MW, y = (i / MW) | 0;
     for (let j = 0; j < 4; j++) { const r = R3.oreJ[k][j], f = a / Math.max(1, G.oreMax[i]); const sc = seen && a > 1 && f > j * 0.22 ? (0.3 + 0.45 * Math.sqrt(f)) * (0.6 + r[2] * 0.7) : 0;
       e.set((r[0] - 0.5) * 0.6, r[1] * 6, (r[3] - 0.5) * 0.6); q.setFromEuler(e); const px = x + 0.15 + r[0] * 0.7, pz = y + 0.15 + r[1] * 0.7; p.set(px, heightAt(px, pz) + sc * 0.12, pz); s.set(sc, sc, sc);
       m4.compose(p, q, s); R3.oreMesh.setMatrixAt(k * 4 + j, m4); } });

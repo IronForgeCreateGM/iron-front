@@ -33,3 +33,10 @@ Headless: `node test/sim-test.js`; Chrome: `google-chrome --headless=new --use-a
 - Formations: `formationSlots`, `orderFormation`, `setStance` (sim.js); unit fields `stance` ('hold'|'aggr'), `guard`, `face`.
 - Post uniforms `uExpo`, `uCon`, `uBri`, `uSat` are bound to the Settings sliders (localStorage `if_settings`).
 - `?showcase=1` shows a staged scene (upgraded turrets plus a formation).
+
+## v3.2 architecture
+- New data: DMG types snipe/fire/bomb/aam; W.ammo (jets), W.spread; UT.heal (medic), UT.jet; BT.airfield; TEAMPAINT (body paint) vs TEAMCOL (accents only); DIFF.chief.
+- sim.js: tscore()/acquire() scoring; respond() on damage (src passed through projectiles: p.src, p.est; target.inc = in-flight damage); jetStep() state u.js fly|rtb|landed; medic(); vis0/seen0 + G.spectate for spectator rendering without giving AI vision.
+- ai.js: chiefArmy() (group S.grp, staging formation, retreat), AI_ORDER_CHIEF, air strikes block.
+- models.js: MB colours 'T' paint, 'TD' dark paint, 'TA' accent, 'TL' accent light. Shader: camo on PBR.PAINT (rough 0.62, units only), buildings use BPAINT; grime + base dirt via vLoc.
+- main.js: ?watch=<diff>&seed=N&ff=seconds; ?rec=1 exposes window.__rec(ticks) for frame capture; director() camera.

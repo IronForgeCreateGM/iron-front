@@ -9,7 +9,7 @@ function postInit(renderer) {
   P.half = isGL2 && (renderer.extensions.has('EXT_color_buffer_float') || renderer.extensions.has('EXT_color_buffer_half_float'));
   P.type = P.half ? THREE.HalfFloatType : THREE.UnsignedByteType; P.isGL2 = isGL2;
   const mk = (frag, uni) => new THREE.ShaderMaterial({ vertexShader: FS_VERT, fragmentShader: frag, uniforms: uni, depthTest: false, depthWrite: false });
-  P.bright = mk(`uniform sampler2D tD; uniform float uT; varying vec2 vUv; void main(){ vec3 c = texture2D(tD, vUv).rgb; float l = max(c.r, max(c.g, c.b)); gl_FragColor = vec4(c * smoothstep(uT, uT + 0.6, l), 1.0); }`, { tD: { value: null }, uT: { value: 1.4 } });
+  P.bright = mk(`uniform sampler2D tD; uniform float uT; varying vec2 vUv; void main(){ vec3 c = min(texture2D(tD, vUv).rgb, vec3(4.0)); float l = max(c.r, max(c.g, c.b)); gl_FragColor = vec4(c * smoothstep(uT, uT + 0.6, l), 1.0); }`, { tD: { value: null }, uT: { value: 2.4 } });
   P.blur = mk(`uniform sampler2D tD; uniform vec2 uDir; varying vec2 vUv; void main(){ vec3 c = texture2D(tD, vUv).rgb * 0.227027;
     c += texture2D(tD, vUv + uDir * 1.3846).rgb * 0.3162162; c += texture2D(tD, vUv - uDir * 1.3846).rgb * 0.3162162;
     c += texture2D(tD, vUv + uDir * 3.2308).rgb * 0.0702703; c += texture2D(tD, vUv - uDir * 3.2308).rgb * 0.0702703; gl_FragColor = vec4(c, 1.0); }`, { tD: { value: null }, uDir: { value: new THREE.Vector2() } });
@@ -18,14 +18,14 @@ function postInit(renderer) {
     vec3 toSRGB(vec3 c){ return mix(c * 12.92, 1.055 * pow(c, vec3(1.0/2.4)) - 0.055, step(0.0031308, c)); }
     void main(){ vec3 c = texture2D(tD, vUv).rgb;
       if (uHasBloom > 0.5) c += (texture2D(tB1, vUv).rgb * 0.5 + texture2D(tB2, vUv).rgb * 0.8 + texture2D(tB3, vUv).rgb * 1.1) * uBloom;
-      c = aces(c * uExpo);
+      c = min(c, vec3(12.0)); c = aces(c * uExpo);
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(l), c, uSat);
       c = c * uGain + uLift * (1.0 - c);
       c = toSRGB(c);
       c = clamp((c - 0.5) * uCon + 0.5 + uBri, 0.0, 1.0);
       vec2 d = vUv - 0.5; c *= 1.0 - uVig * smoothstep(0.35, 0.85, length(d * vec2(1.25, 1.0)));
       gl_FragColor = vec4(c, 1.0); }`,
-    { tD: { value: null }, tB1: { value: null }, tB2: { value: null }, tB3: { value: null }, uBloom: { value: 0.5 }, uExpo: { value: 0.8 }, uVig: { value: 0.4 }, uSat: { value: 1.22 }, uCon: { value: 1.15 }, uBri: { value: 0 }, uHasBloom: { value: 1 },
+    { tD: { value: null }, tB1: { value: null }, tB2: { value: null }, tB3: { value: null }, uBloom: { value: 0.32 }, uExpo: { value: 0.8 }, uVig: { value: 0.4 }, uSat: { value: 1.22 }, uCon: { value: 1.15 }, uBri: { value: 0 }, uHasBloom: { value: 1 },
       uLift: { value: new THREE.Vector3(0.0, 0.006, 0.018) }, uGain: { value: new THREE.Vector3(1.04, 1.0, 0.95) } });
   P.fxaa = mk(`uniform sampler2D tD; uniform vec2 uRes; varying vec2 vUv;
     void main(){ vec2 px = 1.0 / uRes;

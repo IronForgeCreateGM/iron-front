@@ -123,11 +123,12 @@ function updFx(dt) {
   // projectiles
   const cnt = { rocket: 0, shell: 0, tracer: 0, flak: 0 };
   for (const p of G.projs) {
-    if (p.delay > 0) continue; const vis = !G.opts.fog || G.vis[idx(Math.floor(p.x), Math.floor(p.y))]; if (!vis) continue;
-    const k = p.kind === 'bullet' ? 'tracer' : p.kind === 'cannon' ? 'shell' : p.kind; const im = FX.proj[k]; if (!im || cnt[k] >= 400) continue;
+    if (p.delay > 0) continue; const vis = !G.opts.fog || vis0(idx(Math.floor(p.x), Math.floor(p.y))); if (!vis) continue;
+    if (p.kind === 'fire') { for (let i = 0; i < 2; i++) FX.fire.spawn(p.x + rnd(0.15), p.y + rnd(0.15), heightAt(p.x, p.y) + p.z * 0.7, rnd(0.6), rnd(0.6), 0.4, 0.35, 0.12, 0.45, 1, 0.5, 0.12, 0.9, -1); continue; }
+    const k = p.kind === 'bullet' || p.kind === 'snipe' ? 'tracer' : p.kind === 'cannon' || p.kind === 'bomb' ? 'shell' : p.kind === 'aam' ? 'rocket' : p.kind; const im = FX.proj[k]; if (!im || cnt[k] >= 400) continue;
     const gz = heightAt(p.x, p.y) * (p.tz > 1.5 ? 0.3 : 1) + p.z, ang = Math.atan2(p.ty - p.y, p.tx - p.x);
     _e.set(0, -ang, 0); _q.setFromEuler(_e); im.setMatrixAt(cnt[k]++, _m4.compose(_v.set(p.x, gz, p.y), _q, _s.set(1, 1, 1)));
-    if (p.kind === 'rocket' && Math.random() < 0.9 * FX.mul) puff(p.x, p.y, gz, 0.1, 0.8, 0.42, 0.4, 0.2);
+    if ((p.kind === 'rocket' || p.kind === 'aam') && Math.random() < 0.9 * FX.mul) puff(p.x, p.y, gz, 0.1, 0.8, 0.42, 0.4, 0.2);
     if ((p.kind === 'shell') && Math.random() < 0.7 * FX.mul) FX.fire.spawn(p.x, p.y, gz, 0, 0, 0, 0.25, 0.15, 0.05, 1, 0.6, 0.3, 0.8, 0, 0);
     if (p.kind === 'cannon' && Math.random() < 0.5 * FX.mul) puff(p.x, p.y, gz, 0.07, 0.4, 0.6, 0.35, 0.1);
   }

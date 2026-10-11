@@ -7,15 +7,17 @@ function togglePause() { if (!started || G.over) return; paused = !paused; docum
 function startGame(diff, opts) {
   opts = opts || {};
   document.getElementById('menu').style.display = 'none';
-  newGame({ diff, aiTeams: opts.demo ? [0, 1] : [1], fog: opts.fog !== false, seed: opts.seed });
+  newGame({ diff, aiTeams: opts.demo || opts.watch ? [0, 1] : [1], fog: opts.fog !== false, seed: opts.seed });
   if (opts.demo) G.players[0].diff = 'normal';
+  if (opts.watch) { G.players[0].diff = 'chief'; aiInit(G.players[0]); G.spectate = true; G.watch = true; document.body.classList.add('watching'); const ff = +QS.get('ff') || 0; for (let i = 0; i < ff * 30 && !G.over; i++) { stepGame(); director(DT); G.events.length = 0; } if (DIR.cur) { R3 && 0; } }
   r3Init(document.getElementById('view'));
   uiSetup();
   const hq = G.ents.find(e => e.team === 0 && e.t === 'hq'); R3.cam.td = R3.cam.d = 26; jumpTo(hq.x + 3, hq.y + 2, true);
+  if (G.watch && DIR.cur) { R3.cam.td = R3.cam.d = 20; jumpTo(DIR.cur.x, DIR.cur.y, true); }
   if (opts.demo) {
     const hits = [];
     for (let i = 0; i < opts.demo * 30; i++) { stepGame(); for (const ev of G.events) if (ev.e === 'hit') hits.push({ x: ev.x, y: ev.y, t: G.time }); G.events.length = 0; if (G.over) break; }
-    const recent = hits.filter(h => h.t > G.time - 4 && G.vis[idx(Math.floor(h.x), Math.floor(h.y))]); let best = null, bn = -1;
+    const recent = hits.filter(h => h.t > G.time - 4 && vis0(idx(Math.floor(h.x), Math.floor(h.y)))); let best = null, bn = -1;
     for (const h of recent) { const n = recent.filter(o => Math.hypot(o.x - h.x, o.y - h.y) < 5).length; if (n > bn) { bn = n; best = h; } }
     const u0 = G.ents.filter(e => e.kind === 'u' && e.team === 0 && e.t !== 'harv');
     R3.cam.td = R3.cam.d = +(QS.get('zoom') || 22);
@@ -25,22 +27,28 @@ function startGame(diff, opts) {
   }
   started = true; lastT = performance.now(); requestAnimationFrame(frame);
 }
-function frame(t) {
+const REC = QS.get('rec');
+window.__rec = n => { for (let i = 0; i < n && !G.over; i++) stepGame(); director(n * DT); uiFrame(n * DT); r3Render(n * DT); if (G.over && !UI.endShown) frame(performance.now(), true); return { t: G.time, over: G.over || null }; };
+function frame(t, once) {
+  if (REC && !once) return;
   const dt = Math.max(0, Math.min(0.1, (t - lastT) / 1000)); lastT = t;
   if (!paused && !G.over) { acc += dt; let n = 0; while (acc >= DT && n++ < 6) { stepGame(); acc -= DT; } if (n >= 6) acc = 0; }
   if (QS.get('dbg') && G.tick % 30 === 0) document.title = 'IM ' + JSON.stringify([...R3.uiMesh.entries()].map(([k, u]) => k + ':' + u.n + ':' + u.parts.body.count + ':' + u.parts.body.visible + ':' + (R3.scene.children.includes(u.parts.body)) + ':' + Array.from(u.parts.body.instanceMatrix.array.slice(12, 15)).map(v => v.toFixed(1)))) + ' view ' + JSON.stringify(R3.view) + ' cam ' + JSON.stringify(R3.cam) + ' units ' + JSON.stringify(G.ents.filter(e => e.kind === 'u' && e.team === 0).map(e => [e.t, e.x.toFixed(1), e.y.toFixed(1)]));
+  if (G.watch && !paused) director(dt);
   try { uiFrame(dt); r3Render(dt); } catch (e) { console.error(e); throw e; }
   if (G.over && !UI.endShown) { UI.endShown = true; const P = G.players[0];
     document.getElementById('end').style.display = 'flex';
-    document.getElementById('endTitle').textContent = G.over === 'victory' ? 'VICTORY' : 'DEFEAT';
+    document.getElementById('endTitle').textContent = G.watch ? (G.over === 'victory' ? 'CHIEF WINS' : 'HARD AI WINS') + ` · ${(G.time / 60).toFixed(1)} min` : G.over === 'victory' ? 'VICTORY' : 'DEFEAT';
     document.getElementById('endTitle').className = G.over;
     document.getElementById('endStats').innerHTML = `Time ${Math.floor(G.time / 60)}:${String(Math.floor(G.time % 60)).padStart(2, '0')} · Kills ${P.stats.kills} · Losses ${P.stats.lost} · Ore mined $${Math.floor(P.stats.mined)}`; sfx(G.over === 'victory' ? 'ready' : 'alert'); }
-  requestAnimationFrame(frame);
+  if (!once) requestAnimationFrame(frame);
 }
 window.addEventListener('DOMContentLoaded', () => {
   if (typeof THREE === 'undefined') { document.getElementById('err').style.display = 'block'; document.getElementById('err').textContent = 'Three.js failed to load (vendor/three.min.js)'; return; }
   let diff = 'normal';
   document.querySelectorAll('#diff button').forEach(b => b.onclick = () => { diff = b.dataset.d; document.querySelectorAll('#diff button').forEach(x => x.classList.toggle('on', x === b)); });
+  document.getElementById('watchBtn').onclick = () => { audioInit(); startGame('hard', { watch: 1, seed: (Math.random() * 1e6) | 0 }); };
+  if (QS.get('watch')) startGame(QS.get('watch'), { watch: 1, seed: +QS.get('seed') || 5 });
   document.getElementById('startBtn').onclick = () => { audioInit(); startGame(diff, { fog: document.getElementById('fogChk').checked }); };
   document.getElementById('resumeBtn').onclick = () => togglePause();
   document.querySelectorAll('.quitBtn').forEach(b => b.onclick = () => location.href = location.pathname);
@@ -94,3 +102,23 @@ function selfTest() {
   } catch (e) { document.title = 'SELFTEST FAIL ' + e.message; throw e; }
 }
 if (QS.get('selftest')) window.addEventListener('load', () => setTimeout(selfTest, 300));
+
+// ===== spectator camera director: follows fights, cycles key moments =====
+const DIR = { t: 0, hot: [], cur: null, hold: 0 };
+function director(dt) {
+  for (const ev of G.events) if (ev.e === 'hit' || ev.e === 'die') DIR.hot.push({ x: ev.x != null ? ev.x : ev.ent.x, y: ev.y != null ? ev.y : ev.ent.y, t: G.time, w: ev.e === 'die' ? (ev.ent.kind === 'b' ? 8 : 3) : 1 });
+  DIR.hot = DIR.hot.filter(h => G.time - h.t < 5);
+  const wt = document.getElementById('watchTag'); if (wt && G.tick % 15 === 0) { const av = t => Math.round(G.ents.filter(e => e.team === t && e.kind === 'u' && e.t !== 'harv').reduce((a, e) => a + UT[e.t].cost, 0) / 100) / 10; wt.textContent = `CHIEF (olive) ${av(0)}k army  ·  ${Math.floor(G.time / 60)}:${String(Math.floor(G.time % 60)).padStart(2, '0')}  ·  HARD AI (tan) ${av(1)}k army`; }
+  DIR.t -= dt; DIR.hold -= dt;
+  if (DIR.t <= 0) {
+    DIR.t = 0.8; let best = null, bs = 0;
+    for (const h of DIR.hot) { let sc = 0; for (const o of DIR.hot) if (Math.hypot(o.x - h.x, o.y - h.y) < 6) sc += o.w * (1 - (G.time - o.t) / 5); if (sc > bs) { bs = sc; best = h; } }
+    const stick = DIR.cur && DIR.hold > 0;
+    if (best && bs > 4 && (!stick || Math.hypot(best.x - DIR.cur.x, best.y - DIR.cur.y) < 8 || bs > (DIR.curS || 0) * 2)) { if (!DIR.cur || Math.hypot(best.x - DIR.cur.x, best.y - DIR.cur.y) > 3) DIR.hold = 6; DIR.cur = best; DIR.curS = bs; R3.cam.td = bs > 25 ? 16 : 19; }
+    else if (!stick || !best) { // calm: tour bases & armies
+      if (DIR.hold <= 0) { const opts = []; for (const t of [0, 1]) { const army = G.ents.filter(e => e.team === t && e.kind === 'u' && e.t !== 'harv'); if (army.length) opts.push({ x: army.reduce((a, e) => a + e.x, 0) / army.length, y: army.reduce((a, e) => a + e.y, 0) / army.length }); const hq = G.ents.find(e => e.team === t && e.t === 'hq'); if (hq) opts.push({ x: hq.x + 2, y: hq.y + 2 }); }
+        DIR.tour = ((DIR.tour || 0) + 1) % Math.max(1, opts.length); DIR.cur = opts[DIR.tour] || { x: 32, y: 32 }; DIR.curS = 0; DIR.hold = 7; R3.cam.td = 21; }
+    }
+    if (DIR.cur) { R3.cam.tx = DIR.cur.x; R3.cam.ty = DIR.cur.y + R3.cam.td * 0.18; }
+  }
+}

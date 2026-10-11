@@ -288,7 +288,7 @@ function minimap() {
   for (let i = 0; i < MW * MH; i++) {
     let r = 46, g = 82, bl = 36; const t = G.map[i];
     if (t === 1) { r = 112; g = 104; bl = 92; } else if (t === 2) { r = 28; g = 86; bl = 118; } else if (G.ore[i] > 30) { r = 210; g = 165; bl = 50; }
-    const f = G.vis[i] ? 1 : G.seen[i] ? 0.5 : 0.08; img.data.set([r * f, g * f, bl * f, 255], i * 4);
+    const f = vis0(i) ? 1 : seen0(i) ? 0.5 : 0.08; img.data.set([r * f, g * f, bl * f, 255], i * 4);
   }
   b.putImageData(img, 0, 0); x.imageSmoothingEnabled = true; x.drawImage(UI.mmBase, 0, 0, c.width, c.height);
   for (const e of G.ents) { if (!visibleTo0(e)) continue; x.fillStyle = e.team === 0 ? '#5fb0ff' : '#ff5040'; if (e.kind === 'b') x.fillRect(e.tx * s, e.ty * s, e.w * s, e.h * s); else x.fillRect(e.x * s - 1.5, e.y * s - 1.5, 3, 3); }

@@ -38,3 +38,18 @@
 2. Soft particles + depth-based SSAO (needs a depth pre-pass), GPU-timer-driven dynamic resolution.
 3. Flow-field pathing for large groups; formations with facing; unit veterancy.
 4. Campaign/mission scripting, save/load, replays; better AI build-order personalities.
+
+## v3.2 (done)
+- Economy: ore per tile x11 (was x4.5), harvester load 600 (was 1500), slower mining (40/s), ore value 0.7, slower regrow. ~6-7k credits/min with 7 haulers; a side's fields are ~75% mined at 20 min under full harvesting (test: see NOTES).
+- Graphics: no more roof hotspots (metal roughness 0.48, env 0.42, bloom threshold 2.4 / intensity 0.32, HDR clamp before bloom + tonemap).
+- Realism: military paint (olive drab vs desert tan), procedural camo on unit paint, grime noise + ground dirt on all models, team colour reduced to accent stripes/patches/lights; new infantry body (plate carrier, pouches, helmet, backpack, realistic proportions).
+- Unit combat AI: smarter target scoring (counter effectiveness, low HP finish, threats on me, focus fire, overkill avoidance via in-flight damage), periodic retarget, fight back when hit (+ nearby idle allies respond), kiting for out-ranging units, rally = attack-move. Hold stance only engages in range; explicit move still ignores enemies.
+- Infantry: Sniper, Pyro (flamethrower splash), Field Medic (heals infantry).
+- Air: Airfield (3x3), Falcon Strike Jet (bomb runs, 2 bombs, returns to rearm), Talon Interceptor (air-to-air missiles), Thunder Bomber (6-bomb carpet). Landed jets park on airfield.
+- Chief commander AI (`?watch=hard`, menu "Watch: Chief vs Hard"): faster eco, staged formation defense, attacks when army value > 1.4x seen enemy, regroups, retreats on bad trades, air strikes on eco. Spectator camera director.
+- Tests: test/units-test.js, test/chief-test.js, test/record.js (CDP frame capture -> ffmpeg).
+
+## Rough edges / next
+- Chief vs Hard ~75% (6/8 seeds); losses vs early Hard pressure on some seeds.
+- Jets are simplified (hover-free but no true circling flight paths); no transport yet.
+- Camo pattern is object-space, can stretch on long panels.

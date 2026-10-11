@@ -53,3 +53,4 @@ select{background:#16263a;color:#e3eefa;border:1px solid #2f5a88;border-radius:4
 #view::after{display:none}
 
 .acts{display:flex;gap:4px;margin-top:6px}.act{flex:1;font-size:11px;padding:5px 4px;background:#16304a;border:1px solid #2f5a88;color:#dfeefc;border-radius:4px;cursor:pointer;margin-top:6px;width:100%}.acts .act{margin-top:0}.act:hover{background:#1f4466}.act:disabled{opacity:.6;cursor:default}.act.poor{color:#ff8a7a}
+#watchTag{display:none;position:absolute;top:44px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#ffd27a;font:600 13px system-ui;letter-spacing:.12em;padding:5px 14px;border-radius:4px;z-index:3;pointer-events:none}.watching #watchTag{display:block}.watching #hint{display:none}#watchBtn{margin-top:8px}

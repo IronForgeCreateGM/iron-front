@@ -39,6 +39,8 @@ function sfx(name, x, y) {
     case 'place': _tone(t, 'sine', 160, 60, 0.3, 0.6); _noise(t, 0.3, 'lowpass', 500, 0, 0.3); break;
     case 'ready': _tone(t, 'sine', 660, 0, 0.12, 0.3); _tone(t + 0.13, 'sine', 990, 0, 0.18, 0.3); break;
     case 'unit': _tone(t, 'triangle', 520, 780, 0.15, 0.25); break;
+    case 'snipe': _noise(t, 0.12, 'highpass', 2500, 2500, 0.9); _tone(t, 'square', 1400, 200, 0.08, 0.25); break;
+    case 'flame': _noise(t, 0.35, 'bandpass', 600, 300, 0.35); break;
     case 'ack': _tone(t, 'triangle', 700, 900, 0.06, 0.18); break;
     case 'alert': _tone(t, 'sawtooth', 440, 0, 0.15, 0.15); _tone(t + 0.2, 'sawtooth', 440, 0, 0.15, 0.15); break;
   }

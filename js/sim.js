@@ -601,7 +601,9 @@ function visibleTo(team, e) {
   if (e.kind === 'b') { for (let y = e.ty; y < e.ty + e.h; y++) for (let x = e.tx; x < e.tx + e.w; x++) if (S[idx(x, y)]) return true; return false; }
   return !!V[idx(Math.floor(e.x), Math.floor(e.y))];
 }
-function visibleTo0(e) { return visibleTo(0, e); }
+function visibleTo0(e) { return G.spectate || visibleTo(0, e); }
+function vis0(i) { return G.spectate || !!G.vis[i]; }
+function seen0(i) { return G.spectate || !!G.seen[i]; }
 // ---------- defense upgrades ----------
 const _defWC = {};
 function defW(b) { const d = BT[b.t], P = G.players[b.team], l = b.lvl || 1, k = d.wpn + l + (P.defUp ? 'd' : '');

@@ -110,9 +110,13 @@ function handleEvents() {
         sfx(ev.w.snd, s.x, s.y); break;
       }
       case 'hit': {
-        if (G.opts.fog && !G.vis[idx(Math.floor(ev.x), Math.floor(ev.y))]) break;
+        if (G.opts.fog && !vis0(idx(Math.floor(ev.x), Math.floor(ev.y)))) break;
         const z = (ev.z || 0) + (ev.z > 1.5 ? heightAt(ev.x, ev.y) * 0.3 : heightAt(ev.x, ev.y));
         if (ev.kind === 'bullet') { sparks(ev.x, ev.y, z + 0.2, 2, 2); flash(ev.x, ev.y, z + 0.25, 0.18, 1, 0.8, 0.5); }
+        else if (ev.kind === 'snipe') { sparks(ev.x, ev.y, z + 0.2, 3, 2.5); flash(ev.x, ev.y, z + 0.25, 0.3, 1, 0.9, 0.7); }
+        else if (ev.kind === 'fire') { for (let i = 0; i < 6 * FX.mul; i++) FX.fire.spawn(ev.x + rnd(0.8), ev.y + rnd(0.8), z + 0.15, rnd(0.5), rnd(0.5), 0.8, 0.5, 0.2, 0.6, 1, 0.45, 0.1, 0.9, -1); if (Math.random() < 0.3) puff(ev.x, ev.y, z + 0.4, 0.25, 1.4, 0.12, 0.5, 0.8); }
+        else if (ev.kind === 'aam') { explosion3(ev.x, ev.y, z, 0.45); sfx('boom', ev.x, ev.y); }
+        else if (ev.kind === 'bomb') { explosion3(ev.x, ev.y, z, 1.4); sfx('boomBig', ev.x, ev.y); shake(0.12); }
         else if (ev.kind === 'flak') { flash(ev.x, ev.y, z, 0.7, 1, 0.75, 0.4); puff(ev.x, ev.y, z, 0.35, 1.2, 0.18, 0.7, 0.1); sparks(ev.x, ev.y, z, 3, 3); }
         else { explosion3(ev.x, ev.y, z, ev.kind === 'shell' ? 1.1 : 0.55); sfx(ev.kind === 'shell' ? 'boomBig' : 'boom', ev.x, ev.y); }
         break;
@@ -129,6 +133,7 @@ function handleEvents() {
       }
       case 'place': for (let i = 0; i < 16 * FX.mul; i++) { const a = i / 16 * Math.PI * 2; FX.smoke.spawn(ev.b.x + Math.cos(a) * ev.b.w * 0.5, ev.b.y + Math.sin(a) * ev.b.h * 0.5, 0.2, Math.cos(a) * 1.2, Math.sin(a) * 1.2, 0.3, 1.6, 0.4, 1.4, 0.55, 0.5, 0.42, 0.55, 0); }
         if (ev.b.team === 0) sfx('place'); break;
+      case 'heal': if (visibleTo0(ev.src) && inView(ev.x, ev.y)) for (let i = 0; i < 3; i++) FX.spark.spawn(ev.x + rnd(0.3), ev.y + rnd(0.3), heightAt(ev.x, ev.y) + 0.3, 0, 0, 0.8, 0.6, 0.09, 0.03, 0.3, 1, 0.45, 1, 0); break;
       case 'ready': if (ev.team === 0) { sfx('ready'); uiMsg(BT[ev.t].n + ' ready to place'); } break;
       case 'unit': if (ev.team === 0) sfx('unit'); break;
       case 'upgraded': if (ev.team === 0) { sfx('ready'); uiMsg(ev.b.upKind === 'def' ? 'Research complete: ' + DEF_RESEARCH.n : BT[ev.b.t].n + ' upgraded to level ' + ev.b.lvl); } flash(ev.b.x, ev.b.y, 1, 1.5, 0.6, 0.9, 1); break;
@@ -184,8 +189,9 @@ function r3Render(dt) {
     const U = unitIM(e.t, e.team); if (U.n >= U.cap) growIM(U, U.cap * 2);
     const i = U.n++, pv = U.model.piv;
     const moving = e.path.length > 0, bob = d.armor === 'inf' && moving ? Math.abs(Math.sin(R3.time * 11 + e.id)) * 0.04 : 0;
-    T.e.set(0, -(d.armor === 'inf' ? rs.tang : rs.ang), air ? (moving ? -0.18 : 0) : 0, 'YXZ'); T.q.setFromEuler(T.e);
-    const vs = d.armor === 'inf' ? 1 : air ? 0.9 : 0.8; T.b.compose(T.p.set(rs.x, rs.z + bob, rs.y), T.q, T.s.set(vs, vs, vs));
+    rs.bank = (rs.bank || 0) * 0.9 + angDiff(rs.pang == null ? rs.ang : rs.pang, rs.ang) * (d.jet ? 9 : 0); rs.pang = rs.ang;
+    T.e.set(d.jet ? -Math.max(-0.7, Math.min(0.7, rs.bank)) : 0, -(d.armor === 'inf' ? rs.tang : rs.ang), air && !d.jet ? (moving ? -0.18 : 0) : 0, 'YXZ'); T.q.setFromEuler(T.e);
+    const vs = d.armor === 'inf' ? 1 : d.jet ? 1.1 : air ? 0.9 : 0.8; T.b.compose(T.p.set(rs.x, rs.z + bob, rs.y), T.q, T.s.set(vs, vs, vs));
     U.parts.body.setMatrixAt(i, T.b);
     if (U.parts.turret) { T.e.set(0, -(rs.tang - rs.ang), 0); T.q.setFromEuler(T.e); T.l.compose(T.p.set(pv.turret[0] - rs.recoil, pv.turret[1], pv.turret[2]), T.q, T.one); U.parts.turret.setMatrixAt(i, T.t.multiplyMatrices(T.b, T.l)); }
     if (U.parts.rotor) { if (e.t === 'harv') T.e.set(0, 0, -rs.spin); else T.e.set(0, rs.spin, 0); T.q.setFromEuler(T.e); T.l.compose(T.p.set(pv.rotor[0], pv.rotor[1], pv.rotor[2]), T.q, T.one); U.parts.rotor.setMatrixAt(i, T.t.multiplyMatrices(T.b, T.l)); }
@@ -196,6 +202,7 @@ function r3Render(dt) {
     if (e.sel || e.id === R3.hoverId) { const im = e.sel ? (e.team === 0 ? R3.ringSel : R3.ringEnemy) : R3.ringHover; const j = e.sel ? (e.team === 0 ? nSel++ : nEn++) : nHov++; const s = d.r * 1.15 + 0.1; if (j < im.instanceMatrix.count) im.setMatrixAt(j, T.l.compose(T.p.set(rs.x, gz + 0.06, rs.y), T.q.identity(), T.s.set(s, 1, s))); }
     // ambient unit fx
     if (e.t === 'harv' && e.hst === 'mine' && Math.random() < dt * 10 * FX.mul) FX.smoke.spawn(rs.x + Math.cos(rs.ang) * 0.7, rs.y + Math.sin(rs.ang) * 0.7, gz + 0.2, rnd(0.5), rnd(0.5), 0.5, 1.2, 0.2, 0.6, 0.55, 0.45, 0.28, 0.5, 0);
+    if (d.jet && e.js !== 'landed' && Math.random() < dt * 25 * FX.mul) FX.smoke.spawn(rs.x - Math.cos(rs.ang) * 0.8, rs.y - Math.sin(rs.ang) * 0.8, rs.z, 0, 0, 0, 0.6, 0.05, 0.12, 0.85, 0.85, 0.85, 0.35, 0);
     if (!air && d.armor !== 'inf' && moving && Math.random() < dt * 8 * FX.mul) FX.smoke.spawn(rs.x - Math.cos(rs.ang) * d.r, rs.y - Math.sin(rs.ang) * d.r, gz + 0.08, rnd(0.3), rnd(0.3), 0.2, 1.0, 0.15, 0.5, 0.5, 0.45, 0.36, 0.35, 0);
     if (e.hp / e.mhp < 0.35 && d.armor !== 'inf' && Math.random() < dt * 8 * FX.mul) puff(rs.x, rs.y, rs.z + 0.4, 0.15, 1.4, 0.1, 0.7, 0.8);
   }
