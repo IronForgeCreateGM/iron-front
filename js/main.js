@@ -63,6 +63,10 @@ function simAdvance(dt, maxN) {
 setInterval(() => { if (!started || !NET.online) return; const now = performance.now(); if (now - lastT > 250) { const dt = Math.min(2, (now - lastT) / 1000); lastT = now; simAdvance(dt, 70); if (G.events.length > 3000) G.events.splice(0, G.events.length - 1000); } }, 100);
 function frame(t, once) {
   if (REC && !once) return;
+  // FPS cap (Quiet mode 60/30) and no rendering while the tab is hidden
+  const cap = typeof UI !== 'undefined' && UI.set && UI.set.quiet ? (+UI.set.quietFps || 60) : (UI.set && +UI.set.fpsCap) || 0;
+  if (!once && (document.hidden || cap && t - (R3.lastFrame || 0) < 1000 / cap - 2)) { if (document.hidden) { const dt0 = Math.max(0, Math.min(0.1, (t - lastT) / 1000)); lastT = t; simAdvance(dt0, 6); } requestAnimationFrame(frame); return; }
+  R3.lastFrame = t;
   const dt = Math.max(0, Math.min(0.1, (t - lastT) / 1000)); lastT = t;
   simAdvance(dt, 6);
   if (QS.get('dbg') && G.tick % 30 === 0) document.title = 'IM ' + JSON.stringify([...R3.uiMesh.entries()].map(([k, u]) => k + ':' + u.n + ':' + u.parts.body.count + ':' + u.parts.body.visible + ':' + (R3.scene.children.includes(u.parts.body)) + ':' + Array.from(u.parts.body.instanceMatrix.array.slice(12, 15)).map(v => v.toFixed(1)))) + ' view ' + JSON.stringify(R3.view) + ' cam ' + JSON.stringify(R3.cam) + ' units ' + JSON.stringify(G.ents.filter(e => e.kind === 'u' && e.team === ME).map(e => [e.t, e.x.toFixed(1), e.y.toFixed(1)]));

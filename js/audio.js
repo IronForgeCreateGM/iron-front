@@ -28,6 +28,7 @@ function sfx(name, x, y) {
   switch (name) {
     case 'rifle': _noise(t, 0.06, 'highpass', 1800, 0, 0.35); break;
     case 'cannon': _noise(t, 0.35, 'lowpass', 900, 150, 0.8); _tone(t, 'sine', 110, 40, 0.3, 0.6); break;
+    case 'step': _noise(t, 0.18, 'lowpass', 220, 60, 0.55); _tone(t, 'sine', 48, 30, 0.2, 0.6); break;
     case 'gcan': _noise(t, 0.9, 'lowpass', 900, 60, 1.0); _tone(t, 'sine', 55, 22, 0.8, 1.0); _tone(t, 'square', 110, 40, 0.25, 0.25); break;
     case 'arty': _noise(t, 0.5, 'lowpass', 600, 100, 0.9); _tone(t, 'sine', 70, 30, 0.45, 0.7); break;
     case 'rocket': _noise(t, 0.4, 'bandpass', 2500, 400, 0.5, 2); break;

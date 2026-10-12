@@ -23,6 +23,8 @@ function uiSetup() {
   $('repBtn').onclick = () => { UI.mode = UI.mode === 'repair' ? null : 'repair'; UI.placing = null; sfx('click'); };
   $('pauseBtn').onclick = () => togglePause();
   $('setBtn').onclick = () => openSettings(true);
+  $('quietBtn').onclick = () => toggleQuiet(); $('quietBtn').classList.toggle('on', !!UI.set.quiet); if (UI.set.quiet) applyQuality('quiet');
+  { const qf = $('setQuietFps'); qf.value = UI.set.quietFps || '60'; qf.onchange = () => { UI.set.quietFps = qf.value; saveSet(); }; const qc = $('setQuiet'); qc.checked = !!UI.set.quiet; qc.onchange = () => toggleQuiet(qc.checked); }
   $('muteBtn').onclick = () => { AU.muted = !AU.muted; $('muteBtn').textContent = AU.muted ? '🔇' : '🔊'; };
   const cv = $('view');
   cv.addEventListener('contextmenu', e => e.preventDefault());
@@ -195,6 +197,7 @@ function onKey(e) {
   if (k === 'q') { UI.tab = Object.keys(CATS)[(Object.keys(CATS).indexOf(UI.tab) + 1) % 5]; buildGrid(); }
   if (k === 'x') $('sellBtn').onclick(); if (k === 'r') $('repBtn').onclick();
   if (k === 'e') setSel(G.ents.filter(o => o.team === ME && o.kind === 'u' && UT[o.t].wpn));
+  if (k === 'n') { toggleQuiet(); return; }
   if (k === 'f') { UI.set.fps = !UI.set.fps; $('setFps').checked = UI.set.fps; saveSet(); }
   if (k === '.') selectIdle('harv'); if (k === ',') selectIdle('army');
 }
@@ -347,3 +350,10 @@ function canEnqueue(team, t) { const P = G.players[team], cat = catOf(t), d = BT
 function canUpgrade(b) { const P = G.players[b.team], inf = upgradeInfo(b); return !!inf && b.upT == null && P.cr >= inf.cost && P.gas >= (inf.gas || 0); }
 
 function wallTiles() { const w = screenToWorld(UI.mouse.x, UI.mouse.y), a = UI.wallA; if (!a) return []; const b = w ? [Math.floor(w.x), Math.floor(w.y)] : a; return wallLine(a[0], a[1], b[0], b[1]); }
+
+function toggleQuiet(on) {
+  UI.set.quiet = on == null ? !UI.set.quiet : !!on; saveSet();
+  if (UI.set.quiet) { R3.auto = false; applyQuality('quiet'); } else { R3.auto = UI.set.quality === 'auto'; applyQuality(UI.set.quality === 'auto' ? detectQuality() : UI.set.quality); }
+  $('quietBtn').classList.toggle('on', UI.set.quiet); const qc = $('setQuiet'); if (qc) qc.checked = UI.set.quiet;
+  uiMsg(UI.set.quiet ? `🍃 Quiet mode ON — ${UI.set.quietFps || 60} FPS cap, 1x resolution, lighter effects (N)` : 'Quiet mode OFF (N)'); sfx('click');
+}

@@ -13,6 +13,7 @@ function aiStep(P) {
   if (G.time < S.next) return;
   S.next = G.time + D.think;
   if (P.out) return;
+  if (D.slip && G.R() < D.slip) { S.next += D.think; return; } // slower players hesitate / miss cycles
   const me = G.ents.filter(e => e.team === P.team), hq = me.find(e => e.t === 'hq') || me.find(e => e.t === 'cc') || me.find(e => e.kind === 'b');
   if (!hq) return;
   // pick the nearest surviving enemy player as primary target
@@ -38,7 +39,7 @@ function aiStep(P) {
     if (P.pow < 20 && (cnt.power || 0) < 10) want = 'power';
     else if (G.time > D.expandAt * (1 + 0.7 * (cnt.cc || 0)) && (cnt.cc || 0) < 4 && (cnt.factory || 0) > 0 && avail(P.team, 'cc') && (S.bad.cc || 0) < G.time && aiSpot(P, 'cc', hq, foes)) want = 'cc';
     else if ((cnt.cc || 0) > 0 && (cnt.refinery || 0) < 2 + (cnt.cc || 0) && (S.bad.refinery || 0) < G.time) want = 'refinery';
-    else { const need = {}; for (const b of (D.si ? AI_ORDER_SI : D.chief ? AI_ORDER_CHIEF : D.firstAttack ? AI_ORDER : AI_ORDER_AIR)) { if (BT[b].cat !== 'bld') continue; need[b] = (need[b] || 0) + 1; if ((cnt[b] || 0) < need[b] && avail(P.team, b) && (S.bad[b] || 0) < G.time) { if (!aiSpot(P, b, hq, foes)) { S.bad[b] = G.time + 45; continue; } want = b; break; } } }
+    else { const need = {}; for (const b of (D.si ? AI_ORDER_SI : D.chief ? AI_ORDER_CHIEF : D.firstAttack || P.diff === 'normal' ? AI_ORDER : AI_ORDER_AIR)) { if (BT[b].cat !== 'bld') continue; need[b] = (need[b] || 0) + 1; if ((cnt[b] || 0) < need[b] && avail(P.team, b) && (S.bad[b] || 0) < G.time) { if (!aiSpot(P, b, hq, foes)) { S.bad[b] = G.time + 45; continue; } want = b; break; } } }
     if (!want) want = aiGrowth(P, S, D, cnt, hq, foes);
     S.saving = want && avail(P.team, want) && P.cr <= BT[want].cost * 0.3 && ['refinery', 'cc', 'factory', 'power', 'extractor', 'barracks'].includes(want) ? want : null;
     if (want && avail(P.team, want) && P.cr > BT[want].cost * 0.3) enqueue(P.team, want);
@@ -51,8 +52,8 @@ function aiStep(P) {
   // 3) harvesters
   const refs = cnt.refinery || 0, harvs = cnt.harv || 0;
   const threat = D.chief && G.time < 240 ? armyVal(foes.filter(f => f.kind === 'u' && UT[f.t].wpn)) > armyVal(me.filter(u => u.kind === 'u' && UT[u.t].wpn)) * 1.3 : false;
-  const wantH = threat ? Math.min(2, refs * 2) : Math.min((D.chief ? 8 : 6) + (cnt.cc || 0) * 3, (refs ? refs * 2 + (D.si && !SIOFF.harv ? me.filter(e => e.t === 'refinery').length : 0) : 2));
-  if (harvs < wantH && avail(P.team, 'harv') && !P.queues.veh.some(q => q.t === 'harv')) { if (P.queues.veh.length >= 2) cancel(P.team, P.queues.veh[P.queues.veh.length - 1].t); enqueue(P.team, 'harv'); }
+  const wantH = threat ? Math.min(2, refs * 2) : Math.min((D.chief ? 8 : 6) + (cnt.cc || 0) * 3, (refs ? refs * 2 + (D.si && !SIOFF.harv ? me.filter(e => e.t === 'refinery').length : 0) : 2)); const wantHs = Math.max(2, Math.round(wantH * (D.sat || 1)));
+  if (harvs < wantHs && avail(P.team, 'harv') && !P.queues.veh.some(q => q.t === 'harv')) { if (P.queues.veh.length >= 2) cancel(P.team, P.queues.veh[P.queues.veh.length - 1].t); enqueue(P.team, 'harv'); }
   // money stall breaker: no harvesters and broke -> sell non-essential structures
   const realH = me.filter(e => e.t === 'harv').length;
   if (realH === 0 && P.cr < UT.harv.cost && G.time > S.sellT) {

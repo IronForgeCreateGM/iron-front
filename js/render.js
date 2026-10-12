@@ -4,6 +4,7 @@ const QUALITY = {
   low:   { pr: 0.75, shadows: false, shadowSize: 1024, bloom: false, fxaa: false, msaa: 0, grass: 0, fx: 0.5, label: 'Low' },
   med:   { pr: 1.25, sharpen: 0.2, shadows: true, shadowSize: 1024, bloom: true, fxaa: true, msaa: 0, grass: 0.3, fx: 0.75, label: 'Medium' },
   high:  { pr: 2.0, sharpen: 0.25, shadows: true, shadowSize: 2048, bloom: true, fxaa: false, msaa: 2, grass: 0.55, fx: 1, label: 'High' },
+  quiet: { pr: 1.0, shadows: true, shadowSize: 1024, bloom: false, fxaa: true, msaa: 0, grass: 0.12, fx: 0.4, label: 'Quiet', quiet: 1 },
   ultra: { pr: 2.0, sharpen: 0.3, shadows: true, shadowSize: 4096, bloom: true, fxaa: false, msaa: 4, grass: 0.85, fx: 1.2, label: 'Ultra' },
 };
 const R3 = { corpses: [], objs: new Map(), rs: new Map(), uiMesh: new Map(), markers: [], cam: { x: 12, y: 14, d: 30, tx: 12, ty: 14, td: 30 }, time: 0, uTime: { value: 0 }, sunDir: null, fps: 60, frames: 0, fpsT: 0, view: { x0: 0, y0: 0, x1: MW, y1: MH } };
@@ -11,7 +12,7 @@ function detectQuality() {
   if (QS.get('q') && QUALITY[QS.get('q')]) return QS.get('q');
   const saved = localStorage.getItem('if_quality'); if (saved && saved !== 'auto' && QUALITY[saved]) return saved;
   try { const gl = R3.renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'); const s = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : '';
-    R3.gpu = s; if (/swiftshader|llvmpipe|software/i.test(s)) return 'low'; if (/intel/i.test(s) && !/iris xe|arc/i.test(s)) return 'med'; if (/apple m\d (max|ultra|pro)|rtx|radeon rx 6|radeon rx 7/i.test(s)) return 'ultra'; return 'high'; } catch (e) { return 'high'; }
+    R3.gpu = s; if (/swiftshader|llvmpipe|software/i.test(s)) return 'low'; if (/intel/i.test(s) && !/iris xe|arc/i.test(s)) return 'med'; return 'high'; } catch (e) { return 'high'; }
 }
 function r3Init(el) {
   if (THREE.ColorManagement) THREE.ColorManagement.legacyMode = false;
@@ -47,11 +48,12 @@ function applyQuality(name) {
   R3.sun.castShadow = q.shadows;
   if (R3.sun.shadow.mapSize.x !== q.shadowSize) { R3.sun.shadow.mapSize.set(q.shadowSize, q.shadowSize); if (R3.sun.shadow.map) { R3.sun.shadow.map.dispose(); R3.sun.shadow.map = null; } }
   if (R3.grass) { R3.grass.count = Math.floor(R3.grassMax * q.grass); R3.grass.visible = q.grass > 0; }
-  FX.mul = q.fx;
+  FX.mul = q.fx; R3.fxBase = q.fx;
   r3Resize();
 }
 function r3Resize() {
-  const el = R3.renderer.domElement.parentElement, w = el.clientWidth, h = el.clientHeight, pr = Math.min(window.devicePixelRatio || 1, R3.q.pr);
+  const el = R3.renderer.domElement.parentElement, w = el.clientWidth, h = el.clientHeight, dpr = window.devicePixelRatio || 1;
+  let pr = Math.min(dpr, R3.q.pr); if (R3.qName !== 'ultra' && w * pr * h * pr > 8.5e6) pr = Math.max(1, Math.sqrt(8.5e6 / (w * h))); // 5K: cap internal res ~4K
   R3.renderer.setPixelRatio(pr); R3.renderer.setSize(w, h); R3.camera.aspect = w / h; R3.camera.updateProjectionMatrix();
   postResize(Math.floor(w * pr), Math.floor(h * pr), R3.q);
 }
@@ -99,6 +101,7 @@ function barrelTip(s) { const pv = s.kind === 'b' ? getModel('b', s.t, s.team).p
   const x = rs ? rs.x : s.x, y = rs ? rs.y : s.y, base = s.kind === 'b' ? heightAt(s.x, s.y) + (pv.head ? pv.head[1] + 0.08 : 0.6) : (rs ? rs.z : heightAt(x, y)) + (pv.turret ? pv.turret[1] + 0.07 : UT[s.t].armor === 'inf' ? 0.38 : 0.3);
   return { x: x + Math.cos(s.tang) * tip, y: y + Math.sin(s.tang) * tip, z: base }; }
 function handleEvents() {
+  { let n = 0; for (const ev of G.events) if (ev.e === 'fire' || ev.e === 'hit') n++; R3.busy = (R3.busy || 0) * 0.9 + n * 0.1; FX.mul = (R3.fxBase || 1) * Math.max(0.25, Math.min(1, 6 / Math.max(1, R3.busy))); }
   for (const ev of G.events) {
     switch (ev.e) {
       case 'fire': {
@@ -200,7 +203,7 @@ function r3Render(dt) {
     const i = U.n++, pv = U.model.piv;
     const moving = e.path.length > 0, bob = 0;
     rs.bank = (rs.bank || 0) * 0.9 + angDiff(rs.pang == null ? rs.ang : rs.pang, rs.ang) * (d.jet ? 9 : 0); rs.pang = rs.ang;
-    T.e.set(d.jet ? -Math.max(-0.7, Math.min(0.7, rs.bank)) : 0, -(d.armor === 'inf' || d.mech ? rs.tang : rs.ang), air && !d.jet ? (moving ? -0.18 : 0) : 0, 'YXZ'); T.q.setFromEuler(T.e);
+    T.e.set(d.jet ? -Math.max(-0.7, Math.min(0.7, rs.bank)) : 0, -(d.armor === 'inf' ? rs.tang : rs.ang), air && !d.jet ? (moving ? -0.18 : 0) : 0, 'YXZ'); T.q.setFromEuler(T.e);
     const vs = d.armor === 'inf' ? 1 : d.mech ? 0.85 : d.jet ? 1.1 : air ? 0.9 : 0.8;
     if (pv.legs) {
       animGait(rs, e, d, dt, pv.legs);
@@ -337,6 +340,10 @@ function animGait(rs, e, d, dt, L) {
   rs.ph = ((rs.ph || (e.id * 1.3)) + dist / L.stride * Math.PI * 2 * (L.mech ? 1 : 1 / 0.85)) % (Math.PI * 200);
   const aimT = e.tgt && e.tgt.hp > 0 && rs.spd < 0.3 ? 1 : 0; rs.aim = (rs.aim || 0) + (aimT - (rs.aim || 0)) * Math.min(1, dt * 7);
   rs.kick = Math.max(0, (rs.kick || 0) - dt * 6); rs.dead = 0; rs.idleT = R3.time + e.id;
+  if (L.mech) { // torso tracks the target independently of the legs; heavy footfalls
+    rs.torso = -angDiff(rs.ang, rs.tang);
+    const step = Math.floor(rs.ph / Math.PI); if (rs.lastStep != null && step !== rs.lastStep && rs.spd > 0.3) { if (inView(rs.x, rs.y) && visibleTo0(e)) { sfx('step', rs.x, rs.y); puff(rs.x, rs.y, rs.z + 0.05, 0.35, 0.9, 0.55, 0.35, 0.15); shake(0.02); } } rs.lastStep = step;
+  }
 }
 const _RG = typeof THREE !== 'undefined' ? { P: m4(), A: m4(), B: m4(), C: m4(), q: new THREE.Quaternion(), e: new THREE.Euler(), v: new THREE.Vector3(), one: new THREE.Vector3(1, 1, 1) } : null;
 function rz(m, a) { _RG.e.set(0, 0, a); _RG.q.setFromEuler(_RG.e); return m.makeRotationFromQuaternion(_RG.q); }
@@ -350,7 +357,7 @@ function poseRig(U, i, base, rs, L, seed, fall) {
   thL += aim * 0.22 * (1 - w); thR -= aim * 0.12 * (1 - w); knL += aim * 0.2 * (1 - w); knR += aim * 0.28 * (1 - w);
   let bob = (Math.cos(ph * 2) * 0.5 - 0.5) * (mech ? 0.05 : 0.018 + 0.012 * run) * w - aim * 0.012 * (1 - w);
   let lean = -(0.06 + 0.2 * run) * w - aim * 0.07 + kick * 0.12 + Math.sin(t * 1.6) * 0.012 * (1 - w);
-  let twist = Math.sin(ph) * 0.08 * w * (mech ? 0.5 : 1) + Math.sin(t * 0.7) * 0.02 * (1 - w);
+  let twist = Math.sin(ph) * 0.08 * w * (mech ? 0.5 : 1) + Math.sin(t * 0.7) * 0.02 * (1 - w) + (mech ? rs.torso || 0 : 0);
   // death fall: rotate whole body around feet, legs crumple
   if (dead > 0) { knL = knR = dead * 0.9; thL = thR = dead * 0.5; bob = -dead * L.hip * 0.35; lean = 0; }
   R.P.copy(base);

@@ -68,3 +68,4 @@ select{background:#16263a;color:#e3eefa;border:1px solid #2f5a88;border-radius:4
 #onBox{margin:8px 0;display:flex;gap:5px;justify-content:center;align-items:center;flex-wrap:wrap}#onBox input,#chatIn{background:#1b2530;color:#dde;border:1px solid #456;padding:4px 6px;border-radius:3px}#onBox button,#readyBtn{font-size:12px;padding:5px 8px}
 #onStatus{font-size:12px;color:#9cc;margin:4px 0;word-break:break-all}#onStatus a{color:#7cf}#onPanel{font-size:12px;text-align:left;margin:6px 0}#onPeers div{margin:2px 0}#chatLog{height:70px;overflow:auto;background:rgba(0,0,0,.3);border-radius:3px;padding:4px;margin:4px 0;color:#cde}#chatIn{width:70%}
 button:disabled{opacity:.5;cursor:not-allowed}
+.ico.on{background:#2d5a3a;border-color:#6c9}

@@ -83,12 +83,13 @@ const TEAMCOL = [0x3f7fd0, 0xd04a36, 0x2fc4d0, 0xf08a2a]; // accents only (re-as
 const TEAMPAINT = [0x2e4a73, 0x7a2d25, 0x2a6a72, 0x8a5222];
 const TEAM_COLORS = { blue: { n: 'Blue', paint: 0x2e4a73, acc: 0x3f7fd0, css: '#5fb0ff' }, red: { n: 'Red', paint: 0x7a2d25, acc: 0xd04a36, css: '#ff5040' }, yellow: { n: 'Yellow', paint: 0xc4a12c, acc: 0xffd83a, css: '#ffd84a' }, green: { n: 'Green', paint: 0x3f7f37, acc: 0x5fd060, css: '#6fdc6a' } };
 const MMCOL = ['#5fb0ff', '#ff5040', '#5fe6f0', '#ffa040']; // strong but realistic military blue / oxide red // olive drab vs desert tan
+// v4.3: difficulty = skill only (no economy bonus). think = reaction/APM delay (s), slip = chance a decision cycle is fumbled, sat = worker saturation
 const DIFF = {
-  easy:   { expandAt: 1000, income: 0.55, think: 2.5, wave0: 3, waveMax: 7, waveInc: 1, harass: 0.15, harassAfter: 1080, firstAttack: 570, waveGap: 150, build: 0.6, scoutAfter: 600 },
-  normal: { expandAt: 480, income: 1.0, think: 1.2, wave0: 6, waveMax: 14, waveInc: 2, harass: 0.3, harassAfter: 0, firstAttack: 0, waveGap: 30, build: 1.0, scoutAfter: 20 },
-  chief:  { expandAt: 330, income: 1.0, think: 0.5, wave0: 10, waveMax: 30, waveInc: 3, harass: 0.4, harassAfter: 240, firstAttack: 0, waveGap: 45, build: 1.0, scoutAfter: 15, chief: 1 },
-  si:     { expandAt: 210, income: 1.0, think: 0.4, wave0: 10, waveMax: 30, waveInc: 3, harass: 0.4, harassAfter: 240, firstAttack: 0, waveGap: 40, build: 1.0, scoutAfter: 10, chief: 1, si: 1 },
-  hard:   { expandAt: 300, income: 1.35, think: 0.7, wave0: 7, waveMax: 20, waveInc: 2, harass: 0.5, harassAfter: 0, firstAttack: 0, waveGap: 30, build: 1.3, scoutAfter: 20 },
+  easy:   { sat: 0.6, slip: 0.3, expandAt: 1000, think: 3.0, wave0: 3, waveMax: 7, waveInc: 1, harass: 0.15, harassAfter: 1080, firstAttack: 570, waveGap: 150, scoutAfter: 600 },
+  normal: { sat: 0.8, slip: 0.12, expandAt: 480, think: 1.6, wave0: 9, waveMax: 16, waveInc: 2, harass: 0.3, harassAfter: 0, firstAttack: 0, waveGap: 75, scoutAfter: 20 },
+  chief:  { sat: 1, slip: 0, expandAt: 330, think: 0.45, wave0: 10, waveMax: 30, waveInc: 3, harass: 0.4, harassAfter: 240, firstAttack: 0, waveGap: 45, scoutAfter: 15, chief: 1 },
+  si:     { sat: 1, slip: 0, expandAt: 210, think: 0.25, wave0: 10, waveMax: 30, waveInc: 3, harass: 0.4, harassAfter: 240, firstAttack: 0, waveGap: 40, scoutAfter: 10, chief: 1, si: 1 },
+  hard:   { sat: 1, slip: 0, expandAt: 300, think: 0.8, wave0: 7, waveMax: 20, waveInc: 2, harass: 0.5, harassAfter: 0, firstAttack: 0, waveGap: 30, scoutAfter: 20 },
 };
 // economy
 const ORE_VALUE = 0.91, HARV_CAP = 600, MINE_RATE = 40, UNLOAD_RATE = 300, ORE_REGROW = 0.8, ORE_MULT = 11; // per second

@@ -181,7 +181,7 @@ const CAT_SRC = { inf: ['barracks'], veh: ['factory'], air: ['airpad', 'airfield
 function producers(team, cat) { const src = CAT_SRC[cat]; if (!src) return 1; let n = 0; for (const e of G.ents) if (e.kind === 'b' && e.team === team && src.includes(e.t) && e.sell < 0 && G.time - e.born > 1.5) n++; return n; }
 function queueCap(team, cat) { return cat === 'bld' ? 1 : cat === 'def' ? 5 : 6 * Math.max(1, producers(team, cat)); }
 function stepProduction(P) {
-  const slow = P.pow < 0 ? 0.5 : 1, ai = P.ai ? DIFF[P.diff].build : 1;
+  const slow = P.pow < 0 ? 0.5 : 1, ai = 1; /* v4.3: no AI production bonus */
   for (const cat in P.queues) {
     const q = P.queues[cat]; if (!q.length) continue;
     if ((cat === 'bld' || cat === 'def') && P.ready[cat]) continue;
@@ -366,7 +366,7 @@ function stepBuilding(b) {
   if (b.repair && b.hp < b.mhp) { const dh = b.mhp * 0.04 * DT, c = d.cost * 0.4 * dh / b.mhp; if (P.cr >= c) { P.cr -= c; b.hp = Math.min(b.mhp, b.hp + dh); } }
   if (b.repair && b.hp >= b.mhp) b.repair = false;
   if (b.upT != null && G.time - b.upT >= b.upDur) { b.upT = null; if (b.upKind === 'def') { P.defUp = true; G.ents.forEach(e => { if (e.team === b.team && UPG[e.t]) { e.mhp = Math.round(BT[e.t].hp * DEF_RESEARCH.hp); e.hp = Math.min(e.mhp, e.hp * DEF_RESEARCH.hp); } }); } else b.lvl = (b.lvl || 1) + 1; G.events.push({ e: 'upgraded', b, team: b.team }); }
-  if (b.t === 'extractor' && G.time - b.born > 1.5 && b.sell < 0) { const m = P.ai ? DIFF[P.diff].income : 1; P.gas += GAS_RATE * DT * m * (P.pow < 0 ? 0.5 : 1); b.gasT = (b.gasT || 0) + DT; }
+  if (b.t === 'extractor' && G.time - b.born > 1.5 && b.sell < 0) { const m = 1; P.gas += GAS_RATE * DT * m * (P.pow < 0 ? 0.5 : 1); b.gasT = (b.gasT || 0) + DT; }
   if (!d.wpn || G.time - b.born < 1.5) return;
   if (P.pow < 0 && d.pow < 0) { b.offline = true; return; } // offline (low power)
   b.offline = false;
@@ -647,7 +647,7 @@ function harvest(h) {
     }
     case 'unload': {
       const a = Math.min(h.load, UNLOAD_RATE * DT), vr = h.load > 0 ? (h.loadV || h.load) / h.load : 1; h.loadV = Math.max(0, (h.loadV || 0) - a * vr); h.load -= a;
-      const mult = (P.ai ? DIFF[P.diff].income : 1) * ORE_VALUE * vr; P.cr += a * mult; P.stats.mined += a * mult;
+      const mult = ORE_VALUE * vr; /* v4.3: equal economy for everyone */ P.cr += a * mult; P.stats.mined += a * mult;
       if (h.load <= 0) { h.load = 0; h.hst = 'idle'; const r = byId(h.dockR); if (r && r.dockBy === h.id) r.dockBy = null; h.dockR = null; h.path = []; setPath(h, h.x, h.y + 1.5); }
       break;
     }
