@@ -31,10 +31,11 @@ const W = {
   aam:    { dmg: 95, rng: 6.5, cd: 1.4, type: 'aam', spd: 22, ground: 0, air: 1, snd: 'rocket', ammo: 4 },
   sbomb:  { dmg: 300, rng: 1.6, cd: 0.6, type: 'bomb', spd: 8, ground: 1, air: 0, splash: 1.3, snd: 'arty', ammo: 2 },
   tsarc:  { dmg: 120, rng: 6.5, cd: 2.2, type: 'cannon', spd: 24, ground: 1, air: 0, snd: 'cannon', twin: 1 },
-  gcan:   { dmg: 280, rng: 15, minRng: 3, cd: 4.5, type: 'shell', spd: 12, ground: 1, air: 0, splash: 1.6, arc: 1, snd: 'arty' },
+  gcan:   { dmg: 520, rng: 15, minRng: 3, cd: 3.0, type: 'shell', spd: 14, ground: 1, air: 0, splash: 2.4, arc: 1, snd: 'gcan', big: 1 },
+  flakB:  { dmg: 60, rng: 8, cd: 0.4, type: 'flak', spd: 34, ground: 0, air: 1, splash: 1.0, snd: 'flak' },
   kmg:    { dmg: 30, rng: 6, cd: 0.45, type: 'cmdo', spd: 45, ground: 1, air: 1, snd: 'rifle' },
   titan:  { dmg: 85, rng: 7, cd: 1.7, type: 'rocket', spd: 14, ground: 1, air: 1, snd: 'rocket', twin: 1 },
-  tcannon:{ dmg: 55, rng: 6.5, cd: 1.5, type: 'cannon', spd: 25, ground: 1, air: 0, snd: 'cannon' },
+  tcannon:{ dmg: 85, rng: 6.5, cd: 1.3, type: 'cannon', spd: 25, ground: 1, air: 0, snd: 'cannon' },
 };
 // Buildings. cat: bld (structures) | def (defenses). req: buildings needed.
 const BT = {
@@ -46,12 +47,12 @@ const BT = {
   airpad:  { n: 'Helipad', w: 2, h: 2, hp: 800, cost: 1000, pow: -40, time: 8, cat: 'bld', req: ['factory', 'tech'] },
   tech:    { n: 'Research Lab', w: 2, h: 2, hp: 1000, cost: 1800, pow: -100, time: 12, cat: 'bld', req: ['factory'] },
   turret:  { n: 'Guard Turret', w: 1, h: 1, hp: 700, cost: 600, pow: -20, time: 5, cat: 'def', req: ['barracks'], wpn: 'tcannon', sight: 7 },
-  aagun:   { n: 'Flak Battery', w: 1, h: 1, hp: 500, cost: 700, pow: -25, time: 5, cat: 'def', req: ['barracks'], wpn: 'flak', sight: 8 },
+  aagun:   { n: 'Flak Battery', w: 1, h: 1, hp: 500, cost: 700, pow: -25, time: 5, cat: 'def', req: ['barracks'], wpn: 'flakB', sight: 8 },
   airfield:{ n: 'Airfield', w: 3, h: 3, hp: 1200, cost: 1500, pow: -50, time: 12, cat: 'bld', req: ['factory', 'tech'] },
   cc:      { n: 'Command Center', w: 3, h: 3, hp: 2200, cost: 2200, pow: 10, time: 25, cat: 'bld', req: ['refinery'] },
   extractor:{ n: 'Gas Extractor', w: 2, h: 2, hp: 900, cost: 800, pow: -20, time: 8, cat: 'bld', req: ['refinery'] },
   gcannon: { n: 'Grand Cannon', w: 2, h: 2, hp: 2200, cost: 2500, gas: 300, pow: -80, time: 20, cat: 'def', req: ['tech'], wpn: 'gcan', sight: 15, fac: 'fra' },
-  wall:    { n: 'Wall', w: 1, h: 1, hp: 400, cost: 50, pow: 0, time: 1, cat: 'def', req: ['barracks'] },
+  wall:    { n: 'Wall', w: 1, h: 1, hp: 600, cost: 50, pow: 0, time: 1, cat: 'def', req: ['barracks'] },
 };
 // Units. armor: inf|light|heavy|air. sp tiles/sec. r radius.
 const UT = {

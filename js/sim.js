@@ -163,9 +163,9 @@ function enqueue(team, t) {
   const P = G.players[team], cat = catOf(t);
   if (!avail(team, t)) return false;
   const q = P.queues[cat];
-  if (q.length >= (cat === 'bld' || cat === 'def' ? 1 : 6)) return false;
+  if (q.length >= queueCap(team, cat)) return false;
   if (UT[t] && t !== 'harv' && popOf(team) >= POP_CAP) { G.events.push({ e: 'popcap', team }); return false; }
-  if ((cat === 'bld' || cat === 'def') && P.ready[cat]) return false;
+  if (cat === 'bld' && P.ready[cat]) return false;
   const gas = (BT[t] || UT[t]).gas || 0; if (P.gas < gas) return false; P.gas -= gas;
   q.push({ t, prog: 0, paid: 0, gas });
   return true;
@@ -176,24 +176,42 @@ function cancel(team, t) {
   for (let i = q.length - 1; i >= 0; i--) if (q[i].t === t) { P.cr += q[i].paid; P.gas += q[i].gas || 0; q.splice(i, 1); return true; }
   return false;
 }
+// producers per queue category; unit queues hold 6 per producer and build in parallel (one item per producer)
+const CAT_SRC = { inf: ['barracks'], veh: ['factory'], air: ['airpad', 'airfield'] };
+function producers(team, cat) { const src = CAT_SRC[cat]; if (!src) return 1; let n = 0; for (const e of G.ents) if (e.kind === 'b' && e.team === team && src.includes(e.t) && e.sell < 0 && G.time - e.born > 1.5) n++; return n; }
+function queueCap(team, cat) { return cat === 'bld' ? 1 : cat === 'def' ? 5 : 6 * Math.max(1, producers(team, cat)); }
 function stepProduction(P) {
   const slow = P.pow < 0 ? 0.5 : 1, ai = P.ai ? DIFF[P.diff].build : 1;
   for (const cat in P.queues) {
     const q = P.queues[cat]; if (!q.length) continue;
     if ((cat === 'bld' || cat === 'def') && P.ready[cat]) continue;
-    const it = q[0], d = BT[it.t] || UT[it.t];
-    const src = BT[it.t] ? 'hq' : d.from;
-    let prod = G.ents.filter(e => e.kind === 'b' && e.team === P.team && (e.t === src || src === 'hq' && e.t === 'cc') && e.sell < 0 && G.time - e.born > 1.5);
-    if (!prod.length && d.alt) prod = G.ents.filter(e => e.kind === 'b' && e.team === P.team && d.alt.includes(e.t) && e.sell < 0 && G.time - e.born > 1.5);
-    if (!prod.length || !reqOk(P.team, d)) continue;
-    const dp = Math.min(1 - it.prog, DT * (1 + 0.5 * (prod.length - 1)) * slow * ai / d.time), c = d.cost * dp;
-    if (P.cr >= c) { P.cr -= c; it.prog += dp; it.paid += c; }
-    if (it.prog >= 0.9999) {
-      q.shift();
-      if (BT[it.t]) { P.ready[cat] = it.t; G.events.push({ e: 'ready', team: P.team, t: it.t }); }
-      else spawnUnit(P.team, it.t, prod[(G.tick >> 3) % prod.length]);
+    const used = new Map(), done = [];
+    const lanes = cat === 'bld' || cat === 'def' ? 1 : q.length;
+    for (let k = 0; k < lanes && k < q.length; k++) {
+      const it = q[k], d = BT[it.t] || UT[it.t];
+      const src = BT[it.t] ? 'hq' : d.from;
+      let prod = G.ents.filter(e => e.kind === 'b' && e.team === P.team && (e.t === src || src === 'hq' && e.t === 'cc') && e.sell < 0 && G.time - e.born > 1.5);
+      if (!prod.length && d.alt) prod = G.ents.filter(e => e.kind === 'b' && e.team === P.team && d.alt.includes(e.t) && e.sell < 0 && G.time - e.born > 1.5);
+      if (!prod.length || !reqOk(P.team, d)) continue;
+      const key = prod[0].t, u = used.get(key) || 0; if (UT[it.t] && u >= prod.length) continue; used.set(key, u + 1);
+      const bonus = BT[it.t] ? 1 + 0.5 * (prod.length - 1) : 1;
+      const dp = Math.min(1 - it.prog, DT * bonus * slow * ai / d.time), c = d.cost * dp;
+      if (P.cr >= c) { P.cr -= c; it.prog += dp; it.paid += c; }
+      if (it.prog >= 0.9999) { done.push(k);
+        if (BT[it.t]) { P.ready[cat] = it.t; G.events.push({ e: 'ready', team: P.team, t: it.t }); }
+        else spawnUnit(P.team, it.t, prod[u % prod.length]); }
     }
+    for (let i = done.length - 1; i >= 0; i--) q.splice(done[i], 1);
   }
+}
+// wall chain: build segments on tiles (each pays cost, must be placeable)
+function wallLine(x0, y0, x1, y1) { const dx = Math.sign(x1 - x0), dy = Math.sign(y1 - y0), ax = Math.abs(x1 - x0), ay = Math.abs(y1 - y0);
+  let n, sx, sy; if (ax > 2 * ay) { n = ax; sx = dx; sy = 0; } else if (ay > 2 * ax) { n = ay; sx = 0; sy = dy; } else { n = Math.max(ax, ay); sx = dx; sy = dy; }
+  const out = []; for (let k = 0; k <= Math.min(n, 24); k++) out.push([x0 + sx * k, y0 + sy * k]); return out; }
+function buildWalls(team, tiles) {
+  const P = G.players[team]; if (!avail(team, 'wall')) return 0; let n = 0;
+  for (const [x, y] of (tiles || []).slice(0, 25)) { if (P.cr < BT.wall.cost || !canPlace('wall', team, x, y)) continue; P.cr -= BT.wall.cost; addB('wall', team, x, y); n++; }
+  if (n) { G.bver = (G.bver || 0) + 1; G.events.push({ e: 'walls', team, n }); } return n;
 }
 function spawnUnit(team, t, b) {
   let x = b.x, y = b.ty + b.h + 0.5;
@@ -350,7 +368,8 @@ function stepBuilding(b) {
   if (b.upT != null && G.time - b.upT >= b.upDur) { b.upT = null; if (b.upKind === 'def') { P.defUp = true; G.ents.forEach(e => { if (e.team === b.team && UPG[e.t]) { e.mhp = Math.round(BT[e.t].hp * DEF_RESEARCH.hp); e.hp = Math.min(e.mhp, e.hp * DEF_RESEARCH.hp); } }); } else b.lvl = (b.lvl || 1) + 1; G.events.push({ e: 'upgraded', b, team: b.team }); }
   if (b.t === 'extractor' && G.time - b.born > 1.5 && b.sell < 0) { const m = P.ai ? DIFF[P.diff].income : 1; P.gas += GAS_RATE * DT * m * (P.pow < 0 ? 0.5 : 1); b.gasT = (b.gasT || 0) + DT; }
   if (!d.wpn || G.time - b.born < 1.5) return;
-  if (P.pow < 0 && d.pow < 0) return; // offline
+  if (P.pow < 0 && d.pow < 0) { b.offline = true; return; } // offline (low power)
+  b.offline = false;
   const w = defW(b); combat(b, w, d.sight + (w.rng - W[d.wpn].rng), false);
 }
 function tscore(e, w, o, d) {
@@ -460,7 +479,7 @@ function impact(p) {
     for (const o of G.ents) { if (!foe(o.team, p.team)) continue; if (isAir(o) !== (p.tz > 1.5)) continue;
       const d = distTo(p, o); if (d < w.splash) damage(o, w.dmg * (1 - 0.6 * d / w.splash), w, p.team, p.src); }
   } else if (p.tgt && p.tgt.hp > 0 && distTo(p, p.tgt) < 1.2) damage(p.tgt, w.dmg, w, p.team, p.src);
-  G.events.push({ e: 'hit', x: p.x, y: p.y, z: p.z, kind: w.type });
+  G.events.push({ e: 'hit', x: p.x, y: p.y, z: p.z, kind: w.big ? 'mega' : w.type });
 }
 function turnTo(a, b, rate) { const d = angDiff(a, b); return Math.abs(d) <= rate ? b : a + Math.sign(d) * rate; }
 function angDiff(a, b) { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; }

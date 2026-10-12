@@ -103,7 +103,7 @@ function handleEvents() {
     switch (ev.e) {
       case 'fire': {
         const s = ev.src; if (!visibleTo0(s) || !inView(s.x, s.y)) { sfx(ev.w.snd, s.x, s.y); break; }
-        const p = barrelTip(s), w = ev.w.type, big = w === 'cannon' || w === 'shell';
+        const p = barrelTip(s), w = ev.w.type, big = w === 'cannon' || w === 'shell'; if (ev.w.big) { flash(p.x, p.y, p.z, 2.0, 1, 0.8, 0.5); for (let i = 0; i < 10 * FX.mul; i++) puff(p.x + rnd(0.5), p.y + rnd(0.5), p.z, 0.5, 2.0, 0.6, 0.55, 0.5); shake(0.15); }
         flash(p.x, p.y, p.z, big ? 0.9 : w === 'bullet' ? 0.35 : 0.55, 1, 0.8, 0.45);
         { const r0 = R3.rs.get(s.id); if (r0 && s.kind === 'u' && (UT[s.t].armor === 'inf' || UT[s.t].mech)) r0.kick = 1; }
         if (big) { for (let i = 0; i < 4 * FX.mul; i++) puff(p.x + Math.cos(s.tang) * 0.2, p.y + Math.sin(s.tang) * 0.2, p.z, 0.25, 1.1, 0.55, 0.45, 0.3); const rs = R3.rs.get(s.id); if (rs) rs.recoil = 0.09; }
@@ -117,6 +117,7 @@ function handleEvents() {
         else if (ev.kind === 'snipe') { sparks(ev.x, ev.y, z + 0.2, 3, 2.5); flash(ev.x, ev.y, z + 0.25, 0.3, 1, 0.9, 0.7); }
         else if (ev.kind === 'fire') { for (let i = 0; i < 6 * FX.mul; i++) FX.fire.spawn(ev.x + rnd(0.8), ev.y + rnd(0.8), z + 0.15, rnd(0.5), rnd(0.5), 0.8, 0.5, 0.2, 0.6, 1, 0.45, 0.1, 0.9, -1); if (Math.random() < 0.3) puff(ev.x, ev.y, z + 0.4, 0.25, 1.4, 0.12, 0.5, 0.8); }
         else if (ev.kind === 'aam') { explosion3(ev.x, ev.y, z, 0.45); sfx('boom', ev.x, ev.y); }
+        else if (ev.kind === 'mega') { explosion3(ev.x, ev.y, z, 2.4); explosion3(ev.x + 0.6, ev.y - 0.4, z, 1.2); for (let i = 0; i < 8 * FX.mul; i++) puff(ev.x + rnd(1.6), ev.y + rnd(1.6), z + 0.3, 0.6, 2.4, 0.2, 0.18, 0.16); flash(ev.x, ev.y, z + 0.6, 2.2, 1, 0.75, 0.4); sfx('boomBig', ev.x, ev.y); shake(0.35); }
         else if (ev.kind === 'bomb') { explosion3(ev.x, ev.y, z, 1.4); sfx('boomBig', ev.x, ev.y); shake(0.12); }
         else if (ev.kind === 'flak') { flash(ev.x, ev.y, z, 0.7, 1, 0.75, 0.4); puff(ev.x, ev.y, z, 0.35, 1.2, 0.18, 0.7, 0.1); sparks(ev.x, ev.y, z, 3, 3); }
         else { explosion3(ev.x, ev.y, z, ev.kind === 'shell' ? 1.1 : 0.55); sfx(ev.kind === 'shell' ? 'boomBig' : 'boom', ev.x, ev.y); }
@@ -136,7 +137,9 @@ function handleEvents() {
       case 'place': for (let i = 0; i < 16 * FX.mul; i++) { const a = i / 16 * Math.PI * 2; FX.smoke.spawn(ev.b.x + Math.cos(a) * ev.b.w * 0.5, ev.b.y + Math.sin(a) * ev.b.h * 0.5, 0.2, Math.cos(a) * 1.2, Math.sin(a) * 1.2, 0.3, 1.6, 0.4, 1.4, 0.55, 0.5, 0.42, 0.55, 0); }
         if (ev.b.team === ME) sfx('place'); break;
       case 'heal': if (visibleTo0(ev.src) && inView(ev.x, ev.y)) for (let i = 0; i < 3; i++) FX.spark.spawn(ev.x + rnd(0.3), ev.y + rnd(0.3), heightAt(ev.x, ev.y) + 0.3, 0, 0, 0.8, 0.6, 0.09, 0.03, 0.3, 1, 0.45, 1, 0); break;
-      case 'ready': if (ev.team === ME) { sfx('ready'); uiMsg(BT[ev.t].n + ' ready to place'); } break;
+      case 'walls': if (ev.team === ME) sfx('place'); break;
+      case 'ready': if (ev.team === ME && BT[ev.t].cat === 'def' && !UI.placing && !UI.mode) UI.placing = ev.t;
+        if (ev.team === ME) { sfx('ready'); uiMsg(BT[ev.t].n + ' ready to place'); } break;
       case 'unit': if (ev.team === ME) { sfx('unit'); if (ev.u && FACTIONS[G.players[ME].fac].sp === ev.u.t) announce(UT[ev.u.t].n + ' ready for battle', 'spu', 5); } break;
       case 'upgraded': if (ev.team === ME) { sfx('ready'); uiMsg(ev.b.upKind === 'def' ? 'Research complete: ' + DEF_RESEARCH.n : BT[ev.b.t].n + ' upgraded to level ' + ev.b.lvl); } flash(ev.b.x, ev.b.y, 1, 1.5, 0.6, 0.9, 1); break;
       case 'capture': if (ev.team === ME || ev.b.team === ME) { sfx('ready'); uiMsg('Structure captured!'); } disposeObj(ev.b.id); break;
@@ -153,6 +156,7 @@ function shake(a) { R3.shake = Math.max(R3.shake || 0, a); }
 function inView(x, y) { const v = R3.view; return x > v.x0 && x < v.x1 && y > v.y0 && y < v.y1; }
 // ---------- per-frame ----------
 function r3Render(dt) {
+  wallsUpdate(); offlineIcons(dt); lowPowerAlert();
   R3.time += dt; R3.uTime.value = R3.time; R3.renderer.info.reset();
   updCamera(dt); updView(); if (!R3.anisoDone && R3.time > 0.5) { R3.anisoDone = true; applyAniso(); }
   handleEvents();
@@ -359,4 +363,49 @@ function poseRig(U, i, base, rs, L, seed, fall) {
     R.B.copy(R.P).multiply(R.A.makeTranslation(0, 0, z)).multiply(rz(R.A, th)); U.parts['th' + side].setMatrixAt(i, R.B);
     R.C.copy(R.B).multiply(R.A.makeTranslation(0, -L.tl, 0)).multiply(rz(R.A, -kn)); U.parts['sh' + side].setMatrixAt(i, R.C);
   }
+}
+
+// ===== v4.2: connected wall chains, wall drag preview, offline-defense icons, low-power alert =====
+function wallsUpdate() {
+  if (R3.wallVer === G.bver && R3.wallSeen === (G.tick >> 4)) return; R3.wallVer = G.bver; R3.wallSeen = G.tick >> 4;
+  if (!R3.wallSeg) {
+    const mk = (geo, mat, n) => { const m = new THREE.InstancedMesh(geo, mat, n); m.castShadow = m.receiveShadow = true; m.frustumCulled = false; m.count = 0; R3.scene.add(m); return m; };
+    const B = new MB(0); B.box('s', 1, 0.52, 0.34, COL.CONC, PBR.CONC, 0.5, 0.26, 0, { bevel: 0.04 }); for (const z of [-0.17, 0.17]) B.box('s', 1, 0.05, 0.03, 0x55595e, PBR.METAL, 0.5, 0.42, z, { bevel: 0 });
+    R3.wallSeg = mk(B.build().s, pbrMaterial(), 1200);
+    const C = new MB(0); C.box('c', 1, 0.06, 0.36, 0xffffff, PBR.PAINT, 0.5, 0.55, 0, { bevel: 0.01 });
+    const cm = pbrMaterial().clone(); cm.onBeforeCompile = pbrMaterial().onBeforeCompile; cm.customProgramCacheKey = () => 'pbrv2ic';
+    R3.wallCap = mk(C.build().c, cm, 1200); R3.wallCap.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(3600).fill(1), 3);
+  }
+  const at = new Map(); for (const e of G.ents) if (e.t === 'wall' && e.hp > 0 && (e.team === ME || seen0(idx(e.tx, e.ty)))) at.set(e.ty * MW + e.tx, e);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), col = new THREE.Color(); let n = 0;
+  for (const [k, e] of at) for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [-1, 1]]) {
+    const o = at.get((e.ty + dy) * MW + e.tx + dx); if (!o || o.team !== e.team || n >= 1200) continue;
+    if (dx && dy && at.has(e.ty * MW + e.tx + dx) && at.has((e.ty + dy) * MW + e.tx)) continue; // corner already closed orthogonally
+    const len = Math.hypot(dx, dy), a = Math.atan2(dy, dx), h = heightAt(e.x, e.y);
+    q.setFromAxisAngle(up, -a); m4.compose(new THREE.Vector3(e.x, h, e.y), q, new THREE.Vector3(len, 1, 1));
+    R3.wallSeg.setMatrixAt(n, m4); R3.wallCap.setMatrixAt(n, m4); col.setHex(TEAMPAINT[e.team]); R3.wallCap.setColorAt(n, col); n++;
+  }
+  R3.wallSeg.count = R3.wallCap.count = n; R3.wallSeg.instanceMatrix.needsUpdate = R3.wallCap.instanceMatrix.needsUpdate = true; R3.wallCap.instanceColor.needsUpdate = true;
+}
+function wallPreview(tiles) {
+  if (!R3.wallPrev) { R3.wallPrev = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.6, 0.9).translate(0, 0.3, 0), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.5, depthWrite: false, fog: false }), 30); R3.wallPrev.frustumCulled = false; R3.wallPrev.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(90), 3); R3.scene.add(R3.wallPrev); }
+  const W = R3.wallPrev; if (!tiles) { W.count = 0; return; }
+  const m4 = new THREE.Matrix4(), c = new THREE.Color(); let cr = G.players[ME].cr; W.count = Math.min(30, tiles.length);
+  tiles.slice(0, 30).forEach(([x, y], i) => { const ok = canPlace('wall', ME, x, y) && (cr -= BT.wall.cost) >= 0; m4.makeTranslation(x + 0.5, heightAt(x + 0.5, y + 0.5), y + 0.5); W.setMatrixAt(i, m4); W.setColorAt(i, c.setHex(ok ? 0x55ff88 : 0xff4433)); });
+  W.instanceMatrix.needsUpdate = true; W.instanceColor.needsUpdate = true;
+}
+function offlineIcons(dt) {
+  if (!R3.offTex) { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = 'rgba(20,10,0,.75)'; x.beginPath(); x.arc(32, 32, 30, 0, 7); x.fill(); x.strokeStyle = '#ff4d3d'; x.lineWidth = 4; x.stroke(); x.font = 'bold 40px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#ffd23d'; x.fillText('⚡', 32, 34); R3.offTex = new THREE.CanvasTexture(c); R3.offIcons = []; }
+  R3.offBlink = (R3.offBlink || 0) + dt; let k = 0;
+  for (const e of G.ents) if (e.kind === 'b' && e.offline && e.hp > 0 && (e.team === ME || visibleTo0(e))) {
+    let s = R3.offIcons[k]; if (!s) { s = new THREE.Sprite(new THREE.SpriteMaterial({ map: R3.offTex, depthTest: false, transparent: true, fog: false })); s.renderOrder = 9; s.scale.set(0.8, 0.8, 1); R3.scene.add(s); R3.offIcons.push(s); }
+    s.visible = (R3.offBlink % 1) < 0.7; s.position.set(e.x, heightAt(e.x, e.y) + (e.w > 1 ? 2.6 : 1.8), e.y); k++;
+  }
+  for (; k < R3.offIcons.length; k++) R3.offIcons[k].visible = false;
+}
+function lowPowerAlert() {
+  const P = G.players[ME]; if (!P || G.spectate) return; const low = P.pow < 0;
+  if (low && !R3.wasLow && G.ents.some(e => e.team === ME && e.kind === 'b' && BT[e.t].wpn && BT[e.t].pow < 0)) { announce('Low power — defenses offline', 'lowpow', 20); uiMsg('⚡ Low power: defenses are OFFLINE and production is slowed. Build a Power Plant (T).'); sfx('alert'); }
+  if (!low && R3.wasLow) uiMsg('Power restored — defenses online');
+  R3.wasLow = low;
 }

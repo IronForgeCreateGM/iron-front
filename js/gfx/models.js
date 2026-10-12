@@ -413,7 +413,7 @@ const BLD_MODELS = {
     B.cyl('head', 0.16, 2.0, COL.STEEL, PBR.METAL, 1.3, 0.55, 0, { rz: -Math.PI / 2, seg: 14 }); B.cyl('head', 0.22, 0.3, COL.DARK, PBR.DARKM, 2.2, 0.55, 0, { rz: -Math.PI / 2, seg: 14 });
     B.cyl('head', 0.2, 0.5, COL.STEEL, PBR.METAL, 0.6, 0.55, 0, { rz: -Math.PI / 2, seg: 14 }); B.glow('head', 0.05, 0.08, 0.6, 'TL', -0.4, 0.6, 0);
   },
-  wall(B) { B.box('body', 0.98, 0.62, 0.98, COL.CONC, PBR.CONC, 0, 0.31, 0, { bevel: 0.08 }); B.box('body', 1.0, 0.06, 1.0, 'TD', PBR.PAINT, 0, 0.6, 0, { bevel: 0.02 }); },
+  wall(B) { B.box('body', 0.42, 0.72, 0.42, COL.CONC, PBR.CONC, 0, 0.36, 0, { bevel: 0.05 }); B.box('body', 0.48, 0.08, 0.48, 'TD', PBR.PAINT, 0, 0.74, 0, { bevel: 0.02 }); B.box('body', 0.5, 0.1, 0.5, 0x55595e, PBR.METAL, 0, 0.05, 0, { bevel: 0.02 }); },
 };
 const MODEL_CACHE = {};
 function getModel(kind, t, team) {

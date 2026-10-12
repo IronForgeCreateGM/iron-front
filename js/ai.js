@@ -249,6 +249,11 @@ function aiSite(P, hq) {
   return best;
 }
 function aiGrowth(P, S, D, cnt, hq, foes) {
+  // modest wall chain: one 5-segment line toward the enemy start (Medium/Hard/Chief), once rich
+  if (P.diff !== 'easy' && !S.walled && G.time > 420 && P.cr > 2500 && G.starts) { S.walled = true;
+    const es = G.players.filter(Q => foe(Q.team, P.team)).map(Q => G.starts[Q.start])[0];
+    if (es) { const a = datan2(es[1] - hq.y, es[0] - hq.x), cx = Math.floor(hq.x + dcos(a) * 8), cy = Math.floor(hq.y + dsin(a) * 8), px = Math.round(-dsin(a) * 2), py = Math.round(dcos(a) * 2);
+      buildWalls(P.team, wallLine(cx - px, cy - py, cx + px, cy + py).filter(([x, y]) => canPlace('wall', P.team, x, y))); } }
   const ok = t => avail(P.team, t) && (S.bad[t] || 0) < G.time && !!aiSpot(P, t, hq, foes);
   const nCC = cnt.cc || 0;
   // expansion: timing scaled by difficulty; more when bases run dry

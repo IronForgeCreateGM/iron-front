@@ -16,6 +16,7 @@ const CMD = {
   sell(T, c) { const b = byId(c.b); if (b && b.team === T) sellB(b); },
   repair(T, c) { const b = byId(c.b); if (b && b.team === T) b.repair = !!c.on; },
   rally(T, c) { for (const b of own(T, c.b)) b.rally = { x: c.x, y: c.y }; },
+  walls(T, c) { return buildWalls(T, c.t); },
   upg(T, c) { const b = byId(c.b); return !!(b && b.team === T && upgradeB(b)); },
   ping(T, c) { (G.pings = G.pings || []).push({ team: T, x: c.x, y: c.y, t: G.time, kind: c.k }); G.events.push({ e: 'ping', team: T, x: c.x, y: c.y, k: c.k }); },
   drop(T, c) { const P = G.players[c.p]; if (!P || P.ai) return; P.ai = true; P.diff = c.diff || 'normal'; P.name += ' (AI)'; aiInit(P); G.events.push({ e: 'dropped', team: c.p }); },

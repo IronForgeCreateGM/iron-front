@@ -95,10 +95,11 @@ function showTip(t, el) {
 function clickItem(t, right, shift) {
   const P = G.players[ME], cat = catOf(t);
   if (right) { const n = NET.online ? (P.queues[cat].some(q => q.t === t) || P.ready[cat] === t ? 1 : 0) : 0; const r = NET.issue({ c: 'cancel', t, n: shift ? 5 : 1 }); if (NET.online ? n : r) { sfx('click'); if (UI.placing === t) UI.placing = null; } return; }
+  if (t === 'wall') { if (!avail(ME, t)) { sfx('error'); uiMsg('Walls require a Barracks'); return; } UI.mode = 'wall'; UI.placing = null; UI.wallA = null; sfx('click'); uiMsg('Wall: click-drag to lay a chain ($' + BT.wall.cost + '/segment, straight or diagonal). Shift keeps the tool. Right-click/Esc to stop.'); return; }
   if (BT[t] && P.ready[cat] === t) { UI.placing = t; UI.mode = null; sfx('click'); return; }
   if (!avail(ME, t)) { sfx('error'); const d = BT[t] || UT[t]; uiMsg('Requires: ' + [...(d.req || []), ...(UT[t] ? [UT[t].from] : [])].filter(r => r !== '__never' && !hasBuilt(ME, r)).map(r => BT[r].n).join(', ')); return; }
   const cnt = shift && UT[t] ? 5 : 1; let n; if (NET.online) { n = canEnqueue(ME, t) ? 1 : 0; if (n) NET.issue({ c: 'enq', t, n: cnt }); } else n = NET.issue({ c: 'enq', t, n: cnt });
-  if (n) sfx('click'); else { sfx('error'); const gq = (BT[t] || UT[t]).gas || 0; uiMsg(gq > P.gas ? `Need ${gq} Plasma Gas (build a Gas Extractor on a vent)` : BT[t] ? 'Already building a structure' : 'Queue full (6)'); }
+  if (n) sfx('click'); else { sfx('error'); const gq = (BT[t] || UT[t]).gas || 0; uiMsg(gq > P.gas ? `Need ${gq} Plasma Gas (build a Gas Extractor on a vent)` : BT[t] ? (BT[t].cat === 'def' ? 'Defense queue full (5)' : 'Already building a structure') : 'Queue full (' + queueCap(ME, cat) + ' — build more production to raise it)'); }
 }
 function pickAt(sx, sy) {
   const w = screenToWorld(sx, sy); if (!w) return null;
@@ -142,6 +143,7 @@ function onDown(e) {
     if (NET.online ? canPlace(UI.placing, ME, tx, ty) && (NET.issue({ c: 'place', cat: BT[UI.placing].cat, x: tx, y: ty }), true) : NET.issue({ c: 'place', cat: BT[UI.placing].cat, x: tx, y: ty })) UI.placing = null; else { sfx('error'); uiMsg("Can't build there"); }
     return;
   }
+  if (UI.mode === 'wall') { if (w) { UI.wallA = [Math.floor(w.x), Math.floor(w.y)]; } return; }
   if (UI.mode === 'sell' || UI.mode === 'repair') {
     const t = pickAt(m.x, m.y);
     if (t && t.kind === 'b' && t.team === ME) { if (UI.mode === 'sell') { NET.issue({ c: 'sell', b: t.id }); sfx('click'); } else { NET.issue({ c: 'repair', b: t.id, on: !t.repair }); sfx('click'); } }
@@ -152,6 +154,7 @@ function onDown(e) {
 }
 function onUp(e) {
   if (e.button === 1) { UI.pan = false; return; }
+  if (e.button === 0 && UI.mode === 'wall' && UI.wallA) { const tl = wallTiles(); UI.wallA = null; const ok = tl.filter(([x, y]) => canPlace('wall', ME, x, y)); if (ok.length) { NET.issue({ c: 'walls', t: ok }); sfx('ack'); } else { sfx('error'); uiMsg("Can't build walls there"); } if (!e.shiftKey) UI.mode = null; return; }
   const m = UI.mouse; if (!m.down || e.button !== 0) return; m.down = false;
   const x0 = Math.min(m.sx, m.x), x1 = Math.max(m.sx, m.x), y0 = Math.min(m.sy, m.y), y1 = Math.max(m.sy, m.y);
   let list;
@@ -231,8 +234,9 @@ function uiFrame(dt) {
   if (!UI.mmDrag && !UI.pan) { R3.cam.tx += dx * sp; R3.cam.ty += dy * sp; }
   UI.sel = UI.sel.filter(s => s.hp > 0 && !s.dead && (s.team === ME || visibleTo0(s)));
   for (const u of G.ents) if (u.team === ME && u.kind === 'u') u.idleT = (u.path.length || u.tgt || (u.t === 'harv' && u.hst !== 'idle' && u.hst !== 'manual')) ? 0 : (u.idleT || 0) + dt;
-  if (UI.placing && m.x >= 0) { const w = screenToWorld(m.x, m.y); if (w) { const d = BT[UI.placing], tx = Math.floor(w.x - d.w / 2 + 0.5), ty = Math.floor(w.y - d.h / 2 + 0.5); ghost(UI.placing, tx, ty, canPlace(UI.placing, 0, tx, ty)); } }
+  if (UI.placing && m.x >= 0) { const w = screenToWorld(m.x, m.y); if (w) { const d = BT[UI.placing], tx = Math.floor(w.x - d.w / 2 + 0.5), ty = Math.floor(w.y - d.h / 2 + 0.5); ghost(UI.placing, tx, ty, canPlace(UI.placing, ME, tx, ty)); } }
   else ghost(null);
+  wallPreview(UI.mode === 'wall' ? (UI.wallA ? wallTiles() : (() => { const w = m.x >= 0 && screenToWorld(m.x, m.y); return w ? [[Math.floor(w.x), Math.floor(w.y)]] : null; })()) : null);
   if (UI.placing && P.ready[BT[UI.placing].cat] !== UI.placing) UI.placing = null;
   if (UI.msgT > 0) { UI.msgT -= dt; if (UI.msgT <= 0) $('msg').style.opacity = 0; }
   el.style.cursor = UI.pan ? 'grabbing' : UI.placing ? 'cell' : UI.mode === 'sell' ? 'not-allowed' : UI.mode === 'repair' ? 'help' : UI.mode === 'amove' ? 'crosshair' : (R3.hoverId && byId(R3.hoverId) && byId(R3.hoverId).team !== ME && UI.sel.some(s => s.kind === 'u' && s.team === ME)) ? 'crosshair' : 'default';
@@ -339,5 +343,7 @@ function overlay() {
 
 // ===== command helpers (lockstep-safe predictions; never mutate sim state) =====
 function ids(a) { return a.map(e => e.id); }
-function canEnqueue(team, t) { const P = G.players[team], cat = catOf(t), d = BT[t] || UT[t]; if (!avail(team, t)) return false; if (P.queues[cat].length >= (cat === 'bld' || cat === 'def' ? 1 : 6)) return false; if ((d.gas || 0) > P.gas) return false; if (UT[t] && t !== 'harv' && popOf(team) >= POP_CAP) return false; return !(cat === 'bld' || cat === 'def') || !P.ready[cat]; }
+function canEnqueue(team, t) { const P = G.players[team], cat = catOf(t), d = BT[t] || UT[t]; if (!avail(team, t)) return false; if (P.queues[cat].length >= queueCap(team, cat)) return false; if ((d.gas || 0) > P.gas) return false; if (UT[t] && t !== 'harv' && popOf(team) >= POP_CAP) return false; return cat !== 'bld' || !P.ready[cat]; }
 function canUpgrade(b) { const P = G.players[b.team], inf = upgradeInfo(b); return !!inf && b.upT == null && P.cr >= inf.cost && P.gas >= (inf.gas || 0); }
+
+function wallTiles() { const w = screenToWorld(UI.mouse.x, UI.mouse.y), a = UI.wallA; if (!a) return []; const b = w ? [Math.floor(w.x), Math.floor(w.y)] : a; return wallLine(a[0], a[1], b[0], b[1]); }
