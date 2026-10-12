@@ -240,6 +240,16 @@ const UNIT_MODELS = {
     B.glow('body', 0.12, 0.015, 0.08, 'TA', -0.4, 0.05, 0.9); B.glow('body', 0.12, 0.015, 0.08, 'TA', -0.4, 0.05, -0.9);
     B.piv.tip = 0.2;
   },
+  hauler(B) {
+    // tandem-rotor heavy transport: long fuselage, rear ramp, two rotor towers
+    B.box('body', 1.5, 0.42, 0.46, 'T', PBR.PAINT, 0, 0, 0, { bevel: 0.12 }); B.box('body', 0.4, 0.3, 0.42, COL.DARK, PBR.DARKM, -0.85, 0.02, 0, { bevel: 0.08 });
+    B.box('body', 0.3, 0.2, 0.4, COL.GLASS, PBR.GLASS, 0.72, 0.08, 0, { bevel: 0.08 }); B.box('body', 0.22, 0.3, 0.3, 'TD', PBR.PAINT, -0.62, 0.3, 0, { bevel: 0.05 });
+    B.box('body', 0.2, 0.18, 0.26, 'TD', PBR.PAINT, 0.55, 0.26, 0, { bevel: 0.05 }); for (const z of [-0.26, 0.26]) { B.box('body', 0.9, 0.12, 0.08, COL.STEEL, PBR.METAL, -0.05, -0.18, z, { bevel: 0.02 }); B.glow('body', 0.03, 0.03, 0.03, z > 0 ? COL.GRN : COL.RED, 0.1, 0.12, z * 1.05); }
+    for (const x of [-0.5, 0.5]) for (const z of [-0.2, 0.2]) B.cyl('body', 0.04, 0.12, COL.DARK, PBR.DARKM, x, -0.28, z);
+    B.cyl('body', 0.75, 0.01, COL.GUN, PBR.DARKM, -0.62, 0.47, 0, { seg: 20 }); // rear rotor disc (motion blur)
+    B.cyl('rotor', 0.05, 0.05, COL.DARK, PBR.DARKM, 0, 0, 0); B.box('rotor', 1.5, 0.015, 0.08, COL.GUN, PBR.DARKM, 0, 0.02, 0, { bevel: 0 }); B.box('rotor', 0.08, 0.015, 1.5, COL.GUN, PBR.DARKM, 0, 0.02, 0, { bevel: 0 });
+    B.piv.rotor = [0.55, 0.38, 0]; B.piv.tip = 0.8;
+  },
   gunship(B) {
     B.sph('body', 0.3, 'T', PBR.PAINT, 0, 0, 0, { sx: 1.8, sy: 0.85, sz: 0.9, seg: 16 });
     B.sph('body', 0.2, COL.GLASS, PBR.GLASS, 0.3, 0.06, 0, { sx: 1.4, sy: 0.8, sz: 0.85 });

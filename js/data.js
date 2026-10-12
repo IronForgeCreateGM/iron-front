@@ -77,6 +77,7 @@ const UT = {
   intercept:{ n: 'Talon Interceptor', hp: 360, sp: 7.5, armor: 'air', wpn: 'aam', cost: 1300, time: 10, from: 'airfield', sight: 10, r: 0.55, req: [], air: 1, jet: 1 },
   bomber: { n: 'Thunder Bomber', hp: 950, sp: 3.6, armor: 'air', wpn: 'cbomb', cost: 2800, gas: 250, time: 20, from: 'airfield', sight: 8, r: 0.9, req: [], air: 1, jet: 1 },
   stealth:{ n: 'Nightshade Stealth Fighter', hp: 380, sp: 7.5, armor: 'air', wpn: 'sbomb', cost: 2400, gas: 200, time: 16, from: 'airfield', sight: 8, r: 0.6, req: [], air: 1, jet: 1, stealthy: 1, fac: 'usa' },
+  hauler: { n: 'Hauler Transport', hp: 1000, sp: 3.0, armor: 'air', cost: 1100, time: 10, from: 'airpad', alt: ['airfield'], sight: 7, r: 0.7, req: ['tech'], air: 1, cap: 8, desc: 'Carries 8 slots (infantry 1, vehicles 4). Right-click it with ground units to board; D to unload anywhere. Weak to flak/AA.' },
   gunship:{ n: 'Hornet Gunship', hp: 340, sp: 3.4, armor: 'air', wpn: 'gun', cost: 1200, time: 10, from: 'airpad', sight: 8, r: 0.5, req: [], air: 1 },
 };
 const CATS = { bld: 'Structures', def: 'Defenses', inf: 'Infantry', veh: 'Vehicles', air: 'Aircraft' };
@@ -92,6 +93,10 @@ const DIFF = {
   chief:  { sys: { sim: 1, hsq: 1, prong: 0, float: 1800, prodMax: 4.5, choke: 1, close: 1 },  sat: 1, slip: 0, expandAt: 330, think: 0.45, wave0: 10, waveMax: 30, waveInc: 3, harass: 0.4, harassAfter: 240, firstAttack: 0, waveGap: 45, scoutAfter: 15, chief: 1 },
   si:     { sys: { sim: 1, hsq: 1, prong: 1, float: 1400, prodMax: 5, choke: 1, close: 1 },  sat: 1, slip: 0, expandAt: 210, think: 0.25, wave0: 10, waveMax: 30, waveInc: 3, harass: 0.4, harassAfter: 240, firstAttack: 0, waveGap: 40, scoutAfter: 10, chief: 1, si: 1 },
   hard:   { sys: { sim: 1, hsq: 1, prong: 0, float: 4000, prodMax: 2.5, choke: 1, close: 1 },  sat: 1, slip: 0, expandAt: 300, think: 0.8, wave0: 7, waveMax: 20, waveInc: 2, harass: 0.5, harassAfter: 0, firstAttack: 0, waveGap: 30, scoutAfter: 20 },
+  // scripted human-style sparring partners (tests only; ignore the peace window like a human would)
+  h_rush:   { human: 1, order: ['power', 'barracks', 'refinery', 'barracks', 'power', 'factory', 'power', 'refinery', 'power', 'factory', 'turret', 'power', 'tech', 'power'], sys: { sim: 1, hsq: 1, prong: 0, float: 1500, prodMax: 4, choke: 1, close: 1 }, sat: 0.9, slip: 0, expandAt: 9999, think: 0.5, wave0: 6, waveMax: 30, waveInc: 2, harass: 0.6, harassAfter: 0, firstAttack: 0, waveGap: 20, scoutAfter: 10 },
+  h_turtle: { human: 1, defCr: 400, order: ['power', 'barracks', 'refinery', 'turret', 'power', 'turret', 'factory', 'turret', 'refinery', 'power', 'aagun', 'turret', 'power', 'tech', 'turret', 'aagun', 'power', 'turret', 'gcannon', 'power', 'turret', 'aagun', 'refinery', 'power', 'turret', 'turret', 'power', 'aagun'], sys: { sim: 1, hsq: 0, prong: 0, float: 3000, prodMax: 4, choke: 1, close: 1 }, sat: 1, slip: 0, expandAt: 600, think: 0.6, wave0: 30, waveMax: 40, waveInc: 2, harass: 0, harassAfter: 9999, firstAttack: 900, waveGap: 120, scoutAfter: 60, chief: 1 },
+  h_tower:  { human: 1, defCr: 300, order: ['power', 'barracks', 'turret', 'refinery', 'turret', 'power', 'turret', 'factory', 'aagun', 'power', 'turret', 'refinery', 'turret', 'power', 'aagun', 'turret', 'tech', 'power', 'turret', 'turret', 'power', 'aagun', 'turret', 'power'], sys: { sim: 1, hsq: 1, prong: 0, float: 2500, prodMax: 3, choke: 1, close: 1 }, sat: 1, slip: 0, expandAt: 480, think: 0.6, wave0: 14, waveMax: 30, waveInc: 3, harass: 0.3, harassAfter: 300, firstAttack: 540, waveGap: 60, scoutAfter: 30, chief: 1 },
 };
 // economy
 const ORE_VALUE = 0.91, HARV_CAP = 600, MINE_RATE = 40, UNLOAD_RATE = 300, ORE_REGROW = 0.8, ORE_MULT = 11; // per second

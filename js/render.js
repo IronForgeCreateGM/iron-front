@@ -197,7 +197,7 @@ function r3Render(dt) {
     const d = UT[e.t], air = !!d.air, tz = heightAt(e.x, e.y) * (air ? 0.3 : 1) + e.z;
     if (Math.hypot(rs.x - e.x, rs.y - e.y) > 2) { rs.x = e.x; rs.y = e.y; rs.z = tz; } else { rs.x += (e.x - rs.x) * k; rs.y += (e.y - rs.y) * k; rs.z += (tz - rs.z) * k; }
     rs.ang += angDiff(rs.ang, e.ang) * k; rs.tang += angDiff(rs.tang, e.tang) * Math.min(1, k * 1.5);
-    rs.recoil = Math.max(0, rs.recoil - dt * 0.35); rs.spin += dt * (e.t === 'gunship' ? 28 : e.t === 'harv' ? (e.hst === 'mine' ? 8 : 0) : 3);
+    rs.recoil = Math.max(0, rs.recoil - dt * 0.35); rs.spin += dt * (e.t === 'gunship' || e.t === 'hauler' ? 28 : e.t === 'harv' ? (e.hst === 'mine' ? 8 : 0) : 3);
     if (!vis || !inView(rs.x, rs.y)) continue;
     const U = unitIM(e.t, e.team); if (U.n >= U.cap) growIM(U, U.cap * 2);
     const i = U.n++, pv = U.model.piv;

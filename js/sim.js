@@ -114,7 +114,7 @@ function addU(t, team, x, y) {
   const d = UT[t];
   const u = { id: G.nid++, kind: 'u', t, team, x, y, z: d.air ? 2.6 : 0, hp: d.hp, mhp: d.hp, ang: team ? Math.PI * 0.75 : -Math.PI / 4, tang: 0,
     path: [], order: 'idle', tgt: null, dest: null, anchor: { x, y }, cd: 0, load: 0, hst: 'idle', moveT: 0, lastP: { x, y }, vet: 0 };
-  u.tang = u.ang;
+  u.tang = u.ang; if (d.cap) u.cargo = [];
   G.ents.push(u);
   return u;
 }
@@ -316,6 +316,20 @@ function orderAttack(units, tgt) {
     u.order = 'attack'; u.tgt = tgt; u.path = []; u.repathT = 0;
   }
 }
+// ---- v5.0 transports: board / unload ----
+const cargoSize = u => UT[u.t].armor === 'inf' ? 1 : 4;
+function cargoUsed(tr) { return tr.cargo.reduce((a, c) => a + cargoSize(c), 0); }
+function canBoard(u, tr) { return tr && tr.cargo && u.kind === 'u' && u.team === tr.team && !isAir(u) && u.t !== 'harv' && u !== tr; }
+function orderBoard(units, tr) { let room = UT[tr.t].cap - cargoUsed(tr) - units.filter(u => u.order === 'board' && u.boardT === tr.id).reduce((a, u) => a + cargoSize(u), 0);
+  for (const u of units) { if (!canBoard(u, tr) || cargoSize(u) > room) continue; room -= cargoSize(u); u.order = 'board'; u.boardT = tr.id; u.tgt = null; setPath(u, tr.x, tr.y); }
+  if (tr.order === 'move' || tr.order === 'amove') return; tr.path = []; tr.order = 'idle'; }
+function orderUnload(tr, x, y) { if (!tr || !tr.cargo) return; tr.order = 'unload'; tr.unloadAt = { x, y }; tr.tgt = null; setPath(tr, x, y); }
+function stepBoard(u) { const tr = byId(u.boardT); if (!tr || tr.hp <= 0 || !tr.cargo) { u.order = 'idle'; u.boardT = null; return; }
+  if (dhypot(u.x - tr.x, u.y - tr.y) < 1.4) { if (cargoUsed(tr) + cargoSize(u) <= UT[tr.t].cap) { tr.cargo.push(u); u.inside = tr.id; u.dead = true; u.order = 'idle'; u.path = []; G.events.push({ e: 'board', team: u.team, x: tr.x, y: tr.y }); } else { u.order = 'idle'; } return; }
+  if (!u.path.length || G.tick % 30 === u.id % 30) setPath(u, tr.x, tr.y); }
+function doUnload(tr) { const x0 = Math.floor(tr.x), y0 = Math.floor(tr.y); let k = 0;
+  for (const c of tr.cargo) { const f = nearFree(x0 + (k % 3) - 1, y0 + ((k / 3) | 0) - 1, 5); k++; c.x = f[0] + 0.5; c.y = f[1] + 0.5; c.dead = false; c.inside = null; c.path = []; c.order = 'idle'; c.anchor = { x: c.x, y: c.y }; c.lastP = { x: c.x, y: c.y }; G.ents.push(c); }
+  if (tr.cargo.length) G.events.push({ e: 'unload', team: tr.team, x: tr.x, y: tr.y, n: tr.cargo.length }); tr.cargo = []; tr.order = 'idle'; tr.anchor = { x: tr.x, y: tr.y }; G.bver++; }
 function orderStop(units) { for (const u of units) if (u.kind === 'u') { u.path = []; u.order = 'idle'; u.tgt = null; u.anchor = { x: u.x, y: u.y }; if (u.t === 'harv') u.hst = 'idle'; } }
 function canHit(w, e) { return !!w && e && e.hp > 0 && (isAir(e) ? !!w.air : !!w.ground) && (e.kind !== 'b' || e.t !== 'wall' || true); }
 function distTo(a, e) {
@@ -361,6 +375,7 @@ function stepGame() {
 function onDeath(e) {
   G.events.push({ e: 'die', ent: e });
   const P = G.players[e.team]; if (P) P.stats.lost++;
+  if (e.cargo && e.cargo.length) { if (P) P.stats.lost += e.cargo.length; e.cargo = []; }
   if (e.lastHitBy != null && G.players[e.lastHitBy]) G.players[e.lastHitBy].stats.kills++;
 }
 function stepBuilding(b) {
@@ -496,6 +511,8 @@ function stepUnit(u) {
       u.hp = 0; u.sold = true; return;
     } else if (!u.path.length) setPath(u, t.x, t.y);
   }
+  if (u.order === 'board') { stepBoard(u); if (u.dead) return; }
+  if (d.cap && u.order === 'unload' && !u.path.length) doUnload(u);
   if (d.heal) medic(u, d);
   if (d.regen && u.hp < u.mhp) u.hp = Math.min(u.mhp, u.hp + d.regen * DT);
   if (d.jet && jetStep(u, d)) return;

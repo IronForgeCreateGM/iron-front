@@ -131,7 +131,8 @@ function onDown(e) {
     if (!w) return;
     const tgt = pickAt(m.x, m.y), units = UI.sel.filter(s => s.kind === 'u' && s.team === ME);
     if (units.length) {
-      if (tgt && foe(tgt.team, ME)) { NET.issue({ c: 'attack', u: ids(units), t: tgt.id }); marker(tgt.x, tgt.y, true); }
+      if (tgt && tgt.cargo && tgt.team === ME && units.some(u => canBoard(u, tgt))) { NET.issue({ c: 'board', u: ids(units.filter(u => canBoard(u, tgt))), tr: tgt.id }); uiMsg('Boarding ' + tgt.cargo.length + ' aboard · ' + (UT[tgt.t].cap - cargoUsed(tgt)) + ' slots free'); }
+      else if (tgt && foe(tgt.team, ME)) { NET.issue({ c: 'attack', u: ids(units), t: tgt.id }); marker(tgt.x, tgt.y, true); }
       else if (tgt && tgt.kind === 'b' && units.some(u => UT[u.t].engineer)) { NET.issue({ c: 'attack', u: ids(units.filter(u => UT[u.t].engineer)), t: tgt.id }); }
       else if (tgt && tgt.t === 'refinery' && units.some(u => u.t === 'harv')) { units.filter(u => u.t === 'harv').forEach(h => { h.hst = 'ret'; h.path = []; }); }
       else { NET.issue({ c: 'move', u: ids(units), x: w.x, y: w.y, am: UI.keys.control || false, q: e.shiftKey }); marker(w.x, w.y); }
@@ -145,6 +146,7 @@ function onDown(e) {
     if (NET.online ? canPlace(UI.placing, ME, tx, ty) && (NET.issue({ c: 'place', cat: BT[UI.placing].cat, x: tx, y: ty }), true) : NET.issue({ c: 'place', cat: BT[UI.placing].cat, x: tx, y: ty })) UI.placing = null; else { sfx('error'); uiMsg("Can't build there"); }
     return;
   }
+  if (UI.mode === 'unload') { if (w) { UI.sel.filter(s => s.cargo && s.team === ME).forEach(tr => NET.issue({ c: 'unload', tr: tr.id, x: w.x, y: w.y })); marker(w.x, w.y); sfx('ack'); } UI.mode = null; return; }
   if (UI.mode === 'wall') { if (w) { UI.wallA = [Math.floor(w.x), Math.floor(w.y)]; } return; }
   if (UI.mode === 'sell' || UI.mode === 'repair') {
     const t = pickAt(m.x, m.y);
@@ -188,6 +190,7 @@ function onKey(e) {
     UI.lastGroupKey = k; UI.lastGroupT = now; return;
   }
   const hi = HOTKEYS.indexOf(k); if (hi >= 0 && UI.gridList[hi] && !e.ctrlKey && !e.metaKey) { clickItem(UI.gridList[hi], false, e.shiftKey); return; }
+  if (k === 'd') { const trs = UI.sel.filter(s => s.cargo && s.team === ME); if (trs.length) { if (e.shiftKey) trs.forEach(tr => NET.issue({ c: 'unload', tr: tr.id, x: tr.x, y: tr.y })); else { UI.mode = 'unload'; uiMsg('Unload: click where to drop (Shift+D drops right here). Carrying ' + trs.reduce((a, t) => a + t.cargo.length, 0)); } return; } }
   if (k === 's') orderStop(UI.sel.filter(s => s.team === ME));
   if (k === 'g') { doFormation(e.shiftKey); return; }
   if (k === 'v') { toggleStance(); return; }
