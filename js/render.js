@@ -101,6 +101,7 @@ function barrelTip(s) { const pv = s.kind === 'b' ? getModel('b', s.t, s.team).p
   const x = rs ? rs.x : s.x, y = rs ? rs.y : s.y, base = s.kind === 'b' ? heightAt(s.x, s.y) + (pv.head ? pv.head[1] + 0.08 : 0.6) : (rs ? rs.z : heightAt(x, y)) + (pv.turret ? pv.turret[1] + 0.07 : UT[s.t].armor === 'inf' ? 0.38 : 0.3);
   return { x: x + Math.cos(s.tang) * tip, y: y + Math.sin(s.tang) * tip, z: base }; }
 function handleEvents() {
+  for (const ev of G.events) if (ev.e === 'zap' && inView(ev.pts[0].x, ev.pts[0].y)) { for (let i = 1; i < ev.pts.length; i++) { const a = ev.pts[i - 1], b = ev.pts[i]; for (let k = 0; k <= 6; k++) { const f = k / 6, j = k && k < 6 ? 0.18 : 0; flash(a.x + (b.x - a.x) * f + rnd(j), a.y + (b.y - a.y) * f + rnd(j), a.z + (b.z - a.z) * f + rnd(j), 0.35, 0.55, 0.85, 1); } } }
   { let n = 0; for (const ev of G.events) if (ev.e === 'fire' || ev.e === 'hit') n++; R3.busy = (R3.busy || 0) * 0.9 + n * 0.1; FX.mul = (R3.fxBase || 1) * Math.max(0.25, Math.min(1, 6 / Math.max(1, R3.busy))); }
   for (const ev of G.events) {
     switch (ev.e) {

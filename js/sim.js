@@ -132,12 +132,15 @@ function getBlock() {
   if (G.blockVer === G.bver) return G.block;
   const g = new Uint8Array(MW * MH);
   for (let i = 0; i < g.length; i++) g[i] = G.map[i] ? 1 : 0;
-  for (const e of G.ents) if (e.kind === 'b') for (let y = e.ty; y < e.ty + e.h; y++) for (let x = e.tx; x < e.tx + e.w; x++) g[idx(x, y)] = 2;
+  G.gateT = G.gateT || new Int8Array(MW * MH); G.gateT.fill(-1);
+  for (const e of G.ents) if (e.kind === 'b') for (let y = e.ty; y < e.ty + e.h; y++) for (let x = e.tx; x < e.tx + e.w; x++) { g[idx(x, y)] = e.t === 'gate' ? 3 : 2; if (e.t === 'gate') G.gateT[idx(x, y)] = e.team; }
   const nr = new Uint8Array(MW * MH);
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { if (g[idx(x, y)]) continue; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (!inb(x + dx, y + dy) || g[idx(x + dx, y + dy)]) nr[idx(x, y)] = 1; }
   G.near = nr; G.block = g; G.blockVer = G.bver; return g;
 }
-const blk = (x, y) => { x = Math.floor(x); y = Math.floor(y); return !inb(x, y) || getBlock()[idx(x, y)] > 0; };
+// gates (v5.0): block everyone except allies of the gate's owner (G.curTeam = team currently moving/pathing)
+const gateOpen = i => G.block[i] === 3 && G.curTeam != null && G.gateT[i] >= 0 && !foe(G.gateT[i], G.curTeam);
+const blk = (x, y) => { x = Math.floor(x); y = Math.floor(y); if (!inb(x, y)) return true; const g = getBlock(), i = idx(x, y); return g[i] > 0 && !gateOpen(i); };
 
 // ---------- placement ----------
 function canPlace(t, team, tx, ty) {
@@ -257,8 +260,8 @@ function findPath(sx, sy, gx, gy) {
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       if (!dx && !dy) continue; const nx = cx + dx, ny = cy + dy;
       if (!inb(nx, ny)) continue; const n = idx(nx, ny);
-      if (cl[n] || g[n]) continue;
-      if (dx && dy && (g[idx(nx, cy)] || g[idx(cx, ny)])) continue;
+      if (cl[n] || g[n] && !gateOpen(n)) continue;
+      if (dx && dy && (g[idx(nx, cy)] && !gateOpen(idx(nx, cy)) || g[idx(cx, ny)] && !gateOpen(idx(cx, ny)))) continue;
       const ng = gs[c] + (dx && dy ? 1.414 : 1) + (G.near[n] ? 0.35 : 0) + (n !== goal ? G.dens[n] * 0.8 : 0);
       if (ng < gs[n]) { gs[n] = ng; par[n] = c; push(ng + H(nx, ny), n); }
     }
@@ -284,7 +287,7 @@ function los(a, b) {
 function setPath(u, x, y) {
   u.dest = { x, y }; u.moveT = 0; u.lastP = { x: u.x, y: u.y };
   if (isAir(u)) u.path = [{ x: Math.max(0.5, Math.min(MW - 0.5, x)), y: Math.max(0.5, Math.min(MH - 0.5, y)) }];
-  else u.path = findPath(u.x, u.y, x, y);
+  else { G.curTeam = u.team; u.path = findPath(u.x, u.y, x, y); }
 }
 function orderMove(units, x, y, attackMove, queue) {
   units = units.filter(u => u.kind === 'u'); if (!units.length) return;
@@ -355,8 +358,9 @@ function stepGame() {
   G.dens.fill(0);
   for (const e of G.ents) if (e.kind === 'u' && !e.path.length && !isAir(e)) { const i = idx(Math.floor(e.x), Math.floor(e.y)); if (G.dens[i] < 6) G.dens[i]++; }
   if (G.tick % 30 === 0) { for (let i = 0; i < G.ore.length; i++) if (G.oreMax[i] > 0 && G.ore[i] < G.oreMax[i]) { const was = G.ore[i]; G.ore[i] = Math.min(G.oreMax[i], G.ore[i] + ORE_REGROW * (was > 0 ? 1 : 0.5)); } G.oreVer++; }
-  for (const e of G.ents) { if (e.hp <= 0) continue; if (e.kind === 'b') stepBuilding(e); else stepUnit(e); }
-  separate(hash);
+  for (const e of G.ents) { if (e.hp <= 0) continue; G.curTeam = e.team; if (e.kind === 'b') stepBuilding(e); else stepUnit(e); }
+  G.curTeam = null;
+  separate(hash); G.curTeam = null;
   stepProjs();
   // removal
   for (const e of G.ents) if (e.hp <= 0 && !e.dead) { e.dead = true; onDeath(e); }
@@ -455,6 +459,12 @@ function fire(e, w, t) {
   e.cd = w.cd * (0.9 + G.R() * 0.2);
   const z0 = e.kind === 'u' ? e.z : 0.8, tz = t.kind === 'u' ? t.z : 0.5;
   const shots = w.twin ? 2 : 1;
+  if (w.chain) { // chain lightning: instant hit, arcs to nearby enemies with falloff
+    const pts = [{ x: e.x, y: e.y, z: z0 + 0.9 }], hitL = [t]; let cur = t, amt = w.dmg * (e.lvl > 1 ? UPG_DMG[e.lvl - 1] : 1);
+    for (let k = 0; k <= w.chain && cur; k++) { damage(cur, amt, w, e.team, e); pts.push({ x: cur.x, y: cur.y, z: cur.kind === 'u' ? cur.z + 0.4 : 0.6 }); amt *= 0.7;
+      let nx = null, nd = 2.6; for (const o of G.ents) if (o.kind === 'u' && o.hp > 0 && foe(o.team, e.team) && !hitL.includes(o) && canHit(w, o)) { const dd = dhypot(o.x - cur.x, o.y - cur.y); if (dd < nd) { nd = dd; nx = o; } }
+      cur = nx; if (nx) hitL.push(nx); }
+    e.lastFire = G.time; G.events.push({ e: 'zap', pts, team: e.team }); G.events.push({ e: 'fire', src: e, w }); return; }
   e.lastFire = G.time; if (w.ammo) e.ammo = (e.ammo == null ? w.ammo : e.ammo) - 1;
   const est = w.dmg * DMG[w.type][armorOf(t)] * shots; t.inc = (t.inc || 0) + est;
   for (let s = 0; s < shots; s++) {
@@ -594,11 +604,11 @@ function separate(hash) {
         const soft = a.t === 'harv' && b.t === 'harv' ? 0.4 : 1, ov = (min - dd) * 0.5 * soft, am = a.path.length ? 0.3 : 1, bm = b.path.length ? 0.3 : 1, tot = am + bm;
         const pa = ov * am / tot * 2 * 0.5, pb = ov * bm / tot * 2 * 0.5;
         const ax = a.x + dx / dd * pa, ay = a.y + dy / dd * pa, bx = b.x - dx / dd * pb, by = b.y - dy / dd * pb;
-        if (air || !blk(ax, ay)) { a.x = ax; a.y = ay; }
+        G.curTeam = a.team; if (air || !blk(ax, ay)) { a.x = ax; a.y = ay; }
         if (air || !blk(bx, by)) { b.x = bx; b.y = by; }
       }
     }
-    if (!air && blk(a.x, a.y)) { const f = nearFree(Math.floor(a.x), Math.floor(a.y), 4); a.x += (f[0] + 0.5 - a.x) * 0.2; a.y += (f[1] + 0.5 - a.y) * 0.2; }
+    G.curTeam = a.team; if (!air && blk(a.x, a.y)) { const f = nearFree(Math.floor(a.x), Math.floor(a.y), 4); a.x += (f[0] + 0.5 - a.x) * 0.2; a.y += (f[1] + 0.5 - a.y) * 0.2; }
     a.x = Math.max(0.2, Math.min(MW - 0.2, a.x)); a.y = Math.max(0.2, Math.min(MH - 0.2, a.y));
   }
 }

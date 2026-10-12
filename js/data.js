@@ -3,6 +3,7 @@
 const MW = 96, MH = 96, DT = 1 / 30;
 // damage-type x armor multipliers (counter system)
 const DMG = {
+  zap:    { inf: 1.25, light: 0.95, heavy: 0.8, bldg: 0.4, air: 0 },
   bullet: { inf: 1.0, light: 0.45, heavy: 0.2, bldg: 0.2, air: 0.6 },
   cannon: { inf: 0.35, light: 1.0, heavy: 0.85, bldg: 0.8, air: 0 },
   rocket: { inf: 0.25, light: 1.0, heavy: 1.25, bldg: 0.7, air: 1.1 },
@@ -16,6 +17,7 @@ const DMG = {
 };
 // weapons: dmg, rng(tiles), cd(sec), type, spd(proj tiles/s), ground/air capability
 const W = {
+  tesla:  { dmg: 150, rng: 5.5, cd: 1.9, type: 'zap', spd: 99, ground: 1, air: 0, chain: 3, snd: 'zap' },
   rifle:  { dmg: 14, rng: 4.5, cd: 0.9, type: 'bullet', spd: 40, ground: 1, air: 1, snd: 'rifle' },
   rocket: { dmg: 55, rng: 5.5, cd: 2.2, type: 'rocket', spd: 12, ground: 1, air: 1, snd: 'rocket' },
   lcannon:{ dmg: 40, rng: 5, cd: 1.6, type: 'cannon', spd: 25, ground: 1, air: 0, snd: 'cannon' },
@@ -38,7 +40,7 @@ const W = {
   tcannon:{ dmg: 85, rng: 6.5, cd: 1.3, type: 'cannon', spd: 25, ground: 1, air: 0, snd: 'cannon' },
 };
 // v5.0: static defense damage -25%
-for (const k of ['tcannon', 'flakB', 'gcan']) if (W[k]) W[k].dmg = Math.round(W[k].dmg * 0.75);
+for (const k of ['tcannon', 'flakB', 'gcan', 'tesla']) if (W[k]) W[k].dmg = Math.round(W[k].dmg * 0.75);
 // Buildings. cat: bld (structures) | def (defenses). req: buildings needed.
 const BT = {
   hq:      { n: 'Command Yard', w: 3, h: 3, hp: 3000, cost: 3000, pow: 20, time: 30, cat: 'bld', req: ['__never'] },
@@ -54,6 +56,8 @@ const BT = {
   cc:      { n: 'Command Center', w: 3, h: 3, hp: 2200, cost: 2200, pow: 10, time: 25, cat: 'bld', req: ['refinery'] },
   extractor:{ n: 'Gas Extractor', w: 2, h: 2, hp: 900, cost: 800, pow: -20, time: 8, cat: 'bld', req: ['refinery'] },
   gcannon: { n: 'Grand Cannon', w: 2, h: 2, hp: 2200, cost: 2500, gas: 300, pow: -80, time: 20, cat: 'def', req: ['tech'], wpn: 'gcan', sight: 15, fac: 'fra' },
+  tesla:   { n: 'Tesla Coil', w: 1, h: 1, hp: 900, cost: 1200, pow: -60, time: 8, cat: 'def', req: ['tech'], wpn: 'tesla', sight: 7, desc: 'Chain lightning arcs to 3 more nearby enemies. Very power-hungry (-60): goes dark in low power.' },
+  gate:    { n: 'Wall Gate', w: 1, h: 1, hp: 900, cost: 150, pow: 0, time: 2, cat: 'def', req: ['barracks'], desc: 'Your and allied units pass through; blocks enemies. Place it in a wall line.' },
   wall:    { n: 'Wall', w: 1, h: 1, hp: 600, cost: 50, pow: 0, time: 1, cat: 'def', req: ['barracks'] },
 };
 // Units. armor: inf|light|heavy|air. sp tiles/sec. r radius.
@@ -96,12 +100,12 @@ const DIFF = {
   // scripted human-style sparring partners (tests only; ignore the peace window like a human would)
   h_rush:   { human: 1, order: ['power', 'barracks', 'refinery', 'barracks', 'power', 'factory', 'power', 'refinery', 'power', 'factory', 'turret', 'power', 'tech', 'power'], sys: { sim: 1, hsq: 1, prong: 0, float: 1500, prodMax: 4, choke: 1, close: 1 }, sat: 0.9, slip: 0, expandAt: 9999, think: 0.5, wave0: 6, waveMax: 30, waveInc: 2, harass: 0.6, harassAfter: 0, firstAttack: 0, waveGap: 20, scoutAfter: 10 },
   h_turtle: { human: 1, defCr: 400, order: ['power', 'barracks', 'refinery', 'turret', 'power', 'turret', 'factory', 'turret', 'refinery', 'power', 'aagun', 'turret', 'power', 'tech', 'turret', 'aagun', 'power', 'turret', 'gcannon', 'power', 'turret', 'aagun', 'refinery', 'power', 'turret', 'turret', 'power', 'aagun'], sys: { sim: 1, hsq: 0, prong: 0, float: 3000, prodMax: 4, choke: 1, close: 1 }, sat: 1, slip: 0, expandAt: 600, think: 0.6, wave0: 30, waveMax: 40, waveInc: 2, harass: 0, harassAfter: 9999, firstAttack: 900, waveGap: 120, scoutAfter: 60, chief: 1 },
-  h_tower:  { human: 1, defCr: 300, order: ['power', 'barracks', 'turret', 'refinery', 'turret', 'power', 'turret', 'factory', 'aagun', 'power', 'turret', 'refinery', 'turret', 'power', 'aagun', 'turret', 'tech', 'power', 'turret', 'turret', 'power', 'aagun', 'turret', 'power'], sys: { sim: 1, hsq: 1, prong: 0, float: 2500, prodMax: 3, choke: 1, close: 1 }, sat: 1, slip: 0, expandAt: 480, think: 0.6, wave0: 14, waveMax: 30, waveInc: 3, harass: 0.3, harassAfter: 300, firstAttack: 540, waveGap: 60, scoutAfter: 30, chief: 1 },
+  h_tower:  { human: 1, defCr: 300, order: ['power', 'barracks', 'turret', 'refinery', 'turret', 'power', 'turret', 'factory', 'aagun', 'power', 'turret', 'refinery', 'turret', 'power', 'aagun', 'turret', 'tech', 'power', 'power', 'tesla', 'turret', 'power', 'aagun', 'tesla', 'power'], sys: { sim: 1, hsq: 1, prong: 0, float: 2500, prodMax: 3, choke: 1, close: 1 }, sat: 1, slip: 0, expandAt: 480, think: 0.6, wave0: 14, waveMax: 30, waveInc: 3, harass: 0.3, harassAfter: 300, firstAttack: 540, waveGap: 60, scoutAfter: 30, chief: 1 },
 };
 // economy
 const ORE_VALUE = 0.91, HARV_CAP = 600, MINE_RATE = 40, UNLOAD_RATE = 300, ORE_REGROW = 0.8, ORE_MULT = 11; // per second
 // defense upgrades: level 2/3 cost & time per structure; per-level multipliers
-const UPG = { turret: [[450, 15], [800, 25, 100]], aagun: [[450, 15], [800, 25, 100]] };
+const UPG = { turret: [[450, 15], [800, 25, 100]], aagun: [[450, 15], [800, 25, 100]], tesla: [[600, 15], [1000, 25, 150]] };
 const UPG_DMG = [1, 1.35, 1.75], UPG_RNG = [0, 1, 2];
 const DEF_RESEARCH = { n: 'Hardened Defenses', cost: 1500, gas: 200, time: 40, dmg: 1.15, rng: 0.5, hp: 1.25 };
 
