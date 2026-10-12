@@ -85,11 +85,11 @@ const TEAM_COLORS = { blue: { n: 'Blue', paint: 0x2e4a73, acc: 0x3f7fd0, css: '#
 const MMCOL = ['#5fb0ff', '#ff5040', '#5fe6f0', '#ffa040']; // strong but realistic military blue / oxide red // olive drab vs desert tan
 // v4.3: difficulty = skill only (no economy bonus). think = reaction/APM delay (s), slip = chance a decision cycle is fumbled, sat = worker saturation
 const DIFF = {
-  easy:   { sat: 0.6, slip: 0.3, expandAt: 1000, think: 3.0, wave0: 3, waveMax: 7, waveInc: 1, harass: 0.15, harassAfter: 1080, firstAttack: 570, waveGap: 150, scoutAfter: 600 },
-  normal: { sat: 0.8, slip: 0.12, expandAt: 480, think: 1.6, wave0: 9, waveMax: 16, waveInc: 2, harass: 0.3, harassAfter: 0, firstAttack: 0, waveGap: 75, scoutAfter: 20 },
-  chief:  { sat: 1, slip: 0, expandAt: 330, think: 0.45, wave0: 10, waveMax: 30, waveInc: 3, harass: 0.4, harassAfter: 240, firstAttack: 0, waveGap: 45, scoutAfter: 15, chief: 1 },
-  si:     { sat: 1, slip: 0, expandAt: 210, think: 0.25, wave0: 10, waveMax: 30, waveInc: 3, harass: 0.4, harassAfter: 240, firstAttack: 0, waveGap: 40, scoutAfter: 10, chief: 1, si: 1 },
-  hard:   { sat: 1, slip: 0, expandAt: 300, think: 0.8, wave0: 7, waveMax: 20, waveInc: 2, harass: 0.5, harassAfter: 0, firstAttack: 0, waveGap: 30, scoutAfter: 20 },
+  easy:   { sys: { sim: 0, hsq: 0, prong: 0, float: 0, prodMax: 1, choke: 0, close: 1 },  sat: 0.6, slip: 0.3, expandAt: 1000, think: 3.0, wave0: 3, waveMax: 7, waveInc: 1, harass: 0.15, harassAfter: 1080, firstAttack: 570, waveGap: 150, scoutAfter: 600 },
+  normal: { sys: { sim: 0, hsq: 0, prong: 0, float: 6000, prodMax: 1.5, choke: 0, close: 1 },  sat: 0.8, slip: 0.12, expandAt: 480, think: 1.6, wave0: 9, waveMax: 16, waveInc: 2, harass: 0.3, harassAfter: 0, firstAttack: 0, waveGap: 75, scoutAfter: 20 },
+  chief:  { sys: { sim: 1, hsq: 1, prong: 0, float: 1800, prodMax: 4.5, choke: 1, close: 1 },  sat: 1, slip: 0, expandAt: 330, think: 0.45, wave0: 10, waveMax: 30, waveInc: 3, harass: 0.4, harassAfter: 240, firstAttack: 0, waveGap: 45, scoutAfter: 15, chief: 1 },
+  si:     { sys: { sim: 1, hsq: 1, prong: 1, float: 1400, prodMax: 5, choke: 1, close: 1 },  sat: 1, slip: 0, expandAt: 210, think: 0.25, wave0: 10, waveMax: 30, waveInc: 3, harass: 0.4, harassAfter: 240, firstAttack: 0, waveGap: 40, scoutAfter: 10, chief: 1, si: 1 },
+  hard:   { sys: { sim: 1, hsq: 1, prong: 0, float: 4000, prodMax: 2.5, choke: 1, close: 1 },  sat: 1, slip: 0, expandAt: 300, think: 0.8, wave0: 7, waveMax: 20, waveInc: 2, harass: 0.5, harassAfter: 0, firstAttack: 0, waveGap: 30, scoutAfter: 20 },
 };
 // economy
 const ORE_VALUE = 0.91, HARV_CAP = 600, MINE_RATE = 40, UNLOAD_RATE = 300, ORE_REGROW = 0.8, ORE_MULT = 11; // per second

@@ -106,8 +106,9 @@ function aiStep(P) {
   // 7b) air strikes: jets/bombers hit eco & production when armed
   const strikers = me.filter(u => u.kind === 'u' && (u.t === 'jet' || u.t === 'bomber' || u.t === 'stealth') && u.js === 'landed' && u.ammo >= W[UT[u.t].wpn].ammo);
   if (strikers.length && knownB.length && G.time > D.harassAfter && G.R() < 0.4) { const pri = ['refinery', 'power', 'factory', 'airfield', 'tech', 'barracks'], tg = knownB.slice().sort((a, b) => (pri.indexOf(a.t) + 1 || 9) - (pri.indexOf(b.t) + 1 || 9))[0]; if (tg) orderAttack(strikers, tg); }
+  macroMgr(P, S, D, cnt, me); harassMgr(P, S, D, me, foes, knownB, home, hq);
   if (D.si) siExtras(P, S, me, foes, knownB, hq, estart, intruders);
-  if (D.chief) { chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart); return; }
+  if (D.chief || D.sys.sim) { chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart); return; }
   // 8) waves
   for (const id of [...S.attackers]) { const u = byId(id); if (!u) S.attackers.delete(id); else if (u.order === 'idle' && !u.tgt && G.R() < 0.2) S.attackers.delete(id); }
   const ready = home.filter(u => u.t !== 'harv');
@@ -115,7 +116,7 @@ function aiStep(P) {
     if (S.firstAttackT == null) S.firstAttackT = G.time;
     if (D.waveMax < 10) ready.splice(Math.min(ready.length, S.wave + 2));
     const tgts = aiFocus(P, knownB);
-    if (!tgts.length) { orderMove(ready, estart[0], estart[1], true); ready.forEach(u => S.attackers.add(u.id)); S.lastAttack = G.time; }
+    if (!tgts.length) { const h = D.sys.close ? huntTarget(P, S, ready[0], estart) : { x: estart[0], y: estart[1] }; orderMove(ready, h.x, h.y, true); ready.forEach(u => S.attackers.add(u.id)); S.lastAttack = G.time; }
     else {
       // prefer production/eco targets; artillery-friendly
       const pref = ['refinery', 'factory', 'power', 'barracks', 'hq'];
@@ -142,6 +143,7 @@ function aiSpot(P, t, hq, foes) {
     const bases = G.ents.filter(e => e.team === P.team && (e.t === 'hq' || e.t === 'cc'));
     let b = -1, bd = 1e9, bb = hq; for (let i = 0; i < G.ore.length; i++) if (G.ore[i] > 200) { const ox = i % MW, oy = (i / MW) | 0; let nb = hq, nd = 1e9; for (const B of bases) { const q = dhypot(ox - B.x, oy - B.y); if (q < nd) { nd = q; nb = B; } } const dd = nd + (refs.some(r => dhypot(r.x - ox, r.y - oy) < 7) ? 14 : 0); if (dd < bd) { bd = dd; b = i; bb = nb; } }
     if (b >= 0) { ax = (b % MW + bb.x) / 2; ay = (((b / MW) | 0) + bb.y) / 2; }
+  } else if (d.cat === 'def' && ef && DIFF[P.diff].sys.choke && t !== 'wall' && chokePoint(P, hq, ef) && G.R() < 0.75) { const cp = P.aiS.choke; ax = cp.x + (G.R() - 0.5) * 3; ay = cp.y + (G.R() - 0.5) * 3;
   } else if (d.cat === 'def' && ef) { const a = datan2(ef.y - hq.y, ef.x - hq.x) + (G.R() - 0.5) * 1.6; ax = hq.x + dcos(a) * 7; ay = hq.y + dsin(a) * 7; }
   const cands = [];
   for (let y = 1; y < MH - d.h; y++) for (let x = 1; x < MW - d.w; x++) { const dd = dhypot(x + d.w / 2 - ax, y + d.h / 2 - ay); if (dd < 14) cands.push([dd + G.R() * 1.5, x, y]); }
@@ -156,9 +158,52 @@ function aiSpot(P, t, hq, foes) {
   return null;
 }
 
+
+// ===== v4.4 layered managers (shared by all tiers; DIFF[*].sys enables/tunes each) =====
+// combat simulator (Lanchester square-law estimate): strength = total dps * total effective hp, incl. static defenses
+function unitDps(e) { const w = e.kind === 'u' ? (UT[e.t].wpn && W[UT[e.t].wpn]) : (BT[e.t].wpn && W[BT[e.t].wpn]); if (!w) return 0; if (e.kind === 'b' && e.offline) return 0; return w.dmg / w.cd * (e.lvl > 1 ? 1 + 0.35 * (e.lvl - 1) : 1) * (w.splash ? 1.4 : 1); }
+function combatSim(mine, theirs) {
+  let d1 = 0, h1 = 0, d2 = 0, h2 = 0; for (const u of mine) { d1 += unitDps(u); h1 += u.hp; } for (const f of theirs) { d2 += unitDps(f); h2 += f.hp; }
+  if (d2 * h2 <= 0) return 9; return (d1 * h1) / (d2 * h2);
+}
+function threatsNear(P, foes, x, y, r) { return foes.filter(f => (f.kind === 'u' ? UT[f.t].wpn && f.t !== 'harv' : BT[f.t].wpn) && dhypot(f.x - x, f.y - y) < r); }
+// macro manager: spending discipline (no float), production scaling
+function macroMgr(P, S, D, cnt, me) {
+  const Y = D.sys; if (!Y.float || P.cr < Y.float) return;
+  const order = [['veh', ['heavy', 'light', 'arty', 'aa', 'titan', 'tsar']], ['inf', ['rocketeer', 'rifle', 'sniper', 'pyro', 'kommando']], ['air', ['gunship', 'intercept', 'jet', 'stealth']]];
+  for (const [cat, list] of order) {
+    const cap = Math.min(queueCap(P.team, cat), producers(P.team, cat) * 2);
+    for (let k = 0; k < 4 && P.queues[cat].length < cap && P.cr > Y.float * 0.5; k++) { const ok = list.filter(t => avail(P.team, t) && P.gas >= (UT[t].gas || 0)); if (!ok.length) break; if (!enqueue(P.team, ok[(G.tick + k) % ok.length])) break; }
+  }
+  // defense upgrades with the surplus
+  if (G.R() < 0.3) { const t = G.ents.find(b => b.team === P.team && b.kind === 'b' && UPG[b.t] && (b.lvl || 1) < 3 && b.upT == null); if (t) upgradeB(t); }
+}
+// defense manager: put static defense on the ground path toward the enemy (natural choke), not randomly around HQ
+function chokePoint(P, hq, ef) {
+  const S = P.aiS; if (S.choke && G.time - S.chokeT < 240) return S.choke;
+  const path = findPath(Math.floor(hq.x), Math.floor(hq.y), Math.floor(ef.x), Math.floor(ef.y)); S.chokeT = G.time;
+  if (!path || path.length < 6) return (S.choke = null);
+  let pick = null; for (const c of path) { const x = c % MW, y = (c / MW) | 0; if (dhypot(x - hq.x, y - hq.y) >= 9) { pick = { x, y }; break; } }
+  return (S.choke = pick);
+}
+// harass squad: small fast group raids harvesters / undefended refineries & expansions, retreats when outgunned
+function harassMgr(P, S, D, me, foes, knownB, home, hq) {
+  if (!D.sys.hsq || G.time < Math.max(D.harassAfter, 300)) return;
+  S.hsq = (S.hsq || []).filter(u => u.hp > 0 && !u.dead);
+  if (S.hsq.length < 3 && G.time > (S.hsqT || 0)) { const add = home.filter(u => (u.t === 'scout' || u.t === 'light' || u.t === 'gunship') && !S.hsq.includes(u)).slice(0, 4 - S.hsq.length); if (S.hsq.length + add.length >= 3) { add.forEach(u => { S.hsq.push(u); S.attackers.add(u.id); }); S.hsqT = G.time + 45; } }
+  if (!S.hsq.length || G.time < (S.hsqGo || 0)) return; S.hsqGo = G.time + 3;
+  const c = S.hsq[0], danger = threatsNear(P, foes, c.x, c.y, 8);
+  if (danger.length && combatSim(S.hsq, danger) < 0.8) { orderMove(S.hsq, hq.x, hq.y, false); S.hsq.forEach(u => S.attackers.delete(u.id)); S.hsq = []; S.hsqT = G.time + 60; return; }
+  const harv = foes.filter(f => f.t === 'harv').sort((a, b) => dhypot(a.x - c.x, a.y - c.y) - dhypot(b.x - c.x, b.y - c.y))[0];
+  if (harv) { if (!c.tgt || c.tgt.t !== 'harv') orderAttack(S.hsq, harv); return; }
+  const soft = knownB.filter(b => (b.t === 'refinery' || b.t === 'cc' || b.t === 'extractor') && !knownB.some(k => BT[k.t].wpn && dhypot(k.x - b.x, k.y - b.y) < 8)).sort((a, b) => dhypot(a.x - c.x, a.y - c.y) - dhypot(b.x - c.x, b.y - c.y))[0];
+  if (soft) { if (c.order === 'idle' || !c.tgt) orderAttack(S.hsq, soft); }
+}
+
 // ===== Chief: stronger commander (no resource cheats) =====
 const armyVal = l => l.reduce((a, u) => a + UT[u.t].cost * u.hp / u.mhp, 0);
 function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
+  if (D.chief && !D.si) { const st = { x: hq.x, y: hq.y }; for (const u of S.grp || []) if (u.hp < u.mhp * 0.25 && !u.retreating && UT[u.t].armor !== 'inf') { u.retreating = true; orderMove([u], st.x, st.y, false); S.attackers.delete(u.id); } if (S.grp) S.grp = S.grp.filter(u => !u.retreating); for (const u of me) if (u.retreating && (u.hp > u.mhp * 0.7 || dhypot(u.x - st.x, u.y - st.y) < 4)) u.retreating = false; }
   S.eArmy = Math.max((S.eArmy || 0) * 0.995, armyVal(foes.filter(f => f.kind === 'u' && UT[f.t].wpn)));
   const ground = home.filter(u => u.t !== 'harv' && !UT[u.t].jet && UT[u.t].wpn);
   const ang = datan2(estart[1] - hq.y, estart[0] - hq.x);
@@ -168,7 +213,8 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
   if (S.grp.length) {
     const v = armyVal(S.grp), c = { x: S.grp.reduce((a, u) => a + u.x, 0) / S.grp.length, y: S.grp.reduce((a, u) => a + u.y, 0) / S.grp.length };
     const near = foes.filter(f => f.kind === 'u' && UT[f.t].wpn && dhypot(f.x - c.x, f.y - c.y) < 10);
-    if (v < S.grpV0 * 0.35 && armyVal(near) > v * 1.2) { // retreat & regroup
+    const thr = D.sys.sim ? threatsNear(P, foes, c.x, c.y, 10) : null, simR = thr && thr.length ? combatSim(S.grp, thr) : 9;
+    if (D.sys.sim ? (simR < 0.5 && v < S.grpV0 * 0.85 && G.time - S.lastAttack > 20) : (v < S.grpV0 * 0.35 && armyVal(near) > v * 1.2)) { // combat-sim says losing -> retreat & regroup at home defenses
       orderMove(S.grp, stage.x, stage.y, false); S.grp.forEach(u => S.attackers.delete(u.id)); S.grp = []; S.retreatT = G.time; S.wave = Math.max(S.wave, 12);
     } else if (G.time > (S.regT || 0)) {
       S.regT = G.time + 4;
@@ -193,10 +239,17 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
   const need = Math.max(S.wave * 650, (S.eArmy || 0) * 1.4);
   // reinforce a running attack with what has gathered at home
   if (S.grp.length && !intruders.length && (av > 5000 || idle.length > 14) && G.time > (S.reinfT || 0)) { S.reinfT = G.time + 20; const c = S.grp[0]; orderMove(idle, c.x, c.y, true); idle.forEach(u => { S.grp.push(u); S.attackers.add(u.id); u.stance = 'aggr'; u.guard = null; u.face = null; }); }
-  if (!S.grp.length && !intruders.length && (av >= need || idle.length >= 30) && G.time - S.lastAttack > D.waveGap && G.time > (S.retreatT || -99) + 25) {
+  const maxed = popOf(P.team) >= POP_CAP - 8;
+  if (!S.grp.length && !intruders.length && (av >= need || idle.length >= 30 || maxed && idle.length >= 10) && (G.time - S.lastAttack > D.waveGap || maxed) && G.time > (S.retreatT || -99) + (maxed ? 8 : 25)) {
     S.grp = idle.slice(); S.grpV0 = armyVal(S.grp); S.grp.forEach(u => { S.attackers.add(u.id); u.stance = 'aggr'; u.guard = null; u.face = null; });
     S.lastAttack = G.time; S.regT = 0; S.wave = Math.min(D.waveMax, S.wave + D.waveInc);
+    // multi-prong: a fast flank squad hits a different (soft) target at the same time
+    if (D.sys.prong && S.grp.length >= 12 && knownB.length >= 2) { const fast = S.grp.filter(u => UT[u.t].sp >= 2.2).slice(0, Math.floor(S.grp.length * 0.3)); if (fast.length >= 3) { S.grp = S.grp.filter(u => !fast.includes(u)); S.flank = fast; } }
   }
+  if (S.flank) { S.flank = S.flank.filter(u => u.hp > 0 && !u.dead); if (!S.flank.length) S.flank = null; else if (G.time > (S.flankT || 0)) { S.flankT = G.time + 4; const f = S.flank[0];
+    const soft = knownB.filter(b => ['refinery', 'cc', 'extractor', 'power', 'barracks'].includes(b.t)).sort((a, b) => dhypot(a.x - f.x, a.y - f.y) - dhypot(b.x - f.x, b.y - f.y))[0];
+    const thr = threatsNear(P, foes, f.x, f.y, 9); if (thr.length && combatSim(S.flank, thr) < 0.6) { if (S.grp.length) orderMove(S.flank, S.grp[0].x, S.grp[0].y, true); S.grp.push(...S.flank); S.flank = null; }
+    else if (soft && (!f.tgt || f.tgt.kind !== 'b')) orderAttack(S.flank, soft); else if (!soft) { S.grp.push(...S.flank); S.flank = null; } } }
 }
 
 // ===== Chief SI extras: rush defense, wounded retreat, coordinated jet strikes w/ escort =====
@@ -261,8 +314,8 @@ function aiGrowth(P, S, D, cnt, hq, foes) {
   if ((cnt.refinery || 0) < 2 + nCC && nCC > 0 && ok('refinery')) return 'refinery';
   if ((cnt.extractor || 0) < 1 + nCC && ok('extractor')) return 'extractor';
   // extra production when floating money
-  if (P.cr > 3000 && (cnt.factory || 0) < (D.si && !SIOFF.fac3 ? 3 : D.chief || P.diff === 'hard' ? 2 : 1) && ok('factory')) return 'factory';
-  if (P.cr > 2500 && (cnt.barracks || 0) < (D.si || P.diff === 'hard' ? 2 : 1) && ok('barracks')) return 'barracks';
+  if (P.cr > Math.min(3000, (D.sys.float || 6000) * 0.8) && (cnt.factory || 0) < Math.ceil(D.sys.prodMax * 0.6) && ok('factory')) return 'factory';
+  if (P.cr > 2500 && (cnt.barracks || 0) < Math.max(1, Math.floor(D.sys.prodMax * 0.5)) && ok('barracks')) return 'barracks';
   if (P.cr > 3500 && (cnt.airfield || 0) < (D.si ? 2 : 1) && (cnt.airfield || 0) > 0 && ok('airfield')) return 'airfield';
   if (P.pow < 40 && ok('power')) return 'power';
   return null;
