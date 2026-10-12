@@ -113,6 +113,11 @@ window.addEventListener('DOMContentLoaded', () => {
     for (let i = 0; i < 30; i++) stepGame(); orderFormation(army, 20, 20, Math.PI / 4); for (let i = 0; i < 30 * 12; i++) stepGame();
     G.events.length = 0; setSel([t1]); R3.cam.td = R3.cam.d = 19; jumpTo(17, 15.5, true); paused = false;
   } else
+  if (QS.get('titan')) { startGame('normal', { demo: 1, seed: 4242 }); G.opts.fog = false;
+    const ts = [addU('titan', 0, 20, 30), addU('titan', 0, 22, 33), addU('rifle', 0, 21, 28), addU('rifle', 0, 23, 29)]; addB('turret', 1, 34, 24, true).born = -10;
+    for (let i = 0; i < 30; i++) stepGame(); orderMove(ts, 31, 33, false); for (let i = 0; i < 30 * (+QS.get('titan') || 2.5); i++) stepGame();
+    R3.cam.td = R3.cam.d = 15; jumpTo(ts[0].x + 1, ts[0].y, true); setSel(ts.slice(0, 2)); paused = false;
+  } else
   if (QS.get('stress')) { startGame('normal', { demo: 1, seed: 4242 }); const n = +QS.get('stress'), types = ['rifle', 'rocketeer', 'light', 'heavy', 'arty', 'aa', 'scout', 'gunship'];
     for (let i = 0; i < n; i++) { const tm = i % 2, t = types[i % types.length]; const p = nearFree(28 + (tm ? 6 : -6) + (i % 7), 30 + ((i / 7) | 0) % 10, 6); addU(t, tm, p[0] + 0.5, p[1] + 0.5); }
     G.opts.fog = false; R3.cam.td = R3.cam.d = 34; jumpTo(32, 32, true);
@@ -134,7 +139,7 @@ function selfTest() {
     clickItem('power', false); for (let i = 0; i < 400; i++) stepGame();
     clickItem('power', false); const pp = worldToScreen(hq.x + 4, hq.y - 1, 0); ev('mousemove', pp.x, pp.y, 0); uiFrame(0.016); ev('mousedown', pp.x, pp.y, 0);
     clickItem('barracks', false); clickItem('rifle', false); clickItem('rifle', true);
-    ['a', 's', 'h', 'q', '1'].forEach(k => window.dispatchEvent(new KeyboardEvent('keydown', { key: k }))); window.dispatchEvent(new KeyboardEvent('keydown', { key: '1', ctrlKey: true }));
+    ['a', 's', 'h', 'q', 'n', 'n', '1'].forEach(k => window.dispatchEvent(new KeyboardEvent('keydown', { key: k }))); window.dispatchEvent(new KeyboardEvent('keydown', { key: '1', ctrlKey: true }));
     UI.mode = 'repair'; ev('mousedown', worldToScreen(hq.x, hq.y, 1).x, worldToScreen(hq.x, hq.y, 1).y, 0);
     const mm = document.getElementById('minimap'), r = mm.getBoundingClientRect(); mm.dispatchEvent(new MouseEvent('mousedown', { clientX: r.left + 100, clientY: r.top + 100, button: 0, bubbles: true }));
     for (let i = 0; i < 300; i++) stepGame();

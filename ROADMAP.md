@@ -148,3 +148,8 @@
 - No true TAA (MSAA/FXAA + sharpen instead). Arms are part of the upper body (weapon held, no swing).
 - Squad takes damage as one unit. Stealth reveal is simple distance-based.
 - Corpses ignore terrain slope; Tsar model is chunky.
+
+## v4.3 (done)
+- Quiet mode (🍃 button / N, settings: 60 or 30 FPS cap): DPR 1, 1024 shadows, no bloom, light grass/FX; no rendering in hidden tabs; FX auto-throttle in big fights; internal res capped ~4K on 5K displays; auto quality tops out at High.
+- Titan Walker: legs follow movement heading, torso twists to target, heavy footstep thud + dust.
+- AI: no income/build bonus at any difficulty; skill knobs (think delay, slip chance, worker saturation) + Medium ground build order and bigger, slower waves. Ladder: test/pairs.sh.
