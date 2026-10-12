@@ -8,6 +8,10 @@ float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.0-2.0*f);
   return mix(mix(hash12(i), hash12(i+vec2(1,0)), u.x), mix(hash12(i+vec2(0,1)), hash12(i+vec2(1,1)), u.x), u.y); }
 float fbm(vec2 p){ float a = 0.5, s = 0.0; for(int i=0;i<4;i++){ s += a*vnoise(p); p = p*2.03 + 17.1; a *= 0.5; } return s; }
 `;
+const LVL_H = 1.5; // world height per elevation level
+function lvlAt(x, y) { // bilinear level (smooth ramps)
+  const fx = Math.max(0, Math.min(MW - 1.001, x - 0.5)), fy = Math.max(0, Math.min(MH - 1.001, y - 0.5)), x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0, i = y0 * MW + x0, L = G.lvl;
+  return (L[i] * (1 - tx) + L[Math.min(L.length - 1, i + 1)] * tx) * (1 - ty) + (L[Math.min(L.length - 1, i + MW)] * (1 - tx) + L[Math.min(L.length - 1, i + MW + 1)] * tx) * ty; }
 function heightAt(x, y) {
   const fx = Math.max(0, Math.min(HW - 1.001, x * HR)), fy = Math.max(0, Math.min(HH - 1.001, y * HR));
   const x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0, i = y0 * HW + x0;
@@ -16,7 +20,7 @@ function heightAt(x, y) {
 function buildHeightfield() {
   const R = mkRng(G.opts.seed + 11); HF = new Float32Array(HW * HH);
   const tileAt = (x, y) => G.map[Math.max(0, Math.min(MH - 1, y)) * MW + Math.max(0, Math.min(MW - 1, x))];
-  for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { const t = tileAt(Math.floor((x - 0.5) / HR + 0.0001), Math.floor((y - 0.5) / HR + 0.0001)); HF[y * HW + x] = t === 1 ? 2.0 : t === 2 ? -1.1 : 0; }
+  for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { const t = tileAt(Math.floor((x - 0.5) / HR + 0.0001), Math.floor((y - 0.5) / HR + 0.0001)); const tx = Math.max(0, Math.min(MW - 1, Math.floor((x - 0.5) / HR + 0.0001))), ty = Math.max(0, Math.min(MH - 1, Math.floor((y - 0.5) / HR + 0.0001))), L = G.lvl[ty * MW + tx] * LVL_H; HF[y * HW + x] = (t === 1 ? 2.0 : t === 2 ? -1.1 : 0) + L; }
   const blur = (r) => { const tmp = new Float32Array(HF.length);
     for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { let s = 0, n = 0; for (let k = -r; k <= r; k++) { const xx = Math.max(0, Math.min(HW - 1, x + k)); s += HF[y * HW + xx]; n++; } tmp[y * HW + x] = s / n; }
     for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { let s = 0, n = 0; for (let k = -r; k <= r; k++) { const yy = Math.max(0, Math.min(HH - 1, y + k)); s += tmp[yy * HW + x]; n++; } HF[y * HW + x] = s / n; } };
@@ -26,7 +30,7 @@ function buildHeightfield() {
   for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) {
     const i = y * HW + x, h = HF[i], wx = x / HR, wy = y / HR, rock = Math.max(0, Math.min(1, h / 1.2));
     HF[i] = h + rock * (n2(wx, wy, 0.9) * 0.35 + n2(wx, wy, 2.3) * 0.15 + 0.4 * rock) + (1 - rock) * n2(wx, wy, 0.6) * 0.03;
-    const t = tileAt(Math.floor(wx), Math.floor(wy)); if (t === 0) HF[i] = Math.max(-0.22, Math.min(HF[i], 0.25 + HF[i] * 0.2));
+    const t = tileAt(Math.floor(wx), Math.floor(wy)), L = lvlAt(wx, wy) * LVL_H; if (t === 0) HF[i] = Math.max(L - 0.22, Math.min(HF[i], L + 0.25 + (HF[i] - L) * 0.2));
   }
 }
 function terrainMaterial() {
@@ -47,6 +51,11 @@ function terrainMaterial() {
         vec3 sand = mix(vec3(0.38,0.31,0.19), vec3(0.50,0.42,0.27), n3);
         vec4 w = vSplat; w.y *= 0.7 + 0.6*n2; w.x *= 0.8 + 0.4*n1; w = max(w, vec4(0.0)); w /= max(0.0001, w.x+w.y+w.z+w.w);
         w = pow(w, vec4(1.6)); w /= (w.x+w.y+w.z+w.w);
+        #if THEME == 1
+          grass = mix(vec3(0.46,0.5,0.56), vec3(0.66,0.7,0.76), n1) * (0.85 + 0.2*n3); dirt = mix(vec3(0.30,0.30,0.32), vec3(0.45,0.46,0.5), n2); sand = vec3(0.55,0.62,0.7); rock = mix(rock, vec3(0.5,0.55,0.6), 0.35);
+        #elif THEME == 2
+          grass = mix(vec3(0.07,0.06,0.055), vec3(0.16,0.13,0.11), n1) * (0.8 + 0.35*n3); dirt = mix(vec3(0.2,0.1,0.05), vec3(0.32,0.16,0.07), n2); rock = rock * vec3(0.7,0.62,0.58);
+        #endif
         diffuseColor.rgb *= grass*w.x + dirt*w.y + rock*w.z + sand*w.w;
         float tRock = w.z; float tGrass = w.x;`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(0.95, 0.72, tRock) - n4*0.08;')
@@ -57,7 +66,7 @@ function terrainMaterial() {
           vec3 grad = sign(det) * (dhx * r1 + dhy * r2); normal = normalize(abs(det) * normal - grad * 2.5); }`);
     fowPatch(sh);
   };
-  m.customProgramCacheKey = () => 'terrain3';
+  m.defines = { THEME: G.mapName === 'frost' ? 1 : G.mapName === 'volcano' ? 2 : 0 }; m.customProgramCacheKey = () => 'terrain3_' + m.defines.THEME;
   return m;
 }
 function buildTerrain3() {
@@ -72,8 +81,8 @@ function buildTerrain3() {
   const oreAt = (x, y) => { let s = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const tx = Math.floor(x + dx * 0.6), ty = Math.floor(y + dy * 0.6); if (inb(tx, ty) && G.oreMax[ty * MW + tx] > 0) s++; } return s / 9; };
   for (let i = 0; i < n; i++) {
     const x = pos.getX(i), z = pos.getZ(i), h = pos.getY(i), ny = nor.getY(i);
-    let rock = Math.max(0, Math.min(1, (0.93 - ny) / 0.15)) + Math.max(0, Math.min(1, (h - 0.6) / 0.6));
-    let sand = h < -0.1 ? Math.min(1, (-0.1 - h) / 0.3) : 0, dirt = oreAt(x, z) * 1.2;
+    const hl = h - lvlAt(x, z) * LVL_H; let rock = Math.max(0, Math.min(1, (0.93 - ny) / 0.15)) * (lvlAt(x, z) % 1 > 0.05 && lvlAt(x, z) % 1 < 0.95 ? 0.25 : 1) + Math.max(0, Math.min(1, (hl - 0.6) / 0.6));
+    let sand = hl < -0.1 ? Math.min(1, (-0.1 - hl) / 0.3) : 0, dirt = oreAt(x, z) * 1.2;
     rock = Math.min(1, rock); const grass = Math.max(0, 1 - rock - sand - dirt);
     spl.set([grass, dirt, rock, sand], i * 4);
     // cavity AO: compare with neighborhood
@@ -87,7 +96,7 @@ function buildTerrain3() {
   const sk = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x1c2416, roughness: 1 }));
   sk.position.set(MW / 2, -0.6, MH / 2); R3.scene.add(sk);
   const edge = new THREE.Mesh(new THREE.BoxGeometry(MW + 0.6, 0.6, MH + 0.6), new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.9 })); edge.position.set(MW / 2, -0.62, MH / 2); R3.scene.add(edge);
-  buildFogOverlay(); buildWater(); buildOre(); buildFoliage(); buildVents(); buildLandmarks();
+  buildFogOverlay(); buildWater(); buildOre(); buildFoliage(); buildVents(); buildLandmarks(); buildSurfaces();
 }
 function buildWater() {
   // height texture for shoreline foam (bytes)
@@ -189,7 +198,7 @@ function buildFoliage() {
     const s = 0.45 + R() * 0.5; e.set(0, R() * 6.28, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(x, h, y), q, new THREE.Vector3(s, s * (0.8 + R() * 0.6), s)); gm.setMatrixAt(k, m4);
     cl.setRGB(0.8 + R() * 0.4, 0.85 + R() * 0.3, 0.7 + R() * 0.3); gm.setColorAt(k, cl); (R3.grassTile[ti] = R3.grassTile[ti] || []).push(k); k++;
   }
-  gm.count = k; R3.grassMax = k; R3.grass = gm; R3.scene.add(gm);
+  gm.count = k; R3.grassMax = k; R3.grass = gm; if (G.mapName === 'frost' || G.mapName === 'volcano') gm.material = gm.material.clone(), gm.material.color R3.grass = gm; R3.scene.add(gm);R3.grass = gm; R3.scene.add(gm); gm.material.color.set(G.mapName === 'frost' ? 0x9aa4ad : 0x3a2e26); R3.scene.add(gm);
   // trees (pine) near cliffs and scattered
   const B = new MB(0); B.cyl('t', 0.05, 0.4, 0x4a3524, PBR.RUB, 0, 0.2, 0, { seg: 6 });
   for (let i = 0; i < 3; i++) B.cone('t', 0.36 - i * 0.09, 0.5, 0x2f5a26 + i * 0x061006, [0, 0.85, 0], 0, 0.45 + i * 0.27, 0, { seg: 8 });
@@ -249,4 +258,20 @@ function buildVents() {
     const m = B.build(); const mesh = new THREE.Mesh(m.body, pbrMaterial()); mesh.castShadow = mesh.receiveShadow = true; g.add(mesh);
     R3.scene.add(g); R3.vents.push({ x, y, g });
   }
+}
+
+// v5.0: lava (emissive, animated) and ice (glossy) surface overlays, built from tile masks as merged quads
+function buildSurfaces() {
+  const mk = (mask, y0) => { const pos = [], idxs = []; let n = 0;
+    for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) if (mask[y * MW + x]) { for (const [dx, dy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) pos.push(x + dx, heightAt(x + dx, y + dy) + y0, y + dy); idxs.push(n, n + 2, n + 1, n, n + 3, n + 2); n += 4; }
+    if (!n) return null; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idxs); g.computeVertexNormals(); return g; };
+  const lg = mk(G.lava, 0.04);
+  if (lg) { const m = new THREE.ShaderMaterial({ uniforms: { uTime: R3.uTime, uFow: FOW.uFow, uFowC: FOW.uFowC }, vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }',
+      fragmentShader: GLSL_NOISE + 'uniform float uTime; varying vec3 vW; void main(){ vec2 q = vW.xz; float n = fbm(q*0.6 + vec2(uTime*0.05, uTime*0.03)), c = fbm(q*2.2 - uTime*0.08); float crust = smoothstep(0.45, 0.62, c);'
+        + ' vec3 hot = mix(vec3(1.4,0.35,0.05), vec3(2.2,1.0,0.25), n); vec3 col = mix(hot, vec3(0.12,0.07,0.05), crust*0.85); gl_FragColor = vec4(col, 1.0); }' });
+    const me = new THREE.Mesh(lg, m); R3.scene.add(me); R3.lava = me; }
+  const ig = mk(G.ice, 0.03);
+  if (ig) { const me = new THREE.Mesh(ig, new THREE.MeshStandardMaterial({ color: 0xbfe3f5, roughness: 0.12, metalness: 0.1, transparent: true, opacity: 0.85, envMapIntensity: 1.2 })); me.receiveShadow = true; R3.scene.add(me); }
+  if (G.ruins) { const [mx, my] = G.ruins, B = new MB(0); for (let k = 0; k < 7; k++) { const a = k * 0.9, r = 1.2 + (k % 3) * 0.5; B.box('m', 0.5 + (k % 2) * 0.4, 0.4 + (k % 3) * 0.35, 0.35, 0x8a8f96, PBR.CONC, Math.cos(a) * r, 0.25, Math.sin(a) * r, { bevel: 0.05, ry: a }); }
+    B.box('m', 0.25, 2.2, 0.25, 0x5b5f66, PBR.METAL, 0.3, 1.1, -0.2, { bevel: 0.02 }); const mesh = new THREE.Mesh(B.build().m, pbrMaterial()); mesh.position.set(mx, heightAt(mx, my), my); mesh.castShadow = mesh.receiveShadow = true; R3.scene.add(mesh); }
 }

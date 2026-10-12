@@ -308,7 +308,8 @@ function minimap() {
   const b = UI.mmBase.getContext('2d'), img = b.createImageData(MW, MH);
   for (let i = 0; i < MW * MH; i++) {
     let r = 46, g = 82, bl = 36; const t = G.map[i];
-    if (t === 1) { r = 112; g = 104; bl = 92; } else if (t === 2) { r = 28; g = 86; bl = 118; } else if (G.ore[i] > 30) { r = 210; g = 165; bl = 50; }
+    if (t === 1) { r = 112; g = 104; bl = 92; } else if (t === 2) { r = 28; g = 86; bl = 118; } else if (G.lava[i]) { r = 230; g = 80; bl = 20; } else if (G.ice[i]) { r = 170; g = 210; bl = 230; } else if (G.ore[i] > 30) { r = 210; g = 165; bl = 50; } else if (G.mapName === 'frost') { r = 190; g = 200; bl = 210; } else if (G.mapName === 'volcano') { r = 52; g = 44; bl = 40; }
+    if (t === 0 && G.lvl[i] > 0.5) { r *= 1.18; g *= 1.18; bl *= 1.18; }
     const f = vis0(i) ? 1 : seen0(i) ? 0.5 : 0.08; img.data.set([r * f, g * f, bl * f, 255], i * 4);
   }
   b.putImageData(img, 0, 0); x.imageSmoothingEnabled = true; x.drawImage(UI.mmBase, 0, 0, c.width, c.height);

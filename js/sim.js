@@ -20,7 +20,7 @@ function newGame(opts) {
   { const taken = new Set(); slots.forEach(sl => { if (sl.start == null || sl.start < 0 || sl.start > 3 || taken.has(sl.start)) sl.start = null; else taken.add(sl.start); });
     slots.forEach(sl => { if (sl.start == null) { sl.start = (sl.ally ? [3, 1, 2, 0] : [0, 2, 1, 3]).find(k => !taken.has(k)); taken.add(sl.start); } }); }
   G = { R, opts, tick: 0, time: 0, ents: [], projs: [], events: [], nid: 1, over: null, bver: 1, blockVer: 0, block: null,
-    map: new Uint8Array(MW * MH), ore: new Float32Array(MW * MH), elev: new Float32Array(MW * MH), rich: new Uint8Array(MW * MH), bridge: new Uint8Array(MW * MH), forest: new Uint8Array(MW * MH),
+    map: new Uint8Array(MW * MH), ore: new Float32Array(MW * MH), elev: new Float32Array(MW * MH), rich: new Uint8Array(MW * MH), bridge: new Uint8Array(MW * MH), forest: new Uint8Array(MW * MH), lvl: new Float32Array(MW * MH), tier: new Uint8Array(MW * MH), lava: new Uint8Array(MW * MH), ice: new Uint8Array(MW * MH),
     visT: [], seenT: [], oreVer: 0, players: [], hist: [] };
   G.dens = new Uint8Array(MW * MH);
   genMap(R);
@@ -92,6 +92,12 @@ function genMap(R) {
   // starts (4 corners) and expansion sites (CC centres)
   G.starts = mir(MX, MY).map(([x, y]) => [x + 0.5, y + 0.5]);
   G.sites = []; for (const [x, y, k] of [[MX, MY, 'main'], [30, 9, 'nat'], [9, 30, 'nat'], [32, 31, 'mid']]) for (const [a, b] of mir(x, y)) G.sites.push({ x: a + 0.5, y: b + 0.5, k });
+  // v5.0 elevation: main bases sit on a raised plateau (level 1) reached by ramps through the cliff ring
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { let l = 0; for (const [sx, sy] of G.starts) { const d = dhypot(x + 0.5 - sx, y + 0.5 - sy); l = Math.max(l, d < 11.5 ? 1 : d < 15.5 ? 1 - (d - 11.5) / 4 : 0); } G.lvl[idx(x, y)] = l; }
+  G.mapName = G.opts.map || 'classic';
+  if (G.mapName === 'frost') mapFrost(R, Q, setQ, disc, clear, rock, line, field, vent);
+  if (G.mapName === 'volcano') mapVolcano(R, Q, setQ, disc, clear, rock, line, field, vent);
+  for (let i = 0; i < N; i++) G.tier[i] = Math.round(G.lvl[i]);
   // flood fill from each start: unreachable open tiles become rock
   const seen = new Uint8Array(N), st = [idx(MX, MY)]; seen[st[0]] = 1;
   while (st.length) { const c = st.pop(), x = c % MW, y = (c / MW) | 0;
@@ -99,6 +105,24 @@ function genMap(R) {
       if (!seen[n] && G.map[n] === 0) { seen[n] = 1; st.push(n); } } }
   for (let i = 0; i < N; i++) if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.ore[i] = 0; G.forest[i] = 0; }
   G.oreMax = Float32Array.from(G.ore);
+}
+// Frostline Pass: frozen lake crossing in the river (vehicles drive over ice), icy bridges, ruined outpost in the centre, blizzards
+function mapFrost(R, Q, setQ, disc, clear, rock, line, field, vent) {
+  for (let y = 45; y < Q; y++) for (let x = 22; x < 33; x++) setQ(x, y, i => { G.map[i] = 0; G.ice[i] = 1; G.bridge[i] = 0; });
+  for (let y = 40; y < 45; y++) for (let x = 24; x < 31; x++) setQ(x, y, i => { if (G.map[i] !== 1) { G.map[i] = 0; G.ice[i] = 1; G.forest[i] = 0; } });
+  for (let y = 46; y < Q; y++) for (let x = 46; x < Q; x++) setQ(x, y, i => { G.map[i] = 0; }); // monument -> ruined outpost
+  for (const [x, y] of [[44, 44], [45, 41], [41, 45], [42, 42]]) setQ(x, y, i => { G.map[i] = 1; G.forest[i] = 0; });
+  G.monument = null; G.ruins = [Q, Q]; G.weather = { kind: 'blizzard', next: 240, on: 0 };
+}
+// Volcano Crown: central raised crown (level 2) with a lava caldera, lava river with cooled-rock crossings, extra gas vents on the crown
+function mapVolcano(R, Q, setQ, disc, clear, rock, line, field, vent) {
+  for (let y = 45; y < Q; y++) for (let x = 0; x < Q; x++) setQ(x, y, i => { G.map[i] = 0; G.lava[i] = 1; G.forest[i] = 0; });
+  for (const bx of [18, 36]) for (let y = 43; y < Q; y++) for (let x = bx; x < bx + 3; x++) setQ(x, y, i => { G.lava[i] = 0; G.bridge[i] = 0; }); // cooled rock crossings
+  for (let y = 38; y < Q; y++) for (let x = 38; x < Q; x++) { const d = dhypot(x + 0.5 - Q, y + 0.5 - Q); setQ(x, y, i => { if (d < 9.5) { G.map[i] = 0; G.lava[i] = 0; G.forest[i] = 0; G.ore[i] = 0; }
+    const l = d < 7 ? 2 : d < 9.5 ? 2 * (1 - (d - 7) / 2.5) : 0; G.lvl[i] = Math.max(G.lvl[i], l); if (d < 2.2) { G.lava[i] = 1; } }); }
+  // ring wall around the crown with 4 diagonal ramps
+  for (let a = 0; a < Math.PI * 2; a += 0.03) { if (Math.abs(((a + Math.PI / 4) % (Math.PI / 2)) - Math.PI / 4) < 0.22) continue; const x = Q + dcos(a) * 7.6, y = Q + dsin(a) * 7.6; const tx = Math.floor(x), ty = Math.floor(y); if (inb(tx, ty)) { G.map[idx(tx, ty)] = 1; } }
+  vent(Q - 5, Q - 3); G.monument = null; G.crown = [Q, Q]; G.flares = 1;
 }
 function addB(t, team, tx, ty, instant) {
   const d = BT[t];
@@ -262,7 +286,7 @@ function findPath(sx, sy, gx, gy) {
       if (!inb(nx, ny)) continue; const n = idx(nx, ny);
       if (cl[n] || g[n] && !gateOpen(n)) continue;
       if (dx && dy && (g[idx(nx, cy)] && !gateOpen(idx(nx, cy)) || g[idx(cx, ny)] && !gateOpen(idx(cx, ny)))) continue;
-      const ng = gs[c] + (dx && dy ? 1.414 : 1) + (G.near[n] ? 0.35 : 0) + (n !== goal ? G.dens[n] * 0.8 : 0);
+      const ng = gs[c] + (dx && dy ? 1.414 : 1) + (G.near[n] ? 0.35 : 0) + (n !== goal ? G.dens[n] * 0.8 : 0) + (G.lava[n] ? 6 : 0);
       if (ng < gs[n]) { gs[n] = ng; par[n] = c; push(ng + H(nx, ny), n); }
     }
   }
@@ -350,6 +374,7 @@ function stepGame() {
     for (const e of G.ents) if (e.kind === 'b' && e.team === P.team && e.sell < 0 && G.time - e.born > 1.5) { const p = BT[e.t].pow; if (p > 0) gen += p * (0.5 + 0.5 * e.hp / e.mhp); else use -= p; }
     P.gen = Math.round(gen); P.use = use; P.pow = P.gen - use;
   }
+  if (G.weather && G.time > G.weather.next) { G.weather.on = !G.weather.on; G.weather.next = G.time + (G.weather.on ? 60 : 180 + G.R() * 120); G.events.push({ e: 'weather', on: G.weather.on }); }
   for (const P of G.players) stepProduction(P);
   // spatial hash for separation
   const hash = new Map();
@@ -496,6 +521,7 @@ function respond(u, src) {
 function damage(t, amt, w, team, src) {
   if (src && foe(t.team, team) && t.kind === 'u') { respond(t, src); if (G.time - (t.helpT || 0) > 1) { t.helpT = G.time; for (const o of G.ents) if (o.team === t.team && o.kind === 'u' && o !== t && !o.tgt && dhypot(o.x - t.x, o.y - t.y) < 5) respond(o, src); } }
   if (t.hp <= 0) return;
+  if (src && src.kind && !isAir(src) && !isAir(t) && G.tier[idx(Math.floor(t.x), Math.floor(t.y))] > G.tier[idx(Math.floor(src.x), Math.floor(src.y))]) amt *= 0.75; // high ground
   t.hp -= amt * DMG[w.type][armorOf(t)];
   t.lastHitBy = team; t.hitT = G.time;
   const TP = G.players[t.team]; if (TP && G.time - (TP.alertT || -99) > 12) { TP.alertT = G.time; G.events.push({ e: 'attacked', team: t.team, x: t.x, y: t.y, harv: t.t === 'harv' }); }
@@ -523,6 +549,7 @@ function stepUnit(u) {
   }
   if (u.order === 'board') { stepBoard(u); if (u.dead) return; }
   if (d.cap && u.order === 'unload' && !u.path.length) doUnload(u);
+  if (!d.air && G.lava[idx(Math.floor(u.x), Math.floor(u.y))] && G.tick % 6 === 0) { u.hp -= 26 * DT * 6 * (d.armor === 'inf' ? 1 : 1.4); u.lastHitBy = null; u.hitT = G.time; }
   if (d.heal) medic(u, d);
   if (d.regen && u.hp < u.mhp) u.hp = Math.min(u.mhp, u.hp + d.regen * DT);
   if (d.jet && jetStep(u, d)) return;
@@ -690,10 +717,10 @@ function updFog() {
     const v = G.visT[t], sn = G.seenT[t]; if (done.has(v)) continue; done.add(v); v.fill(0);
     for (const e of G.ents) {
       if (foe(e.team, t)) continue;
-      const r = e.kind === 'b' ? (BT[e.t].sight || 5) + e.w / 2 : UT[e.t].sight, cx = e.x, cy = e.y, r2 = r * r;
+      const air = e.kind === 'u' && UT[e.t].air, r = (e.kind === 'b' ? (BT[e.t].sight || 5) + e.w / 2 : UT[e.t].sight) * (G.weather && G.weather.on && !air ? 0.6 : 1), cx = e.x, cy = e.y, r2 = r * r, myT = air ? 9 : G.tier[idx(Math.floor(cx), Math.floor(cy))];
       for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(MH - 1, cy + r); y++)
-        for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(MW - 1, cx + r); x++)
-          if ((x + 0.5 - cx) * (x + 0.5 - cx) + (y + 0.5 - cy) * (y + 0.5 - cy) <= r2) { v[idx(x, y)] = 1; sn[idx(x, y)] = 1; }
+        for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(MW - 1, cx + r); x++) { const dd = (x + 0.5 - cx) * (x + 0.5 - cx) + (y + 0.5 - cy) * (y + 0.5 - cy);
+          if (dd <= r2 && (G.tier[idx(x, y)] <= myT || dd < 4)) { v[idx(x, y)] = 1; sn[idx(x, y)] = 1; } }
     }
     if (!G.opts.fog && t === 0) { v.fill(1); sn.fill(1); }
   }
