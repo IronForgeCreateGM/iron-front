@@ -14,3 +14,7 @@ Also earlier backlog: wall gate.
 - Addendum to #1: Chief SI goal = essentially unbeatable by humans, purely on skill and intelligence (no resource cheats). Aim as high as possible.
 - Addendum to #1: early-game peace window. Bots don't attack bases for the first few minutes (DEFAULT 3 min per Nicholas; lobby option: Off/3/5/8 min). Light scouting and skirmishing over derricks/expansions still allowed. Applies to all bot levels.
 9. Transport helicopter (large, Chinook-style): carries 8 slots — infantry 1 slot each, tanks/vehicles 4 slots. Load/unload anywhere; drop troops behind enemy walls to bypass front defenses. Vulnerable to flak/AA. AI (esp. Chief SI) should use it for behind-the-wall drops.
+
+## Update Oct 12 2:33pm (after v5.0)
+- SCRAPPED: lava flares and blizzard effects (visual and gameplay). Remove blizzard sight-cut from Frostline; keep normal lava damage.
+- Remaining: 6-player support so Volcano Crown is true 3v3; more raised ground/ramps across both maps beyond mains/peak; derrick capture alert; dedicated performance pass; Chief SI siege of fortified/turtle bases; re-verify no money hoarding + 2v2 sample.

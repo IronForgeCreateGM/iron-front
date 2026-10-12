@@ -10,13 +10,14 @@ const SLOT_TYPES = { off: 'Closed', human: 'Human (you)', remote: 'Human (remote
 const PRESETS = {
   duel:   { n: '1v1', slots: [['human', 'A'], ['normal', 'B']] },
   ffa2:   { n: '2v2', slots: [['human', 'A'], ['hard', 'A'], ['hard', 'B'], ['hard', 'B']] },
+  t3v3:   { n: '3v3', slots: [['human', 'A'], ['hard', 'A'], ['hard', 'A'], ['hard', 'B'], ['hard', 'B'], ['hard', 'B']] },
   coop:   { n: 'Me + Chief SI vs 2 Medium', slots: [['human', 'A'], ['si', 'A'], ['normal', 'B'], ['normal', 'B']] },
   wsi:    { n: 'Watch: Chief SI + Chief vs 2 Hard', slots: [['si', 'A'], ['chief', 'A'], ['hard', 'B'], ['hard', 'B']] },
   w1:     { n: 'Watch: Chief vs Hard', slots: [['chief', 'A'], ['hard', 'B']] },
   w2:     { n: 'Watch: Chief (SI) vs Hard', slots: [['si', 'A'], ['hard', 'B']] },
 };
 function buildSlots(list, names) { // list rows: [type, team, fac, color]; names: row -> player name
-  const RF = () => ['usa', 'rus', 'fra', 'ger'][(Math.random() * 4) | 0], pref = { A: [0, 2, 1, 3], B: [3, 1, 2, 0] }, taken = new Set(), startFor = team => { const s = (pref[team] || pref.A).find(k => !taken.has(k)); taken.add(s); return s; };
+  const RF = () => ['usa', 'rus', 'fra', 'ger'][(Math.random() * 4) | 0], pref = { A: [0, 2, 4, 1, 3, 5], B: [3, 1, 5, 2, 0, 4] }, taken = new Set(), startFor = team => { const s = (pref[team] || pref.A).find(k => !taken.has(k)); taken.add(s); return s; };
   return list.map((r, row) => [r, row]).filter(([r]) => r[0] !== 'off').map(([[type, team, fac, color], row]) => ({ row, ai: type !== 'human' && type !== 'remote', local: type === 'human', diff: type === 'human' || type === 'remote' ? 'normal' : type, ally: team === 'A' ? 0 : 1, fac: fac && fac !== 'rand' ? fac : RF(), color: color && color !== 'auto' ? color : undefined, start: startFor(team === 'B' ? 'B' : 'A'), name: (names && names[row]) || (type === 'human' ? 'You' : type === 'remote' ? 'Remote ' + (row + 1) : SLOT_TYPES[type]) }));
 }
 function startGame(diff, opts) {
@@ -30,6 +31,7 @@ function startGame(diff, opts) {
   if (QS.get('fac')) slots[0].fac = QS.get('fac'); if (QS.get('aifac') && slots[1]) slots[1].fac = QS.get('aifac');
   ME = opts.me != null ? opts.me : Math.max(0, slots.findIndex(s => s.local));
   newGame({ diff, fog: opts.fog !== false, seed: opts.seed, slots, map: opts.map || QS.get('map') || 'classic', peace: opts.peace != null ? opts.peace : QS.get('peace') != null ? +QS.get('peace') : 180 });
+  if (QS.get('dbg')) setTimeout(() => document.title = 'DBG map=' + G.mapName + ' np=' + G.players.length + ' t=' + (G.time | 0) + ' starts=' + G.players.map(P => P.start).join(''), 500);
   G.vis = G.visT[ME]; G.seen = G.seenT[ME];
   G.players.forEach((P, i) => P.name = slots[i].name || (P.ai ? DIFF_NAME(P.diff) : 'You'));
   if (opts.online) NET.begin(opts.online.tr, opts.online);
@@ -192,7 +194,7 @@ function director(dt) {
 function lobbyInit() {
   const box = document.getElementById('lobby'); if (!box) return;
   const facOpt = '<option value="rand">Random</option>' + Object.keys(FACTIONS).map(f => `<option value="${f}">${FACTIONS[f].flag} ${FACTIONS[f].n}</option>`).join('');
-  box.innerHTML = '<div class="lrow lh"><span>Slot</span><span>Player</span><span>Team</span><span>Faction</span><span>Colour</span></div>' + [0, 1, 2, 3].map(i => `<div class="lrow"><span>${i + 1}</span>
+  box.innerHTML = '<div class="lrow lh"><span>Slot</span><span>Player</span><span>Team</span><span>Faction</span><span>Colour</span></div>' + [0, 1, 2, 3, 4, 5].map(i => `<div class="lrow"><span>${i + 1}</span>
     <select class="lt">${Object.keys(SLOT_TYPES).filter(k => i === 0 ? k !== 'remote' : k !== 'human').map(k => `<option value="${k}">${SLOT_TYPES[k]}</option>`).join('')}</select>
     <select class="la"><option value="A">Team A</option><option value="B">Team B</option></select><select class="lf">${facOpt}</select><select class="lc"><option value="auto">Auto</option>${Object.keys(TEAM_COLORS).map(c => `<option value="${c}">${TEAM_COLORS[c].n}</option>`).join('')}</select></div>`).join('');
   box.querySelectorAll('.lc').forEach(sel => sel.onchange = () => { if (sel.value === 'auto') return; box.querySelectorAll('.lc').forEach(o => { if (o !== sel && o.value === sel.value) o.value = 'auto'; }); if (typeof lobbyChanged === 'function') lobbyChanged(); });

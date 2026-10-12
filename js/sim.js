@@ -17,8 +17,8 @@ function newGame(opts) {
   const slots = opts.slots || [0, 1].map(t => ({ ai: opts.aiTeams.includes(t), diff: t === 0 && opts.p0diff ? opts.p0diff : opts.diff, ally: t, fac: (opts.facs || [])[t], start: t ? 3 : 0 }));
   const NP = slots.length;
   // every player gets its own start corner (guards against duplicate/missing starts from any lobby path)
-  { const taken = new Set(); slots.forEach(sl => { if (sl.start == null || sl.start < 0 || sl.start > 3 || taken.has(sl.start)) sl.start = null; else taken.add(sl.start); });
-    slots.forEach(sl => { if (sl.start == null) { sl.start = (sl.ally ? [3, 1, 2, 0] : [0, 2, 1, 3]).find(k => !taken.has(k)); taken.add(sl.start); } }); }
+  { const taken = new Set(); slots.forEach(sl => { if (sl.start == null || sl.start < 0 || sl.start > 5 || taken.has(sl.start)) sl.start = null; else taken.add(sl.start); });
+    slots.forEach(sl => { if (sl.start == null) { sl.start = (sl.ally ? [3, 1, 5, 2, 0, 4] : [0, 2, 4, 1, 3, 5]).find(k => !taken.has(k)); taken.add(sl.start); } }); }
   G = { R, opts, tick: 0, time: 0, ents: [], projs: [], events: [], nid: 1, over: null, bver: 1, blockVer: 0, block: null,
     map: new Uint8Array(MW * MH), ore: new Float32Array(MW * MH), elev: new Float32Array(MW * MH), rich: new Uint8Array(MW * MH), bridge: new Uint8Array(MW * MH), forest: new Uint8Array(MW * MH), lvl: new Float32Array(MW * MH), tier: new Uint8Array(MW * MH), lava: new Uint8Array(MW * MH), ice: new Uint8Array(MW * MH),
     visT: [], seenT: [], oreVer: 0, players: [], hist: [] };
@@ -29,7 +29,7 @@ function newGame(opts) {
   G.vis = G.visT[0]; G.seen = G.seenT[0];
   // colours by alliance order
   // colours: each slot's chosen colour (unique), defaults blue/green for team A, red/yellow for team B
-  { const used = new Set(slots.map(sl => sl.color).filter(Boolean)), def = { 0: ['blue', 'green', 'yellow', 'red'], 1: ['red', 'yellow', 'green', 'blue'] };
+  { const used = new Set(slots.map(sl => sl.color).filter(Boolean)), def = { 0: ['blue', 'green', 'purple', 'yellow', 'red', 'orange'], 1: ['red', 'yellow', 'orange', 'green', 'blue', 'purple'] };
     slots.forEach((sl, t) => { let c = sl.color; if (!c || !TEAM_COLORS[c]) { c = (def[sl.ally] || def[0]).find(k => !used.has(k)) || 'blue'; used.add(c); } sl.color = c; const C = TEAM_COLORS[c]; TEAMPAINT[t] = C.paint; TEAMCOL[t] = C.acc; MMCOL[t] = C.css; }); }
   if (typeof MODEL_CACHE !== 'undefined') for (const k in MODEL_CACHE) delete MODEL_CACHE[k];
   for (let t = 0; t < NP; t++) { const sl = slots[t]; G.players.push({ team: t, color: sl.color, name: sl.name || (sl.ai ? sl.diff : 'Player ' + (t + 1)), ally: sl.ally, start: sl.start, cr: 5000, pow: 0, gen: 0, use: 0, ai: !!sl.ai, diff: sl.diff || opts.diff,
@@ -42,7 +42,7 @@ function newGame(opts) {
     addU('light', t, sx + dx * 4.5, sy + dy * 1.5);
   });
   // v5.0 capturable oil derricks (neutral map features): an Engineer captures one; owner gets a trickle of credits
-  G.derricks = []; for (const [x, y] of [[25, 25], [40, 21]]) for (const [a, b] of [[x, y], [MW - 1 - x, y], [x, MH - 1 - y], [MW - 1 - x, MH - 1 - y]]) { const f = nearFree(a, b, 6); if (!G.derricks.some(d => dhypot(d.x - f[0] - 0.5, d.y - f[1] - 0.5) < 3) && !G.lava[idx(f[0], f[1])]) G.derricks.push({ id: G.derricks.length, x: f[0] + 0.5, y: f[1] + 0.5, owner: -1 }); }
+  G.derricks = []; for (const [x, y] of G.six ? [[25, 25], [40, 21], [24, 47]] : [[25, 25], [40, 21]]) for (const [a, b] of [[x, y], [MW - 1 - x, y], [x, MH - 1 - y], [MW - 1 - x, MH - 1 - y]]) { const f = nearFree(a, b, 6); if (!G.derricks.some(d => dhypot(d.x - f[0] - 0.5, d.y - f[1] - 0.5) < 3)) G.derricks.push({ id: G.derricks.length, x: f[0] + 0.5, y: f[1] + 0.5, owner: -1 }); }
   if (typeof aiInit === 'function') G.players.forEach(p => p.ai && aiInit(p));
   updFog();
   return G;
@@ -93,12 +93,23 @@ function genMap(R) {
   vent(17, 16); vent(26, 13); vent(13, 26); vent(29, 33);
   // starts (4 corners) and expansion sites (CC centres)
   G.starts = mir(MX, MY).map(([x, y]) => [x + 0.5, y + 0.5]);
+  // v5.1: 6-player maps (and Volcano Crown always) get a third raised base on each side, at the west/east edge midpoint
+  G.six = (G.opts.slots || []).length > 4 || (G.opts.slots || []).some(s => s.start > 3) || G.opts.map === 'volcano';
+  if (G.six) { const SX = 11, SY = Q - 0.5;
+    disc(SX, SY, 15.5, i => { G.map[i] = 0; G.forest[i] = 0; G.ore[i] = 0; G.bridge[i] = 0; });
+    for (let a = -Math.PI / 2; a <= Math.PI / 2 + 0.01; a += 0.02) { if (Math.abs(a - 0.55) < 0.13 || Math.abs(a + 0.55) < 0.13) continue; for (let r = 12.5; r <= 14.5; r += 0.5) rock(SX + dcos(a) * r, SY + dsin(a) * r, 0.7); }
+    clear(SX, SY, 11.5); line(SX + dcos(0.55) * 11, SY + dsin(0.55) * 11, 30, Q - 10, 1.6); line(SX + dcos(0.55) * 11, SY + dsin(0.55) * 11, 10, 31, 1.5); line(30, Q - 10, 33, 33, 1.5);
+    field(4.5, Q - 8.5, 1.8);
+    G.starts.push([SX + 0.5, SY + 0.5], [MW - 1 - SX + 0.5, SY + 0.5]); }
   G.sites = []; for (const [x, y, k] of [[MX, MY, 'main'], [30, 9, 'nat'], [9, 30, 'nat'], [32, 31, 'mid']]) for (const [a, b] of mir(x, y)) G.sites.push({ x: a + 0.5, y: b + 0.5, k });
+  if (G.six) for (const s of G.starts.slice(4)) G.sites.push({ x: s[0], y: s[1], k: 'main' });
   // v5.0 elevation: main bases sit on a raised plateau (level 1) reached by ramps through the cliff ring
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { let l = 0; for (const [sx, sy] of G.starts) { const d = dhypot(x + 0.5 - sx, y + 0.5 - sy); l = Math.max(l, d < 11.5 ? 1 : d < 15.5 ? 1 - (d - 11.5) / 4 : 0); } G.lvl[idx(x, y)] = l; }
   G.mapName = G.opts.map || 'classic';
   if (G.mapName === 'frost') mapFrost(R, Q, setQ, disc, clear, rock, line, field, vent);
   if (G.mapName === 'volcano') mapVolcano(R, Q, setQ, disc, clear, rock, line, field, vent);
+  if (G.six) for (const [sx, sy] of G.starts.slice(4)) for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const d = dhypot(x + 0.5 - sx, y + 0.5 - sy), i = idx(x, y);
+    if (d < 15.5 && G.map[i] === 2) G.map[i] = 0; if (d < 15.5) { G.lava[i] = 0; G.ice[i] = 0; G.bridge[i] = 0; } if (d < 11.5 && G.map[i] === 1) G.map[i] = 0; }
   for (let i = 0; i < N; i++) G.tier[i] = Math.round(G.lvl[i]);
   // flood fill from each start: unreachable open tiles become rock
   const seen = new Uint8Array(N), st = [idx(MX, MY)]; seen[st[0]] = 1;
@@ -114,7 +125,7 @@ function mapFrost(R, Q, setQ, disc, clear, rock, line, field, vent) {
   for (let y = 40; y < 45; y++) for (let x = 24; x < 31; x++) setQ(x, y, i => { if (G.map[i] !== 1) { G.map[i] = 0; G.ice[i] = 1; G.forest[i] = 0; } });
   for (let y = 46; y < Q; y++) for (let x = 46; x < Q; x++) setQ(x, y, i => { G.map[i] = 0; }); // monument -> ruined outpost
   for (const [x, y] of [[44, 44], [45, 41], [41, 45], [42, 42]]) setQ(x, y, i => { G.map[i] = 1; G.forest[i] = 0; });
-  G.monument = null; G.ruins = [Q, Q]; G.weather = { kind: 'blizzard', next: 240, on: 0 };
+  G.monument = null; G.ruins = [Q, Q]; G.weather = null; // v5.1: blizzards scrapped
 }
 // Volcano Crown: central raised crown (level 2) with a lava caldera, lava river with cooled-rock crossings, extra gas vents on the crown
 function mapVolcano(R, Q, setQ, disc, clear, rock, line, field, vent) {
@@ -124,7 +135,7 @@ function mapVolcano(R, Q, setQ, disc, clear, rock, line, field, vent) {
     const l = d < 7 ? 2 : d < 9.5 ? 2 * (1 - (d - 7) / 2.5) : 0; G.lvl[i] = Math.max(G.lvl[i], l); if (d < 2.2) { G.lava[i] = 1; } }); }
   // ring wall around the crown with 4 diagonal ramps
   for (let a = 0; a < Math.PI * 2; a += 0.03) { if (Math.abs(((a + Math.PI / 4) % (Math.PI / 2)) - Math.PI / 4) < 0.22) continue; const x = Q + dcos(a) * 7.6, y = Q + dsin(a) * 7.6; const tx = Math.floor(x), ty = Math.floor(y); if (inb(tx, ty)) { G.map[idx(tx, ty)] = 1; } }
-  vent(Q - 5, Q - 3); G.monument = null; G.crown = [Q, Q]; G.flares = 1;
+  vent(Q - 5, Q - 3); G.monument = null; G.crown = [Q, Q];
 }
 function addB(t, team, tx, ty, instant) {
   const d = BT[t];
@@ -288,7 +299,7 @@ function findPath(sx, sy, gx, gy) {
       if (!inb(nx, ny)) continue; const n = idx(nx, ny);
       if (cl[n] || g[n] && !gateOpen(n)) continue;
       if (dx && dy && (g[idx(nx, cy)] && !gateOpen(idx(nx, cy)) || g[idx(cx, ny)] && !gateOpen(idx(cx, ny)))) continue;
-      const ng = gs[c] + (dx && dy ? 1.414 : 1) + (G.near[n] ? 0.35 : 0) + (n !== goal ? G.dens[n] * 0.8 : 0) + (G.lava[n] ? 6 : 0);
+      const ng = gs[c] + (dx && dy ? 1.414 : 1) + (G.near[n] ? 0.35 : 0) + (n !== goal ? G.dens[n] * 0.8 : 0);
       if (ng < gs[n]) { gs[n] = ng; par[n] = c; push(ng + H(nx, ny), n); }
     }
   }
@@ -545,7 +556,7 @@ function stepUnit(u) {
   const d = UT[u.t];
   if (u.t === 'harv') harvest(u);
   if (d.engineer && u.order === 'derrick') { const dk = G.derricks[u.dk]; if (!dk || dk.owner === u.team) { u.order = 'idle'; }
-    else if (dhypot(u.x - dk.x, u.y - dk.y) < 1.3) { dk.owner = u.team; G.events.push({ e: 'derrick', team: u.team, x: dk.x, y: dk.y }); u.hp = 0; u.sold = true; return; }
+    else if (dhypot(u.x - dk.x, u.y - dk.y) < 1.3) { const prev = dk.owner; dk.owner = u.team; G.events.push({ e: 'derrick', team: u.team, prev, x: dk.x, y: dk.y }); u.hp = 0; u.sold = true; return; }
     else if (!u.path.length) setPath(u, dk.x, dk.y); }
   if (d.engineer && u.order === 'capture') {
     const t = u.tgt; if (!t || t.hp <= 0) { u.order = 'idle'; u.tgt = null; }
@@ -556,7 +567,8 @@ function stepUnit(u) {
   }
   if (u.order === 'board') { stepBoard(u); if (u.dead) return; }
   if (d.cap && u.order === 'unload' && !u.path.length) doUnload(u);
-  if (!d.air && G.lava[idx(Math.floor(u.x), Math.floor(u.y))] && G.tick % 6 === 0) { u.hp -= 26 * DT * 6 * (d.armor === 'inf' ? 1 : 1.4); u.lastHitBy = null; u.hitT = G.time; }
+  if (false) { // v5.1: lava is purely visual (no damage)
+ u.hp -= 26 * DT * 6 * (d.armor === 'inf' ? 1 : 1.4); u.lastHitBy = null; u.hitT = G.time; }
   if (d.heal) medic(u, d);
   if (d.regen && u.hp < u.mhp) u.hp = Math.min(u.mhp, u.hp + d.regen * DT);
   if (d.jet && jetStep(u, d)) return;
