@@ -15,8 +15,8 @@ const PRESETS = {
   w2:     { n: 'Watch: Chief (SI) vs Hard', slots: [['si', 'A'], ['hard', 'B']] },
 };
 function buildSlots(list, names) { // list rows: [type, team, fac, color]; names: row -> player name
-  const RF = () => ['usa', 'rus', 'fra', 'ger'][(Math.random() * 4) | 0], startsOf = { A: [0, 2], B: [3, 1] }, used = { A: 0, B: 0 };
-  return list.map((r, row) => [r, row]).filter(([r]) => r[0] !== 'off').map(([[type, team, fac, color], row]) => ({ row, ai: type !== 'human' && type !== 'remote', local: type === 'human', diff: type === 'human' || type === 'remote' ? 'normal' : type, ally: team === 'A' ? 0 : 1, fac: fac && fac !== 'rand' ? fac : RF(), color: color && color !== 'auto' ? color : undefined, start: startsOf[team][used[team]++ % 2], name: (names && names[row]) || (type === 'human' ? 'You' : type === 'remote' ? 'Remote ' + (row + 1) : SLOT_TYPES[type]) }));
+  const RF = () => ['usa', 'rus', 'fra', 'ger'][(Math.random() * 4) | 0], pref = { A: [0, 2, 1, 3], B: [3, 1, 2, 0] }, taken = new Set(), startFor = team => { const s = (pref[team] || pref.A).find(k => !taken.has(k)); taken.add(s); return s; };
+  return list.map((r, row) => [r, row]).filter(([r]) => r[0] !== 'off').map(([[type, team, fac, color], row]) => ({ row, ai: type !== 'human' && type !== 'remote', local: type === 'human', diff: type === 'human' || type === 'remote' ? 'normal' : type, ally: team === 'A' ? 0 : 1, fac: fac && fac !== 'rand' ? fac : RF(), color: color && color !== 'auto' ? color : undefined, start: startFor(team === 'B' ? 'B' : 'A'), name: (names && names[row]) || (type === 'human' ? 'You' : type === 'remote' ? 'Remote ' + (row + 1) : SLOT_TYPES[type]) }));
 }
 function startGame(diff, opts) {
   opts = opts || {};
@@ -90,7 +90,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const sel = f => { MENU.fac = f; if (ONL.room && !ONL.host && ONL.acts.pref) ONL.acts.pref({ fac: f }); const lf = document.querySelector('#lobby .lf'); if (lf) lf.value = f; box.querySelectorAll('.fcard').forEach(c => c.classList.toggle('on', c.dataset.f === f)); const F = FACTIONS[f]; desc.innerHTML = `<b>${F.flag} ${F.n}</b> — special: ${F.desc}`; };
     for (const f in FACTIONS) { const c = document.createElement('div'); c.className = 'fcard'; c.dataset.f = f; c.innerHTML = `<div class="fl">${FACTIONS[f].flag}</div>${FACTIONS[f].n}`; c.onclick = () => sel(f); box.appendChild(c); }
     sel('usa'); }
-  lobbyInit();
+  lobbyInit(); if (QS.get('lobbytest')) setTimeout(lobbySelfTest, 0);
   document.getElementById('startBtn').onclick = () => { audioInit(); if (ONL.room && ONL.host) { onlStartHost(); return; } const rows = lobbyRead(); if (rows.some(r => r[0] === 'remote')) { uiMsgMenu('Remote slots need an online game: press “Host online game”.'); return; } startGame('normal', { slots: buildSlots(rows), fog: document.getElementById('fogChk').checked }); };
   onlInitUI();
   document.getElementById('surrBtn').onclick = () => { if (!started || G.over) return; if (confirm('Surrender this match?')) { NET.issue({ c: 'surrender' }); document.getElementById('pause').style.display = 'none'; paused = false; } };
@@ -203,6 +203,36 @@ function lobbyInit() {
 }
 function lobbySet(list) { const rows = document.querySelectorAll('#lobby .lrow:not(.lh)'); rows.forEach((r, i) => { const s = list[i] || ['off', i % 2 ? 'B' : 'A']; r.querySelector('.lt').value = s[0]; r.querySelector('.la').value = s[1]; r.querySelector('.lf').value = s[2] || (i === 0 && s[0] === 'human' ? MENU.fac : 'rand'); r.querySelector('.lc').value = s[3] || 'auto'; }); }
 function lobbyRead() { return [...document.querySelectorAll('#lobby .lrow:not(.lh)')].map(r => [r.querySelector('.lt').value, r.querySelector('.la').value, r.querySelector('.lf').value, r.querySelector('.lc').value]); }
+
+
+// Lobby regression: index.html?lobbytest=1 drives the real lobby DOM (presets + faction/colour/team changes with change events), builds slots, starts the sim and checks starts/HQs/teams/ME.
+function lobbySelfTest() {
+  const errs = [], box = document.getElementById('lobby'), rows = () => [...box.querySelectorAll('.lrow:not(.lh)')];
+  const setSel = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); };
+  const facs = ['rand', 'usa', 'rus', 'fra', 'ger'], cols = ['auto', ...Object.keys(TEAM_COLORS)], R = mkRng(99); let n = 0;
+  const check = (label) => {
+    const list = lobbyRead(), slots = buildSlots(list), me = Math.max(0, slots.findIndex(s => s.local));
+    if (slots.length < 2) return; newGame({ seed: 7, slots }); n++;
+    const starts = G.players.map(P => P.start);
+    if (new Set(starts).size !== starts.length) errs.push(label + ' dup starts ' + starts);
+    G.players.forEach((P, t) => { const hq = G.ents.filter(e => e.team === t && e.t === 'hq'); if (hq.length !== 1) errs.push(label + ' p' + t + ' hq=' + hq.length);
+      if (G.ents.filter(e => e.team === t && e.kind === 'u').length < 5) errs.push(label + ' p' + t + ' units');
+      const h = hq[0], st = G.starts[P.start]; if (h && Math.hypot(h.x - st[0], h.y - st[1]) > 2) errs.push(label + ' p' + t + ' hq off start'); });
+    slots.forEach((sl, t) => { const row = list.filter(r => r[0] !== 'off')[t]; if ((row[1] === 'A' ? 0 : 1) !== G.players[t].ally) errs.push(label + ' team mismatch p' + t);
+      if (row[2] !== 'rand' && G.players[t].fac !== row[2]) errs.push(label + ' fac mismatch p' + t); if (row[3] !== 'auto' && G.players[t].color !== row[3]) errs.push(label + ' color mismatch p' + t); });
+    if (new Set(G.players.map(P => P.color)).size !== G.players.length) errs.push(label + ' dup colours');
+    if (list[0][0] === 'human' && !(G.players[me] && !G.players[me].ai && slots[me].row === 0)) errs.push(label + ' ME wrong');
+  };
+  for (const pk of Object.keys(PRESETS)) {
+    lobbySet(PRESETS[pk].slots); check(pk);
+    for (let k = 0; k < 40; k++) { const rs = rows(), r = rs[(R() * rs.length) | 0], what = (R() * 3) | 0;
+      if (what === 0) setSel(r.querySelector('.lf'), facs[(R() * facs.length) | 0]); else if (what === 1) setSel(r.querySelector('.lc'), cols[(R() * cols.length) | 0]); else setSel(r.querySelector('.la'), R() < 0.5 ? 'A' : 'B');
+      check(pk + '#' + k + ' ' + JSON.stringify(lobbyRead())); }
+  }
+  // all team splits for 4 active slots incl. 3v1 / 4v0
+  for (let m = 0; m < 16; m++) { lobbySet([['human', m & 1 ? 'B' : 'A', 'fra', 'green'], ['si', m & 2 ? 'B' : 'A', 'rus'], ['normal', m & 4 ? 'B' : 'A', 'rand', 'blue'], ['hard', m & 8 ? 'B' : 'A']]); check('split' + m); }
+  document.title = (errs.length ? 'LOBBYTEST FAIL ' + errs.length + ' ' + errs.slice(0, 3).join(' | ') : 'LOBBYTEST OK') + ' games=' + n;
+}
 
 // ===== end-game stats + army graph =====
 function endStatsHTML() {

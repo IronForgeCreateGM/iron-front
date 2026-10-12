@@ -16,6 +16,9 @@ function newGame(opts) {
   // slots: [{ ai, diff, ally, fac, start }]; default 1v1 from legacy opts
   const slots = opts.slots || [0, 1].map(t => ({ ai: opts.aiTeams.includes(t), diff: t === 0 && opts.p0diff ? opts.p0diff : opts.diff, ally: t, fac: (opts.facs || [])[t], start: t ? 3 : 0 }));
   const NP = slots.length;
+  // every player gets its own start corner (guards against duplicate/missing starts from any lobby path)
+  { const taken = new Set(); slots.forEach(sl => { if (sl.start == null || sl.start < 0 || sl.start > 3 || taken.has(sl.start)) sl.start = null; else taken.add(sl.start); });
+    slots.forEach(sl => { if (sl.start == null) { sl.start = (sl.ally ? [3, 1, 2, 0] : [0, 2, 1, 3]).find(k => !taken.has(k)); taken.add(sl.start); } }); }
   G = { R, opts, tick: 0, time: 0, ents: [], projs: [], events: [], nid: 1, over: null, bver: 1, blockVer: 0, block: null,
     map: new Uint8Array(MW * MH), ore: new Float32Array(MW * MH), elev: new Float32Array(MW * MH), rich: new Uint8Array(MW * MH), bridge: new Uint8Array(MW * MH), forest: new Uint8Array(MW * MH),
     visT: [], seenT: [], oreVer: 0, players: [], hist: [] };
