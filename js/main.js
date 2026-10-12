@@ -113,6 +113,11 @@ window.addEventListener('DOMContentLoaded', () => {
     for (let i = 0; i < 30; i++) stepGame(); orderFormation(army, 20, 20, Math.PI / 4); for (let i = 0; i < 30 * 12; i++) stepGame();
     G.events.length = 0; setSel([t1]); R3.cam.td = R3.cam.d = 19; jumpTo(17, 15.5, true); paused = false;
   } else
+  if (QS.get('battle')) { startGame('normal', { demo: 1, seed: 4242 }); G.opts.fog = false; const types = ['heavy', 'rifle', 'rocketeer', 'light', 'titan', 'arty', 'gunship', 'heavy', 'pyro', 'aa'];
+    const A = [], B = []; for (let i = 0; i < 60; i++) { const tm = i % 2, t = types[(i >> 1) % types.length], p = nearFree(40 + (tm ? 7 : -7) + (i >> 1) % 4, 40 + ((i >> 3) % 8), 6); (tm ? B : A).push(addU(t, tm, p[0] + 0.5, p[1] + 0.5)); }
+    orderMove(A, 48, 44, true); orderMove(B, 32, 44, true); for (let i = 0; i < 30 * (+QS.get('battle') || 4); i++) stepGame();
+    R3.cam.td = R3.cam.d = 20; jumpTo(40, 40, true); paused = false;
+  } else
   if (QS.get('titan')) { startGame('normal', { demo: 1, seed: 4242 }); G.opts.fog = false;
     const ts = [addU('titan', 0, 20, 30), addU('titan', 0, 22, 33), addU('rifle', 0, 21, 28), addU('rifle', 0, 23, 29)]; addB('turret', 1, 34, 24, true).born = -10;
     for (let i = 0; i < 30; i++) stepGame(); orderMove(ts, 31, 33, false); for (let i = 0; i < 30 * (+QS.get('titan') || 2.5); i++) stepGame();
