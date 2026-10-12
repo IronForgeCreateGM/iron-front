@@ -160,7 +160,7 @@ function shake(a) { R3.shake = Math.max(R3.shake || 0, a); }
 function inView(x, y) { const v = R3.view; return x > v.x0 && x < v.x1 && y > v.y0 && y < v.y1; }
 // ---------- per-frame ----------
 function r3Render(dt) {
-  wallsUpdate(); offlineIcons(dt); lowPowerAlert();
+  wallsUpdate(); offlineIcons(dt); lowPowerAlert(); derricksUpdate(dt); dayNight(dt);
   R3.time += dt; R3.uTime.value = R3.time; R3.renderer.info.reset();
   updCamera(dt); updView(); if (!R3.anisoDone && R3.time > 0.5) { R3.anisoDone = true; applyAniso(); }
   handleEvents();
@@ -416,4 +416,33 @@ function lowPowerAlert() {
   if (low && !R3.wasLow && G.ents.some(e => e.team === ME && e.kind === 'b' && BT[e.t].wpn && BT[e.t].pow < 0)) { announce('Low power — defenses offline', 'lowpow', 20); uiMsg('⚡ Low power: defenses are OFFLINE and production is slowed. Build a Power Plant (T).'); sfx('alert'); }
   if (!low && R3.wasLow) uiMsg('Power restored — defenses online');
   R3.wasLow = low;
+}
+
+// ===== v5.0: oil derricks (owner flag, pump animation) and day/night cycle =====
+function derricksUpdate(dt) {
+  if (!G.derricks) return;
+  if (!R3.dk) { R3.dk = G.derricks.map(d => { const B = new MB(0);
+      B.box('b', 1.3, 0.12, 1.3, COL.CONCD, PBR.CONC, 0, 0.06, 0, { bevel: 0.03 }); for (const [x, z] of [[-0.4, -0.4], [0.4, -0.4], [-0.4, 0.4], [0.4, 0.4]]) B.box('b', 0.06, 1.4, 0.06, COL.STEEL, PBR.METAL, x * 0.6, 0.75, z * 0.6, { bevel: 0 });
+      B.box('b', 0.3, 0.3, 0.3, COL.DARK, PBR.DARKM, 0, 1.45, 0, { bevel: 0.03 }); B.cyl('b', 0.12, 0.5, 0x3a2a1a, PBR.DARKM, 0.45, 0.35, 0.3, { seg: 10 });
+      const A = new MB(0); A.box('a', 1.3, 0.1, 0.12, 0x9a6a1c, PBR.PAINT, 0.1, 0, 0, { bevel: 0.02 }); A.box('a', 0.18, 0.32, 0.16, COL.DARK, PBR.DARKM, 0.72, -0.12, 0, { bevel: 0.02 });
+      const F = new MB(0); F.box('f', 0.36, 0.22, 0.02, 0xffffff, PBR.PAINT, 0.2, 0, 0, { bevel: 0 });
+      const g = new THREE.Group(), h = heightAt(d.x, d.y); g.position.set(d.x, h, d.y);
+      const bm = new THREE.Mesh(B.build().b, pbrMaterial()); bm.castShadow = bm.receiveShadow = true; g.add(bm);
+      const arm = new THREE.Mesh(A.build().a, pbrMaterial()); arm.position.set(0, 1.62, 0); arm.castShadow = true; g.add(arm);
+      const fm = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.6, emissive: 0x000000 }), flag = new THREE.Mesh(F.build().f, fm); flag.position.set(0, 2.05, 0); g.add(flag);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.6, 5), new THREE.MeshStandardMaterial({ color: 0x333333 })); pole.position.set(0, 1.85, 0); g.add(pole);
+      R3.scene.add(g); return { g, arm, fm, owner: -2 }; }); }
+  G.derricks.forEach((d, i) => { const r = R3.dk[i]; r.g.visible = seen0(idx(Math.floor(d.x), Math.floor(d.y)));
+    if (r.owner !== d.owner) { r.owner = d.owner; const c = d.owner >= 0 ? new THREE.Color(MMCOL[d.owner]) : new THREE.Color(0xdddddd); r.fm.color.copy(c); r.fm.emissive.copy(c).multiplyScalar(d.owner >= 0 ? 0.35 : 0); }
+    if (d.owner >= 0) r.arm.rotation.z = Math.sin(R3.time * 1.8 + i) * 0.35; });
+}
+// day/night: 8-minute cycle, render only (no sim effect -> lockstep-safe). Night keeps contrast and lets emissive lights glow.
+function dayNight(dt) {
+  if (!R3.sun || (typeof UI !== 'undefined' && UI.set && UI.set.noNight)) return;
+  if (!R3.dn0) R3.dn0 = { sun: R3.sun.intensity, hemi: R3.hemi.intensity, sc: R3.sun.color.clone(), fog: R3.scene.fog.color.clone(), env: R3.scene.environment };
+  const ph = ((G.time || 0) / 480 + 0.15) % 1, day = 0.5 + 0.5 * Math.cos(ph * Math.PI * 2), k = 0.28 + 0.72 * Math.min(1, Math.max(0, (day - 0.15) / 0.55));
+  R3.sun.intensity = R3.dn0.sun * k; R3.hemi.intensity = R3.dn0.hemi * (0.6 + 0.4 * k);
+  R3.sun.color.copy(R3.dn0.sc).lerp(new THREE.Color(0x8fa8ff), 1 - k).lerp(new THREE.Color(0xffa060), Math.max(0, 0.35 - Math.abs(day - 0.35)) * 1.6);
+  R3.scene.fog.color.copy(R3.dn0.fog).multiplyScalar(0.35 + 0.65 * k); if (R3.scene.background && R3.scene.background.isColor) R3.scene.background.copy(R3.scene.fog.color);
+  R3.night = 1 - k; if (POST.final) POST.final.uniforms.uExpo.value = 0.8 * (0.72 + 0.28 * k); if (G.weather && G.weather.on) R3.scene.fog.density = 0.02; else R3.scene.fog.density = 0.0065;
 }

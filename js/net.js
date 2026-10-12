@@ -18,6 +18,7 @@ const CMD = {
   rally(T, c) { for (const b of own(T, c.b)) b.rally = { x: c.x, y: c.y }; },
   board(T, c) { const tr = byId(c.tr); if (!tr || tr.team !== T) return false; orderBoard(c.u.map(byId).filter(u => u && u.team === T), tr); return true; },
   unload(T, c) { const tr = byId(c.tr); if (!tr || tr.team !== T || !tr.cargo) return false; orderUnload(tr, c.x, c.y); return true; },
+  derrick(T, c) { orderDerrick(c.u.map(byId).filter(u => u && u.team === T), c.k); return true; },
   walls(T, c) { return buildWalls(T, c.t); },
   upg(T, c) { const b = byId(c.b); return !!(b && b.team === T && upgradeB(b)); },
   ping(T, c) { (G.pings = G.pings || []).push({ team: T, x: c.x, y: c.y, t: G.time, kind: c.k }); G.events.push({ e: 'ping', team: T, x: c.x, y: c.y, k: c.k }); },

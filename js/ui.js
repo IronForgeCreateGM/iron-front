@@ -131,7 +131,9 @@ function onDown(e) {
     if (!w) return;
     const tgt = pickAt(m.x, m.y), units = UI.sel.filter(s => s.kind === 'u' && s.team === ME);
     if (units.length) {
-      if (tgt && tgt.cargo && tgt.team === ME && units.some(u => canBoard(u, tgt))) { NET.issue({ c: 'board', u: ids(units.filter(u => canBoard(u, tgt))), tr: tgt.id }); uiMsg('Boarding ' + tgt.cargo.length + ' aboard · ' + (UT[tgt.t].cap - cargoUsed(tgt)) + ' slots free'); }
+      const dk = !tgt && G.derricks && units.some(u => UT[u.t].engineer) ? G.derricks.find(d => Math.hypot(d.x - w.x, d.y - w.y) < 1.4 && d.owner !== ME) : null;
+      if (dk) { NET.issue({ c: 'derrick', u: ids(units.filter(u => UT[u.t].engineer)), k: dk.id }); uiMsg('Engineer: capturing oil derrick'); }
+      else if (tgt && tgt.cargo && tgt.team === ME && units.some(u => canBoard(u, tgt))) { NET.issue({ c: 'board', u: ids(units.filter(u => canBoard(u, tgt))), tr: tgt.id }); uiMsg('Boarding ' + tgt.cargo.length + ' aboard · ' + (UT[tgt.t].cap - cargoUsed(tgt)) + ' slots free'); }
       else if (tgt && foe(tgt.team, ME)) { NET.issue({ c: 'attack', u: ids(units), t: tgt.id }); marker(tgt.x, tgt.y, true); }
       else if (tgt && tgt.kind === 'b' && units.some(u => UT[u.t].engineer)) { NET.issue({ c: 'attack', u: ids(units.filter(u => UT[u.t].engineer)), t: tgt.id }); }
       else if (tgt && tgt.t === 'refinery' && units.some(u => u.t === 'harv')) { units.filter(u => u.t === 'harv').forEach(h => { h.hst = 'ret'; h.path = []; }); }
@@ -314,6 +316,7 @@ function minimap() {
   }
   b.putImageData(img, 0, 0); x.imageSmoothingEnabled = true; x.drawImage(UI.mmBase, 0, 0, c.width, c.height);
   for (const e of G.ents) { if (!visibleTo0(e)) continue; x.fillStyle = MMCOL[e.team] || '#ff5040'; if (e.kind === 'b') x.fillRect(e.tx * s, e.ty * s, e.w * s, e.h * s); else x.fillRect(e.x * s - 1.5, e.y * s - 1.5, 3, 3); }
+  for (const d of G.derricks || []) { x.fillStyle = d.owner >= 0 ? MMCOL[d.owner] : '#ddd'; x.fillRect(d.x * s - 2.5, d.y * s - 2.5, 5, 5); x.strokeStyle = '#000'; x.strokeRect(d.x * s - 2.5, d.y * s - 2.5, 5, 5); }
   x.fillStyle = '#5fe8c4'; for (const [vx, vy] of G.vents || []) { x.beginPath(); x.arc((vx + 0.5) * s, (vy + 0.5) * s, 3, 0, 7); x.fill(); }
   for (const p of UI.pings) { x.strokeStyle = `rgba(255,80,60,${p.t / 3})`; x.lineWidth = 2; x.beginPath(); x.arc(p.x * s, p.y * s, (3 - p.t) * 10 % 12 + 4, 0, 7); x.stroke(); }
   if (R3.viewPts) { const v = R3.viewPts; x.strokeStyle = 'rgba(255,255,255,.85)'; x.lineWidth = 1; x.beginPath(); x.moveTo(v[0].x * s, v[0].y * s); x.lineTo(v[1].x * s, v[1].y * s); x.lineTo(v[3].x * s, v[3].y * s); x.lineTo(v[2].x * s, v[2].y * s); x.closePath(); x.stroke(); }

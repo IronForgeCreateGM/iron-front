@@ -41,6 +41,8 @@ function newGame(opts) {
     for (let i = 0; i < 3; i++) addU('rifle', t, sx + dx * (3 + i * 0.6), sy + dy * 4.2);
     addU('light', t, sx + dx * 4.5, sy + dy * 1.5);
   });
+  // v5.0 capturable oil derricks (neutral map features): an Engineer captures one; owner gets a trickle of credits
+  G.derricks = []; for (const [x, y] of [[25, 25], [40, 21]]) for (const [a, b] of [[x, y], [MW - 1 - x, y], [x, MH - 1 - y], [MW - 1 - x, MH - 1 - y]]) { const f = nearFree(a, b, 6); if (!G.derricks.some(d => dhypot(d.x - f[0] - 0.5, d.y - f[1] - 0.5) < 3) && !G.lava[idx(f[0], f[1])]) G.derricks.push({ id: G.derricks.length, x: f[0] + 0.5, y: f[1] + 0.5, owner: -1 }); }
   if (typeof aiInit === 'function') G.players.forEach(p => p.ai && aiInit(p));
   updFog();
   return G;
@@ -357,6 +359,7 @@ function stepBoard(u) { const tr = byId(u.boardT); if (!tr || tr.hp <= 0 || !tr.
 function doUnload(tr) { const x0 = Math.floor(tr.x), y0 = Math.floor(tr.y); let k = 0;
   for (const c of tr.cargo) { const f = nearFree(x0 + (k % 3) - 1, y0 + ((k / 3) | 0) - 1, 5); k++; c.x = f[0] + 0.5; c.y = f[1] + 0.5; c.dead = false; c.inside = null; c.path = []; c.order = 'idle'; c.anchor = { x: c.x, y: c.y }; c.lastP = { x: c.x, y: c.y }; G.ents.push(c); }
   if (tr.cargo.length) G.events.push({ e: 'unload', team: tr.team, x: tr.x, y: tr.y, n: tr.cargo.length }); tr.cargo = []; tr.order = 'idle'; tr.anchor = { x: tr.x, y: tr.y }; G.bver++; }
+function orderDerrick(units, k) { const dk = G.derricks[k]; if (!dk) return; for (const u of units) if (u.kind === 'u' && UT[u.t].engineer) { u.order = 'derrick'; u.dk = k; u.tgt = null; setPath(u, dk.x, dk.y); } }
 function orderStop(units) { for (const u of units) if (u.kind === 'u') { u.path = []; u.order = 'idle'; u.tgt = null; u.anchor = { x: u.x, y: u.y }; if (u.t === 'harv') u.hst = 'idle'; } }
 function canHit(w, e) { return !!w && e && e.hp > 0 && (isAir(e) ? !!w.air : !!w.ground) && (e.kind !== 'b' || e.t !== 'wall' || true); }
 function distTo(a, e) {
@@ -376,6 +379,7 @@ function stepGame() {
   }
   if (G.weather && G.time > G.weather.next) { G.weather.on = !G.weather.on; G.weather.next = G.time + (G.weather.on ? 60 : 180 + G.R() * 120); G.events.push({ e: 'weather', on: G.weather.on }); }
   for (const P of G.players) stepProduction(P);
+  if (G.tick % 30 === 0 && G.derricks) for (const d of G.derricks) if (d.owner >= 0 && G.players[d.owner] && !G.players[d.owner].out) { const P = G.players[d.owner]; P.cr += DERRICK_RATE; P.stats.mined += DERRICK_RATE; }
   // spatial hash for separation
   const hash = new Map();
   for (const e of G.ents) if (e.kind === 'u') { const k = (Math.floor(e.x) << 8) | Math.floor(e.y) | (isAir(e) ? 1 << 20 : 0); let a = hash.get(k); if (!a) hash.set(k, a = []); a.push(e); }
@@ -540,6 +544,9 @@ function angDiff(a, b) { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; wh
 function stepUnit(u) {
   const d = UT[u.t];
   if (u.t === 'harv') harvest(u);
+  if (d.engineer && u.order === 'derrick') { const dk = G.derricks[u.dk]; if (!dk || dk.owner === u.team) { u.order = 'idle'; }
+    else if (dhypot(u.x - dk.x, u.y - dk.y) < 1.3) { dk.owner = u.team; G.events.push({ e: 'derrick', team: u.team, x: dk.x, y: dk.y }); u.hp = 0; u.sold = true; return; }
+    else if (!u.path.length) setPath(u, dk.x, dk.y); }
   if (d.engineer && u.order === 'capture') {
     const t = u.tgt; if (!t || t.hp <= 0) { u.order = 'idle'; u.tgt = null; }
     else if (distTo(u, t) < 0.8) {
