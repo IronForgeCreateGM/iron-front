@@ -108,6 +108,10 @@ function genMap(R) {
   G.mapName = G.opts.map || 'classic';
   if (G.mapName === 'frost') mapFrost(R, Q, setQ, disc, clear, rock, line, field, vent);
   if (G.mapName === 'volcano') mapVolcano(R, Q, setQ, disc, clear, rock, line, field, vent);
+  // v5.1: mid-map hills and ridges on the themed maps (smooth slopes = natural ramps; tier 1 tops give high-ground bonus)
+  if (G.mapName !== 'classic') { const caps = G.mapName === 'frost' ? [[30, 22, 33, 26, 3.2], [21, 35, 25, 38, 3], [38, 31, 41, 35, 2.6]] : [[29, 21, 33, 24, 3.2], [20, 33, 24, 37, 3], [36, 30, 37, 36, 2.4]];
+    for (let y = 0; y < Q; y++) for (let x = 0; x < Q; x++) { let l = 0; for (const [ax, ay, bx, by, r] of caps) { const vx = bx - ax, vy = by - ay, t = Math.max(0, Math.min(1, ((x + 0.5 - ax) * vx + (y + 0.5 - ay) * vy) / (vx * vx + vy * vy))), d = dhypot(x + 0.5 - ax - vx * t, y + 0.5 - ay - vy * t); l = Math.max(l, d < r ? 1 : d < r + 3 ? 1 - (d - r) / 3 : 0); }
+      if (l > 0) setQ(x, y, i => { if (!G.lava[i]) G.lvl[i] = Math.max(G.lvl[i], l); }); } }
   if (G.six) for (const [sx, sy] of G.starts.slice(4)) for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const d = dhypot(x + 0.5 - sx, y + 0.5 - sy), i = idx(x, y);
     if (d < 15.5 && G.map[i] === 2) G.map[i] = 0; if (d < 15.5) { G.lava[i] = 0; G.ice[i] = 0; G.bridge[i] = 0; } if (d < 11.5 && G.map[i] === 1) G.map[i] = 0; }
   for (let i = 0; i < N; i++) G.tier[i] = Math.round(G.lvl[i]);
