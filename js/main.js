@@ -8,8 +8,9 @@ const MENU = { fac: 'usa', aiFac: 'rand' };
 const DIFF_NAME = d => ({ si: 'Chief SI', chief: 'Chief', easy: 'Easy AI', normal: 'Medium AI', hard: 'Hard AI' })[d] || d;
 const SLOT_TYPES = { off: 'Closed', human: 'Human (you)', remote: 'Human (remote)', si: 'Chief SI', chief: 'Chief', easy: 'Easy AI', normal: 'Medium AI', hard: 'Hard AI' };
 const PRESETS = {
-  duel:   { n: '1v1 vs Medium', slots: [['human', 'A'], ['normal', 'B']] },
-  coop:   { n: 'Me + Chief (SI) vs 2 Medium', slots: [['human', 'A'], ['si', 'A'], ['normal', 'B'], ['normal', 'B']] },
+  duel:   { n: '1v1', slots: [['human', 'A'], ['normal', 'B']] },
+  ffa2:   { n: '2v2', slots: [['human', 'A'], ['hard', 'A'], ['hard', 'B'], ['hard', 'B']] },
+  coop:   { n: 'Me + Chief SI vs 2 Medium', slots: [['human', 'A'], ['si', 'A'], ['normal', 'B'], ['normal', 'B']] },
   wsi:    { n: 'Watch: Chief SI + Chief vs 2 Hard', slots: [['si', 'A'], ['chief', 'A'], ['hard', 'B'], ['hard', 'B']] },
   w1:     { n: 'Watch: Chief vs Hard', slots: [['chief', 'A'], ['hard', 'B']] },
   w2:     { n: 'Watch: Chief (SI) vs Hard', slots: [['si', 'A'], ['hard', 'B']] },
@@ -28,7 +29,7 @@ function startGame(diff, opts) {
   }
   if (QS.get('fac')) slots[0].fac = QS.get('fac'); if (QS.get('aifac') && slots[1]) slots[1].fac = QS.get('aifac');
   ME = opts.me != null ? opts.me : Math.max(0, slots.findIndex(s => s.local));
-  newGame({ diff, fog: opts.fog !== false, seed: opts.seed, slots });
+  newGame({ diff, fog: opts.fog !== false, seed: opts.seed, slots, map: opts.map || QS.get('map') || 'classic', peace: opts.peace != null ? opts.peace : QS.get('peace') != null ? +QS.get('peace') : 180 });
   G.vis = G.visT[ME]; G.seen = G.seenT[ME];
   G.players.forEach((P, i) => P.name = slots[i].name || (P.ai ? DIFF_NAME(P.diff) : 'You'));
   if (opts.online) NET.begin(opts.online.tr, opts.online);
@@ -91,7 +92,7 @@ window.addEventListener('DOMContentLoaded', () => {
     for (const f in FACTIONS) { const c = document.createElement('div'); c.className = 'fcard'; c.dataset.f = f; c.innerHTML = `<div class="fl">${FACTIONS[f].flag}</div>${FACTIONS[f].n}`; c.onclick = () => sel(f); box.appendChild(c); }
     sel('usa'); }
   lobbyInit(); if (QS.get('lobbytest')) setTimeout(lobbySelfTest, 0);
-  document.getElementById('startBtn').onclick = () => { audioInit(); if (ONL.room && ONL.host) { onlStartHost(); return; } const rows = lobbyRead(); if (rows.some(r => r[0] === 'remote')) { uiMsgMenu('Remote slots need an online game: press “Host online game”.'); return; } startGame('normal', { slots: buildSlots(rows), fog: document.getElementById('fogChk').checked }); };
+  document.getElementById('startBtn').onclick = () => { audioInit(); if (ONL.room && ONL.host) { onlStartHost(); return; } const rows = lobbyRead(); if (rows.some(r => r[0] === 'remote')) { uiMsgMenu('Remote slots need an online game: press “Host online game”.'); return; } startGame('normal', Object.assign({ slots: buildSlots(rows), fog: document.getElementById('fogChk').checked }, lobbyOpts())); };
   onlInitUI();
   document.getElementById('surrBtn').onclick = () => { if (!started || G.over) return; if (confirm('Surrender this match?')) { NET.issue({ c: 'surrender' }); document.getElementById('pause').style.display = 'none'; paused = false; } };
   document.getElementById('resumeBtn').onclick = () => togglePause();
@@ -196,12 +197,13 @@ function lobbyInit() {
     <select class="la"><option value="A">Team A</option><option value="B">Team B</option></select><select class="lf">${facOpt}</select><select class="lc"><option value="auto">Auto</option>${Object.keys(TEAM_COLORS).map(c => `<option value="${c}">${TEAM_COLORS[c].n}</option>`).join('')}</select></div>`).join('');
   box.querySelectorAll('.lc').forEach(sel => sel.onchange = () => { if (sel.value === 'auto') return; box.querySelectorAll('.lc').forEach(o => { if (o !== sel && o.value === sel.value) o.value = 'auto'; }); if (typeof lobbyChanged === 'function') lobbyChanged(); });
   box.querySelectorAll('select').forEach(sel => sel.addEventListener('change', () => { if (typeof lobbyChanged === 'function') lobbyChanged(); }));
-  const pb = document.getElementById('presets'); pb.innerHTML = Object.keys(PRESETS).map(k => `<button data-p="${k}">${k[0] === 'w' ? '▶ ' : ''}${PRESETS[k].n}</button>`).join('');
+  const pb = document.getElementById('presets'); pb.innerHTML = Object.keys(PRESETS).filter(k => k[0] !== 'w').map(k => `<button data-p="${k}">${k[0] === 'w' ? '▶ ' : ''}${PRESETS[k].n}</button>`).join('');
   pb.querySelectorAll('button').forEach(b => b.onclick = () => { lobbySet(PRESETS[b.dataset.p].slots); if (b.dataset.p[0] === 'w') { audioInit(); startGame('normal', { slots: buildSlots(lobbyRead()), seed: (Math.random() * 1e6) | 0 }); } });
   lobbySet(PRESETS.duel.slots);
   box.querySelector('.lf').onchange = e => { if (e.target.value !== 'rand') MENU.fac = e.target.value; };
 }
 function lobbySet(list) { const rows = document.querySelectorAll('#lobby .lrow:not(.lh)'); rows.forEach((r, i) => { const s = list[i] || ['off', i % 2 ? 'B' : 'A']; r.querySelector('.lt').value = s[0]; r.querySelector('.la').value = s[1]; r.querySelector('.lf').value = s[2] || (i === 0 && s[0] === 'human' ? MENU.fac : 'rand'); r.querySelector('.lc').value = s[3] || 'auto'; }); }
+function lobbyOpts() { const m = document.getElementById('mapSel'), p = document.getElementById('peaceSel'); return { map: m ? m.value : 'classic', peace: p ? +p.value : 180 }; }
 function lobbyRead() { return [...document.querySelectorAll('#lobby .lrow:not(.lh)')].map(r => [r.querySelector('.lt').value, r.querySelector('.la').value, r.querySelector('.lf').value, r.querySelector('.lc').value]); }
 
 

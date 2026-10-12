@@ -7,6 +7,8 @@ const AI_ORDER_CHIEF = ['power', 'barracks', 'refinery', 'power', 'extractor', '
 const AI_ORDER_SI = ['power', 'barracks', 'refinery', 'power', 'extractor', 'factory', 'refinery', 'turret', 'power', 'tech', 'refinery', 'aagun', 'power', 'airfield', 'turret', 'power', 'extractor', 'gcannon', 'aagun', 'power', 'power'];
 const AI_ORDER_AIR = AI_ORDER.concat(['power', 'airfield', 'extractor', 'power', 'gcannon', 'power']);
 function aiInit(P) { P.aiS = { next: 0, wave: DIFF[P.diff].wave0, scoutT: DIFF[P.diff].scoutAfter, lastAttack: 0, attackers: new Set(), known: new Map(), sellT: 0 }; }
+// v5.0 peace window: no attacks on bases before G.opts.peace seconds (default 180; lobby Off/3/5/8 min)
+function peaceOver() { return G.time >= (G.opts.peace == null ? 180 : G.opts.peace); }
 function aiStep(P) {
   const S = P.aiS, D = DIFF[P.diff];
   const myBld = () => G.ents.filter(e => e.team === P.team && e.kind === 'b' && e.sell < 0);
@@ -98,21 +100,21 @@ function aiStep(P) {
     if (sc && !intruders.length) { const tgt = S.known.size ? (G.sites ? (s => [s.x, s.y])(G.sites[(G.R() * G.sites.length) | 0]) : [10 + G.R() * (MW - 20), 10 + G.R() * (MH - 20)]) : estart; orderMove([sc], tgt[0], tgt[1], D.firstAttack ? false : true); S.attackers.add(sc.id); }
   }
   // 7) harass enemy harvesters with fast units / gunships
-  if (D.harass && G.time > D.harassAfter && G.R() < D.harass * 0.15) {
+  if (D.harass && G.time > D.harassAfter && peaceOver() && G.R() < D.harass * 0.15) {
     const fh = foes.find(f => f.t === 'harv');
     const raiders = home.filter(u => u.t === 'scout' || u.t === 'gunship' || u.t === 'light').slice(0, 4);
     if (fh && raiders.length >= 2) { orderAttack(raiders, fh); raiders.forEach(u => S.attackers.add(u.id)); if (S.firstAttackT == null) S.firstAttackT = G.time; }
   }
   // 7b) air strikes: jets/bombers hit eco & production when armed
   const strikers = me.filter(u => u.kind === 'u' && (u.t === 'jet' || u.t === 'bomber' || u.t === 'stealth') && u.js === 'landed' && u.ammo >= W[UT[u.t].wpn].ammo);
-  if (strikers.length && knownB.length && G.time > D.harassAfter && G.R() < 0.4) { const pri = ['refinery', 'power', 'factory', 'airfield', 'tech', 'barracks'], tg = knownB.slice().sort((a, b) => (pri.indexOf(a.t) + 1 || 9) - (pri.indexOf(b.t) + 1 || 9))[0]; if (tg) orderAttack(strikers, tg); }
+  if (strikers.length && knownB.length && G.time > D.harassAfter && peaceOver() && G.R() < 0.4) { const pri = ['refinery', 'power', 'factory', 'airfield', 'tech', 'barracks'], tg = knownB.slice().sort((a, b) => (pri.indexOf(a.t) + 1 || 9) - (pri.indexOf(b.t) + 1 || 9))[0]; if (tg) orderAttack(strikers, tg); }
   macroMgr(P, S, D, cnt, me); harassMgr(P, S, D, me, foes, knownB, home, hq);
   if (D.si) siExtras(P, S, me, foes, knownB, hq, estart, intruders);
   if (D.chief || D.sys.sim) { chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart); return; }
   // 8) waves
   for (const id of [...S.attackers]) { const u = byId(id); if (!u) S.attackers.delete(id); else if (u.order === 'idle' && !u.tgt && G.R() < 0.2) S.attackers.delete(id); }
   const ready = home.filter(u => u.t !== 'harv');
-  if (ready.length >= S.wave && !intruders.length && G.time >= D.firstAttack && G.time - S.lastAttack > D.waveGap) {
+  if (ready.length >= S.wave && !intruders.length && G.time >= D.firstAttack && peaceOver() && G.time - S.lastAttack > D.waveGap) {
     if (S.firstAttackT == null) S.firstAttackT = G.time;
     if (D.waveMax < 10) ready.splice(Math.min(ready.length, S.wave + 2));
     const tgts = aiFocus(P, knownB);
@@ -188,7 +190,7 @@ function chokePoint(P, hq, ef) {
 }
 // harass squad: small fast group raids harvesters / undefended refineries & expansions, retreats when outgunned
 function harassMgr(P, S, D, me, foes, knownB, home, hq) {
-  if (!D.sys.hsq || G.time < Math.max(D.harassAfter, 300)) return;
+  if (!D.sys.hsq || G.time < Math.max(D.harassAfter, 300) || !peaceOver()) return;
   S.hsq = (S.hsq || []).filter(u => u.hp > 0 && !u.dead);
   if (S.hsq.length < 3 && G.time > (S.hsqT || 0)) { const add = home.filter(u => (u.t === 'scout' || u.t === 'light' || u.t === 'gunship') && !S.hsq.includes(u)).slice(0, 4 - S.hsq.length); if (S.hsq.length + add.length >= 3) { add.forEach(u => { S.hsq.push(u); S.attackers.add(u.id); }); S.hsqT = G.time + 45; } }
   if (!S.hsq.length || G.time < (S.hsqGo || 0)) return; S.hsqGo = G.time + 3;
@@ -240,7 +242,7 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
   // reinforce a running attack with what has gathered at home
   if (S.grp.length && !intruders.length && (av > 5000 || idle.length > 14) && G.time > (S.reinfT || 0)) { S.reinfT = G.time + 20; const c = S.grp[0]; orderMove(idle, c.x, c.y, true); idle.forEach(u => { S.grp.push(u); S.attackers.add(u.id); u.stance = 'aggr'; u.guard = null; u.face = null; }); }
   const maxed = popOf(P.team) >= POP_CAP - 8;
-  if (!S.grp.length && !intruders.length && (av >= need || idle.length >= 30 || maxed && idle.length >= 10) && (G.time - S.lastAttack > D.waveGap || maxed) && G.time > (S.retreatT || -99) + (maxed ? 8 : 25)) {
+  if (!S.grp.length && !intruders.length && peaceOver() && (av >= need || idle.length >= 30 || maxed && idle.length >= 10) && (G.time - S.lastAttack > D.waveGap || maxed) && G.time > (S.retreatT || -99) + (maxed ? 8 : 25)) {
     S.grp = idle.slice(); S.grpV0 = armyVal(S.grp); S.grp.forEach(u => { S.attackers.add(u.id); u.stance = 'aggr'; u.guard = null; u.face = null; });
     S.lastAttack = G.time; S.regT = 0; S.wave = Math.min(D.waveMax, S.wave + D.waveInc);
     // multi-prong: a fast flank squad hits a different (soft) target at the same time
@@ -275,7 +277,7 @@ function siExtras(P, S, me, foes, knownB, hq, estart, intruders) {
   for (const u of army) if (u.retreating && (u.hp > u.mhp * 0.7 || dhypot(u.x - stage.x, u.y - stage.y) < 3)) u.retreating = false;
   // jet strike waves (>=3 armed jets); interceptor escorts orbit the target instead of hovering
   const jets = me.filter(u => u.t === 'jet' && u.js === 'landed' && u.ammo >= W.jbomb.ammo);
-  if (!SIOFF.jets && jets.length >= 3 && knownB.length && G.time > (S.strikeT || 0)) {
+  if (!SIOFF.jets && jets.length >= 3 && knownB.length && peaceOver() && G.time > (S.strikeT || 0)) {
     const pri = ['refinery', 'extractor', 'power', 'factory', 'airfield', 'tech', 'barracks', 'cc', 'hq'];
     const aaNear = b => knownB.filter(k => k.t === 'aagun' && dhypot(k.x - b.x, k.y - b.y) < 7).length;
     const tg = knownB.filter(b => BT[b.t].cat !== 'def').sort((a, b) => ((pri.indexOf(a.t) + 1 || 9) + aaNear(a) * 3) - ((pri.indexOf(b.t) + 1 || 9) + aaNear(b) * 3))[0];

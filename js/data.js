@@ -37,6 +37,8 @@ const W = {
   titan:  { dmg: 85, rng: 7, cd: 1.7, type: 'rocket', spd: 14, ground: 1, air: 1, snd: 'rocket', twin: 1 },
   tcannon:{ dmg: 85, rng: 6.5, cd: 1.3, type: 'cannon', spd: 25, ground: 1, air: 0, snd: 'cannon' },
 };
+// v5.0: static defense damage -25%
+for (const k of ['tcannon', 'flakB', 'gcan']) if (W[k]) W[k].dmg = Math.round(W[k].dmg * 0.75);
 // Buildings. cat: bld (structures) | def (defenses). req: buildings needed.
 const BT = {
   hq:      { n: 'Command Yard', w: 3, h: 3, hp: 3000, cost: 3000, pow: 20, time: 30, cat: 'bld', req: ['__never'] },
