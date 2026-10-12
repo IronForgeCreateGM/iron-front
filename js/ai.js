@@ -29,7 +29,7 @@ function aiStep(P) {
   if (knownB.some(b => b.team === enemyTeam)) knownB = knownB.filter(b => b.team === enemyTeam).concat(knownB.filter(b => b.team !== enemyTeam && dhypot(b.x - hq.x, b.y - hq.y) < 40));
   const estart = G.starts[G.players[enemyTeam].start];
   // intel: is the enemy tower-heavy? (static D value vs mobile army) -> siege plan: knock out power from the air, bring artillery, then push the front wall
-  { const eDef = knownB.filter(b => BT[b.t].wpn); S.eDefV = eDef.reduce((a, b) => a + BT[b.t].cost, 0); S.towerHeavy = eDef.length >= 4 && S.eDefV > (S.eArmy || 0) * 0.6; S.eOffline = eDef.filter(b => b.offline).length; }
+  { const eDef = knownB.filter(b => BT[b.t].wpn); S.eDefV = eDef.reduce((a, b) => a + BT[b.t].cost, 0); S.towerHeavy = eDef.length >= 4 && S.eDefV > (S.eArmy || 0) * 0.6; S.siege = S.towerHeavy || knownB.filter(b => b.t === 'wall' || b.t === 'gate').length >= 6; S.eOffline = eDef.filter(b => b.offline).length; }
   S.bad = S.bad || {};
   const cnt = {}; for (const e of me) cnt[e.t] = (cnt[e.t] || 0) + 1;
   // queued items count too
@@ -76,7 +76,7 @@ function aiStep(P) {
     const myInf = me.filter(e => e.kind === 'u' && UT[e.t].armor === 'inf').length;
     if (P.queues.inf.length < 2) { const t = pick([['rifle', 2 + ft.inf], ['rocketeer', 1 + ft.armor * 1.5 + ft.air], ['sniper', ft.inf > 3 ? 1 + ft.inf * 0.25 : 0.2], ['pyro', 0.8 + ft.inf * 0.25], ['kommando', P.gas > 200 ? 1.5 : 0], ['medic', myInf > 6 && (cnt.medic || 0) < 2 + myInf / 10 ? 1.2 : 0]]); if (t) enqueue(P.team, t); }
     if (P.queues.veh.length < 2 && harvs >= Math.min(2, refs * 2)) {
-      const t = pick([['light', 3], ['heavy', 2 + ft.armor], ['titan', P.gas > 300 ? 1.5 + ft.air * 0.3 + (P.gas > 1200 ? 4 : 0) : 0], ['tsar', P.gas > 350 ? 2 + (P.gas > 1200 ? 4 : 0) : 0], ['scout', 1 + ft.inf * 0.5], ['arty', 1 + ft.inf * 0.4 + (S.towerHeavy ? 5 : 0)], ['aa', ft.air * 2]]);
+      const t = pick([['light', 3], ['heavy', 2 + ft.armor], ['titan', P.gas > 300 ? 1.5 + ft.air * 0.3 + (P.gas > 1200 ? 4 : 0) : 0], ['tsar', P.gas > 350 ? 2 + (P.gas > 1200 ? 4 : 0) : 0], ['scout', 1 + ft.inf * 0.5], ['arty', 1 + ft.inf * 0.4 + (S.towerHeavy ? 5 : S.siege ? 3 : 0)], ['aa', ft.air * 2]]);
       if (t) enqueue(P.team, t);
     }
     const airN = (cnt.gunship || 0) + (cnt.jet || 0) + (cnt.intercept || 0) + (cnt.bomber || 0);
@@ -213,6 +213,7 @@ function dropMgr(P, S, D, me, foes, knownB, home, hq) {
   if (want && !trs.length && avail(P.team, 'hauler') && !P.queues.air.some(q => q.t === 'hauler') && P.cr > 1500 && G.time > (S.dropT || 0)) enqueue(P.team, 'hauler');
   if (!S.drop) { const tr = trs.find(t => !t.cargo.length && dhypot(t.x - hq.x, t.y - hq.y) < 16 && t.order === 'idle');
     if (!tr || !want || G.time < (S.dropT || 0)) return;
+    if (S.siege && D.si && !(S.grp || []).length && !SIOFF.siege) return; // time drops with the main push
     const pool = home.filter(u => !isAir(u) && u.t !== 'harv' && UT[u.t].wpn && dhypot(u.x - hq.x, u.y - hq.y) < 20 && !(S.grp || []).includes(u));
     const veh = pool.filter(u => u.t === 'heavy' || u.t === 'light' || u.t === 'titan').slice(0, 1), inf = pool.filter(u => UT[u.t].armor === 'inf' && u.t !== 'medic' && u.t !== 'engineer').slice(0, veh.length ? 4 : 8);
     const team = veh.concat(inf); if (team.length < 3) return;
@@ -260,7 +261,7 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
     const v = armyVal(S.grp), c = { x: S.grp.reduce((a, u) => a + u.x, 0) / S.grp.length, y: S.grp.reduce((a, u) => a + u.y, 0) / S.grp.length };
     const near = foes.filter(f => f.kind === 'u' && UT[f.t].wpn && dhypot(f.x - c.x, f.y - c.y) < 10);
     const thr = D.sys.sim ? threatsNear(P, foes, c.x, c.y, 10) : null, simR = thr && thr.length ? combatSim(S.grp, thr) : 9;
-    if (D.sys.sim ? (simR < 0.5 && v < S.grpV0 * 0.85 && G.time - S.lastAttack > 20) : (v < S.grpV0 * 0.35 && armyVal(near) > v * 1.2)) { // combat-sim says losing -> retreat & regroup at home defenses
+    if (D.sys.sim ? (simR < (S.siege && D.si && !SIOFF.siege ? 0.3 : 0.5) && v < S.grpV0 * 0.85 && G.time - S.lastAttack > 20) : (v < S.grpV0 * 0.35 && armyVal(near) > v * 1.2)) { // combat-sim says losing -> retreat & regroup at home defenses
       orderMove(S.grp, stage.x, stage.y, false); S.grp.forEach(u => S.attackers.delete(u.id)); S.grp = []; S.retreatT = G.time; S.wave = Math.max(S.wave, 12);
     } else if (G.time > (S.regT || 0)) {
       S.regT = G.time + 4;
@@ -270,7 +271,11 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
       else {
         const tgts = knownB.slice(); const pref = S.towerHeavy ? ['turret', 'tesla', 'gcannon', 'aagun', 'wall', 'power', 'refinery', 'factory', 'barracks', 'cc', 'hq'] : D.si && !SIOFF.pref ? ['cc', 'factory', 'barracks', 'refinery', 'hq', 'airfield', 'turret', 'aagun', 'tech', 'power'] : ['turret', 'aagun', 'refinery', 'factory', 'barracks', 'power', 'airfield', 'tech', 'hq'];
         tgts.sort((a, b) => dhypot(a.x - c.x, a.y - c.y) * 0.3 + (pref.indexOf(a.t) + 1 || 9) - dhypot(b.x - c.x, b.y - c.y) * 0.3 - (pref.indexOf(b.t) + 1 || 9));
-        const t = tgts[0] || huntTarget(P, S, c, estart);
+        let t = tgts[0] || huntTarget(P, S, c, estart);
+        // v5.1 siege: break the weakest section of the wall/defence line in front of the pack (lowest hp, closest)
+        if (S.siege && D.si && !SIOFF.siege) { const line = knownB.filter(b => (b.t === 'wall' || b.t === 'gate' || BT[b.t].wpn) && dhypot(b.x - c.x, b.y - c.y) < 13);
+          if (line.length) { const real = line.map(b => byId(b.id) || b); real.sort((a, b) => (a.hp || 0) / 80 + dhypot(a.x - c.x, a.y - c.y) - (b.hp || 0) / 80 - dhypot(b.x - c.x, b.y - c.y)); const w = real[0];
+            if (w && w.hp > 0 && G.time > (S.breachT || 0)) { S.breachT = G.time + 3; orderAttack(S.grp.filter(u => !u.tgt || u.tgt.kind !== 'u'), w); } } }
         const step = Math.min(8, dhypot(t.x - c.x, t.y - c.y)), a2 = datan2(t.y - c.y, t.x - c.x);
         if (!near.length && step > 3) orderMove(S.grp.filter(u => u.order !== 'attack'), c.x + dcos(a2) * step, c.y + dsin(a2) * step, true);
         else if (!near.length && tgts[0]) orderMove(S.grp.filter(u => u.order !== 'attack'), t.x, t.y, true);
