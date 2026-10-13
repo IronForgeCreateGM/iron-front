@@ -34,7 +34,7 @@ function startGame(diff, opts) {
   if (QS.get('dbg')) setTimeout(() => document.title = 'DBG map=' + G.mapName + ' np=' + G.players.length + ' t=' + (G.time | 0) + ' starts=' + G.players.map(P => P.start).join(''), 500);
   G.vis = G.visT[ME]; G.seen = G.seenT[ME];
   G.players.forEach((P, i) => P.name = slots[i].name || (P.ai ? DIFF_NAME(P.diff) : 'You'));
-  if (opts.replay) { G.replay = { cmds: opts.replay.cmds || [], hash: opts.replay.hash || [], i: 0, checked: 0, bad: 0 }; G.spectate = true; G.watch = true; G.opts.fog = false; document.body.classList.add('watching'); REC.on = false; REC.data = null; G.players.forEach((P, i) => P.name = (opts.replay.slots[i] || {}).name || P.name); }
+  if (opts.replay) { G.replay = { cmds: opts.replay.cmds || [], hash: opts.replay.hash || [], i: 0, checked: 0, bad: 0 }; G.spectate = true; G.watch = true; G.opts.fog = false; document.body.classList.add('watching'); RPL.on = false; RPL.data = null; G.players.forEach((P, i) => P.name = (opts.replay.slots[i] || {}).name || P.name); }
   else recStart();
   if (opts.online) NET.begin(opts.online.tr, opts.online);
   if (G.players[ME].ai && !opts.demo) { DIR.auto = !!QS.get('auto'); G.spectate = true; G.watch = true; document.body.classList.add('watching'); }
@@ -127,6 +127,9 @@ window.addEventListener('DOMContentLoaded', () => {
     for (let i = 0; i < 30; i++) stepGame(); orderFormation(army, 20, 20, Math.PI / 4); for (let i = 0; i < 30 * 12; i++) stepGame();
     G.events.length = 0; setSel([t1]); R3.cam.td = R3.cam.d = 19; jumpTo(17, 15.5, true); paused = false;
   } else
+  if (QS.get('replaytest')) { startGame('hard', { seed: 99, map: QS.get('map') || 'volcano' }); NET.issue({ c: 'enq', t: 'power' }); for (let i = 0; i < 2700; i++) { stepGame(); G.events.length = 0; if (i === 1500) NET.issue({ c: 'move', u: G.ents.filter(e => e.team === ME && e.kind === 'u').map(e => e.id), x: 40, y: 40 }); }
+    const h0 = stateHash(), f = replayFile(); loadReplay(JSON.parse(f)); for (let i = 0; i < 2700; i++) { stepGame(); G.events.length = 0; }
+    document.title = (stateHash() === h0 && !G.replay.bad && G.replay.checked >= 2 ? 'REPLAYTEST OK' : 'REPLAYTEST FAIL') + ' checked=' + G.replay.checked + ' size=' + f.length; } else
   if (QS.get('warhead')) { startGame('normal', { demo: 1, seed: 4242 }); G.opts.fog = false; // v5.2 screenshot/test scene: heavy warhead mid-flight + cluster about to land on a defence cluster
     for (const [t, x, y] of [['power', 4, 12], ['power', 1, 9], ['power', 4, 2], ['tech', 3, 15]]) addB(t, 0, x, y, true).born = -10; const s = addB('silo', 0, 16, 16, true); s.born = -10; const s2 = addB('silo', 0, 12, 20, true); s2.born = -10;
     for (const [t, x, y] of [['turret', 30, 30], ['turret', 33, 29], ['aagun', 31, 33], ['tesla', 34, 32], ['power', 36, 35], ['power', 33, 36]]) addB(t, 1, x, y, true).born = -10;
