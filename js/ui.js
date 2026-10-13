@@ -148,6 +148,7 @@ function onDown(e) {
     if (NET.online ? canPlace(UI.placing, ME, tx, ty) && (NET.issue({ c: 'place', cat: BT[UI.placing].cat, x: tx, y: ty }), true) : NET.issue({ c: 'place', cat: BT[UI.placing].cat, x: tx, y: ty })) UI.placing = null; else { sfx('error'); uiMsg("Can't build there"); }
     return;
   }
+  if (UI.mode === 'nuke') { const b = UI.sel.find(s => s.t === 'silo' && s.team === ME); if (w && b) { if (dhypot(w.x - b.x, w.y - b.y) > MIS[b.mis || 'small'].rng) { sfx('error'); uiMsg('Target out of range (' + MIS[b.mis || 'small'].rng + ')'); return; } NET.issue({ c: 'mlaunch', b: b.id, x: w.x, y: w.y }); marker(w.x, w.y, true); sfx('ack'); } UI.mode = null; return; }
   if (UI.mode === 'unload') { if (w) { UI.sel.filter(s => s.cargo && s.team === ME).forEach(tr => NET.issue({ c: 'unload', tr: tr.id, x: w.x, y: w.y })); marker(w.x, w.y); sfx('ack'); } UI.mode = null; return; }
   if (UI.mode === 'wall') { if (w) { UI.wallA = [Math.floor(w.x), Math.floor(w.y)]; } return; }
   if (UI.mode === 'sell' || UI.mode === 'repair') {
@@ -197,6 +198,7 @@ function onKey(e) {
   if (k === 'g') { doFormation(e.shiftKey); return; }
   if (k === 'v') { toggleStance(); return; }
   if (k === 'z') { doUpgrade(); return; }
+  if (k === 'l' && UI.sel.some(s => s.t === 'silo' && s.team === ME)) { siloArm(); return; }
   if (k === 'a' && UI.sel.some(s => s.kind === 'u')) { UI.mode = 'amove'; uiMsg('Attack-move: left-click target (Shift = waypoint)'); }
   if (k === 'h') { const hq = G.ents.find(e => e.team === ME && e.t === 'hq') || G.ents.find(e => e.team === ME && e.t === 'cc'); if (hq) jumpTo(hq.x, hq.y); }
   if (k === 'q') { UI.tab = Object.keys(CATS)[(Object.keys(CATS).indexOf(UI.tab) + 1) % 5]; buildGrid(); }
@@ -247,7 +249,7 @@ function uiFrame(dt) {
   wallPreview(UI.mode === 'wall' ? (UI.wallA ? wallTiles() : (() => { const w = m.x >= 0 && screenToWorld(m.x, m.y); return w ? [[Math.floor(w.x), Math.floor(w.y)]] : null; })()) : null);
   if (UI.placing && P.ready[BT[UI.placing].cat] !== UI.placing) UI.placing = null;
   if (UI.msgT > 0) { UI.msgT -= dt; if (UI.msgT <= 0) $('msg').style.opacity = 0; }
-  el.style.cursor = UI.pan ? 'grabbing' : UI.placing ? 'cell' : UI.mode === 'sell' ? 'not-allowed' : UI.mode === 'repair' ? 'help' : UI.mode === 'amove' ? 'crosshair' : (R3.hoverId && byId(R3.hoverId) && byId(R3.hoverId).team !== ME && UI.sel.some(s => s.kind === 'u' && s.team === ME)) ? 'crosshair' : 'default';
+  el.style.cursor = UI.pan ? 'grabbing' : UI.placing ? 'cell' : UI.mode === 'sell' ? 'not-allowed' : UI.mode === 'repair' ? 'help' : UI.mode === 'amove' || UI.mode === 'nuke' ? 'crosshair' : (R3.hoverId && byId(R3.hoverId) && byId(R3.hoverId).team !== ME && UI.sel.some(s => s.kind === 'u' && s.team === ME)) ? 'crosshair' : 'default';
   if ((UI.hovT = (UI.hovT || 0) + dt) > 0.05) { UI.hovT = 0; const h = m.x >= 0 && !m.down ? pickAt(m.x, m.y) : null; R3.hoverId = h ? h.id : null; }
   UI.t = (UI.t || 0) + dt; if (UI.t > 0.1) { UI.t = 0; sidebar(); }
   if ((UI.mmT = (UI.mmT || 0) + dt) > 0.2) { UI.mmT = 0; minimap(); }
@@ -285,6 +287,7 @@ function sidebar() {
     if (s.length === 1) { const e = s[0], d = defOf(e);
       h = `<div class="pt"><img src="${icon(e.t)}"><div><b>${d.n}</b>${foe(e.team, ME) ? ' <span class="r">(enemy)</span>' : e.team !== ME ? ' <span class="g">(ally)</span>' : ''}<div class="hpb"><div id="ctxhp"></div></div><div id="ctxinfo" class="dim"></div></div></div>`;
       if (e.kind === 'b' && e.team === ME && (UPG[e.t] || e.t === 'tech')) h += `<button id="upBtn" class="act"></button>`;
+      if (e.kind === 'b' && e.team === ME && e.t === 'silo') h += `<div class="acts">${Object.keys(MIS).map(k => `<button class="act mis" data-k="${k}" title="Range ${MIS[k].rng} · ${MIS[k].sub > 1 ? MIS[k].sub + '× ' : ''}${MIS[k].dmg} dmg · build ${MIS[k].time}s · cooldown ${MIS[k].cd}s${MIS[k].icpt ? ' · can be intercepted by Lv3 Flak' : ''}">🚀 ${MIS[k].n} <span class="c">$${MIS[k].cost}</span> <span class="gas">◆${MIS[k].gas}</span></button>`).join('')}<button id="nukeBtn" class="act">🎯 Launch <kbd>L</kbd></button></div><div id="siloSt" class="dim small"></div>`;
       if (e.kind === 'u' && e.team === ME && UT[e.t].wpn) h += `<div class="acts"><button id="fmBtn" class="act">⛨ Defensive Formation <kbd>G</kbd></button><button id="stBtn" class="act"></button></div>`;
       if (e.kind === 'b' && e.team === ME) { const opts = Object.keys(UT).filter(t => UT[t].from === e.t || (UT[t].alt || []).includes(e.t)); if (opts.length) h += `<div class="cgrid">${opts.map(t => `<div class="item sm">${itemHTML(t)}</div>`).join('')}</div><div class="dim small">Right-click ground to set rally point</div>`; }
     } else if (s.length > 1) { const c = {}; s.forEach(e => c[e.t] = (c[e.t] || 0) + 1); h = '<div class="chips">' + Object.entries(c).map(([t, n]) => `<span class="chip" data-t="${t}"><img src="${icon(t)}">${n}</span>`).join('') + '</div>';
@@ -295,8 +298,11 @@ function sidebar() {
     ctx.querySelectorAll('.chip').forEach(c => c.onclick = () => setSel(UI.sel.filter(e => e.t === c.dataset.t)));
     const fm = $('fmBtn'); if (fm) { fm.onclick = e => doFormation(e.shiftKey); fm.title = 'Arrange selected units in battle formation facing the nearest enemy and hold. Shift: at base entrance.'; }
     const st = $('stBtn'); if (st) st.onclick = toggleStance;
+    ctx.querySelectorAll('.mis').forEach(bt => bt.onclick = () => { const b = UI.sel[0]; if (!b || b.t !== 'silo') return; const m = MIS[bt.dataset.k], P = G.players[ME]; if (b.mq || b.mis) { sfx('error'); uiMsg('Launcher busy: one missile at a time'); return; } if (P.cr < m.cost || P.gas < m.gas) { sfx('error'); uiMsg('Need $' + m.cost + ' and ◆' + m.gas); return; } NET.issue({ c: 'mbuild', b: b.id, k: bt.dataset.k }); sfx('click'); uiMsg('Building ' + m.n); });
+    const nb = $('nukeBtn'); if (nb) nb.onclick = siloArm;
     const ub = $('upBtn'); if (ub) { ub.onclick = doUpgrade; ub.onmouseenter = () => { const b = UI.sel[0]; UI.tip.innerHTML = upgTip(b); UI.tip.style.display = 'block'; const r = ub.getBoundingClientRect(); UI.tip.style.top = Math.max(8, r.top - 90) + 'px'; UI.tip.style.right = (innerWidth - r.left + 8) + 'px'; }; ub.onmouseleave = () => { UI.tip.style.display = 'none'; }; }
   }
+  const sst = $('siloSt'); if (sst && UI.sel[0] && UI.sel[0].t === 'silo') { const b = UI.sel[0], cd = Math.max(0, (b.cdT || 0) - G.time); const t = b.mq ? `Building ${MIS[b.mq.k].n}: ${Math.floor(b.mq.p / MIS[b.mq.k].time * 100)}%` : b.mis ? (cd > 0 ? `${MIS[b.mis].n} ready · cooling down ${Math.ceil(cd)}s` : `<span class="g">${MIS[b.mis].n} READY</span> · range ${MIS[b.mis].rng}`) : cd > 0 ? `Cooling down ${Math.ceil(cd)}s` : 'Empty: build a missile'; if (sst.innerHTML !== t) sst.innerHTML = t; }
   const stb = $('stBtn'); if (stb) { const hold = myUnits().length && myUnits().every(u => u.stance === 'hold'); const t = hold ? '⚓ Stance: Hold <kbd>V</kbd>' : '⚔ Stance: Aggressive <kbd>V</kbd>'; if (stb.innerHTML !== t) stb.innerHTML = t; }
   const upb = $('upBtn'); if (upb && s[0]) { const b = s[0], inf = upgradeInfo(b); let t;
     if (b.upT != null) t = `⬆ Upgrading… ${Math.floor((G.time - b.upT) / b.upDur * 100)}%`; else if (!inf) t = b.t === 'tech' ? '✔ ' + DEF_RESEARCH.n + ' researched' : '★ Max level (3)';
@@ -364,3 +370,5 @@ function toggleQuiet(on) {
   $('quietBtn').classList.toggle('on', UI.set.quiet); const qc = $('setQuiet'); if (qc) qc.checked = UI.set.quiet;
   uiMsg(UI.set.quiet ? `🍃 Quiet mode ON — ${UI.set.quietFps || 60} FPS cap, 1x resolution, lighter effects (N)` : 'Quiet mode OFF (N)'); sfx('click');
 }
+
+function siloArm() { const b = UI.sel.find(s => s.t === 'silo' && s.team === ME); if (!b) return; if (!b.mis) { sfx('error'); uiMsg('No missile loaded'); return; } if (G.time < (b.cdT || 0)) { sfx('error'); uiMsg('Launcher cooling down'); return; } UI.mode = 'nuke'; UI.placing = null; sfx('click'); uiMsg('Select missile target (range ' + MIS[b.mis].rng + ')'); }

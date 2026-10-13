@@ -116,6 +116,13 @@ window.addEventListener('DOMContentLoaded', () => {
     for (let i = 0; i < 30; i++) stepGame(); orderFormation(army, 20, 20, Math.PI / 4); for (let i = 0; i < 30 * 12; i++) stepGame();
     G.events.length = 0; setSel([t1]); R3.cam.td = R3.cam.d = 19; jumpTo(17, 15.5, true); paused = false;
   } else
+  if (QS.get('warhead')) { startGame('normal', { demo: 1, seed: 4242 }); G.opts.fog = false; // v5.2 screenshot/test scene: heavy warhead mid-flight + cluster about to land on a defence cluster
+    for (const [t, x, y] of [['power', 4, 12], ['power', 1, 9], ['power', 4, 2], ['tech', 3, 15]]) addB(t, 0, x, y, true).born = -10; const s = addB('silo', 0, 16, 16, true); s.born = -10; const s2 = addB('silo', 0, 12, 20, true); s2.born = -10;
+    for (const [t, x, y] of [['turret', 30, 30], ['turret', 33, 29], ['aagun', 31, 33], ['tesla', 34, 32], ['power', 36, 35], ['power', 33, 36]]) addB(t, 1, x, y, true).born = -10;
+    for (let i = 0; i < 30; i++) stepGame(); s.mis = 'heavy'; siloLaunch(s, 34, 33); s2.mis = 'cluster'; siloLaunch(s2, 31, 31);
+    for (let i = 0; i < 30 * (+QS.get('warhead') || 5); i++) stepGame();
+    R3.cam.td = R3.cam.d = +(QS.get('zoom') || 30); jumpTo(+(QS.get('cx') || 25), +(QS.get('cy') || 25), true); paused = !!QS.get('freeze');
+  } else
   if (QS.get('battle')) { startGame('normal', { demo: 1, seed: 4242 }); G.opts.fog = false; const types = ['heavy', 'rifle', 'rocketeer', 'light', 'titan', 'arty', 'gunship', 'heavy', 'pyro', 'aa'];
     const A = [], B = []; for (let i = 0; i < 60; i++) { const tm = i % 2, t = types[(i >> 1) % types.length], p = nearFree(40 + (tm ? 7 : -7) + (i >> 1) % 4, 40 + ((i >> 3) % 8), 6); (tm ? B : A).push(addU(t, tm, p[0] + 0.5, p[1] + 0.5)); }
     orderMove(A, 48, 44, true); orderMove(B, 32, 44, true); for (let i = 0; i < 30 * (+QS.get('battle') || 4); i++) stepGame();

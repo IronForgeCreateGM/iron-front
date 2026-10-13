@@ -6,6 +6,8 @@
 const NET_VERSION = 'v4.1';
 const own = (T, ids) => (ids || []).map(byId).filter(e => e && e.team === T && e.hp > 0);
 const CMD = {
+  mbuild(T, c) { const b = byId(c.b); return !!(b && b.team === T && siloBuild(b, c.k)); },
+  mlaunch(T, c) { const b = byId(c.b); return !!(b && b.team === T && siloLaunch(b, c.x, c.y)); },
   move(T, c) { const u = own(T, c.u); if (u.length) orderMove(u, c.x, c.y, !!c.am, !!c.q); },
   attack(T, c) { const u = own(T, c.u), t = byId(c.t); if (u.length && t) orderAttack(u, t); },
   form(T, c) { const u = own(T, c.u); if (u.length) orderFormation(u, c.x, c.y, c.a); },

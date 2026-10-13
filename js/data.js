@@ -3,6 +3,7 @@
 const MW = 96, MH = 96, DT = 1 / 30;
 // damage-type x armor multipliers (counter system)
 const DMG = {
+  warhead: { inf: 1.0, light: 1.0, heavy: 0.9, bldg: 1.0, air: 0 },
   zap:    { inf: 1.25, light: 0.95, heavy: 0.8, bldg: 0.4, air: 0 },
   bullet: { inf: 1.0, light: 0.45, heavy: 0.2, bldg: 0.2, air: 0.6 },
   cannon: { inf: 0.35, light: 1.0, heavy: 0.85, bldg: 0.8, air: 0 },
@@ -55,6 +56,7 @@ const BT = {
   airfield:{ n: 'Airfield', w: 3, h: 3, hp: 1200, cost: 1500, pow: -50, time: 12, cat: 'bld', req: ['factory', 'tech'] },
   cc:      { n: 'Command Center', w: 3, h: 3, hp: 2200, cost: 2200, pow: 10, time: 25, cat: 'bld', req: ['refinery'] },
   extractor:{ n: 'Gas Extractor', w: 2, h: 2, hp: 900, cost: 800, pow: -20, time: 8, cat: 'bld', req: ['refinery'] },
+  silo:    { n: 'Warhead Launcher', w: 2, h: 2, hp: 2400, cost: 3000, gas: 500, pow: -80, time: 30, cat: 'bld', req: ['tech'], sight: 8 },
   gcannon: { n: 'Grand Cannon', w: 2, h: 2, hp: 2200, cost: 2500, gas: 300, pow: -80, time: 20, cat: 'def', req: ['tech'], wpn: 'gcan', sight: 15, fac: 'fra' },
   tesla:   { n: 'Tesla Coil', w: 1, h: 1, hp: 900, cost: 1200, pow: -60, time: 8, cat: 'def', req: ['tech'], wpn: 'tesla', sight: 7, desc: 'Chain lightning arcs to 3 more nearby enemies. Very power-hungry (-60): goes dark in low power.' },
   gate:    { n: 'Wall Gate', w: 1, h: 1, hp: 900, cost: 150, pow: 0, time: 2, cat: 'def', req: ['barracks'], desc: 'Your and allied units pass through; blocks enemies. Place it in a wall line.' },
@@ -106,6 +108,11 @@ const DIFF = {
 const DERRICK_RATE = 9; // credits / second per captured oil derrick
 const ORE_VALUE = 0.91, HARV_CAP = 600, MINE_RATE = 40, UNLOAD_RATE = 300, ORE_REGROW = 0.8, ORE_MULT = 11; // per second
 // defense upgrades: level 2/3 cost & time per structure; per-level multipliers
+// v5.2 Warhead Launcher missiles: build one at a time in the silo, then launch at a target (arcs through the atmosphere)
+const MIS = {
+  small:   { n: 'Viper Missile',   cost: 700,  gas: 200, time: 25, rng: 45,  dmg: 1100, r: 2.4, cd: 25,  T: 6,  icpt: 1, sub: 1 },
+  cluster: { n: 'Hydra Cluster',   cost: 1400, gas: 450, time: 45, rng: 65,  dmg: 520,  r: 1.9, cd: 50,  T: 9,  sub: 6, spread: 3.2 },
+  heavy:   { n: 'Titan Warhead',   cost: 2800, gas: 1000, time: 80, rng: 200, dmg: 5200, r: 5,   cd: 120, T: 12, sub: 1, big: 1 } };
 const UPG = { turret: [[450, 15], [800, 25, 100]], aagun: [[450, 15], [800, 25, 100]], tesla: [[600, 15], [1000, 25, 150]] };
 const UPG_DMG = [1, 1.35, 1.75], UPG_RNG = [0, 1, 2];
 const DEF_RESEARCH = { n: 'Hardened Defenses', cost: 1500, gas: 200, time: 40, dmg: 1.15, rng: 0.5, hp: 1.25 };

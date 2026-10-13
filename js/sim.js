@@ -469,6 +469,21 @@ function distTo(a, e) {
 }
 function sellB(b) { if (b.kind === 'b' && b.sell < 0 && b.t !== 'hq' || (b.kind === 'b' && b.t === 'hq' && b.sell < 0 && G.ents.filter(e => e.team === b.team && e.t === 'hq').length > 1)) { b.sell = G.time; G.events.push({ e: 'sell', b }); } }
 // ---------- main step ----------
+// ===== v5.2 Warhead Launcher =====
+function siloBuild(b, k) { const m = MIS[k], P = G.players[b.team]; if (!m || !b || b.t !== 'silo' || b.hp <= 0 || b.sell >= 0 || b.mq || b.mis || P.cr < m.cost || P.gas < m.gas) return false; P.cr -= m.cost; P.gas -= m.gas; b.mq = { k, p: 0 }; return true; }
+function siloLaunch(b, x, y) { if (!b || b.t !== 'silo' || b.hp <= 0 || !b.mis || G.time < (b.cdT || 0)) return false; const m = MIS[b.mis]; if (dhypot(x - b.x, y - b.y) > m.rng) return false;
+  x = Math.max(0.5, Math.min(MW - 0.5, x)); y = Math.max(0.5, Math.min(MH - 0.5, y));
+  const ms = { id: G.nid++, team: b.team, k: b.mis, x0: b.x, y0: b.y, x1: x, y1: y, t0: G.time, T: m.T + dhypot(x - b.x, y - b.y) * 0.03 }; (G.missiles = G.missiles || []).push(ms);
+  G.events.push({ e: 'launch', team: b.team, k: b.mis, x, y, T: ms.T, big: m.big || b.mis === 'cluster', ms }); b.mis = null; b.cdT = G.time + m.cd; b.lastLaunch = G.time; return true; }
+function stepMissiles() { if (!G.missiles || !G.missiles.length) return;
+  G.missiles = G.missiles.filter(ms => { const m = MIS[ms.k], s = (G.time - ms.t0) / ms.T, gx = ms.x0 + (ms.x1 - ms.x0) * s, gy = ms.y0 + (ms.y1 - ms.y0) * s;
+    if (m.icpt && s > 0.45 && G.tick % 10 === ms.id % 10) { // top-tier AA (level-3 Flak Battery) can intercept small missiles on the way down
+      for (const e of G.ents) if (e.kind === 'b' && e.t === 'aagun' && (e.lvl || 1) >= 3 && foe(e.team, ms.team) && e.hp > 0 && !e.offline && dhypot(e.x - gx, e.y - gy) < 9 && !(ms.tried = ms.tried || []).includes(e.id)) { ms.tried.push(e.id); if (G.R() < 0.4) { G.events.push({ e: 'intercept', x: gx, y: gy, team: e.team, ms }); return false; } } }
+    if (s < 1) return true;
+    for (let k = 0; k < m.sub; k++) { const a = k * 2.39996 + G.R() * 0.5, rr = m.sub > 1 ? (k ? m.spread * (0.4 + 0.6 * G.R()) : 0) : 0, cx = ms.x1 + dcos(a) * rr, cy = ms.y1 + dsin(a) * rr;
+      for (const e of G.ents) { if (e.hp <= 0 || (e.kind === 'u' && isAir(e))) continue; const d = dhypot(e.x - cx, e.y - cy) - (e.kind === 'b' ? Math.min(e.w, e.h) / 2 : 0); if (d < m.r) damage(e, m.dmg * (1 - 0.55 * Math.max(0, d) / m.r), { type: 'warhead' }, ms.team, null); }
+      G.events.push({ e: 'impact', x: cx, y: cy, k: ms.k, r: m.r, big: m.big }); }
+    return false; }); }
 function stepGame() {
   if (G.over) return;
   G.tick++; G.time += DT;
@@ -477,6 +492,7 @@ function stepGame() {
     for (const e of G.ents) if (e.kind === 'b' && e.team === P.team && e.sell < 0 && G.time - e.born > 1.5) { const p = BT[e.t].pow; if (p > 0) gen += p * (0.5 + 0.5 * e.hp / e.mhp); else use -= p; }
     P.gen = Math.round(gen); P.use = use; P.pow = P.gen - use;
   }
+  stepMissiles();
   if (G.weather && G.time > G.weather.next) { G.weather.on = !G.weather.on; G.weather.next = G.time + (G.weather.on ? 60 : 180 + G.R() * 120); G.events.push({ e: 'weather', on: G.weather.on }); }
   for (const P of G.players) stepProduction(P);
   if (G.tick % 30 === 0 && G.derricks) for (const d of G.derricks) if (d.owner >= 0 && G.players[d.owner] && !G.players[d.owner].out) { const P = G.players[d.owner]; P.cr += DERRICK_RATE; P.stats.mined += DERRICK_RATE; }
@@ -518,6 +534,7 @@ function stepBuilding(b) {
   if (b.repair && b.hp >= b.mhp) b.repair = false;
   if (b.upT != null && G.time - b.upT >= b.upDur) { b.upT = null; if (b.upKind === 'def') { P.defUp = true; G.ents.forEach(e => { if (e.team === b.team && UPG[e.t]) { e.mhp = Math.round(BT[e.t].hp * DEF_RESEARCH.hp); e.hp = Math.min(e.mhp, e.hp * DEF_RESEARCH.hp); } }); } else b.lvl = (b.lvl || 1) + 1; G.events.push({ e: 'upgraded', b, team: b.team }); }
   if (b.t === 'extractor' && G.time - b.born > 1.5 && b.sell < 0) { const m = 1; P.gas += GAS_RATE * DT * m * (P.pow < 0 ? 0.5 : 1); b.gasT = (b.gasT || 0) + DT; }
+  if (b.t === 'silo' && b.mq && G.time - b.born > 1.5 && P.pow >= 0) { b.mq.p += DT; if (b.mq.p >= MIS[b.mq.k].time) { b.mis = b.mq.k; b.mq = null; G.events.push({ e: 'misReady', team: b.team, k: b.mis }); } }
   if (!d.wpn || G.time - b.born < 1.5) return;
   if (P.pow < 0 && d.pow < 0) { b.offline = true; return; } // offline (low power)
   b.offline = false;
@@ -589,7 +606,7 @@ function fire(e, w, t) {
   const z0 = e.kind === 'u' ? e.z : 0.8, tz = t.kind === 'u' ? t.z : 0.5;
   const shots = w.twin ? 2 : 1;
   if (w.chain) { // chain lightning: instant hit, arcs to nearby enemies with falloff
-    const pts = [{ x: e.x, y: e.y, z: z0 + 0.9 }], hitL = [t]; let cur = t, amt = w.dmg * (e.lvl > 1 ? UPG_DMG[e.lvl - 1] : 1);
+    const pts = [{ x: e.x, y: e.y, z: z0 + 1.8 }], hitL = [t]; let cur = t, amt = w.dmg * (e.lvl > 1 ? UPG_DMG[e.lvl - 1] : 1);
     for (let k = 0; k <= w.chain && cur; k++) { damage(cur, amt, w, e.team, e); pts.push({ x: cur.x, y: cur.y, z: cur.kind === 'u' ? cur.z + 0.4 : 0.6 }); amt *= 0.7;
       let nx = null, nd = 2.6; for (const o of G.ents) if (o.kind === 'u' && o.hp > 0 && foe(o.team, e.team) && !hitL.includes(o) && canHit(w, o)) { const dd = dhypot(o.x - cur.x, o.y - cur.y); if (dd < nd) { nd = dd; nx = o; } }
       cur = nx; if (nx) hitL.push(nx); }

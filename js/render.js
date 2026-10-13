@@ -148,6 +148,12 @@ function handleEvents() {
       case 'upgraded': if (ev.team === ME) { sfx('ready'); uiMsg(ev.b.upKind === 'def' ? 'Research complete: ' + DEF_RESEARCH.n : BT[ev.b.t].n + ' upgraded to level ' + ev.b.lvl); } flash(ev.b.x, ev.b.y, 1, 1.5, 0.6, 0.9, 1); break;
       case 'capture': if (ev.team === ME || ev.b.team === ME) { sfx('ready'); uiMsg('Structure captured!'); } disposeObj(ev.b.id); break;
       case 'derrick': if (typeof uiMsg === 'function') { if (ev.team === ME) { uiMsg('Oil derrick captured! +income'); announce('Derrick captured', 'dk', 3); } else if (ev.prev === ME) { uiMsg('We lost an oil derrick!'); UI.alerts.unshift({ txt: 'Derrick lost', x: ev.x, y: ev.y, t: 8 }); announce('Derrick lost', 'dkl', 3); } else if (foe(ev.team, ME)) uiMsg('Enemy captured an oil derrick'); } break;
+      case 'launch': { const mine = ev.team === ME, ally = !foe(ev.team, ME); R3.misT = R3.misT || []; R3.misT.push({ ms: ev.ms, t0: R3.time });
+        if (ev.big || !ally) { uiMsg(mine ? MIS[ev.k].n + ' launched!' : ally ? 'Allied ' + MIS[ev.k].n + ' launched' : '⚠ ENEMY ' + MIS[ev.k].n.toUpperCase() + ' LAUNCH DETECTED!'); if (!ally) { UI.alerts.unshift({ txt: 'Missile incoming', x: ev.x, y: ev.y, t: ev.T + 2 }); announce(ev.big ? 'Warning: warhead launch detected' : 'Missile launch detected', 'ml', 3); sfx('alert'); } }
+        if (mine) sfx('ready'); if (inView(ev.ms.x0, ev.ms.y0)) { const z = heightAt(ev.ms.x0, ev.ms.y0); for (let i = 0; i < 14; i++) puff(ev.ms.x0 + rnd(0.6), ev.ms.y0 + rnd(0.6), z + 0.3, 0.5, 1.6, 0.6, 0.55, 0.5); flash(ev.ms.x0, ev.ms.y0, z + 0.6, 1.4, 1, 0.7, 0.3); } break; }
+      case 'impact': { const z = heightAt(ev.x, ev.y); explosion3(ev.x, ev.y, z + 0.2, ev.big ? 3.2 : ev.k === 'cluster' ? 1.4 : 2); if (ev.big) { for (let i = 0; i < 10; i++) setTimeout(() => explosion3(ev.x + rnd(ev.r * 0.7), ev.y + rnd(ev.r * 0.7), z + 0.3, 1.6), i * 70); shake(1.2); } else shake(0.4); scorch3(ev.x, ev.y, ev.r * 1.6); sfx('boomBig', ev.x, ev.y); break; }
+      case 'intercept': flash(ev.x, ev.y, 6, 2, 1, 0.8, 0.4); if (ev.team === ME || ev.ms.team === ME) uiMsg(ev.team === ME ? 'Missile intercepted by Flak!' : 'Our missile was intercepted'); break;
+      case 'misReady': if (ev.team === ME) { sfx('ready'); uiMsg(MIS[ev.k].n + ' ready to launch (select the Warhead Launcher)'); announce('Missile ready', 'mr', 4); } break;
       case 'attacked': if (ev.team === ME && typeof uiAlert === 'function') { uiAlert(ev); announce(ev.harv ? 'Harvester under attack' : 'Base under attack', 'atk' + !!ev.harv, 25); } else if (!foe(ev.team, ME) && ev.team !== ME) { announce('Ally under attack', 'ally', 30); UI.pings.push({ x: ev.x, y: ev.y, t: 3 }); } break;
       case 'placed': if (ev.b.t === 'cc') { if (ev.team === ME) announce('Expansion established', 'cc', 3); else if (!foe(ev.team, ME)) announce('Ally expanding', 'acc', 20); } else if (ev.team === ME && FACTIONS[G.players[ME].fac].sp === ev.b.t) announce(BT[ev.b.t].n + ' deployed', 'sp', 5); break;
       case 'eliminated': announce(ev.team === ME ? 'You have been eliminated' : G.players[ev.team].name + (foe(ev.team, ME) ? ' (enemy)' : ' (ally)') + ' eliminated', 'el' + ev.team, 1); break;
@@ -161,6 +167,7 @@ function shake(a) { R3.shake = Math.max(R3.shake || 0, a); }
 function inView(x, y) { const v = R3.view; return x > v.x0 && x < v.x1 && y > v.y0 && y < v.y1; }
 // ---------- per-frame ----------
 function r3Render(dt) {
+  missilesUpdate(dt); teslaArcs(dt);
   wallsUpdate(); offlineIcons(dt); lowPowerAlert(); derricksUpdate(dt); dayNight(dt);
   R3.time += dt; R3.uTime.value = R3.time; R3.renderer.info.reset();
   updCamera(dt); updView(); if (!R3.anisoDone && R3.time > 0.5) { R3.anisoDone = true; applyAniso(); }
@@ -446,4 +453,28 @@ function dayNight(dt) {
   R3.sun.color.copy(R3.dn0.sc).lerp(new THREE.Color(0x8fa8ff), 1 - k).lerp(new THREE.Color(0xffa060), Math.max(0, 0.35 - Math.abs(day - 0.35)) * 1.6);
   R3.scene.fog.color.copy(R3.dn0.fog).multiplyScalar(0.35 + 0.65 * k); if (R3.scene.background && R3.scene.background.isColor) R3.scene.background.copy(R3.scene.fog.color);
   R3.night = 1 - k; if (POST.final) POST.final.uniforms.uExpo.value = 0.8 * (0.72 + 0.28 * k); if (G.weather && G.weather.on) R3.scene.fog.density = 0.02; else R3.scene.fog.density = 0.0065;
+}
+
+// ===== v5.2: missiles in flight (atmospheric arc), incoming target markers, silo missile visibility, Tesla crackle =====
+function missilesUpdate(dt) {
+  R3.misM = R3.misM || new Map(); const live = new Set();
+  for (const ms of G.missiles || []) { live.add(ms.id); let o = R3.misM.get(ms.id);
+    if (!o) { const g = new THREE.Group(), body = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 1.2, 10), new THREE.MeshStandardMaterial({ color: 0xdedcd2, roughness: 0.4, metalness: 0.3 })); body.rotation.x = Math.PI / 2; g.add(body);
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.35, 10), new THREE.MeshStandardMaterial({ color: TEAMCOL[ms.team], emissive: TEAMCOL[ms.team], emissiveIntensity: 0.4 })); tip.rotation.x = Math.PI / 2; tip.position.z = 0.75; g.add(tip);
+      const fl = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffb050 })); fl.position.z = -0.75; g.add(fl); const sc = ms.k === 'heavy' ? 1.8 : ms.k === 'cluster' ? 1.3 : 1; g.scale.setScalar(sc);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.93, 1, 48), new THREE.MeshBasicMaterial({ color: 0xff2a1a, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.scale.setScalar(MIS[ms.k].r + (MIS[ms.k].spread || 0));
+      ring.position.set(ms.x1, heightAt(ms.x1, ms.y1) + 0.15, ms.y1); ring.renderOrder = 5; R3.scene.add(g); R3.scene.add(ring); o = { g, ring, last: null }; R3.misM.set(ms.id, o); }
+    const s = Math.min(1, (G.time - ms.t0) / ms.T), D = Math.hypot(ms.x1 - ms.x0, ms.y1 - ms.y0), H = 8 + D * 0.55, x = ms.x0 + (ms.x1 - ms.x0) * s, y = ms.y0 + (ms.y1 - ms.y0) * s, z = heightAt(ms.x0, ms.y0) * (1 - s) + heightAt(ms.x1, ms.y1) * s + 4 * H * s * (1 - s) + 1.4 * (1 - s);
+    const p = new THREE.Vector3(x, z, y); if (o.last) { const dir = p.clone().sub(o.last); if (dir.lengthSq() > 1e-6) o.g.lookAt(p.clone().add(dir)); } o.last = p; o.g.position.copy(p);
+    if (Math.random() < 0.7) puff(x, y, z, 0.25 + s * 0.2, 2.5, 0.75, 0.72, 0.7);
+    // target marker: visible to everyone from launch (counterplay: move units out), pulsing faster as impact nears
+    const fo = foe(ms.team, ME) || ms.team === ME || !foe(ms.team, ME); o.ring.visible = fo; o.ring.material.opacity = 0.35 + 0.45 * Math.abs(Math.sin(R3.time * (3 + s * 12))); }
+  for (const [id, o] of R3.misM) if (!live.has(id)) { R3.scene.remove(o.g); R3.scene.remove(o.ring); o.g.traverse(m => { if (m.geometry) m.geometry.dispose(); }); o.ring.geometry.dispose(); R3.misM.delete(id); }
+  for (const b of G.ents) if (b.t === 'silo') { const o = R3.objs && R3.objs.get(b.id), pv = o && o.parts.mis; if (pv) { pv.visible = !!(b.mis || b.mq); if (b.mq) pv.position.y = 0.25 - 1.6 * (1 - b.mq.p / MIS[b.mq.k].time); else pv.position.y = 0.25; } }
+}
+function teslaArcs(dt) { R3.tArc = (R3.tArc || 0) + dt; if (R3.tArc < 0.09) return; R3.tArc = 0;
+  for (const b of G.ents) { if (b.t !== 'tesla' || b.hp <= 0 || b.offline || !inView(b.x, b.y) || (G.opts.fog && !seen0(idx(Math.floor(b.x), Math.floor(b.y))))) continue; if (Math.random() > 0.55) continue;
+    const z0 = heightAt(b.x, b.y), hz = z0 + 1.9, a = Math.random() * 6.283, kind = Math.random();
+    const ex = kind < 0.5 ? b.x + Math.cos(a) * 0.34 : b.x + Math.cos(a) * (0.5 + Math.random() * 0.5), ey = kind < 0.5 ? b.y + Math.sin(a) * 0.34 : b.y + Math.sin(a) * (0.5 + Math.random() * 0.5), ez = kind < 0.5 ? z0 + 1.05 : hz + (Math.random() - 0.6) * 0.8;
+    let px = b.x, py = b.y, pz = hz; for (let k = 1; k <= 5; k++) { const f = k / 5, j = k < 5 ? 0.12 : 0; const nx = b.x + (ex - b.x) * f + rnd(j), ny = b.y + (ey - b.y) * f + rnd(j), nz = hz + (ez - hz) * f + rnd(j); flash((px + nx) / 2, (py + ny) / 2, (pz + nz) / 2, 0.16, 0.55, 0.8, 1); flash(nx, ny, nz, 0.13, 0.7, 0.9, 1); px = nx; py = ny; pz = nz; } }
 }
