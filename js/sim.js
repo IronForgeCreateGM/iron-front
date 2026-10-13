@@ -486,6 +486,7 @@ function stepMissiles() { if (!G.missiles || !G.missiles.length) return;
     return false; }); }
 function stepGame() {
   if (G.over) return;
+  if (G.replay && typeof replayFeed === 'function') replayFeed(); else if (typeof recHash === 'function') recHash();
   G.tick++; G.time += DT;
   if (G.tick % 15 === 1) for (const P of G.players) {
     let gen = 0, use = 0;

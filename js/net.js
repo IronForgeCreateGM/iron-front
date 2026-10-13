@@ -27,7 +27,15 @@ const CMD = {
   drop(T, c) { const P = G.players[c.p]; if (!P || P.ai) return; P.ai = true; P.diff = c.diff || 'normal'; P.name += ' (AI)'; aiInit(P); G.events.push({ e: 'dropped', team: c.p }); },
   surrender(T, c) { const P = G.players[T]; if (!P || P.out) return; for (const e of G.ents) if (e.team === T && e.kind === 'b') e.hp = 0; },
 };
-function execCmd(T, c) { try { return CMD[c.c] ? CMD[c.c](T, c) : undefined; } catch (e) { console.error('cmd', c, e); } }
+// v5.2 replay recorder: every executed command is logged with the tick it ran at (+ periodic state hashes for verification)
+const REC = { on: false, data: null };
+function recStart() { REC.on = !G.replay; REC.data = REC.on ? { v: 1, game: 'ironfront', ver: typeof NET_VERSION !== 'undefined' ? NET_VERSION : '', date: new Date().toISOString(), seed: G.opts.seed, map: G.opts.map || 'classic', peace: G.opts.peace, fog: G.opts.fog !== false, diff: G.opts.diff, me: typeof ME !== 'undefined' ? ME : 0,
+  slots: G.opts.slots.map(s => ({ ai: !!s.ai, diff: s.diff, ally: s.ally, fac: s.fac, color: s.color, start: s.start, name: s.name })), cmds: [], hash: [] } : null; }
+function recHash() { if (REC.on && REC.data && G.tick % 900 === 0 && typeof stateHash === 'function') { REC.data.hash.push([G.tick, stateHash()]); if (G.tick % 1800 === 0 && typeof localStorage !== 'undefined') try { localStorage.setItem('ifLastReplay', replayFile()); } catch (e) {} } }
+function replayFeed() { const R = G.replay; while (R.i < R.cmds.length && R.cmds[R.i][0] <= G.tick) { const [, T, c] = R.cmds[R.i++]; execCmd(T, c); }
+  if (G.tick % 900 === 0) { const h = R.hash.find(x => x[0] === G.tick); if (h && typeof stateHash === 'function') { const m = stateHash() === h[1]; R.checked++; if (!m && !R.bad) R.bad = G.tick; } } }
+function replayFile() { if (!REC.data) return null; REC.data.len = G.tick; REC.data.result = G.over || null; return JSON.stringify(REC.data); }
+function execCmd(T, c) { if (REC.on && REC.data && c && c.c !== 'chat') REC.data.cmds.push([G.tick, T, c]); try { return CMD[c.c] ? CMD[c.c](T, c) : undefined; } catch (e) { console.error('cmd', c, e); } }
 
 // ----- state hash (FNV-1a over exact float bits) -----
 const _hb = new Float64Array(1), _hu = new Uint32Array(_hb.buffer);

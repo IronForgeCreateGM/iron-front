@@ -34,6 +34,8 @@ function startGame(diff, opts) {
   if (QS.get('dbg')) setTimeout(() => document.title = 'DBG map=' + G.mapName + ' np=' + G.players.length + ' t=' + (G.time | 0) + ' starts=' + G.players.map(P => P.start).join(''), 500);
   G.vis = G.visT[ME]; G.seen = G.seenT[ME];
   G.players.forEach((P, i) => P.name = slots[i].name || (P.ai ? DIFF_NAME(P.diff) : 'You'));
+  if (opts.replay) { G.replay = { cmds: opts.replay.cmds || [], hash: opts.replay.hash || [], i: 0, checked: 0, bad: 0 }; G.spectate = true; G.watch = true; G.opts.fog = false; document.body.classList.add('watching'); REC.on = false; REC.data = null; G.players.forEach((P, i) => P.name = (opts.replay.slots[i] || {}).name || P.name); }
+  else recStart();
   if (opts.online) NET.begin(opts.online.tr, opts.online);
   if (G.players[ME].ai && !opts.demo) { DIR.auto = !!QS.get('auto'); G.spectate = true; G.watch = true; document.body.classList.add('watching'); }
   { const ff = +QS.get('ff') || 0, fft = +QS.get('fft') || ff * 30; for (let i = 0; i < fft && !G.over; i++) { stepGame(); if (G.watch) director(DT); G.events.length = 0; } }
@@ -79,10 +81,19 @@ function frame(t, once) {
     document.getElementById('end').style.display = 'flex';
     document.getElementById('endTitle').textContent = G.watch ? (G.over === 'victory' ? 'BLUE TEAM WINS' : 'RED TEAM WINS') + ` · ${(G.time / 60).toFixed(1)} min` : G.over === 'victory' ? 'VICTORY' : 'DEFEAT';
     document.getElementById('endTitle').className = G.over;
+    try { const rs = replayFile(); if (rs) localStorage.setItem('ifLastReplay', rs); } catch (e) {}
     document.getElementById('endStats').innerHTML = endStatsHTML(); drawEndGraph(); sfx(G.over === 'victory' ? 'ready' : 'alert'); }
   if (!once) requestAnimationFrame(frame);
 }
+// v5.2 replays: save (download a small .json) / load (file picker on the menu)
+function saveReplay() { const s = replayFile(); if (!s) { uiMsg && uiMsg('No replay recorded for this game'); return; } try { localStorage.setItem('ifLastReplay', s); } catch (e) {}
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([s], { type: 'application/json' })); a.download = 'ironfront-replay-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.json'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+function loadReplay(d) { if (!d || d.game !== 'ironfront' || !d.slots) { alert('Not an Iron Front replay file'); return; } audioInit && audioInit();
+  startGame(d.diff || 'normal', { replay: d, seed: d.seed, map: d.map, peace: d.peace, fog: d.fog, me: d.me || 0, slots: d.slots.map((s, i) => Object.assign({}, s, { local: i === (d.me || 0) && !s.ai })) }); }
 window.addEventListener('DOMContentLoaded', () => {
+  { const rb = document.getElementById('replayBtn'), rf = document.getElementById('replayFile'); if (rb && rf) { rb.onclick = () => rf.click(); rf.onchange = () => { const f = rf.files[0]; if (!f) return; f.text().then(t => loadReplay(JSON.parse(t))).catch(e => alert('Could not read replay: ' + e.message)); }; }
+    const lb = document.getElementById('lastReplayBtn'); if (lb) { let has = false; try { has = !!localStorage.getItem('ifLastReplay'); } catch (e) {} lb.style.display = has ? '' : 'none'; lb.onclick = () => { try { loadReplay(JSON.parse(localStorage.getItem('ifLastReplay'))); } catch (e) { alert('No saved replay'); } }; }
+    const sb = document.getElementById('saveRepBtn'); if (sb) sb.onclick = saveReplay; }
   if (typeof THREE === 'undefined') { document.getElementById('err').style.display = 'block'; document.getElementById('err').textContent = 'Three.js failed to load (vendor/three.min.js)'; return; }
   let diff = 'normal';
   document.querySelectorAll('#diff button').forEach(b => b.onclick = () => { diff = b.dataset.d; document.querySelectorAll('#diff button').forEach(x => x.classList.toggle('on', x === b)); });
