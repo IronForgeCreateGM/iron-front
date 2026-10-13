@@ -394,11 +394,16 @@ const BLD_MODELS = {
     for (const z of [-0.4, 0.4]) { B.box('body', 0.4, 0.8, 0.2, COL.CONC, PBR.CONC, 0, 0.4, z, { bevel: 0.04 }); B.box('body', 0.44, 0.08, 0.24, 'TD', PBR.PAINT, 0, 0.82, z, { bevel: 0.02 }); }
     for (const y of [0.25, 0.5]) B.box('body', 0.08, 0.07, 0.62, 'T', PBR.PAINT, 0, y, 0, { bevel: 0.01 }); B.glow('body', 0.05, 0.05, 0.05, COL.GRN, 0, 0.9, 0.4);
   },
-  tesla(B) { // v5.2: taller coil, copper windings, glowing torus crown (arcs are drawn live in render.js)
-    B.cyl('body', 0.46, 0.22, COL.CONCD, PBR.CONC, 0, 0.11, 0, { seg: 8 }); B.cyl('body', 0.13, 1.5, COL.STEEL, PBR.METAL, 0, 0.95, 0, { rt: 0.55, seg: 10 });
-    for (let k = 0; k < 9; k++) B.cyl('body', 0.22 - k * 0.012, 0.06, k % 2 ? 0xb87333 : 0x7a4a22, PBR.METAL, 0, 0.35 + k * 0.14, 0, { seg: 14 });
-    for (const a of [0, 2.1, 4.2]) { B.box('body', 0.07, 0.95, 0.07, 'T', PBR.PAINT, Math.cos(a) * 0.34, 0.55, Math.sin(a) * 0.34, { bevel: 0.01 }); B.glow('body', 0.05, 0.05, 0.05, 0x66ccff, Math.cos(a) * 0.34, 1.05, Math.sin(a) * 0.34); }
-    B.piv.head = [0, 1.78, 0]; B.cyl('head', 0.3, 0.08, COL.STEEL, PBR.METAL, 0, -0.04, 0, { seg: 16 }); B.sph('head', 0.2, COL.STEEL, PBR.METAL, 0, 0.1, 0, { seg: 14 }); B.glow('head', 0.16, 0.16, 0.16, 0x88ddff, 0, 0.12, 0); B.piv.tip = 0.12;
+  tesla(B) { // v5.3: matches tesla-reference.png - gold octagonal base, blue glowing core band, 4 side prongs, stacked coil rings, glowing orb
+    const GOLD = 0x9a7a2a, IRON = 0x4a5058, BLUE = 0x3a8cff;
+    B.cyl('body', 0.44, 0.16, GOLD, PBR.METAL, 0, 0.08, 0, { seg: 8 }); B.cyl('body', 0.36, 0.12, 0x2c2f33, PBR.DARKM, 0, 0.22, 0, { seg: 8 });
+    B.cyl('body', 0.3, 0.42, BLUE, PBR.GLOW2, 0, 0.49, 0, { seg: 12 }); for (let k = 0; k < 6; k++) { const a = k * 1.047; B.box('body', 0.05, 0.44, 0.05, GOLD, PBR.METAL, Math.cos(a) * 0.31, 0.49, Math.sin(a) * 0.31, { bevel: 0 }); }
+    B.cyl('body', 0.36, 0.1, GOLD, PBR.METAL, 0, 0.74, 0, { seg: 8 }); B.cyl('body', 0.24, 0.14, IRON, PBR.METAL, 0, 0.86, 0, { seg: 10 });
+    for (let k = 0; k < 4; k++) { const a = 0.785 + k * 1.571, c = Math.cos(a), s = Math.sin(a); // side prongs with glowing tips
+      B.cyl('body', 0.05, 0.5, IRON, PBR.METAL, c * 0.38, 0.86, s * 0.38, { rz: Math.PI / 2, ry: -a, seg: 8 }); B.cyl('body', 0.075, 0.1, IRON, PBR.DARKM, c * 0.62, 0.86, s * 0.62, { rz: Math.PI / 2, ry: -a, seg: 6 }); B.glow('body', 0.06, 0.06, 0.06, 0x88ccff, c * 0.68, 0.86, s * 0.68); }
+    B.cyl('body', 0.07, 1.25, IRON, PBR.METAL, 0, 1.55, 0, { seg: 10 });
+    const R = [0.4, 0.34, 0.27, 0.2]; R.forEach((r, k) => { const y = 1.12 + k * 0.27; B.torus('body', r, 0.055, IRON, PBR.METAL, 0, y, 0, { rx: Math.PI / 2, seg: 28 }); B.torus('body', r - 0.03, 0.03, BLUE, PBR.GLOW, 0, y - 0.035, 0, { rx: Math.PI / 2, seg: 28 }); });
+    B.piv.head = [0, 2.2, 0]; B.sph('head', 0.15, 0x66bbff, PBR.GLOW, 0, 0, 0, { seg: 16 }); B.torus('head', 0.1, 0.02, IRON, PBR.METAL, 0, -0.13, 0, { rx: Math.PI / 2 }); B.piv.tip = 0.1;
   },
   silo(B) { // v5.2 Warhead Launcher: pad, blast doors, gantry and an upright missile (piv 'mis' hidden when empty)
     B.box('body', 1.9, 0.18, 1.9, COL.CONCD, PBR.CONC, 0, 0.09, 0, { bevel: 0.05 }); B.box('body', 1.1, 0.06, 1.1, 0x2a2b2c, PBR.DARKM, 0.15, 0.2, 0.15, { bevel: 0.02 });

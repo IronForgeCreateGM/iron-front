@@ -101,7 +101,13 @@ function barrelTip(s) { const pv = s.kind === 'b' ? getModel('b', s.t, s.team).p
   const x = rs ? rs.x : s.x, y = rs ? rs.y : s.y, base = s.kind === 'b' ? heightAt(s.x, s.y) + (pv.head ? pv.head[1] + 0.08 : 0.6) : (rs ? rs.z : heightAt(x, y)) + (pv.turret ? pv.turret[1] + 0.07 : UT[s.t].armor === 'inf' ? 0.38 : 0.3);
   return { x: x + Math.cos(s.tang) * tip, y: y + Math.sin(s.tang) * tip, z: base }; }
 function handleEvents() {
-  for (const ev of G.events) if (ev.e === 'zap' && inView(ev.pts[0].x, ev.pts[0].y)) { for (let i = 1; i < ev.pts.length; i++) { const a = ev.pts[i - 1], b = ev.pts[i]; for (let k = 0; k <= 6; k++) { const f = k / 6, j = k && k < 6 ? 0.18 : 0; flash(a.x + (b.x - a.x) * f + rnd(j), a.y + (b.y - a.y) * f + rnd(j), a.z + (b.z - a.z) * f + rnd(j), 0.35, 0.55, 0.85, 1); } } }
+  const zfl = (x, y, z, sz, r, g, b) => FX.spark.spawn(x, y, z, 0, 0, 0, 0.26, sz, sz * 1.2, r, g, b, 1, 0, 0);
+  for (const ev of G.events) if (ev.e === 'zap' && inView(ev.pts[0].x, ev.pts[0].y)) { // v5.3: big jagged bolt (2 strands + glow core), relay arcs between chained coils
+    const bolt = (a, b, sz, J, n) => { const L = Math.hypot(b.x - a.x, b.y - a.y), N = Math.max(6, Math.ceil(L * 5)); for (let s = 0; s < n; s++) { let px = a.x, py = a.y, pz = a.z; for (let k = 1; k <= N; k++) { const f = k / N, j = k < N ? J : 0, nx = a.x + (b.x - a.x) * f + rnd(j), ny = a.y + (b.y - a.y) * f + rnd(j), nz = a.z + (b.z - a.z) * f + Math.sin(f * 3.14) * 0.3 + rnd(j); zfl((px + nx) / 2, (py + ny) / 2, (pz + nz) / 2, sz, 0.16, 0.36, 0.9); zfl(nx, ny, nz, sz * 0.8, 0.3, 0.5, 1); px = nx; py = ny; pz = nz; } } };
+    const k = Math.min(1.8, 1 + 0.15 * ((ev.n || 1) - 1));
+    if (ev.rp) for (const r of ev.rp) bolt(r.a, r.b, 0.1, 0.16, 1);
+    for (let i = 1; i < ev.pts.length; i++) bolt(ev.pts[i - 1], ev.pts[i], (i === 1 ? 0.16 : 0.12) * k, 0.24, i === 1 ? 2 : 1);
+    const h = ev.pts[1]; if (h) flash(h.x, h.y, h.z, 0.6 * k, 0.3, 0.55, 1); }
   { let n = 0; for (const ev of G.events) if (ev.e === 'fire' || ev.e === 'hit') n++; R3.busy = (R3.busy || 0) * 0.9 + n * 0.1; FX.mul = (R3.fxBase || 1) * Math.max(0.25, Math.min(1, 6 / Math.max(1, R3.busy))); }
   for (const ev of G.events) {
     switch (ev.e) {
@@ -474,7 +480,7 @@ function missilesUpdate(dt) {
 }
 function teslaArcs(dt) { R3.tArc = (R3.tArc || 0) + dt; if (R3.tArc < 0.09) return; R3.tArc = 0;
   for (const b of G.ents) { if (b.t !== 'tesla' || b.hp <= 0 || b.offline || !inView(b.x, b.y) || (G.opts.fog && !seen0(idx(Math.floor(b.x), Math.floor(b.y))))) continue; if (Math.random() > 0.55) continue;
-    const z0 = heightAt(b.x, b.y), hz = z0 + 1.9, a = Math.random() * 6.283, kind = Math.random();
-    const ex = kind < 0.5 ? b.x + Math.cos(a) * 0.34 : b.x + Math.cos(a) * (0.5 + Math.random() * 0.5), ey = kind < 0.5 ? b.y + Math.sin(a) * 0.34 : b.y + Math.sin(a) * (0.5 + Math.random() * 0.5), ez = kind < 0.5 ? z0 + 1.05 : hz + (Math.random() - 0.6) * 0.8;
+    const z0 = heightAt(b.x, b.y), hz = z0 + 2.2, a = Math.random() * 6.283, kind = Math.random();
+    const ex = kind < 0.5 ? b.x + Math.cos(a) * 0.68 : b.x + Math.cos(a) * (0.5 + Math.random() * 0.5), ey = kind < 0.5 ? b.y + Math.sin(a) * 0.68 : b.y + Math.sin(a) * (0.5 + Math.random() * 0.5), ez = kind < 0.5 ? z0 + 0.86 : hz + (Math.random() - 0.6) * 0.8;
     let px = b.x, py = b.y, pz = hz; for (let k = 1; k <= 5; k++) { const f = k / 5, j = k < 5 ? 0.12 : 0; const nx = b.x + (ex - b.x) * f + rnd(j), ny = b.y + (ey - b.y) * f + rnd(j), nz = hz + (ez - hz) * f + rnd(j); flash((px + nx) / 2, (py + ny) / 2, (pz + nz) / 2, 0.16, 0.55, 0.8, 1); flash(nx, ny, nz, 0.13, 0.7, 0.9, 1); px = nx; py = ny; pz = nz; } }
 }

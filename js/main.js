@@ -130,6 +130,14 @@ window.addEventListener('DOMContentLoaded', () => {
   if (QS.get('replaytest')) { startGame('hard', { seed: 99, map: QS.get('map') || 'volcano' }); NET.issue({ c: 'enq', t: 'power' }); for (let i = 0; i < 2700; i++) { stepGame(); G.events.length = 0; if (i === 1500) NET.issue({ c: 'move', u: G.ents.filter(e => e.team === ME && e.kind === 'u').map(e => e.id), x: 40, y: 40 }); }
     const h0 = stateHash(), f = replayFile(); loadReplay(JSON.parse(f)); for (let i = 0; i < 2700; i++) { stepGame(); G.events.length = 0; }
     document.title = (stateHash() === h0 && !G.replay.bad && G.replay.checked >= 2 ? 'REPLAYTEST OK' : 'REPLAYTEST FAIL') + ' checked=' + G.replay.checked + ' size=' + f.length; } else
+  if (QS.get('teslachain')) { startGame('normal', { demo: 1, seed: 4242 }); G.opts.fog = false; // v5.3 screenshot scene: 5-coil Tesla cluster chaining into one bolt
+    for (let i = 0; i < 6; i++) addB('power', 0, 2 + i * 2, 24, true).born = -10;
+    for (const [x, y] of [[36, 42], [34, 41], [34, 43.5], [36.5, 44.5], [32.5, 42.5]]) addB('tesla', 0, x, y, true).born = -10;
+    const foes = []; for (let i = 0; i < 6; i++) foes.push(addU(i % 2 ? 'heavy' : 'rifle', 1, 40 + (i % 3) * 0.8, 41 + (i / 3 | 0) * 1.2)); foes.forEach(f => f.order = 'hold');
+    let ev = null; for (let i = 0; i < 30 * 10 && !ev; i++) { stepGame(); ev = G.events.find(e => e.e === 'zap' && e.n >= 4) || null; if (!ev) G.events.length = 0; }
+    R3.cam.td = R3.cam.d = +(QS.get('zoom') || 13); jumpTo(+(QS.get('cx') || 37), +(QS.get('cy') || 40), true); paused = false; foes.forEach(f => { f.hp = f.mhp = 1e6; }); if (ev && QS.get('hold')) setInterval(() => G.events.push(ev), 120);
+    document.title = 'TESLACHAIN ' + (ev ? 'n=' + ev.n : 'none');
+  } else
   if (QS.get('warhead')) { startGame('normal', { demo: 1, seed: 4242 }); G.opts.fog = false; // v5.2 screenshot/test scene: heavy warhead mid-flight + cluster about to land on a defence cluster
     for (const [t, x, y] of [['power', 4, 12], ['power', 1, 9], ['power', 4, 2], ['tech', 3, 15]]) addB(t, 0, x, y, true).born = -10; const s = addB('silo', 0, 16, 16, true); s.born = -10; const s2 = addB('silo', 0, 12, 20, true); s2.born = -10;
     for (const [t, x, y] of [['turret', 30, 30], ['turret', 33, 29], ['aagun', 31, 33], ['tesla', 34, 32], ['power', 36, 35], ['power', 33, 36]]) addB(t, 1, x, y, true).born = -10;

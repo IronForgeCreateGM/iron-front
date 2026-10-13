@@ -602,16 +602,24 @@ function combat(e, w, sight, mobile) {
   e.tang = turnTo(e.tang, want, 3 * DT);
   return false;
 }
+const TESLA_RELAY = 4.2, TESLA_STACK = 1.25, TESLA_MAXC = 5;
 function fire(e, w, t) {
   e.cd = w.cd * (0.9 + G.R() * 0.2);
   const z0 = e.kind === 'u' ? e.z : 0.8, tz = t.kind === 'u' ? t.z : 0.5;
   const shots = w.twin ? 2 : 1;
   if (w.chain) { // chain lightning: instant hit, arcs to nearby enemies with falloff
-    const pts = [{ x: e.x, y: e.y, z: z0 + 1.8 }], hitL = [t]; let cur = t, amt = w.dmg * (e.lvl > 1 ? UPG_DMG[e.lvl - 1] : 1);
+    // v5.3 Tesla CHAINING: ready friendly coils within TESLA_RELAY relay their charge tower-to-tower into the coil
+    // closest to the target; each contributor adds TESLA_STACK x its own shot to that one bolt (and spends its charge).
+    let src = e, amt = w.dmg * (e.lvl > 1 ? UPG_DMG[e.lvl - 1] : 1); const relay = [];
+    if (e.kind === 'b' && e.t === 'tesla') { for (const o of G.ents) if (o !== e && o.t === 'tesla' && o.kind === 'b' && o.hp > 0 && o.team === e.team && !o.offline && !(o.cd > 0) && (o.bp == null || o.bp >= 1) && relay.length < TESLA_MAXC && dhypot(o.x - e.x, o.y - e.y) <= TESLA_RELAY) relay.push(o);
+      for (const o of relay) { o.cd = W.tesla.cd * (0.9 + G.R() * 0.2); o.lastFire = G.time; amt += TESLA_STACK * W.tesla.dmg * (o.lvl > 1 ? UPG_DMG[o.lvl - 1] : 1);
+        if (dhypot(o.x - t.x, o.y - t.y) < dhypot(src.x - t.x, src.y - t.y)) src = o; } }
+    const rp = []; for (const o of [e, ...relay]) if (o !== src) rp.push({ a: { x: o.x, y: o.y, z: 2.2 }, b: { x: src.x, y: src.y, z: 2.2 } });
+    const pts = [{ x: src.x, y: src.y, z: z0 + (e.kind === 'b' ? 2.2 : 1.8) }], hitL = [t]; let cur = t;
     for (let k = 0; k <= w.chain && cur; k++) { damage(cur, amt, w, e.team, e); pts.push({ x: cur.x, y: cur.y, z: cur.kind === 'u' ? cur.z + 0.4 : 0.6 }); amt *= 0.7;
       let nx = null, nd = 2.6; for (const o of G.ents) if (o.kind === 'u' && o.hp > 0 && foe(o.team, e.team) && !hitL.includes(o) && canHit(w, o)) { const dd = dhypot(o.x - cur.x, o.y - cur.y); if (dd < nd) { nd = dd; nx = o; } }
       cur = nx; if (nx) hitL.push(nx); }
-    e.lastFire = G.time; G.events.push({ e: 'zap', pts, team: e.team }); G.events.push({ e: 'fire', src: e, w }); return; }
+    e.lastFire = G.time; G.events.push({ e: 'zap', pts, team: e.team, rp, n: relay.length + 1 }); G.events.push({ e: 'fire', src: e, w }); return; }
   e.lastFire = G.time; if (w.ammo) e.ammo = (e.ammo == null ? w.ammo : e.ammo) - 1;
   const est = w.dmg * DMG[w.type][armorOf(t)] * shots; t.inc = (t.inc || 0) + est;
   for (let s = 0; s < shots; s++) {
