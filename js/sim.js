@@ -185,7 +185,7 @@ function genCustom(R) {
     each(48, 48, 3.2, (i, d) => { G.lava[i] = 1; G.map[i] = d < 1.6 ? 1 : 0; G.forest[i] = 0; G.ore[i] = 0; });
     G.crown = [48, 48];
     // resources: 2 fields per base (back of the plateau), lowland expansions between bases, rich gold N/S by the lava lanes
-    fieldC(6, 9, 1.9); fieldC(22, 7, 1.8); fieldC(6, 87, 1.9); fieldC(22, 89, 1.8); fieldC(4.5, 41, 1.8); fieldC(4.5, 55, 1.8);
+    fieldC(8, 12, 1.8); fieldC(19.5, 9.5, 1.7); fieldC(8, 84, 1.8); fieldC(19.5, 86.5, 1.7); fieldC(6, 42.5, 1.7); fieldC(6, 53.5, 1.7);
     fieldC(27, 33.5, 2); fieldC(27, 62, 2); fieldC(38, 22, 1.5, 1); fieldC(38, 74, 1.5, 1);
     site(24.5, 37, 'nat'); site(24.5, 59, 'nat'); site(37, 18, 'mid'); site(37, 78, 'mid');
     vent(19, 21); vent(19, 74); vent(16, 47); vent(41, 60); vent(41, 35); vent(33, 48);
