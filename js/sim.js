@@ -42,7 +42,8 @@ function newGame(opts) {
     addU('light', t, sx + dx * 4.5, sy + dy * 1.5);
   });
   // v5.0 capturable oil derricks (neutral map features): an Engineer captures one; owner gets a trickle of credits
-  G.derricks = []; for (const [x, y] of G.six ? [[25, 25], [40, 21], [24, 47]] : [[25, 25], [40, 21]]) for (const [a, b] of [[x, y], [MW - 1 - x, y], [x, MH - 1 - y], [MW - 1 - x, MH - 1 - y]]) { const f = nearFree(a, b, 6); if (!G.derricks.some(d => dhypot(d.x - f[0] - 0.5, d.y - f[1] - 0.5) < 3)) G.derricks.push({ id: G.derricks.length, x: f[0] + 0.5, y: f[1] + 0.5, owner: -1 }); }
+  G.derricks = []; for (const [x, y] of G.dkPos ? [] : G.six ? [[25, 25], [40, 21], [24, 47]] : [[25, 25], [40, 21]]) for (const [a, b] of [[x, y], [MW - 1 - x, y], [x, MH - 1 - y], [MW - 1 - x, MH - 1 - y]]) { const f = nearFree(a, b, 6); if (!G.derricks.some(d => dhypot(d.x - f[0] - 0.5, d.y - f[1] - 0.5) < 3)) G.derricks.push({ id: G.derricks.length, x: f[0] + 0.5, y: f[1] + 0.5, owner: -1 }); }
+  if (G.dkPos) for (const [x, y] of G.dkPos) { const f = nearFree(x, y, 6); if (!G.derricks.some(d => dhypot(d.x - f[0] - 0.5, d.y - f[1] - 0.5) < 3)) G.derricks.push({ id: G.derricks.length, x: f[0] + 0.5, y: f[1] + 0.5, owner: -1 }); }
   if (typeof aiInit === 'function') G.players.forEach(p => p.ai && aiInit(p));
   updFog();
   return G;
@@ -50,6 +51,7 @@ function newGame(opts) {
 // 96x96 four-fold mirrored map: mains in corners (cliff ring + 2 ramps), two naturals each,
 // contested mid bases with rich (gold) fields, central monument, river with 4 bridges, forests.
 function genMap(R) {
+  G.mapName = G.opts.map || 'classic'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R);
   const N = MW * MH, Q = MW / 2, gs = 8, gw = MW / gs + 2;
   const mk = () => { const a = []; for (let i = 0; i < gw * gw; i++) a.push(R()); return a; };
   const g1 = mk(), g2 = mk(), g3 = mk();
@@ -140,6 +142,89 @@ function mapVolcano(R, Q, setQ, disc, clear, rock, line, field, vent) {
   // ring wall around the crown with 4 diagonal ramps
   for (let a = 0; a < Math.PI * 2; a += 0.03) { if (Math.abs(((a + Math.PI / 4) % (Math.PI / 2)) - Math.PI / 4) < 0.22) continue; const x = Q + dcos(a) * 7.6, y = Q + dsin(a) * 7.6; const tx = Math.floor(x), ty = Math.floor(y); if (inb(tx, ty)) { G.map[idx(tx, ty)] = 1; } }
   vent(Q - 5, Q - 3); G.monument = null; G.crown = [Q, Q];
+}
+// ===== v5.2: hand-designed layouts for Volcano Crown (3v3, mirrored W/E) and Frostline Pass (2v2, 180deg rotational) =====
+function genCustom(R) {
+  const N = MW * MH, vol = G.mapName === 'volcano';
+  const nz = (() => { const s = 7, w = Math.ceil(MW / s) + 2, g = []; for (let i = 0; i < w * w * 3; i++) g.push(R()); const sm = t => t * t * (3 - 2 * t);
+    return (x, y, o) => { x /= s; y /= s; const xi = Math.floor(x), yi = Math.floor(y), fx = sm(x - xi), fy = sm(y - yi), v = (a, b) => g[(o * w * w + b * w + a) % g.length];
+      return (v(xi, yi) * (1 - fx) + v(xi + 1, yi) * fx) * (1 - fy) + (v(xi, yi + 1) * (1 - fx) + v(xi + 1, yi + 1) * fx) * fy; }; })();
+  // symmetry: every write is applied to the tile and its partner (mirror x for volcano, 180deg rotation for frost)
+  const pr = vol ? (x, y) => [MW - 1 - x, y] : (x, y) => [MW - 1 - x, MH - 1 - y];
+  const each = (cx, cy, r, f) => { for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(MH - 1, cy + r); y++) for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(MW - 1, cx + r); x++) { const d = dhypot(x + 0.5 - cx, y + 0.5 - cy); if (d <= r) { const [px, py] = pr(x, y); f(idx(x, y), d, x, y, x, y); if (px !== x || py !== y) f(idx(px, py), d, px, py, x, y); } } };
+  const set = (i, t) => { G.map[i] = t; if (t) { G.forest[i] = 0; G.ore[i] = 0; } };
+  // base terrain: noise elevation, light forests, a few rock outcrops; rock border
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = idx(x, y), [px, py] = pr(x, y), xa = Math.min(x, px), ya = vol ? y : (x < px ? y : py), n = nz(xa, ya, 0), f = nz(xa, ya, 1);
+    G.elev[i] = n; G.map[i] = (n > 0.8) ? 1 : 0; G.forest[i] = f > 0.66 && n < 0.8 ? 1 : 0; if (x < 2 || y < 2 || x > MW - 3 || y > MH - 3) G.map[i] = 1; }
+  const fieldC = (cx, cy, r, rich) => each(cx, cy, r + 0.3, i => { G.map[i] = 0; G.forest[i] = 0; G.ore[i] = (rich ? 520 : 400) * ORE_MULT * (0.8 + 0.4 * R()); G.rich[i] = rich ? 1 : 0; });
+  const clearC = (cx, cy, r) => each(cx, cy, r, i => { G.map[i] = 0; G.forest[i] = 0; });
+  const path = (pts, r, f) => { for (let k = 0; k < pts.length - 1; k++) { const [x0, y0] = pts[k], [x1, y1] = pts[k + 1], n = Math.ceil(dhypot(x1 - x0, y1 - y0) * 2); for (let j = 0; j <= n; j++) each(x0 + (x1 - x0) * j / n, y0 + (y1 - y0) * j / n, r, f); } };
+  // plateau: level `top` inside r, cliff ring outside except ramp gaps (angles), smooth slope down to `bot` over `rl` tiles in the gaps
+  const plateau = (cx, cy, r, top, bot, gaps, gw, rl) => { const ring = 2.2;
+    each(cx, cy, r + rl + 0.5, (i, d, x, y, ox, oy) => { const aa = datan2(oy + 0.5 - cy, ox + 0.5 - cx);
+      const inGap = gaps.some(g => { let da = Math.abs(aa - g) % (Math.PI * 2); if (da > Math.PI) da = Math.PI * 2 - da; return da < gw / Math.max(1, d) ; });
+      if (d < r) { G.lvl[i] = Math.max(G.lvl[i], top); if (G.map[i] === 1 && d < r - 0.5) G.map[i] = 0; return; }
+      if (inGap) { G.lvl[i] = Math.max(G.lvl[i], top - (top - bot) * Math.min(1, (d - r) / rl)); G.map[i] = 0; G.forest[i] = 0; }
+      else if (d < r + ring) { set(i, 1); G.lvl[i] = Math.max(G.lvl[i], top - (top - bot) * (d - r) / ring); } }); };
+  G.vents = []; const vent = (x, y) => { clearC(x + 0.5, y + 0.5, 1.6); G.vents.push([x, y]); const [a, b] = pr(x, y); G.vents.push([a, b]); };
+  G.sites = []; const site = (x, y, k) => { G.sites.push({ x, y, k }); const [a, b] = pr(x - 0.5, y - 0.5); G.sites.push({ x: a + 0.5, y: b + 0.5, k }); };
+  G.dkPos = []; const dk = (x, y) => { G.dkPos.push([x, y]); G.dkPos.push(pr(x, y)); };
+  G.monument = null; G.weather = null; G.ruins = null; G.crown = null;
+  const C = [48, 48];
+  if (vol) {
+    const bases = [[14.5, 16.5], [14.5, 79.5], [11.5, 48]]; G.starts = [[14.5, 16.5], [81.5, 16.5], [14.5, 79.5], [81.5, 79.5], [11.5, 48], [84.5, 48]];
+    // lava lanes (visual only): N, S and the four diagonals out of the crater toward the corner bases
+    const lane = pts => path(pts, 1.1, i => { G.lava[i] = 1; G.forest[i] = 0; if (G.map[i] === 1) G.map[i] = 0; });
+    lane([[47.5, 34], [45.5, 24], [48, 14], [46.5, 2]]); lane([[47.5, 61], [49.5, 71], [47, 82], [48.5, 94]]);
+    lane([[38, 40], [32, 33], [26, 29]]); lane([[38, 56], [31, 61], [26, 66]]); lane([[38, 48], [30, 47], [24, 48.5]]);
+    // plateau bases, ramps facing the volcano + one side ramp (2 entrances each)
+    for (const [bx, by] of bases) { const a = datan2(C[1] - by, C[0] - bx), side = by < 30 ? Math.PI / 2 : by > 66 ? -Math.PI / 2 : (a > 0 ? 1 : -1) * 0.9; plateau(bx, by, 10, 1, 0, [a, by > 30 && by < 66 ? a + 1.0 : side], 1.9, 4.5); }
+    // the central volcano: terrace (lvl 1) with 4 ramps, crown (lvl 2) with N/S ramps, crater lava + rock core
+    plateau(48, 48, 12.5, 1, 0, [0, Math.PI / 2, Math.PI, -Math.PI / 2], 2.0, 4);
+    plateau(48, 48, 6.5, 2, 1, [Math.PI / 2, -Math.PI / 2], 1.7, 3.5);
+    each(48, 48, 3.2, (i, d) => { G.lava[i] = 1; G.map[i] = d < 1.6 ? 1 : 0; G.forest[i] = 0; G.ore[i] = 0; });
+    G.crown = [48, 48];
+    // resources: 2 fields per base (back of the plateau), lowland expansions between bases, rich gold N/S by the lava lanes
+    fieldC(6, 9, 1.9); fieldC(22, 7, 1.8); fieldC(6, 87, 1.9); fieldC(22, 89, 1.8); fieldC(4.5, 41, 1.8); fieldC(4.5, 55, 1.8);
+    fieldC(27, 33.5, 2); fieldC(27, 62, 2); fieldC(38, 22, 1.5, 1); fieldC(38, 74, 1.5, 1);
+    site(24.5, 37, 'nat'); site(24.5, 59, 'nat'); site(37, 18, 'mid'); site(37, 78, 'mid');
+    vent(19, 21); vent(19, 74); vent(16, 47); vent(41, 60); vent(41, 35); vent(33, 48);
+    dk(30, 42); dk(30, 54); dk(40, 9); dk(40, 87); dk(48, 38);
+  } else {
+    G.starts = [[12.5, 12.5], [64.5, 85.5], [31.5, 10.5], [83.5, 83.5], [10.5, 31.5], [85.5, 64.5]];
+    // mountains in the NE / SW corners
+    each(90, 4, 15, (i, d) => { if (d < 13 || nz(i % MW, i / MW | 0, 2) > 0.5) set(i, 1); });
+    // river NE -> SW (water), broken by the frozen lakes (ice: walkable), the outpost hill pass and the icy bridges
+    const riv = [[80, 10], [72, 16], [66, 22], [58, 31], [53, 39], [52, 43]];
+    path(riv, 1.8, i => { G.map[i] = 2; G.forest[i] = 0; G.ore[i] = 0; });
+    each(66, 22, 9, (i, d, x, y, qx, qy) => { const e = dhypot((qx + 0.5 - 66) / 1.35, qy + 0.5 - 22); if (e < 6.4) { G.map[i] = 0; G.ice[i] = 1; G.forest[i] = 0; G.ore[i] = 0; } });
+    // icy bridge across the river (vehicles + infantry)
+    path([[54, 33], [58.5, 37]], 1.3, i => { if (G.map[i] === 2) { G.map[i] = 0; G.bridge[i] = 1; G.ice[i] = 1; } });
+    // ruined outpost on a central hill (lvl 1) with two ramps along the pass
+    each(48, 48, 6, i => { if (G.map[i] === 2) G.map[i] = 0; }); plateau(48, 48, 6, 1, 0, [-3 * Math.PI / 4, Math.PI / 4], 1.8, 4);
+    G.ruins = [48, 48];
+    // team cliff base (shared by the team): big plateau with 2 stair ramps
+    plateau(17, 17, 19.5, 1, 0, [Math.PI / 4 + 0.42, Math.PI / 4 - 0.42], 2.1, 5);
+    // winding valley pass from the ramps to the centre + valley expansions
+    path([[33, 28], [36, 34], [42, 36], [45, 41]], 2.2, i => { if (G.map[i] === 1) G.map[i] = 0; G.forest[i] = 0; });
+    path([[28, 33], [26, 40], [22, 46]], 2.2, i => { if (G.map[i] === 1) G.map[i] = 0; G.forest[i] = 0; });
+    path([[37, 23], [44, 18], [50, 15]], 2, i => { if (G.map[i] === 1) G.map[i] = 0; G.forest[i] = 0; });
+    fieldC(5.5, 20, 1.9); fieldC(20, 5.5, 1.9); fieldC(25, 25, 1.6);
+    fieldC(15, 50, 2); fieldC(50, 10, 1.8); fieldC(40, 42, 1.3, 1);
+    site(19.5, 46, 'nat'); site(46, 15.5, 'nat'); site(38, 38, 'mid');
+    vent(26, 15); vent(21, 52); vent(52, 19); vent(42, 47);
+    dk(30, 44); dk(43, 28); dk(10, 60); dk(56, 7);
+  }
+  for (const s of G.starts) { const [sx, sy] = s; clearCirc(sx, sy, 4); }
+  function clearCirc(cx, cy, r) { for (let y = Math.floor(cy - r); y <= cy + r; y++) for (let x = Math.floor(cx - r); x <= cx + r; x++) if (inb(x, y) && dhypot(x + 0.5 - cx, y + 0.5 - cy) <= r) { const i = idx(x, y); G.map[i] = 0; G.forest[i] = 0; G.ore[i] = 0; G.lava[i] = 0; } }
+  for (const s of G.starts) G.sites.push({ x: s[0], y: s[1], k: 'main' });
+  for (let i = 0; i < N; i++) { if (G.map[i] !== 0) G.forest[i] = 0; G.tier[i] = Math.round(G.lvl[i]); }
+  // flood fill from start 0: unreachable open tiles become rock
+  const seen = new Uint8Array(N), st = [idx(Math.floor(G.starts[0][0]), Math.floor(G.starts[0][1]))]; seen[st[0]] = 1;
+  while (st.length) { const c = st.pop(), x = c % MW, y = (c / MW) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (!inb(nx, ny)) continue; const n = idx(nx, ny); if (!seen[n] && G.map[n] === 0) { seen[n] = 1; st.push(n); } } }
+  for (let i = 0; i < N; i++) if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.ore[i] = 0; G.forest[i] = 0; }
+  G.six = true; G.oreMax = Float32Array.from(G.ore);
 }
 function addB(t, team, tx, ty, instant) {
   const d = BT[t];

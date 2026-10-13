@@ -18,3 +18,14 @@ Also earlier backlog: wall gate.
 ## Update Oct 12 2:33pm (after v5.0)
 - SCRAPPED: lava flares and blizzard effects (visual and gameplay). Remove blizzard sight-cut from Frostline; keep normal lava damage.
 - Remaining: 6-player support so Volcano Crown is true 3v3; more raised ground/ramps across both maps beyond mains/peak; derrick capture alert; dedicated performance pass; Chief SI siege of fortified/turtle bases; re-verify no money hoarding + 2v2 sample.
+
+## Oct 12 7:30pm — ON HOLD (Nicholas saving weekly usage, resets ~Oct 18)
+- TOP: Rebuild Volcano Crown + Frostline Pass as genuinely NEW layouts matching the concept sketches (v5.0/5.1 only recolored the old layout). 
+- Collect Nicholas's notes on bot mistakes from his games before next AI pass.
+- Nicholas live notes (2v2: 2 Hard beat 2 Chief SI, both SI France): SI armies come too late vs Hard's timing; slow to build defenses, poor placement, too few towers; never builds Grand Cannon. Fix SI build order/army timing, defense count+placement, Grand Cannon use; test SI-vs-Hard 2v2 as France specifically.
+- More notes: defend EVERY base entrance (2 entrances = defenses at both). Build multiple war factories to mass armies fast and keep up repeated pressure waves.
+- More notes: bots build NO air defense (flak) and NO Tesla towers — must build both. Tesla visuals: taller tower with cool crackling electric arcs around it.
+- Replay recorder: save Nicholas's games to a small file so Chief can study his build orders/timing and turn them into bot playbooks + win-tests.
+- Warhead Launcher (Nicholas idea 10/12 9:18pm): expensive mid-game above-ground missile silo, costs lots of gas. Build several missile types (small/medium/large) with different ranges and damage; arc through atmosphere to strike enemy bases. Needs warning alert, long cooldown, counterplay.
+- Air raids (Nicholas 9:24pm): bots send jets/bombers one at a time on the same path = easy kills. Fix: mass 5+ and strike together, and vary approach angles, probing for the side with the weakest AA. Benchmark: Nicholas held off 3 Hard bots 1v3 until he got bored — Hard must be much tougher.
+- Team AI (Nicholas 9:26pm): allied bots coordinate — synchronized multi-angle attacks with strong units. Build MANY war factories/barracks/airfields; huge armies, not medium. Don't retreat after a few cannon hits — commit, take out defenses, advance and pick the base apart piece by piece, relentless pressure. 'I want a real challenge.'
