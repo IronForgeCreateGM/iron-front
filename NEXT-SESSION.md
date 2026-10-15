@@ -42,3 +42,4 @@ Also earlier backlog: wall gate.
 - Bot ran out of power and never built new power plants. Fix: power watchdog (rebuild/expand power whenever low).
 - Games drag: no coordinated finishing pushes. Add late-game "close it out" logic: allied mass attacks on weakest enemy.
 - AI should build and fire the warhead launcher when the game stalls / it can't break an enemy.
+- SPECTATOR CAMERA (Nicholas 10/15): when spectating a bot game, allow zooming far out to see more of the map, and never auto-zoom back in.
