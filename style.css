@@ -1,5 +1,5 @@
 *{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#06090d;color:#d8e2ee;font:13px/1.35 -apple-system,"Segoe UI",Roboto,Helvetica,sans-serif;user-select:none;-webkit-user-select:none}
-#app{display:flex;height:100%}
+#app{display:flex;height:100%;position:relative}
 #view{position:relative;flex:1;overflow:hidden}#view canvas{display:block}
 #ov{position:absolute;inset:0;pointer-events:none}
 #view::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.45))}
@@ -70,3 +70,20 @@ select{background:#16263a;color:#e3eefa;border:1px solid #2f5a88;border-radius:4
 button:disabled{opacity:.5;cursor:not-allowed}
 .ico.on{background:#2d5a3a;border-color:#6c9}
 .lopts{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0}.lopts select{margin-left:4px}#presets{display:inline-flex;gap:6px}
+
+/* v5.4: structures/defenses on the right, units on a bottom bar; bigger readable text */
+#side{width:300px;font-size:13px}
+#cr{font-size:26px}#gas{font-size:17px}.pwl{font-size:11px}
+.tab{font-size:12px;padding:7px 4px}
+.item .nm{font-size:12px;padding:3px 5px}.item .cost{font-size:11px}
+#ctx{font-size:13px;min-height:96px}.pt img{width:110px;height:72px}
+#tip{max-width:340px;font-size:13px;line-height:1.55;padding:10px 12px}
+#botbar{position:absolute;left:0;right:300px;bottom:0;z-index:5;display:flex;flex-direction:column;gap:4px;
+  background:linear-gradient(transparent,rgba(8,12,18,.94) 30%);padding:10px 12px 8px;pointer-events:none;border-top:1px solid rgba(45,70,100,.45)}
+#botbar > *{pointer-events:auto}
+#btabs{display:flex;gap:4px}#btabs .tab{flex:0 0 auto;min-width:100px;font-size:13px;padding:8px 14px}
+#bgrid{display:flex;flex-wrap:wrap;gap:6px;max-height:110px;overflow:auto}
+#bgrid .item{width:92px;flex:0 0 auto}#bgrid .item img{height:52px}#bgrid .item .nm{font-size:11px}
+#bhint{font-size:11px;color:rgba(180,200,220,.75);padding:2px 0}
+#hint{font-size:12px;bottom:128px}
+#view{position:relative}

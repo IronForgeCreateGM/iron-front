@@ -283,7 +283,7 @@ function applyAniso() { const mx = R3.renderer.capabilities.getMaxAnisotropy(); 
 function updCamera(dt) {
   const c = R3.cam, k = 1 - Math.exp(-dt * 9);
   if (R3.camera) { const nn = Math.max(0.8, c.d * 0.35), ff = c.d * 3.2 + 50; if (Math.abs(R3.camera.near - nn) > 0.05 || Math.abs(R3.camera.far - ff) > 1) { R3.camera.near = nn; R3.camera.far = ff; R3.camera.updateProjectionMatrix(); } }
-  c.tx = Math.max(3, Math.min(MW - 3, c.tx)); c.ty = Math.max(4, Math.min(MH + 6, c.ty)); c.td = Math.max(7, Math.min(60, c.td));
+  c.tx = Math.max(3, Math.min(MW - 3, c.tx)); c.ty = Math.max(4, Math.min(MH + 6, c.ty)); c.td = Math.max(7, Math.min((G.spectate || G.watch) ? 110 : 60, c.td)); // v5.4: spectators may zoom far out
   c.x += (c.tx - c.x) * k; c.y += (c.ty - c.y) * k; c.d += (c.td - c.d) * k;
   const pitch = 0.82 + (c.d - 10) / 40 * 0.3; let sx = 0, sz = 0;
   if (R3.shake > 0) { R3.shake -= dt; sx = rnd(R3.shake * 0.6); sz = rnd(R3.shake * 0.6); }

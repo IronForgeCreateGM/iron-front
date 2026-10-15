@@ -7,7 +7,7 @@
   <div id="view"><canvas id="ov"></canvas><div id="msg"></div><div id="fps"></div>
     <div id="announce"></div>
 <div id="netWait"></div>
-<div id="watchTag">SPECTATING · CHIEF (olive) vs HARD AI (tan)</div><div id="hint">Drag select · Right-click move/attack (Shift = waypoint) · A attack-move · S stop · G formation (Shift+G at base) · V stance · Z upgrade · Ctrl+1-9 groups · H base · . idle harvester · , idle army · Wheel zoom · Middle-drag pan · F fps</div></div>
+<div id="watchTag">SPECTATING · CHIEF (olive) vs HARD AI (tan)</div><div id="hint">Drag select · Right-click move/attack (Shift = waypoint) · A attack-move · S stop · G formation (Shift+G at base) · V stance · Z upgrade · Ctrl+1-9 groups · H base · . idle harvester · , idle army · WASD/Wheel zoom · Middle-drag pan · F fps</div></div>
   <div id="side">
     <div class="brand">IRON<span>FRONT</span><button id="quietBtn" class="ico" title="Quiet mode: cooler &amp; quieter Mac (N)">🍃</button><button id="setBtn" class="ico" title="Settings">⚙</button><button id="muteBtn" class="ico">🔊</button><button id="pauseBtn" class="ico">⏸</button></div>
     <canvas id="minimap" width="256" height="256"></canvas>
@@ -18,10 +18,15 @@
     <div class="tools"><button id="sellBtn">$ Sell <kbd>X</kbd></button><button id="repBtn">🔧 Repair <kbd>R</kbd></button></div>
     <div id="ctx"></div>
   </div>
+  <div id="botbar">
+    <div id="btabs"></div>
+    <div id="bgrid"></div>
+    <div id="bhint">Units · Shift+click queues 5 · <kbd>A</kbd>+click attack-move · WASD pan · <kbd>B</kbd> cycle unit tab</div>
+  </div>
 </div>
 <div id="tip"></div>
 <div id="menu" class="screen"><div class="panel">
-  <h1>IRON<span>FRONT</span></h1><p class="sub">Real-time strategy · v5.3</p>
+  <h1>IRON<span>FRONT</span></h1><p class="sub">Real-time strategy · v5.4</p>
   <div class="lopts"><label>Map <select id="mapSel"><option value="classic">Iron Crossroads (4)</option><option value="frost">Frostline Pass (2v2)</option><option value="volcano">Volcano Crown</option></select></label> <label>Peace time <select id="peaceSel"><option value="0">Off</option><option value="180" selected>3 min</option><option value="300">5 min</option><option value="480">8 min</option></select></label> <span class="dim">Quick setup:</span> <span id="presets"></span></div>
   <div id="lobby"></div>
   <div class="fsel"><div class="flbl">Your faction</div><div id="facs"></div><div id="facDesc"></div></div>

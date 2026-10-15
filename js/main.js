@@ -210,10 +210,10 @@ function director(dt) {
     DIR.t = 0.8; let best = null, bs = 0;
     for (const h of DIR.hot) { let sc = 0; for (const o of DIR.hot) if (Math.hypot(o.x - h.x, o.y - h.y) < 6) sc += o.w * (1 - (G.time - o.t) / 5); if (sc > bs) { bs = sc; best = h; } }
     const stick = DIR.cur && DIR.hold > 0;
-    if (best && bs > 4 && (!stick || Math.hypot(best.x - DIR.cur.x, best.y - DIR.cur.y) < 8 || bs > (DIR.curS || 0) * 2)) { if (!DIR.cur || Math.hypot(best.x - DIR.cur.x, best.y - DIR.cur.y) > 3) DIR.hold = 6; DIR.cur = best; DIR.curS = bs; R3.cam.td = bs > 25 ? 16 : 19; }
+    if (best && bs > 4 && (!stick || Math.hypot(best.x - DIR.cur.x, best.y - DIR.cur.y) < 8 || bs > (DIR.curS || 0) * 2)) { if (!DIR.cur || Math.hypot(best.x - DIR.cur.x, best.y - DIR.cur.y) > 3) DIR.hold = 6; DIR.cur = best; DIR.curS = bs; if (DIR.auto && !DIR.userZoom) R3.cam.td = bs > 25 ? 16 : 19; }
     else if (!stick || !best) { // calm: tour bases & armies
       if (DIR.hold <= 0) { const opts = []; for (const t of [0, 1]) { const army = G.ents.filter(e => e.team === t && e.kind === 'u' && e.t !== 'harv'); if (army.length) opts.push({ x: army.reduce((a, e) => a + e.x, 0) / army.length, y: army.reduce((a, e) => a + e.y, 0) / army.length }); const hq = G.ents.find(e => e.team === t && e.t === 'hq'); if (hq) opts.push({ x: hq.x + 2, y: hq.y + 2 }); }
-        DIR.tour = ((DIR.tour || 0) + 1) % Math.max(1, opts.length); DIR.cur = opts[DIR.tour] || { x: 32, y: 32 }; DIR.curS = 0; DIR.hold = 7; R3.cam.td = 21; }
+        DIR.tour = ((DIR.tour || 0) + 1) % Math.max(1, opts.length); DIR.cur = opts[DIR.tour] || { x: 32, y: 32 }; DIR.curS = 0; DIR.hold = 7; if (DIR.auto && !DIR.userZoom) R3.cam.td = 21; }
     }
     if (DIR.cur && DIR.auto) { R3.cam.tx = DIR.cur.x; R3.cam.ty = DIR.cur.y + R3.cam.td * 0.18; }
   }

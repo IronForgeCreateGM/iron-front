@@ -17,7 +17,10 @@ function uiAlert(ev) {
 }
 function uiSetup() {
   const tabs = $('tabs');
-  for (const k in CATS) { const b = document.createElement('button'); b.className = 'tab'; b.dataset.cat = k; b.innerHTML = `${CATS[k]}<i></i>`; b.onclick = () => { UI.tab = k; sfx('click'); buildGrid(); }; tabs.appendChild(b); }
+  const sideCats = ['bld', 'def'], botCats = ['inf', 'veh', 'air'];
+  for (const k of sideCats) { const b = document.createElement('button'); b.className = 'tab'; b.dataset.cat = k; b.innerHTML = `${CATS[k]}<i></i>`; b.onclick = () => { UI.tab = k; UI.hotPanel = 'side'; sfx('click'); buildGrid(); }; tabs.appendChild(b); }
+  const bt = $('btabs'); if (bt) { for (const k of botCats) { const b = document.createElement('button'); b.className = 'tab'; b.dataset.cat = k; b.innerHTML = `${CATS[k]}<i></i>`; b.onclick = () => { UI.btab = k; UI.hotPanel = 'bot'; sfx('click'); buildBotGrid(); }; bt.appendChild(b); } }
+  UI.btab = UI.btab || 'inf'; UI.hotPanel = UI.hotPanel || 'side';
   buildGrid();
   $('sellBtn').onclick = () => { UI.mode = UI.mode === 'sell' ? null : 'sell'; UI.placing = null; sfx('click'); };
   $('repBtn').onclick = () => { UI.mode = UI.mode === 'repair' ? null : 'repair'; UI.placing = null; sfx('click'); };
@@ -34,7 +37,7 @@ function uiSetup() {
   cv.addEventListener('mouseleave', () => { UI.mouse.x = -1; });
   cv.addEventListener('mousedown', onDown);
   window.addEventListener('mouseup', onUp);
-  cv.addEventListener('wheel', e => { e.preventDefault(); R3.cam.td *= e.deltaY > 0 ? 1.12 : 0.89; }, { passive: false });
+  cv.addEventListener('wheel', e => { e.preventDefault(); R3.cam.td *= e.deltaY > 0 ? 1.12 : 0.89; if (G.spectate || G.watch) { if (typeof DIR !== 'undefined') DIR.userZoom = true; } }, { passive: false });
   window.addEventListener('keydown', onKey); window.addEventListener('keyup', e => { UI.keys[e.key.toLowerCase()] = false; UI.keys.shift = e.shiftKey; UI.keys.control = e.ctrlKey || e.metaKey; });
   window.addEventListener('blur', () => { UI.keys = {}; });
   const mm = $('minimap');
@@ -61,17 +64,25 @@ function openSettings(on) { $('settings').style.display = on ? 'flex' : 'none'; 
 function jumpTo(x, y, instant) { R3.cam.tx = x; R3.cam.ty = y + R3.cam.d * 0.18; if (instant) { R3.cam.x = R3.cam.tx; R3.cam.y = R3.cam.ty; } }
 function listFor(cat) { const f = G.players[ME].fac, ok = t => !(BT[t] || UT[t]).fac || (BT[t] || UT[t]).fac === f; return [...Object.keys(BT).filter(t => t !== 'hq' && BT[t].cat === cat && ok(t)), ...Object.keys(UT).filter(t => FROMCAT[UT[t].from] === cat && ok(t))]; }
 function itemHTML(t, hk) { const d = BT[t] || UT[t]; return `<img src="${icon(t)}"><div class="nm">${d.n}</div><div class="cost">$${d.cost}${d.gas ? `<i class="gas"> ◆${d.gas}</i>` : ""}</div>${hk ? `<div class="hk">${hk.toUpperCase()}</div>` : ''}<div class="prog"></div><div class="cnt"></div><div class="rdy">READY</div><div class="lock">🔒</div>`; }
-function wireItem(b, t) {
+function wireItem(b, t, panel) {
   b.dataset.t = t;
-  b.onmousedown = e => { e.preventDefault(); audioInit(); clickItem(t, e.button === 2, e.shiftKey); };
+  b.onmousedown = e => { e.preventDefault(); audioInit(); if (panel) UI.hotPanel = panel; clickItem(t, e.button === 2, e.shiftKey); };
   b.oncontextmenu = e => e.preventDefault();
   b.onmouseenter = () => showTip(t, b); b.onmouseleave = () => { UI.tip.style.display = 'none'; };
 }
 function buildGrid() {
-  const g = $('grid'); g.innerHTML = '';
-  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.cat === UI.tab));
+  const g = $('grid'); if (!g) return; g.innerHTML = '';
+  document.querySelectorAll('#tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.cat === UI.tab));
+  if (UI.tab !== 'bld' && UI.tab !== 'def') UI.tab = 'bld';
   UI.gridList = listFor(UI.tab);
-  UI.gridList.forEach((t, i) => { const b = document.createElement('div'); b.className = 'item'; b.innerHTML = itemHTML(t, HOTKEYS[i]); wireItem(b, t); g.appendChild(b); });
+  UI.gridList.forEach((t, i) => { const b = document.createElement('div'); b.className = 'item'; b.innerHTML = itemHTML(t, HOTKEYS[i]); wireItem(b, t, 'side'); g.appendChild(b); });
+  buildBotGrid();
+}
+function buildBotGrid() {
+  const g = $('bgrid'); if (!g) return; g.innerHTML = '';
+  document.querySelectorAll('#btabs .tab').forEach(b => b.classList.toggle('on', b.dataset.cat === UI.btab));
+  UI.botList = listFor(UI.btab || 'inf');
+  UI.botList.forEach((t, i) => { const b = document.createElement('div'); b.className = 'item'; b.innerHTML = itemHTML(t, HOTKEYS[i]); wireItem(b, t, 'bot'); g.appendChild(b); });
 }
 function counters(wpn) {
   if (!wpn) return { good: [], bad: [] }; const m = DMG[W[wpn].type], names = { inf: 'Infantry', light: 'Light vehicles', heavy: 'Armor', bldg: 'Structures', air: 'Aircraft' };
@@ -81,6 +92,7 @@ function counters(wpn) {
 function showTip(t, el) {
   const d = BT[t] || UT[t], u = UT[t], wpn = u ? u.wpn : BT[t].wpn, c = counters(wpn), i = UI.gridList.indexOf(t);
   let h = `<b>${d.n}</b> <span class="c">$${d.cost}</span>${d.gas ? ` <span class="gas">◆${d.gas}</span>` : ''} <span class="dim">· ${d.time}s</span>${i >= 0 && HOTKEYS[i] ? ` <kbd>${HOTKEYS[i].toUpperCase()}</kbd>` : ''}<br>`;
+  if (d.desc) h += d.desc + '<br>'; else h += `<span class="dim">${BT[t] ? (d.cat === 'def' ? 'Static defense.' : 'Base structure.') : (u && u.air ? 'Aircraft.' : u && u.armor === 'inf' ? 'Infantry unit.' : 'Vehicle.') }</span><br>`;
   h += `HP ${d.hp}` + (u ? ` · ${u.armor} armor · speed ${u.sp}` : ` · power ${d.pow > 0 ? '+' : ''}${d.pow}`) + '<br>';
   if (wpn) h += `Weapon: ${W[wpn].type}, ${W[wpn].dmg} dmg, range ${W[wpn].rng}${W[wpn].splash ? ', splash' : ''}<br>`;
   if (c.good.length) h += `<span class="g">Strong vs: ${c.good.join(', ')}</span><br>`; if (c.bad.length) h += `<span class="r">Weak / can't hit: ${c.bad.join(', ')}</span><br>`;
@@ -117,7 +129,7 @@ function pickAt(sx, sy) {
 const TABFOR = { barracks: 'inf', factory: 'veh', airpad: 'air', hq: 'bld' };
 function setSel(list) {
   G.ents.forEach(e => e.sel = false); UI.sel = list; list.forEach(e => e.sel = true);
-  if (list.length === 1 && list[0].kind === 'b' && list[0].team === ME && TABFOR[list[0].t] && UI.tab !== TABFOR[list[0].t]) { UI.tab = TABFOR[list[0].t]; buildGrid(); }
+  if (list.length === 1 && list[0].kind === 'b' && list[0].team === ME && TABFOR[list[0].t]) { const tf = TABFOR[list[0].t]; if (tf === 'bld' || tf === 'def') { if (UI.tab !== tf) { UI.tab = tf; UI.hotPanel = 'side'; buildGrid(); } } else if (UI.btab !== tf) { UI.btab = tf; UI.hotPanel = 'bot'; buildBotGrid(); } }
   UI.ctxKey = null;
 }
 function onDown(e) {
@@ -192,7 +204,7 @@ function onKey(e) {
     const now = performance.now(); if (UI.lastGroupKey === k && now - UI.lastGroupT < 400 && list.length) jumpTo(list[0].x, list[0].y);
     UI.lastGroupKey = k; UI.lastGroupT = now; return;
   }
-  const hi = HOTKEYS.indexOf(k); if (hi >= 0 && UI.gridList[hi] && !e.ctrlKey && !e.metaKey) { clickItem(UI.gridList[hi], false, e.shiftKey); return; }
+  const hi = HOTKEYS.indexOf(k); if (hi >= 0 && !e.ctrlKey && !e.metaKey) { const list = UI.hotPanel === 'bot' ? (UI.botList || []) : UI.gridList; if (list[hi]) { clickItem(list[hi], false, e.shiftKey); return; } }
   if (k === 'd') { const trs = UI.sel.filter(s => s.cargo && s.team === ME); if (trs.length) { if (e.shiftKey) trs.forEach(tr => NET.issue({ c: 'unload', tr: tr.id, x: tr.x, y: tr.y })); else { UI.mode = 'unload'; uiMsg('Unload: click where to drop (Shift+D drops right here). Carrying ' + trs.reduce((a, t) => a + t.cargo.length, 0)); } return; } }
   if (k === 's') orderStop(UI.sel.filter(s => s.team === ME));
   if (k === 'g') { doFormation(e.shiftKey); return; }
@@ -201,7 +213,8 @@ function onKey(e) {
   if (k === 'l' && UI.sel.some(s => s.t === 'silo' && s.team === ME)) { siloArm(); return; }
   if (k === 'a' && UI.sel.some(s => s.kind === 'u')) { UI.mode = 'amove'; uiMsg('Attack-move: left-click target (Shift = waypoint)'); }
   if (k === 'h') { const hq = G.ents.find(e => e.team === ME && e.t === 'hq') || G.ents.find(e => e.team === ME && e.t === 'cc'); if (hq) jumpTo(hq.x, hq.y); }
-  if (k === 'q') { UI.tab = Object.keys(CATS)[(Object.keys(CATS).indexOf(UI.tab) + 1) % 5]; buildGrid(); }
+  if (k === 'q') { const side = ['bld', 'def']; UI.tab = side[(side.indexOf(UI.tab) + 1) % side.length]; UI.hotPanel = 'side'; buildGrid(); }
+  if (k === 'b') { const bot = ['inf', 'veh', 'air']; UI.btab = bot[(bot.indexOf(UI.btab || 'inf') + 1) % bot.length]; UI.hotPanel = 'bot'; buildBotGrid(); }
   if (k === 'x') $('sellBtn').onclick(); if (k === 'r') $('repBtn').onclick();
   if (k === 'e') setSel(G.ents.filter(o => o.team === ME && o.kind === 'u' && UT[o.t].wpn));
   if (k === 'n') { toggleQuiet(); return; }
@@ -236,6 +249,11 @@ function uiFrame(dt) {
   annFrame(dt);
   const P = G.players[ME], m = UI.mouse, el = R3.renderer.domElement, W_ = el.clientWidth, H_ = el.clientHeight;
   // smooth camera scroll (edge + arrows), speed setting
+  // v5.4 WASD camera pan (works in play + spectate; A still arms attack-move on keydown)
+  { const sp = dt * R3.cam.d * 1.15 * (UI.set.edge || 1); let dx = 0, dy = 0;
+    if (UI.keys.w || UI.keys.arrowup) dy -= 1; if (UI.keys.s || UI.keys.arrowdown) dy += 1;
+    if (UI.keys.a || UI.keys.arrowleft) dx -= 1; if (UI.keys.d || UI.keys.arrowright) dx += 1;
+    if (dx || dy) { const n = Math.hypot(dx, dy) || 1; R3.cam.tx += dx / n * sp; R3.cam.ty += dy / n * sp; if (typeof DIR !== 'undefined') DIR.auto = false; } }
   const sp = dt * R3.cam.d * 1.1 * UI.set.edge, ed = 14;
   let dx = 0, dy = 0;
   if (UI.keys.arrowleft || (m.x >= 0 && m.x < ed)) dx -= 1; if (UI.keys.arrowright || (m.x >= 0 && m.x > W_ - ed)) dx += 1;
