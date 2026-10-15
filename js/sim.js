@@ -212,7 +212,9 @@ function genCustom(R) {
     fieldC(5.5, 20, 1.9); fieldC(20, 5.5, 1.9); fieldC(25, 25, 1.6);
     fieldC(15, 50, 2); fieldC(50, 10, 1.8); fieldC(40, 42, 1.3, 1);
     site(19.5, 46, 'nat'); site(46, 15.5, 'nat'); site(38, 38, 'mid');
-    vent(26, 15); vent(21, 52); vent(52, 19); vent(42, 47);
+    // v5.4: TWO gas sites in each team base (one per player seat); 180° symmetry fills the other team
+    vent(15, 17); vent(28, 14); vent(16, 28); // seats 0,2,4 — partners cover 3,1,5
+    vent(42, 47); // contested mid
     dk(30, 44); dk(43, 28); dk(10, 60); dk(56, 7);
   }
   for (const s of G.starts) { const [sx, sy] = s; clearCirc(sx, sy, 4); }

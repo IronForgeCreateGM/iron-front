@@ -66,9 +66,14 @@ function aiStep(P) {
     const sac = ['airpad', 'tech', 'aagun', 'turret', 'wall'].map(t => myBld().find(b => b.t === t)).find(Boolean) || (cnt.barracks > 1 && myBld().find(b => b.t === 'barracks'));
     if (sac) { sellB(sac); S.sellT = G.time + 15; }
   }
-  if (realH < 2 && P.cr < UT.harv.cost + 200) return; // save for harvesters
+  // v5.4 power watchdog: never sit dark — rebuild/expand power before any other spend
+  if ((P.pow < 40 || me.some(e => e.offline)) && avail(P.team, 'power') && (cnt.power || 0) < 40) {
+    if (!P.queues.bld.length && !P.ready.bld && P.cr > BT.power.cost * 0.25) enqueue(P.team, 'power');
+    if (P.pow < 0) return; // stay focused on power while blacked out
+  }
+  if (realH < 2 && P.cr < UT.harv.cost + 200 && P.pow >= 0) return; // save for harvesters
   if (!me.some(e => e.t === 'refinery' || e.t === 'cc') && P.cr < 1500 && G.time < 240) return; // never starve the first refinery
-  if (S.saving && !intrudersEarly(P, foes, me) && G.time - (S.saveT0 || (S.saveT0 = G.time)) < 25) return; // save up for eco/production structures
+  if (S.saving && !intrudersEarly(P, foes, me) && G.time - (S.saveT0 || (S.saveT0 = G.time)) < 25 && P.pow >= 20 && !(cnt.factory >= 1 && P.cr > 800 && G.time > 300)) return; // save up, but never starve army after the first factory
   if (!S.saving) S.saveT0 = 0;
   // 4) army composition: counter what enemy fields
   const ft = { inf: 0, armor: 0, air: 0 };
@@ -267,6 +272,14 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
   S.grp = (S.grp || []).filter(u => u.hp > 0 && !u.dead);
   if (S.grp.length) {
     const v = armyVal(S.grp), c = { x: S.grp.reduce((a, u) => a + u.x, 0) / S.grp.length, y: S.grp.reduce((a, u) => a + u.y, 0) / S.grp.length };
+    // v5.4 stuck-army: if the pack barely moved for 12s while ordered out, clear paths and re-issue
+    if (!S.grpMark || G.time - S.grpMark.t > 12) {
+      if (S.grpMark && dhypot(c.x - S.grpMark.x, c.y - S.grpMark.y) < 2.5 && !foes.some(f => f.kind === 'u' && dhypot(f.x - c.x, f.y - c.y) < 8)) {
+        const dest = S.grpWp || knownB[0] || { x: estart[0], y: estart[1] };
+        S.grp.forEach(u => { u.path = []; u.stuckN = 0; }); orderMove(S.grp, dest.x + (G.R() - 0.5) * 4, dest.y + (G.R() - 0.5) * 4, true);
+      }
+      S.grpMark = { x: c.x, y: c.y, t: G.time };
+    }
     const near = foes.filter(f => f.kind === 'u' && UT[f.t].wpn && dhypot(f.x - c.x, f.y - c.y) < 10);
     const thr = D.sys.sim ? threatsNear(P, foes, c.x, c.y, 10) : null, simR = thr && thr.length ? combatSim(S.grp, thr) : 9;
     const commit = S.doc && !SIOFF.commit; if (D.sys.sim ? (commit ? simR < 0.22 && v < S.grpV0 * 0.45 && G.time - S.lastAttack > 30 : simR < (S.siege && D.si && !SIOFF.siege ? 0.3 : 0.5) && v < S.grpV0 * 0.85 && G.time - S.lastAttack > 20) : (v < S.grpV0 * 0.35 && armyVal(near) > v * 1.2)) { // combat-sim says losing -> retreat & regroup at home defenses
@@ -311,6 +324,17 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
       else G.tplan[P.ally] = { t: G.time, team: P.team, x: estart[0], y: estart[1], a: datan2(hq.y - estart[1], hq.x - estart[0]), n: 0 }; }
     // multi-prong: a fast flank squad hits a different (soft) target at the same time
     if (D.sys.prong && S.grp.length >= 12 && knownB.length >= 2) { const fast = S.grp.filter(u => UT[u.t].sp >= 2.2).slice(0, Math.floor(S.grp.length * 0.3)); if (fast.length >= 3) { S.grp = S.grp.filter(u => !fast.includes(u)); S.flank = fast; } }
+  }
+  // v5.4 close-out: late game allied mass push on the weakest surviving enemy
+  if (S.doc && G.time > 900 && !S.grp.length && !intruders.length && peaceOver(P) && idle.length >= 8 && G.time > (S.closeT || 0)) {
+    const foesAlive = G.players.filter(Q => foe(Q.team, P.team) && !Q.out);
+    if (foesAlive.length) {
+      foesAlive.sort((a, b) => armyVal(G.ents.filter(e => e.team === a.team && e.hp > 0)) - armyVal(G.ents.filter(e => e.team === b.team && e.hp > 0)));
+      const weak = foesAlive[0], wh = G.ents.find(e => e.team === weak.team && (e.t === 'hq' || e.t === 'cc') && e.hp > 0) || { x: G.starts[weak.start][0], y: G.starts[weak.start][1] };
+      G.tplan = G.tplan || {}; G.tplan[P.ally] = { t: G.time, team: P.team, x: wh.x, y: wh.y, a: datan2(hq.y - wh.y, hq.x - wh.x), n: 0, close: 1 };
+      S.grp = idle.slice(); S.grpV0 = armyVal(S.grp); S.grp.forEach(u => { S.attackers.add(u.id); u.stance = 'aggr'; u.guard = null; u.face = null; });
+      S.lastAttack = G.time; S.closeT = G.time + 45; orderMove(S.grp, wh.x, wh.y, true);
+    }
   }
   if (S.flank) { S.flank = S.flank.filter(u => u.hp > 0 && !u.dead); if (!S.flank.length) S.flank = null; else if (G.time > (S.flankT || 0)) { S.flankT = G.time + 4; const f = S.flank[0];
     const soft = knownB.filter(b => ['refinery', 'cc', 'extractor', 'power', 'barracks'].includes(b.t)).sort((a, b) => dhypot(a.x - f.x, a.y - f.y) - dhypot(b.x - f.x, b.y - f.y))[0];
@@ -373,7 +397,10 @@ function aiGrowth(P, S, D, cnt, hq, foes) {
   if (P.diff !== 'easy' && !S.walled && G.time > 420 && P.cr > 2500 && G.starts) { S.walled = true;
     const es = G.players.filter(Q => foe(Q.team, P.team)).map(Q => G.starts[Q.start])[0];
     if (es) { const a = datan2(es[1] - hq.y, es[0] - hq.x), cx = Math.floor(hq.x + dcos(a) * 8), cy = Math.floor(hq.y + dsin(a) * 8), px = Math.round(-dsin(a) * 2), py = Math.round(dcos(a) * 2);
-      buildWalls(P.team, wallLine(cx - px, cy - py, cx + px, cy + py).filter(([x, y]) => canPlace('wall', P.team, x, y))); } }
+      const tiles = wallLine(cx - px, cy - py, cx + px, cy + py); const mid = tiles[tiles.length >> 1];
+      if (mid && avail(P.team, 'gate') && canPlace('gate', P.team, mid[0], mid[1]) && P.cr >= BT.gate.cost) { P.cr -= BT.gate.cost; addB('gate', P.team, mid[0], mid[1]); }
+      buildWalls(P.team, tiles.filter(([x, y]) => !(mid && x === mid[0] && y === mid[1]) && canPlace('wall', P.team, x, y)));
+      if (!aiExitFree(P, hq)) { for (const e of G.ents.filter(e => e.team === P.team && (e.t === 'wall' || e.t === 'gate') && dhypot(e.x - cx, e.y - cy) < 4)) { e.hp = 0; e.dead = true; } G.bver++; } } }
   const ok = t => avail(P.team, t) && (S.bad[t] || 0) < G.time && !!aiSpot(P, t, hq, foes);
   const nCC = cnt.cc || 0;
   // expansion: timing scaled by difficulty; more when bases run dry
@@ -456,12 +483,32 @@ function defenseMgr(P, S, D, me, cnt, hq) {
   // upgrades once the plan is met
   if (P.cr > 2000) { const t = myD.find(b => UPG[b.t] && (b.lvl || 1) < 3 && b.upT == null); if (t) upgradeB(t); }
 }
+function aiExitFree(P, hq) {
+  // path from HQ out past the base must exist (own gates open for this team)
+  const foeP = G.players.find(Q => foe(Q.team, P.team) && !Q.out) || G.players.find(Q => foe(Q.team, P.team)) || G.players[0];
+  const st = G.starts[foeP.start] || [MW / 2, MH / 2], a = datan2(st[1] - hq.y, st[0] - hq.x);
+  const out = nearFree(Math.floor(hq.x + dcos(a) * 18), Math.floor(hq.y + dsin(a) * 18), 8);
+  G.curTeam = P.team; const path = findPath(hq.x, hq.y, out[0] + 0.5, out[1] + 0.5); G.curTeam = null; return !!(path && path.length);
+}
 function aiWallEntrance(P, en) {
+  // v5.4: always leave a gate lane, never seal the base; roll back if exit path dies
   const a = datan2(en.y - en.b.y, en.x - en.b.x), cx = en.x + dcos(a) * 2.2, cy = en.y + dsin(a) * 2.2, px = -dsin(a), py = dcos(a), tiles = [], seen = new Set();
-  for (let k = -4; k <= 4; k += 0.5) { const x = Math.floor(cx + px * k), y = Math.floor(cy + py * k), i = idx(x, y); if (!inb(x, y) || seen.has(i)) continue; seen.add(i); tiles.push([x, y, Math.abs(k)]); }
-  const gx = Math.floor(cx), gy = Math.floor(cy); let n = 0;
-  for (const [x, y, k] of tiles) { const t = k < 0.8 ? 'gate' : 'wall'; if (!avail(P.team, t) || P.cr < BT[t].cost + 300 || !canPlace(t, P.team, x, y)) continue; P.cr -= BT[t].cost; addB(t, P.team, x, y); n++; }
+  for (let k = -5; k <= 5; k += 0.5) { const x = Math.floor(cx + px * k), y = Math.floor(cy + py * k), i = idx(x, y); if (!inb(x, y) || seen.has(i)) continue; seen.add(i); tiles.push([x, y, Math.abs(k)]); }
+  const placed = []; let n = 0, gates = 0;
+  // place gate(s) first on the centre 3 tiles so a lane always exists
+  for (const [x, y, k] of tiles) if (k < 1.1) { if (!avail(P.team, 'gate') || P.cr < BT.gate.cost + 200 || !canPlace('gate', P.team, x, y)) continue; P.cr -= BT.gate.cost; const b = addB('gate', P.team, x, y); placed.push(b); n++; gates++; }
+  if (!gates) { // force one gate even if canPlace was picky: clear a centre tile and put a gate
+    const gx = Math.floor(cx), gy = Math.floor(cy); if (inb(gx, gy) && avail(P.team, 'gate') && P.cr >= BT.gate.cost) {
+      for (const e of G.ents) if (e.kind === 'b' && e.team === P.team && e.t === 'wall' && e.tx === gx && e.ty === gy) { P.cr += Math.floor(BT.wall.cost * 0.5); e.hp = 0; e.dead = true; }
+      if (canPlace('gate', P.team, gx, gy)) { P.cr -= BT.gate.cost; placed.push(addB('gate', P.team, gx, gy)); n++; gates++; } } }
+  for (const [x, y, k] of tiles) if (k >= 1.1) { if (!avail(P.team, 'wall') || P.cr < BT.wall.cost + 300 || !canPlace('wall', P.team, x, y)) continue; P.cr -= BT.wall.cost; placed.push(addB('wall', P.team, x, y)); n++; }
   if (n) { G.bver = (G.bver || 0) + 1; G.events.push({ e: 'walls', team: P.team, n }); }
+  // verify exit; if sealed, convert centre walls to gates or tear the last wall segment
+  if (n && !aiExitFree(P, en.b)) {
+    for (const b of placed) if (b.t === 'wall' && dhypot(b.x - cx, b.y - cy) < 1.6) { const x = b.tx, y = b.ty; b.hp = 0; b.dead = true; P.cr += Math.floor(BT.wall.cost * 0.6); if (canPlace('gate', P.team, x, y) && P.cr >= BT.gate.cost) { P.cr -= BT.gate.cost; addB('gate', P.team, x, y); } }
+    G.bver = (G.bver || 0) + 1;
+    if (!aiExitFree(P, en.b)) { for (const b of placed) if (b.hp > 0) { P.cr += Math.floor(BT[b.t].cost * 0.5); b.hp = 0; b.dead = true; } G.bver++; }
+  }
 }
 // production targets: many factories / barracks / airfields (never sit on money)
 function prodTarget(P, S, D, cnt, hq, foes) {
@@ -499,7 +546,7 @@ function warheadMgr(P, S, D, me, foes, knownB) {
   for (const s of silos) {
     if (!s.mis && !s.mq) { const k = P.gas > 1300 && P.cr > 3600 ? 'heavy' : P.gas > 500 && P.cr > 1800 ? 'cluster' : P.gas > 250 && P.cr > 1000 ? 'small' : null; if (k) siloBuild(s, k); continue; }
     if (!s.mis || G.time < (s.cdT || 0) || !knownB.length) continue; const m = MIS[s.mis];
-    const pushing = S.grp && S.grp.length > 6, held = G.time - (s.readyT || (s.readyT = G.time)) > 90; if (!pushing && !held) continue;
+    const pushing = S.grp && S.grp.length > 6, stalled = G.time > 720 && (!(S.grp && S.grp.length) || G.time - S.lastAttack > 90), held = G.time - (s.readyT || (s.readyT = G.time)) > (stalled ? 25 : 90); if (!pushing && !held && !stalled) continue;
     let best = null, bv = 0; for (const b of knownB) { if (dhypot(b.x - s.x, b.y - s.y) > m.rng) continue; const R = m.r + (m.spread || 0);
       if (G.ents.some(e => !foe(e.team, P.team) && e.hp > 0 && dhypot(e.x - b.x, e.y - b.y) < R + 1.5)) continue;
       let v = 0; for (const o of knownB) { const d = dhypot(o.x - b.x, o.y - b.y); if (d < R + 1) v += BT[o.t].cost * (BT[o.t].cat === 'def' || o.t === 'power' ? 1.6 : 1) * (1 - d / (R + 2)); } if (v > bv) { bv = v; best = b; } }
