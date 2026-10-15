@@ -31,3 +31,14 @@ Also earlier backlog: wall gate.
 - Team AI (Nicholas 9:26pm): allied bots coordinate — synchronized multi-angle attacks with strong units. Build MANY war factories/barracks/airfields; huge armies, not medium. Don't retreat after a few cannon hits — commit, take out defenses, advance and pick the base apart piece by piece, relentless pressure. 'I want a real challenge.'
 - Tesla redesign (Nicholas 10/13): look like tesla-reference.png (tall stacked coil rings, glowing blue orb on top, blue glowing base with side prongs). Big visible electric arc on zap. CHAINING: nearby Tesla towers pass power tower-to-tower to the one closest to the target, stacking damage — more towers clustered = more devastating.
 - Defense priority (Nicholas 10/13): bots build MANY defenses in tactical spots plus walls around base/defenses, prioritized OVER quick attacks, so if their army gets wiped, defenses hold while they rebuild.
+- BUG (Nicholas 10/13 5:51pm, v5.3): bots build walls then get their own units stuck behind them. Fix: always leave a gate/open lane on every entrance wall, verify path from factories to map exits after each wall placement, and have units route through own gates.
+- MAP FIX (Nicholas 10/13 5:55pm): Frostline Pass 2v2 has only one gas site per team base, so a teammate must build a far CC for gas. Give EACH player base its own gas vent near its main.
+  - Clarified: TWO gas sites in each team base (one per player).
+- FRIEND FEEDBACK (10/14): (a) short descriptions/tooltips for every building and unit; (b) WASD camera pan; (c) UI too far right + hard to read: split build UI StarCraft-style — right panel + bottom bar so you can queue troops and buildings at the same time, bigger readable text; (d) attack-move: press A then click -> units move but stop to fight enemies they meet; also check which units can fire on the move.
+
+## Oct 15 3v3 watch notes (Nicholas) — only 1/6 bots played well
+- Bottom-left bot walled itself in, then idled all game (no units could exit). Fix: always leave gates/lanes, path-check after every wall.
+- Chief SI army got stuck near top of map; bot then stopped producing army and stopped attacking. Fix: stuck-army detection + re-path, production must never stall.
+- Bot ran out of power and never built new power plants. Fix: power watchdog (rebuild/expand power whenever low).
+- Games drag: no coordinated finishing pushes. Add late-game "close it out" logic: allied mass attacks on weakest enemy.
+- AI should build and fire the warhead launcher when the game stalls / it can't break an enemy.
