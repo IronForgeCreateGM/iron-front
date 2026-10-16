@@ -208,20 +208,21 @@ function onKey(e) {
     UI.lastGroupKey = k; UI.lastGroupT = now; return;
   }
   const hi = HOTKEYS.indexOf(k); if (hi >= 0 && !e.ctrlKey && !e.metaKey) { const list = UI.hotPanel === 'bot' ? (UI.botList || []) : UI.gridList; if (list[hi]) { clickItem(list[hi], false, e.shiftKey); return; } }
-  if (k === 'd') { const trs = UI.sel.filter(s => s.cargo && s.team === ME); if (trs.length) { if (e.shiftKey) trs.forEach(tr => NET.issue({ c: 'unload', tr: tr.id, x: tr.x, y: tr.y })); else { UI.mode = 'unload'; uiMsg('Unload: click where to drop (Shift+D drops right here). Carrying ' + trs.reduce((a, t) => a + t.cargo.length, 0)); } return; } }
-  if (k === 's') orderStop(UI.sel.filter(s => s.team === ME));
+  if (k === 'b') { const trs = UI.sel.filter(s => s.cargo && s.team === ME); if (trs.length) { if (e.shiftKey) trs.forEach(tr => NET.issue({ c: 'unload', tr: tr.id, x: tr.x, y: tr.y })); else { UI.mode = 'unload'; uiMsg('Unload: click where to drop (Shift+B drops right here). Carrying ' + trs.reduce((a, t) => a + t.cargo.length, 0)); } return; } }
+  if (k === 'c' && !G.watch) orderStop(UI.sel.filter(s => s.team === ME));
+  if ('wasd'.includes(k) && k.length === 1) return; // v5.5: WASD is camera pan only
   if (k === 'g') { doFormation(e.shiftKey); return; }
   if (k === 'v') { toggleStance(); return; }
   if (k === 'z') { doUpgrade(); return; }
-  if (k === 'l' && UI.sel.some(s => s.t === 'silo' && s.team === ME)) { siloArm(); return; }
-  if (k === 'a' && UI.sel.some(s => s.kind === 'u')) { UI.mode = 'amove'; uiMsg('Attack-move: left-click target (Shift = waypoint)'); }
+  if (k === 'n' && UI.sel.some(s => s.t === 'silo' && s.team === ME)) { siloArm(); return; }
+  if (k === 'f' && UI.sel.some(s => s.kind === 'u')) { UI.mode = 'amove'; uiMsg('Attack-move (F): left-click target — units fight what they meet (Shift = waypoint)'); return; }
   if (k === 'h') { const hq = G.ents.find(e => e.team === ME && e.t === 'hq') || G.ents.find(e => e.team === ME && e.t === 'cc'); if (hq) jumpTo(hq.x, hq.y); }
   if (k === 'q') { const side = ['bld', 'def']; UI.tab = side[(side.indexOf(UI.tab) + 1) % side.length]; UI.hotPanel = 'side'; buildGrid(); }
-  if (k === 'b') { const bot = ['inf', 'veh', 'air']; UI.btab = bot[(bot.indexOf(UI.btab || 'inf') + 1) % bot.length]; UI.hotPanel = 'bot'; buildBotGrid(); }
+  if (k === 'tab') { e.preventDefault(); const bot = ['inf', 'veh', 'air']; UI.btab = bot[(bot.indexOf(UI.btab || 'inf') + 1) % bot.length]; UI.hotPanel = 'bot'; buildBotGrid(); }
   if (k === 'x') $('sellBtn').onclick(); if (k === 'r') $('repBtn').onclick();
   if (k === 'e') setSel(G.ents.filter(o => o.team === ME && o.kind === 'u' && UT[o.t].wpn));
-  if (k === 'n') { toggleQuiet(); return; }
-  if (k === 'f') { UI.set.fps = !UI.set.fps; $('setFps').checked = UI.set.fps; saveSet(); }
+  if (k === 'm') { toggleQuiet(); return; }
+  if (k === '`') { UI.set.fps = !UI.set.fps; $('setFps').checked = UI.set.fps; saveSet(); }
   if (k === '.') selectIdle('harv'); if (k === ',') selectIdle('army');
 }
 function myUnits() { return UI.sel.filter(s => s.team === ME && s.kind === 'u' && UT[s.t].wpn); }
@@ -308,7 +309,7 @@ function sidebar() {
     if (s.length === 1) { const e = s[0], d = defOf(e);
       h = `<div class="pt"><img src="${icon(e.t)}"><div><b>${d.n}</b>${foe(e.team, ME) ? ' <span class="r">(enemy)</span>' : e.team !== ME ? ' <span class="g">(ally)</span>' : ''}<div class="hpb"><div id="ctxhp"></div></div><div id="ctxinfo" class="dim"></div></div></div>`;
       if (e.kind === 'b' && e.team === ME && (UPG[e.t] || e.t === 'tech')) h += `<button id="upBtn" class="act"></button>`;
-      if (e.kind === 'b' && e.team === ME && e.t === 'silo') h += `<div class="acts">${Object.keys(MIS).map(k => `<button class="act mis" data-k="${k}" title="Range ${MIS[k].rng} · ${MIS[k].sub > 1 ? MIS[k].sub + '× ' : ''}${MIS[k].dmg} dmg · build ${MIS[k].time}s · cooldown ${MIS[k].cd}s${MIS[k].icpt ? ' · can be intercepted by Lv3 Flak' : ''}">🚀 ${MIS[k].n} <span class="c">$${MIS[k].cost}</span> <span class="gas">◆${MIS[k].gas}</span></button>`).join('')}<button id="nukeBtn" class="act">🎯 Launch <kbd>L</kbd></button></div><div id="siloSt" class="dim small"></div>`;
+      if (e.kind === 'b' && e.team === ME && e.t === 'silo') h += `<div class="acts">${Object.keys(MIS).map(k => `<button class="act mis" data-k="${k}" title="Range ${MIS[k].rng} · ${MIS[k].sub > 1 ? MIS[k].sub + '× ' : ''}${MIS[k].dmg} dmg · build ${MIS[k].time}s · cooldown ${MIS[k].cd}s${MIS[k].icpt ? ' · can be intercepted by Lv3 Flak' : ''}">🚀 ${MIS[k].n} <span class="c">$${MIS[k].cost}</span> <span class="gas">◆${MIS[k].gas}</span></button>`).join('')}<button id="nukeBtn" class="act">🎯 Launch <kbd>N</kbd></button></div><div id="siloSt" class="dim small"></div>`;
       if (e.kind === 'u' && e.team === ME && UT[e.t].wpn) h += `<div class="acts"><button id="fmBtn" class="act">⛨ Defensive Formation <kbd>G</kbd></button><button id="stBtn" class="act"></button></div>`;
       if (e.kind === 'b' && e.team === ME) { const opts = Object.keys(UT).filter(t => UT[t].from === e.t || (UT[t].alt || []).includes(e.t)); if (opts.length) h += `<div class="cgrid">${opts.map(t => `<div class="item sm">${itemHTML(t)}</div>`).join('')}</div><div class="dim small">Right-click ground to set rally point</div>`; }
     } else if (s.length > 1) { const c = {}; s.forEach(e => c[e.t] = (c[e.t] || 0) + 1); h = '<div class="chips">' + Object.entries(c).map(([t, n]) => `<span class="chip" data-t="${t}"><img src="${icon(t)}">${n}</span>`).join('') + '</div>';
@@ -389,7 +390,7 @@ function toggleQuiet(on) {
   UI.set.quiet = on == null ? !UI.set.quiet : !!on; saveSet();
   if (UI.set.quiet) { R3.auto = false; applyQuality('quiet'); } else { R3.auto = UI.set.quality === 'auto'; applyQuality(UI.set.quality === 'auto' ? detectQuality() : UI.set.quality); }
   $('quietBtn').classList.toggle('on', UI.set.quiet); const qc = $('setQuiet'); if (qc) qc.checked = UI.set.quiet;
-  uiMsg(UI.set.quiet ? `🍃 Quiet mode ON — ${UI.set.quietFps || 60} FPS cap, 1x resolution, lighter effects (N)` : 'Quiet mode OFF (N)'); sfx('click');
+  uiMsg(UI.set.quiet ? `🍃 Quiet mode ON — ${UI.set.quietFps || 60} FPS cap, 1x resolution, lighter effects (M)` : 'Quiet mode OFF (M)'); sfx('click');
 }
 
 function siloArm() { const b = UI.sel.find(s => s.t === 'silo' && s.team === ME); if (!b) return; if (!b.mis) { sfx('error'); uiMsg('No missile loaded'); return; } if (G.time < (b.cdT || 0)) { sfx('error'); uiMsg('Launcher cooling down'); return; } UI.mode = 'nuke'; UI.placing = null; sfx('click'); uiMsg('Select missile target (range ' + MIS[b.mis].rng + ')'); }

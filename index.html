@@ -7,9 +7,9 @@
   <div id="view"><canvas id="ov"></canvas><div id="msg"></div><div id="fps"></div>
     <div id="announce"></div>
 <div id="netWait"></div>
-<div id="watchTag">SPECTATING · CHIEF (olive) vs HARD AI (tan)</div><div id="hint">Drag select · Right-click move/attack (Shift = waypoint) · A attack-move · S stop · G formation (Shift+G at base) · V stance · Z upgrade · Ctrl+1-9 groups · H base · . idle harvester · , idle army · WASD/Wheel zoom · Middle-drag pan · F fps</div></div>
+<div id="watchTag">SPECTATING · CHIEF (olive) vs HARD AI (tan)</div><div id="hint">WASD/arrows pan · Wheel zoom · Drag select · Right-click move/attack · F attack-move · C stop · G formation · V stance · Z upgrade · B unload · N launch · Q/Tab build tabs · H base · Ctrl+1-9 groups · M quiet · ` fps</div></div>
   <div id="side">
-    <div class="brand">IRON<span>FRONT</span><button id="quietBtn" class="ico" title="Quiet mode: cooler &amp; quieter Mac (N)">🍃</button><button id="setBtn" class="ico" title="Settings">⚙</button><button id="muteBtn" class="ico">🔊</button><button id="pauseBtn" class="ico">⏸</button></div>
+    <div class="brand">IRON<span>FRONT</span><button id="quietBtn" class="ico" title="Quiet mode: cooler &amp; quieter Mac (M)">🍃</button><button id="setBtn" class="ico" title="Settings">⚙</button><button id="muteBtn" class="ico">🔊</button><button id="pauseBtn" class="ico">⏸</button></div>
     <canvas id="minimap" width="256" height="256"></canvas>
     <div class="res"><div id="cr">$0</div><div id="gas" title="Plasma Gas">◆ 0</div><div class="pw"><div class="pwl">POWER <span id="powtxt"></span></div><div class="pwb"><div id="powbar"></div></div></div></div>
     <div id="alerts"></div>
@@ -21,12 +21,12 @@
   <div id="botbar">
     <div id="btabs"></div>
     <div id="bgrid"></div>
-    <div id="bhint">Units · Shift+click queues 5 · <kbd>A</kbd>+click attack-move · WASD pan · <kbd>B</kbd> cycle unit tab</div>
+    <div id="bhint">Units · Shift+click queues 5 · <kbd>F</kbd>+click attack-move · WASD pan · <kbd>Tab</kbd> unit tab</div>
   </div>
 </div>
 <div id="tip"></div>
 <div id="menu" class="screen"><div class="panel">
-  <h1>IRON<span>FRONT</span></h1><p class="sub">Real-time strategy · v5.4</p>
+  <h1>IRON<span>FRONT</span></h1><p class="sub">Real-time strategy · v5.5</p>
   <div class="lopts"><label>Map <select id="mapSel"><option value="classic">Iron Crossroads (4)</option><option value="frost">Frostline Pass (2v2)</option><option value="volcano">Volcano Crown</option></select></label> <label>Peace time <select id="peaceSel"><option value="0">Off</option><option value="180" selected>3 min</option><option value="300">5 min</option><option value="480">8 min</option></select></label> <span class="dim">Quick setup:</span> <span id="presets"></span></div>
   <div id="lobby"></div>
   <div class="fsel"><div class="flbl">Your faction</div><div id="facs"></div><div id="facDesc"></div></div>
@@ -50,9 +50,9 @@
   <label>Edge-pan speed <input type="range" id="setEdge" min="0.3" max="2.5" step="0.1"></label>
   <label>Health bars <select id="setHB"><option value="smart">Selected, hovered &amp; damaged</option><option value="selected">Selected &amp; hovered only</option><option value="always">Always</option></select></label>
   <label>Volume <input type="range" id="setVol" min="0" max="1" step="0.05"></label>
-  <label><input type="checkbox" id="setQuiet"> 🍃 Quiet mode (N) — caps FPS, 1x resolution, lighter FX</label>
+  <label><input type="checkbox" id="setQuiet"> 🍃 Quiet mode (M) — caps FPS, 1x resolution, lighter FX</label>
   <label>Quiet mode FPS cap <select id="setQuietFps"><option value="60">60</option><option value="30">30</option></select></label>
-  <label><input type="checkbox" id="setFps"> Show FPS / stats (F)</label>
+  <label><input type="checkbox" id="setFps"> Show FPS / stats (`)</label>
   <button id="setClose" class="big">Done</button>
 </div></div>
 <div id="end" class="screen" style="display:none"><div class="panel"><h1 id="endTitle"></h1><p id="endStats"></p><button id="saveRepBtn">💾 Save replay</button> <button class="quitBtn big">Play again</button></div></div>
