@@ -20,7 +20,7 @@ async function browser(port, reuse) {
   let ok = false; const t0 = Date.now();
   const LOCAL = process.env.MODE === 'local'; const A = await browser(9341), B = LOCAL ? await browser(9341, true) : await browser(9342);
   try {
-    const base = `http://127.0.0.1:${PORT}/index.html?q=low` + (process.env.RELAYS ? '&relays=' + process.env.RELAYS : '') + (LOCAL ? '&transport=local' : '');
+    const base = (process.env.BASE || `http://127.0.0.1:${PORT}/index.html`) + `?q=low` + (process.env.RELAYS ? '&relays=' + process.env.RELAYS : '') + (LOCAL ? '&transport=local' : '');
     await A.nav(base); console.log('loopback rtc', await A.ev(`(async()=>{const a=new RTCPeerConnection(),b=new RTCPeerConnection();a.onicecandidate=e=>e.candidate&&b.addIceCandidate(e.candidate);b.onicecandidate=e=>e.candidate&&a.addIceCandidate(e.candidate);const dc=a.createDataChannel('x');const p=new Promise(r=>{dc.onopen=()=>r('open');setTimeout(()=>r('timeout '+a.iceConnectionState),8000)});await a.setLocalDescription();await b.setRemoteDescription(a.localDescription);await b.setLocalDescription();await a.setRemoteDescription(b.localDescription);return p})()`)); await A.ev(`document.getElementById('pname').value='HostBot'; document.getElementById('hostBtn').click(); 1`);
     const code = await A.ev('ONL.code'); console.log('room', code); await sleep(5000); console.log('relays', await A.ev(`JSON.stringify(Object.entries(Trystero.nostr.getRelaySockets ? Trystero.nostr.getRelaySockets() : {}).map(([k,v])=>k+':'+v.readyState))`));
     await B.nav(base + '&room=' + code + '&name=GuestBot'); 
