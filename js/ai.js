@@ -130,7 +130,7 @@ function aiStep(P) {
   macroMgr(P, S, D, cnt, me); harassMgr(P, S, D, me, foes, knownB, home, hq); dropMgr(P, S, D, me, foes, knownB, home, hq); derrickMgr(P, S, D, me, cnt, hq);
   S.doc = doc;
   if (D.si) siExtras(P, S, me, foes, knownB, hq, estart, intruders);
-  if (D.chief || D.sys.sim) { chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart); keepBusy(P, S, D, me, cnt, hq, intruders); return; }
+  if (D.chief || D.sys.sim) { if (G.time <= END_T) chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart); keepBusy(P, S, D, me, cnt, hq, intruders); return; }
   // 8) waves
   for (const id of [...S.attackers]) { const u = byId(id); if (!u) S.attackers.delete(id); else if (u.order === 'idle' && !u.tgt && G.R() < 0.2) S.attackers.delete(id); }
   const ready = home.filter(u => u.t !== 'harv');
@@ -152,7 +152,7 @@ function aiStep(P) {
   if (P.cr > 2500 && G.R() < 0.1) { const t = myB.find(b => UPG[b.t] && (b.lvl || 1) < 3 && b.upT == null); if (t) upgradeB(t); }
   keepBusy(P, S, D, me, cnt, hq, intruders);
   // 9) repair damaged buildings
-  for (const b of myB) if (b.hp < b.mhp * 0.6 && P.cr > 500) b.repair = true;
+  for (const b of myB) if (b.hp < b.mhp * 0.6 && P.cr > (G.time > END_T ? 1500 : 500)) b.repair = true; else if (G.time > END_T && P.cr < 800) b.repair = false;
 }
 function aiSpot(P, t, hq, foes) {
   const d = BT[t];
@@ -619,7 +619,9 @@ function keepBusy(P, S, D, me, cnt, hq, intruders) {
     if (lazy.length && !intruders.length && peaceOver(P)) { const e = G.time > END_T ? endTarget(P) : null, M = MW / 2; const x = e ? e.x : M + (G.R() - 0.5) * 8, y = e ? e.y : MH / 2 + (G.R() - 0.5) * 8; orderMove(lazy, x, y, true); for (const u of lazy) S.attackers.add(u.id); }
   }
   // endgame: allied all-in on the weakest enemy, nonstop reinforcement, no retreat
-  if (G.time > END_T && G.time > (S.endT || 0)) { S.endT = G.time + 6; const e = endTarget(P); if (!e) return;
+  if (G.time > END_T) { for (const it of P.queues.def.slice()) if (it.t !== 'wall' && it.prog < 0.5 && !S.underAttack) cancel(P.team, it.t);
+    if (P.gas > 300 && P.cr > 400) { const gu = ['titan', 'tsar', 'kommando', 'stealth'].filter(t => avail(P.team, t)); const t = gu[(G.R() * gu.length) | 0]; if (t) { const c = UT[t].from === 'barracks' ? 'inf' : UT[t].from === 'factory' ? 'veh' : 'air'; if (P.queues[c] && P.queues[c].length < 4) enqueue(P.team, t); } } }
+  if (G.time > END_T && G.time > (S.endT || 0)) { S.endT = G.time + 4; const e = endTarget(P); if (!e) return;
     const mine = intruders.filter(f => me.some(b => b.kind === 'b' && dhypot(b.x - f.x, b.y - f.y) < 9));
     const go = army.filter(u => !UT[u.t].jet && !(u.order === 'attack' && u.tgt) && !(mine.length && dhypot(u.x - mine[0].x, u.y - mine[0].y) < 14 && army.length < 25));
     const far = go.filter(u => dhypot(u.x - e.x, u.y - e.y) > 6 || u.order === 'idle'); if (far.length) { orderMove(far, e.x, e.y, true); for (const u of far) S.attackers.add(u.id); }
