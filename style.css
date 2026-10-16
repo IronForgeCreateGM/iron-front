@@ -98,3 +98,29 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .setupL .lopts{flex-direction:column;align-items:flex-start;gap:6px}
 #mapPrev{width:200px;height:200px;border:1px solid #2f4258;border-radius:6px;background:#000;image-rendering:pixelated;margin-top:6px}
 .howto{margin-top:8px;color:#93a7bb;font-size:12px;text-align:left}.howto summary{cursor:pointer;color:#9cc}
+
+/* ===== v5.7 mobile view ===== */
+#mobMenuBtn,#mobHint{display:none}
+body.mobile{position:fixed;inset:0;overflow:hidden;overscroll-behavior:none;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-text-size-adjust:100%}
+body.mobile #view,body.mobile canvas{touch-action:none}
+body.mobile #mobHint{display:block!important;margin:8px 0;color:#9fd}
+body.mobile #mobMenuBtn{display:block;position:absolute;left:max(8px,env(safe-area-inset-left));top:max(8px,env(safe-area-inset-top));z-index:30;width:48px;height:48px;font-size:24px;border-radius:10px;background:rgba(10,16,24,.75);color:#fff;border:1px solid #456}
+body.mobile #side{position:absolute;right:max(6px,env(safe-area-inset-right));top:max(6px,env(safe-area-inset-top));width:auto!important;padding:4px;background:rgba(8,12,18,.6);z-index:20;box-shadow:none;border:0}
+body.mobile #side > *:not(#minimap):not(.res){display:none!important}
+body.mobile #minimap{width:min(34vmin,180px)!important;height:min(34vmin,180px)!important}
+body.mobile.watching #botbar,body.mobile.watching #side .res,body.mobile #hint{display:none!important}
+body.mobile #botbar{right:0}
+body.mobile #watchTag{font-size:13px;top:auto;bottom:max(8px,env(safe-area-inset-bottom))}
+body.mobile #menu{position:fixed;inset:0;display:block;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+body.mobile #menu .panel{width:100%;max-width:100vw;padding:12px;box-sizing:border-box;font-size:16px}
+body.mobile #menu button,body.mobile #menu select,body.mobile #menu input{min-height:46px;font-size:16px;padding:8px 12px}
+body.mobile #menu .big{width:100%;margin:6px 0}
+body.mobile .setupRow{flex-direction:column}
+body.mobile #lobby .lrow{display:grid;grid-template-columns:24px 1fr 1fr;gap:6px;margin-bottom:10px}
+body.mobile #lobby .lrow > .lf{grid-column:2}
+body.mobile #lobby .lrow.lh{display:none}
+body.mobile #lobby .lrow select{width:100%}
+body.mobile #mapPrev{width:min(70vw,260px);height:min(70vw,260px)}
+body.mobile #pause button{min-height:48px;font-size:18px}
+body.mobile.inmenu #side,body.mobile.inmenu #mobMenuBtn{display:none!important}
+body.mobile #watchTag{font-size:11px;max-width:92vw;opacity:.85}

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes">
 <title>Iron Front</title>
 <link rel="stylesheet" href="style.css">
 </head><body>
@@ -8,6 +8,7 @@
     <div id="announce"></div>
 <div id="netWait"></div>
 <div id="watchTag">SPECTATING · CHIEF (olive) vs HARD AI (tan)</div><div id="hint">WASD/arrows pan · Wheel zoom · Drag select · Right-click move/attack · F attack-move · C stop · G formation · V stance · Z upgrade · B unload · N launch · Q/Tab build tabs · H base · Ctrl+1-9 groups · M quiet · ` fps</div></div>
+  <button id="mobMenuBtn" title="Menu">☰</button>
   <div id="side">
     <div class="brand">IRON<span>FRONT</span><button id="quietBtn" class="ico" title="Quiet mode: cooler &amp; quieter Mac (M)">🍃</button><button id="setBtn" class="ico" title="Settings">⚙</button><button id="muteBtn" class="ico">🔊</button><button id="pauseBtn" class="ico">⏸</button></div>
     <canvas id="minimap" width="256" height="256"></canvas>
@@ -26,11 +27,13 @@
 </div>
 <div id="tip"></div>
 <div id="menu" class="screen"><div class="panel">
-  <h1>IRON<span>FRONT</span></h1><p class="sub">Real-time strategy · v5.6</p>
+  <h1>IRON<span>FRONT</span></h1><p class="sub">Real-time strategy · v5.7</p>
   <div id="homeBtns">
     <button id="playBotsBtn" class="big">▶ Play vs Bots</button>
     <button id="playOnlineBtn" class="big alt">🌐 Play Online</button>
-    <div class="homeSmall"><button id="replayBtn">Replays</button> <button id="lastReplayBtn" style="display:none">▶ Watch last game</button> <button id="homeSetBtn" onclick="openSettings(true)">Settings</button><input type="file" id="replayFile" accept=".json,application/json" style="display:none"></div>
+    <button id="mobWatchBtn" class="big alt" style="display:none">👁 Watch 4v4 bots (Volcano XL)</button>
+    <div id="mobHint" style="display:none">Touch screen detected — tap <b>📱 Mobile view</b> below for touch controls.</div>
+    <div class="homeSmall"><button id="replayBtn">Replays</button> <button id="lastReplayBtn" style="display:none">▶ Watch last game</button> <button id="mobileBtn">📱 Mobile view: Off</button> <button id="homeSetBtn" onclick="openSettings(true)">Settings</button><input type="file" id="replayFile" accept=".json,application/json" style="display:none"></div>
   </div>
   <div id="setup" style="display:none">
     <div class="setupTop"><button id="backBtn" class="back">← Back</button><span id="setupTitle">Game setup</span></div>
@@ -88,4 +91,5 @@
 <script src="vendor/trystero-nostr.js"></script>
 <script src="js/online.js"></script>
 <script src="js/main.js"></script>
+<script src="js/mobile.js"></script>
 </body></html>

@@ -1,0 +1,47 @@
+// v5.7 mobile view: Playwright iPhone emulation (touch events) — NODE_PATH=/tmp/pw/node_modules node test/mobile-test.js [url]
+const { chromium, devices } = require('playwright-core'), path = require('path');
+const URL0 = process.argv[2] || 'file://' + path.resolve(__dirname, '../index.html');
+(async () => {
+  const br = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'] });
+  const ctx = await br.newContext({ ...devices['iPhone 13'] }); const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message));
+  let fail = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fail++; };
+  await pg.goto(URL0 + '?q=low'); await pg.waitForTimeout(2500);
+  ok(await pg.isVisible('#mobHint'), 'touch device -> Mobile view suggestion shown');
+  await pg.tap('#mobileBtn'); ok(await pg.evaluate(() => document.body.classList.contains('mobile')), 'tap "📱 Mobile view" turns it on: ' + await pg.textContent('#mobileBtn'));
+  const vp = await pg.evaluate(() => document.querySelector('meta[name=viewport]').content); ok(/user-scalable=no/.test(vp) && /viewport-fit=cover/.test(vp), 'viewport meta: ' + vp);
+  const sz = await pg.evaluate(() => [...document.querySelectorAll('#homeBtns button')].filter(b => b.offsetParent).map(b => [b.textContent.trim(), Math.round(b.getBoundingClientRect().height)]));
+  ok(sz.every(([, h]) => h >= 44), 'home tap targets >= 44px: ' + JSON.stringify(sz));
+  await pg.tap('#playBotsBtn'); await pg.waitForTimeout(800);
+  const st = await pg.evaluate(() => ({ ow: document.documentElement.scrollWidth <= innerWidth + 2, sel: [...document.querySelectorAll('#setup select, #setup button')].filter(e => e.offsetParent).map(e => e.getBoundingClientRect().height | 0), fs: parseFloat(getComputedStyle(document.querySelector('#mapSel')).fontSize) }));
+  ok(st.ow, 'setup fits width (no sideways scroll)'); ok(Math.min(...st.sel) >= 44, 'setup/lobby controls >= 44px tall (min ' + Math.min(...st.sel) + ')'); ok(st.fs >= 16, 'readable setup text ' + st.fs + 'px');
+  await pg.screenshot({ path: 'shots/v5_7-mobile-setup.png' });
+  await pg.tap('#backBtn'); await pg.waitForTimeout(300);
+  await pg.tap('#mobWatchBtn'); await pg.waitForTimeout(6000);
+  const g = await pg.evaluate(() => ({ watch: !!G.watch, v8: !!G.v8, np: G.players.length, ai: G.players.every(p => p.ai), bot: getComputedStyle(document.getElementById('botbar')).display, mm: !!document.getElementById('minimap').offsetParent, pr: R3.renderer.getPixelRatio(), sh: R3.sun.castShadow, menu: !!document.getElementById('mobMenuBtn').offsetParent }));
+  ok(g.watch && g.v8 && g.np === 8 && g.ai, '"👁 Watch 4v4 bots (Volcano XL)" starts an all-bot 4v4 spectate ' + JSON.stringify(g));
+  ok(g.bot === 'none' && g.mm && g.menu, 'build panels hidden, minimap + ☰ visible'); ok(g.pr <= 1.5 && !g.sh, 'pixel ratio ' + g.pr + ', shadows off');
+  const cdp = await ctx.newCDPSession(pg); const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], i) => ({ x, y, id: i })) });
+  const cam = () => pg.evaluate(() => ({ x: R3.cam.tx, y: R3.cam.ty, d: R3.cam.td, auto: DIR.auto }));
+  const c0 = await cam(); await touch('touchStart', [[200, 400]]); for (let i = 1; i <= 8; i++) { await touch('touchMove', [[200 - i * 15, 400 - i * 10]]); } await touch('touchEnd', []);
+  const c1 = await cam(); ok(Math.hypot(c1.x - c0.x, c1.y - c0.y) > 2 && !c1.auto, `one-finger drag pans (${c0.x.toFixed(1)},${c0.y.toFixed(1)}) -> (${c1.x.toFixed(1)},${c1.y.toFixed(1)})`);
+  await touch('touchStart', [[150, 400], [250, 400]]); for (let i = 1; i <= 8; i++) await touch('touchMove', [[150 + i * 8, 400], [250 - i * 8, 400]]); await touch('touchEnd', []);
+  const c2 = await cam(); ok(c2.d > c1.d * 2, `pinch-in zooms out ${c1.d.toFixed(0)} -> ${c2.d.toFixed(0)}`);
+  await pg.waitForTimeout(3000); const c3 = await cam(); ok(c3.d >= c2.d * 0.98, `far zoom kept (no auto zoom back) ${c3.d.toFixed(0)}`);
+  await touch('touchStart', [[180, 300], [220, 300]]); for (let i = 1; i <= 8; i++) await touch('touchMove', [[180 - i * 12, 300], [220 + i * 12, 300]]); await touch('touchEnd', []);
+  ok((await cam()).d < c3.d * 0.6, 'pinch-out zooms in');
+  const r = await pg.evaluate(() => { const b = document.getElementById('minimap').getBoundingClientRect(); return [b.left + b.width * 0.25, b.top + b.height * 0.75]; });
+  await pg.touchscreen.tap(r[0], r[1]); await pg.waitForTimeout(200); const c4 = await cam(); ok(Math.abs(c4.x - MWfix(0.25)) < 6, 'tap minimap jumps camera to x=' + c4.x.toFixed(1));
+  function MWfix(f) { return 112 * f; }
+  await pg.evaluate(() => { const cv = document.getElementById('view'); const mk = (type, x, y) => { const t = new Touch({ identifier: 9, target: cv, clientX: x, clientY: y }); cv.dispatchEvent(new TouchEvent(type, { touches: type === 'touchend' ? [] : [t], changedTouches: [t], cancelable: true, bubbles: true })); };
+      mk('touchstart', 200, 450); mk('touchend', 200, 450); mk('touchstart', 201, 451); mk('touchend', 201, 451); }); // in-page: CDP round-trips are too slow under software GL await pg.waitForTimeout(300); ok((await cam()).auto, 'double-tap -> follow the fight (director on)');
+  const sc = await pg.evaluate(() => [scrollX, scrollY, document.documentElement.scrollHeight <= innerHeight + 2]); ok(sc[0] === 0 && sc[1] === 0 && sc[2], 'no page scroll ' + JSON.stringify(sc));
+  await pg.screenshot({ path: 'shots/v5_7-mobile-portrait.png' });
+  await pg.setViewportSize({ width: 844, height: 390 }); await pg.waitForTimeout(1500);
+  const ls = await pg.evaluate(() => ({ w: R3.renderer.domElement.clientWidth, h: R3.renderer.domElement.clientHeight, mm: document.getElementById('minimap').getBoundingClientRect().bottom <= innerHeight }));
+  ok(ls.w >= 800 && ls.h >= 370 && ls.mm, 'landscape fills screen ' + JSON.stringify(ls)); await pg.screenshot({ path: 'shots/v5_7-mobile-landscape.png' });
+  const fps = await pg.evaluate(() => new Promise(r => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 3000) requestAnimationFrame(f); else r(n / 3); }; requestAnimationFrame(f); }));
+  console.log('info: emulated frame rate (software GL, not an iPhone) ' + fps.toFixed(0));
+  await pg.tap('#mobMenuBtn'); await pg.waitForTimeout(300); ok(await pg.evaluate(() => getComputedStyle(document.getElementById('pause')).display !== 'none'), '☰ opens the menu');
+  ok(!errs.length, 'no page errors ' + errs.slice(0, 2).join(' | '));
+  console.log(fail ? 'MOBILE FAIL' : 'MOBILE OK'); await br.close(); process.exit(fail ? 1 : 0);
+})();
