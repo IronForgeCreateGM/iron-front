@@ -172,7 +172,7 @@ function selfTest() {
     r3Render(0.016); const hq = G.ents.find(e => e.team === ME && e.t === 'hq'), p = worldToScreen(hq.x + 3, hq.y + 4, 0);
     ev('mousedown', p.x - 150, p.y - 150, 0); ev('mousemove', p.x + 150, p.y + 150, 0); window.dispatchEvent(new MouseEvent('mouseup', { button: 0 }));
     const s = worldToScreen(hq.x + 8, hq.y + 8, 0); ev('mousedown', s.x, s.y, 2); ev('mousedown', s.x + 40, s.y, 2, { shiftKey: true }); setSel([hq]); clickItem('harv', false, false); r3Render(0.016); uiFrame(0.2);
-    for (const k in CATS) { UI.tab = k; buildGrid(); }
+    for (const k of ['bld','def']) { UI.tab = k; buildGrid(); } for (const k of ['inf','veh','air']) { UI.btab = k; buildBotGrid(); }
     clickItem('power', false); for (let i = 0; i < 400; i++) stepGame();
     clickItem('power', false); const pp = worldToScreen(hq.x + 4, hq.y - 1, 0); ev('mousemove', pp.x, pp.y, 0); uiFrame(0.016); ev('mousedown', pp.x, pp.y, 0);
     clickItem('barracks', false); clickItem('rifle', false); clickItem('rifle', true);
@@ -183,7 +183,7 @@ function selfTest() {
     togglePause(); togglePause();
     for (const q of ['low', 'med', 'ultra', 'high']) { applyQuality(q); r3Render(0.016); }
     G.players[0].cr = 99999; addB('barracks', 0, 14, 4, true); addB('factory', 0, 14, 10, true); stepGame();
-    const bar = G.ents.find(e => e.t === 'barracks' && e.team === ME); setSel([bar]); const tabOk = UI.tab === 'inf';
+    const bar = G.ents.find(e => e.t === 'barracks' && e.team === ME); setSel([bar]); const tabOk = UI.btab === 'inf';
     clickItem('rifle', false, true); const q5 = G.players[0].queues.inf.length; clickItem('rifle', true, false); const q4 = G.players[0].queues.inf.length;
     showTip('heavy', document.querySelector('.item')); sidebar(); setSel([G.ents.find(e => e.t === 'hq' && e.team === ME)]); sidebar();
     const ctxBtns = document.querySelectorAll('#ctx .item').length;

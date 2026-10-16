@@ -329,7 +329,7 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
   if (S.doc && G.time > 900 && !S.grp.length && !intruders.length && peaceOver(P) && idle.length >= 8 && G.time > (S.closeT || 0)) {
     const foesAlive = G.players.filter(Q => foe(Q.team, P.team) && !Q.out);
     if (foesAlive.length) {
-      foesAlive.sort((a, b) => armyVal(G.ents.filter(e => e.team === a.team && e.hp > 0)) - armyVal(G.ents.filter(e => e.team === b.team && e.hp > 0)));
+      foesAlive.sort((a, b) => armyVal(G.ents.filter(e => e.team === a.team && e.kind === 'u' && e.hp > 0 && UT[e.t] && UT[e.t].wpn)) - armyVal(G.ents.filter(e => e.team === b.team && e.kind === 'u' && e.hp > 0 && UT[e.t] && UT[e.t].wpn)));
       const weak = foesAlive[0], wh = G.ents.find(e => e.team === weak.team && (e.t === 'hq' || e.t === 'cc') && e.hp > 0) || { x: G.starts[weak.start][0], y: G.starts[weak.start][1] };
       G.tplan = G.tplan || {}; G.tplan[P.ally] = { t: G.time, team: P.team, x: wh.x, y: wh.y, a: datan2(hq.y - wh.y, hq.x - wh.x), n: 0, close: 1 };
       S.grp = idle.slice(); S.grpV0 = armyVal(S.grp); S.grp.forEach(u => { S.attackers.add(u.id); u.stance = 'aggr'; u.guard = null; u.face = null; });
@@ -484,11 +484,19 @@ function defenseMgr(P, S, D, me, cnt, hq) {
   if (P.cr > 2000) { const t = myD.find(b => UPG[b.t] && (b.lvl || 1) < 3 && b.upT == null); if (t) upgradeB(t); }
 }
 function aiExitFree(P, hq) {
-  // path from HQ out past the base must exist (own gates open for this team)
+  // path from a free tile near HQ out past the base (own gates open). Try several ranges/angles — Volcano ramps sit at fixed headings.
   const foeP = G.players.find(Q => foe(Q.team, P.team) && !Q.out) || G.players.find(Q => foe(Q.team, P.team)) || G.players[0];
-  const st = G.starts[foeP.start] || [MW / 2, MH / 2], a = datan2(st[1] - hq.y, st[0] - hq.x);
-  const out = nearFree(Math.floor(hq.x + dcos(a) * 18), Math.floor(hq.y + dsin(a) * 18), 8);
-  G.curTeam = P.team; const path = findPath(hq.x, hq.y, out[0] + 0.5, out[1] + 0.5); G.curTeam = null; return !!(path && path.length);
+  const st = G.starts[foeP.start] || [MW / 2, MH / 2], baseA = datan2(st[1] - hq.y, st[0] - hq.x);
+  const start = nearFree(Math.floor(hq.x), Math.floor(hq.y), 4);
+  G.curTeam = P.team;
+  let ok = false;
+  for (const da of [0, 0.7, -0.7, 1.4, -1.4, Math.PI]) for (const R of [12, 16, 22]) {
+    const a = baseA + da, tx = Math.floor(hq.x + dcos(a) * R), ty = Math.floor(hq.y + dsin(a) * R);
+    if (!inb(tx, ty) || G.map[idx(tx, ty)] !== 0) continue;
+    const out = nearFree(tx, ty, 6), path = findPath(start[0] + 0.5, start[1] + 0.5, out[0] + 0.5, out[1] + 0.5);
+    if (path && path.length) { ok = true; break; }
+  }
+  G.curTeam = null; return ok;
 }
 function aiWallEntrance(P, en) {
   // v5.4: always leave a gate lane, never seal the base; roll back if exit path dies
