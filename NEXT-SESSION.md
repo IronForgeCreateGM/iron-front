@@ -43,3 +43,8 @@ Also earlier backlog: wall gate.
 - Games drag: no coordinated finishing pushes. Add late-game "close it out" logic: allied mass attacks on weakest enemy.
 - AI should build and fire the warhead launcher when the game stalls / it can't break an enemy.
 - SPECTATOR CAMERA (Nicholas 10/15): when spectating a bot game, allow zooming far out to see more of the map, and never auto-zoom back in.
+
+## Oct 15 Discord friend feedback (v5.4)
+- HOTKEY REWORK: keep WASD camera pan, but no overlap with other hotkeys (remap conflicting ones, e.g. A attack-move vs A pan, S stop, D, W).
+- CLICK ACCURACY: clicks are offset; must aim slightly below-left of a turret to select/upgrade it. Fix picking (raycast vs mesh/bounds, devicePixelRatio/canvas offset) so the cursor lines up exactly.
+- ONLINE LAG: friends played online and saw lag. Profile netcode (lockstep input delay, peer latency, sim cost), smooth it out; decide whether to publish to GitHub Pages (needs Nicholas's OK to push).
