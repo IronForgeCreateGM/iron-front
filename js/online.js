@@ -23,7 +23,7 @@ function onlJoinRoom(code) {
   const qr = new URLSearchParams(location.search).get('relays'); if (qr) cfg.relayUrls = qr.split(',').map(u => u.includes('://') ? u : 'wss://' + u);
   const conf = { appId: cfg.appId || 'ironfront-rts-v4' }; if (cfg.relayUrls) conf.relayConfig = { urls: cfg.relayUrls }; if (cfg.turnConfig) conf.turnConfig = cfg.turnConfig;
   const room = T.joinRoom(conf, 'room-' + code); ONL.room = room; ONL.code = code; ONL.selfId = T.selfId;
-  for (const name of ['lobby', 'hello', 'ready', 'pref', 'chat', 'start', 'kick', 'in', 'turn', 'hash', 'desync']) {
+  for (const name of ['lobby', 'hello', 'ready', 'pref', 'chat', 'start', 'kick', 'in', 'turn', 'hash', 'desync', 'pg', 'po', 'sync', 'rejoin']) {
     const a = room.makeAction(name);
     if (Array.isArray(a)) { ONL.acts[name] = (d, to) => a[0](d, to || null); a[1]((d, pid) => onlDispatch(name, d, pid)); }
     else { ONL.acts[name] = (d, to) => a.send(d, to ? { target: to } : undefined); a.onMessage = (d, meta) => onlDispatch(name, d, meta && meta.peerId || meta); }
@@ -53,7 +53,7 @@ function onlHost() {
   const link = location.origin + location.pathname + '?room=' + code;
   onlStatus(`Room <b>${code}</b> — share: <a href="${link}" target="_blank">${link}</a><br>${location.protocol === 'file:' ? '⚠ Hosting from file:// — friends must open the same game build via https.' : ''}`);
   ONL.handlers.hello = (d, pid) => {
-    if (ONL.started) return;
+    if (ONL.started) { if (d.ver === codeHash() && NET.rejoinReq(pid, d.name)) onlChatLine('* ' + d.name + ' rejoined'); else ONL.acts.kick({ reason: 'Match already running (no free slot to rejoin).' }, pid); return; }
     if (d.ver !== codeHash()) { ONL.acts.kick({ reason: 'Version mismatch — reload the page (host ' + codeHash() + ', you ' + d.ver + ').' }, pid); return; }
     const taken = new Set(Object.values(ONL.peers).map(p => p.row)), rows = lobbyRead();
     let row = rows.findIndex((r, i) => r[0] === 'remote' && !taken.has(i));
@@ -99,6 +99,8 @@ function onlJoin(code) {
     const mine = st.peers[ONL.selfId]; onlStatus(`Room <b>${code}</b> — host <b>${st.hostName}</b>. ${mine ? `You are slot ${mine.row + 1}. Pick your faction/colour, then press Ready.` : 'Waiting for a slot…'}`); };
   ONL.handlers.kick = d => { onlStatus('❌ ' + d.reason); };
   ONL.handlers.chat = d => onlChatLine(d.n + ': ' + d.m);
+  ONL.handlers.sync = (d, pid) => { if (ONL.started || !d.full) return; ONL.started = true; ONL.hostId = pid; const o = d.opts;
+    onlBegin({ seed: o.seed, slots: o.slots, me: d.me, humans: d.humans, peerTeam: d.peerTeam, host: false, hostPeer: pid, map: o.map, peace: o.peace }); NET._applySync(d); };
   ONL.handlers.start = (d, pid) => { ONL.started = true; ONL.hostId = pid; onlBegin({ seed: d.seed, slots: d.slots, me: d.peerTeam[ONL.selfId], humans: d.humans, peerTeam: d.peerTeam, host: false, hostPeer: pid, map: d.map, peace: d.peace }); };
   document.getElementById('readyBtn').style.display = '';
 }

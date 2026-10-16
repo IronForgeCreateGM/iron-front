@@ -30,7 +30,7 @@ function lockstepGame({ npeers, seed, dropAt, ticks }) {
   const slots = SLOTS.map((s, i) => Object.assign({}, s, i < 4 && !s.ai && i >= npeers ? { ai: true, diff: 'normal' } : {}));
   for (let p = 0; p < npeers; p++) {
     const c = ctx(), id = 'peer' + p, handlers = {}, leave = [];
-    const tr = { send(type, data) { for (const q of peers) if (q.id !== id && q.alive) { const lag = 20 + R() * 110; queue.push({ at: now + lag, to: q, type, data: JSON.parse(JSON.stringify(data)), from: id }); } }, on(t, cb) { handlers[t] = cb; }, onLeave(cb) { leave.push(cb); } };
+    const tr = { send(type, data, to) { for (const q of peers) if (q.id !== id && q.alive && (!to || to === q.id)) { const lag = 20 + R() * 110; queue.push({ at: now + lag, to: q, type, data: JSON.parse(JSON.stringify(data)), from: id }); } }, on(t, cb) { handlers[t] = cb; }, onLeave(cb) { leave.push(cb); } };
     ev(c, 'newGame')({ seed, slots, fog: true }); ev(c, 'ME = ' + humans[p]);
     const peerTeam = {}; humans.forEach((t, k) => peerTeam['peer' + k] = t);
     ev(c, 'NET').begin(tr, { host: p === 0, me: humans[p], humans, peerTeam, hostPeer: 'peer0' });

@@ -30,7 +30,7 @@ async function browser(port, reuse) {
     await B.ev(`document.getElementById('readyBtn').click(); 1`); await sleep(2000);
     console.log('host start button:', await A.ev(`document.getElementById('startBtn').textContent`));
     await A.ev(`document.getElementById('startBtn').click(); 1`); await sleep(8000);
-    const st = async X => JSON.parse(await X.ev(`JSON.stringify({ tick: G.tick, me: ME, online: NET.online, host: NET.host, desync: NET.desync, players: G.players.map(p => p.name + (p.ai ? '[AI]' : '')) })`));
+    const st = async X => JSON.parse(await X.ev(`JSON.stringify({ tick: G.tick, me: ME, online: NET.online, host: NET.host, desync: NET.desync, d: NET.DELAY, ahead: (NET.maxTurn || 0) - G.tick, sent: NET.stats && NET.stats.sent, players: G.players.map(p => p.name + (p.ai ? '[AI]' : '')) })`));
     console.log('A', await st(A)); console.log('B', await st(B));
     // client orders its army to a point; verify on host
     await B.ev(`(() => { const u = G.ents.filter(e => e.team === ME && e.kind === 'u' && e.t !== 'harv'); NET.issue({ c: 'move', u: u.map(e => e.id), x: 48, y: 48, am: false }); return u.length; })()`);
@@ -41,7 +41,7 @@ async function browser(port, reuse) {
     const hA = await A.ev(`(() => { NET.cmpT = G.tick + 60; return NET.cmpT; })()`); await B.ev(`NET.cmpT = ${hA}; 1`);
     await A.ev(`(() => { const o = NET.tick.bind(NET); NET.tick = () => { const r = o(); if (G.tick === NET.cmpT) window.__h = stateHash(); return r; }; return 1; })()`);
     await B.ev(`(() => { const o = NET.tick.bind(NET); NET.tick = () => { const r = o(); if (G.tick === NET.cmpT) window.__h = stateHash(); return r; }; return 1; })()`);
-    await sleep(8000); const ha = await A.ev('window.__h'), hb = await B.ev('window.__h');
+    for (let i = 0; i < 30 && !(await A.ev('window.__h != null') && await B.ev('window.__h != null')); i++) await sleep(1000); const ha = await A.ev('window.__h'), hb = await B.ev('window.__h');
     console.log('hash @tick', hA, ha, hb, ha === hb ? 'MATCH' : 'MISMATCH');
     ok = sa.tick > 100 && sb.tick > 100 && !sa.desync && !sb.desync && moved && ha != null && ha === hb;
     // disconnect: kill client, host should hand slot to AI and continue

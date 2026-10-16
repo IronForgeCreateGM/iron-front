@@ -61,7 +61,7 @@ function startGame(diff, opts) {
 const REC = QS.get('rec');
 window.__rec = n => { for (let i = 0; i < n && !G.over; i++) stepGame(); director(n * DT); uiFrame(n * DT); r3Render(n * DT); if (G.over && !UI.endShown) frame(performance.now(), true); return { t: G.time, tick: G.tick, over: G.over || null }; };
 function simAdvance(dt, maxN) {
-  if (paused || G.over) return; acc += dt; let n = 0, stall = false; const extra = NET.online && NET.turns.size > NET.DELAY + 3 ? 4 : 0;
+  if (paused || G.over) return; acc += dt * NET.pace(); let n = 0, stall = false; const extra = 0;
   while ((acc >= DT || extra && n < extra) && n++ < maxN + extra) { if (!NET.ready()) { stall = true; break; } NET.tick(); acc = Math.max(0, acc - DT); }
   if (stall) acc = Math.min(acc, DT * 6); else if (n >= maxN) acc = 0; netOverlay(stall, dt);
 }
@@ -281,11 +281,15 @@ function drawEndGraph() {
 }
 
 // ===== online: stall / status overlay =====
+function onNetResync() { // v5.5: state was rebuilt from the host's log -> drop stale object refs
+  if (typeof UI !== 'undefined' && UI.sel) UI.sel = []; G.vis = G.visT[ME]; G.seen = G.seenT[ME]; if (typeof setSel === 'function') try { setSel([]); } catch (e) {}
+  if (typeof R3 !== 'undefined' && R3.onReset) R3.onReset();
+}
 function netOverlay(stall, dt) {
   const el = document.getElementById('netWait'); if (!el) return;
   NET.waitT = stall ? NET.waitT + dt : 0;
   let txt = '';
-  if (NET.desync) txt = `⚠ Desync detected at tick ${NET.desync.t} (player ${NET.desync.team + 1}). The game state differs between players — please restart the match.`;
+  if (NET.desync) txt = `⚠ Desync at tick ${NET.desync.t} (player ${NET.desync.team + 1}) could not be repaired automatically — please restart the match.`;
   else if (NET.online && NET.waitT > 0.4) txt = NET.host && NET.waiting ? 'Waiting for ' + NET.waiting.map(t => G.players[t].name).join(', ') + '…' : 'Waiting for host…';
   if (NET.status) { uiMsg(NET.status); announce(NET.status, 'net' + NET.status, 5); NET.status = ''; }
   el.textContent = txt; el.style.display = txt ? 'block' : 'none';
