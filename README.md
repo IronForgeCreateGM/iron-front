@@ -12,15 +12,19 @@ Online play is peer-to-peer (WebRTC). Matchmaking/signalling uses public Nostr r
 (e.g. GitHub Pages) — `file://` pages cannot reliably reach peers.
 
 1. Everyone opens the **same published URL** (same version — the lobby rejects mismatched builds).
-2. Host: type a name, click **🌐 Host online game**. A room code and a share link (`…/index.html?room=ABCDE`) appear.
-3. Host sets the 4 slots: `Human (you)` for themself, `Human (remote)` for each friend, AI types or `Closed` for the rest; teams, factions, colours.
+2. Host: click **Play Online**, type a name, click **🌐 Host online game**. A room code and a share link (`…/index.html?room=ABCDE`) appear.
+3. Host sets the slots (up to 8 on *Volcano Crown XL (4v4)*): `Human (you)` for themself, `Human (remote)` for each friend, AI types or `Closed` for the rest; teams, factions, colours.
 4. Friends open the share link (or type the code and click **Join**). They are auto-seated in the next `Human (remote)` slot, can pick their faction (faction cards), and press **Ready**. Lobby chat is available.
 5. When all remote players are ready, the host clicks **START ONLINE**.
 
-In game: the simulation runs in deterministic lockstep (commands execute 4 ticks ≈ 133 ms after you issue them).
-If a player lags, everyone sees “Waiting for …”. If a player disconnects, their slot is taken over by a Medium AI;
-if the host disconnects, the others continue offline against AI. Pause (Esc) opens the menu without pausing others; it
-also has **Surrender**. A state hash is compared every second — a desync shows a warning.
+In game (v5.5 netcode): deterministic lockstep through the host. Input delay adapts per player from measured
+ping (≈100–150 ms on good links, more for a far-away player only as much as needed); inputs and turns are batched
+(about half the messages of v5.4) and the game speeds up/slows down slightly to absorb jitter instead of freezing.
+If a player lags, everyone sees “Waiting for …”; after 20 s of silence the host gives that slot to AI. A player who
+disconnects can **re-open the room link** during the match to take their slot back (the game is re-simulated to the
+present on their machine). A state hash is compared every second; on a mismatch the host automatically resyncs that
+player from the command log. If the host disconnects, the others continue offline against AI. For 4+ players, let
+the player with the best connection host. Pause (Esc) opens the menu without pausing others; it also has **Surrender**.
 
 Troubleshooting: if friends can't connect (strict NAT / corporate firewall), add a TURN server in `js/net-config.js`
 (`turnConfig`). You can also choose other Nostr relays there (`relayUrls`) or via the URL: `?room=CODE&relays=nos.lol,relay.damus.io`.
