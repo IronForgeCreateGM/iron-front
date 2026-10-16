@@ -9,17 +9,17 @@ float vnoise3(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.0-2.0*f)
 float fbm3(vec2 p){ return 0.5*vnoise3(p) + 0.3*vnoise3(p*2.1+7.0) + 0.2*vnoise3(p*4.3+3.0); }
 `;
 // fog-of-war applied inside shaders (sampled from a 64x64 alpha texture in world space)
-const FOW = { uFow: { value: null }, uFowC: { value: new THREE.Color(0x04070b) }, uFowOn: { value: 1 } };
+const FOW = { uMapS: { value: new THREE.Vector2(96, 96) }, uFow: { value: null }, uFowC: { value: new THREE.Color(0x04070b) }, uFowOn: { value: 1 } };
 function fowPatch(sh) {
-  sh.uniforms.uFow = FOW.uFow; sh.uniforms.uFowC = FOW.uFowC; sh.uniforms.uFowOn = FOW.uFowOn;
+  sh.uniforms.uFow = FOW.uFow; sh.uniforms.uMapS = FOW.uMapS; sh.uniforms.uFowC = FOW.uFowC; sh.uniforms.uFowOn = FOW.uFowOn;
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vFowW;').replace('#include <project_vertex>', `#include <project_vertex>
     vec4 fowP = vec4(transformed, 1.0);
     #ifdef USE_INSTANCING
     fowP = instanceMatrix * fowP;
     #endif
     vFowW = (modelMatrix * fowP).xyz;`);
-  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vFowW; uniform sampler2D uFow; uniform vec3 uFowC; uniform float uFowOn;')
-    .replace('#include <tonemapping_fragment>', `if (uFowOn > 0.5) { float fa = texture2D(uFow, vec2(vFowW.x / ${MW}.0, 1.0 - vFowW.z / ${MH}.0)).a; gl_FragColor.rgb = mix(gl_FragColor.rgb, uFowC, fa * 0.97); }
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vFowW; uniform sampler2D uFow; uniform vec2 uMapS; uniform vec3 uFowC; uniform float uFowOn;')
+    .replace('#include <tonemapping_fragment>', `if (uFowOn > 0.5) { float fa = texture2D(uFow, vec2(vFowW.x / uMapS.x, 1.0 - vFowW.z / uMapS.y)).a; gl_FragColor.rgb = mix(gl_FragColor.rgb, uFowC, fa * 0.97); }
     #include <tonemapping_fragment>`);
 }
 function pbrMaterial() {

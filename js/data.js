@@ -1,6 +1,6 @@
 'use strict';
 // ===== Static data tables (all original names) =====
-const MW = 96, MH = 96, DT = 1 / 30;
+let MW = 96, MH = 96; const DT = 1 / 30; // v5.5: MW/MH vary per map (Volcano Crown 4v4 = 112)
 // damage-type x armor multipliers (counter system)
 const DMG = {
   warhead: { inf: 1.0, light: 1.0, heavy: 0.9, bldg: 1.0, air: 0 },
@@ -88,10 +88,10 @@ const UT = {
 };
 const CATS = { bld: 'Structures', def: 'Defenses', inf: 'Infantry', veh: 'Vehicles', air: 'Aircraft' };
 const FROMCAT = { barracks: 'inf', factory: 'veh', airpad: 'air', airfield: 'air' };
-const TEAMCOL = [0x3f7fd0, 0xd04a36, 0x2fc4d0, 0xf08a2a, 0xff7a1a, 0x9a4ae0]; // accents only (re-assigned per game by alliance)
-const TEAMPAINT = [0x2e4a73, 0x7a2d25, 0x2a6a72, 0x8a5222, 0x8a4a1a, 0x4a2a6a];
-const TEAM_COLORS = { orange: { n: 'Orange', paint: 0x8a4a1a, acc: 0xff7a1a, css: '#ff8c2a' }, purple: { n: 'Purple', paint: 0x4a2a6a, acc: 0x9a4ae0, css: '#b070ff' }, blue: { n: 'Blue', paint: 0x2e4a73, acc: 0x3f7fd0, css: '#5fb0ff' }, red: { n: 'Red', paint: 0x7a2d25, acc: 0xd04a36, css: '#ff5040' }, yellow: { n: 'Yellow', paint: 0xc4a12c, acc: 0xffd83a, css: '#ffd84a' }, green: { n: 'Green', paint: 0x3f7f37, acc: 0x5fd060, css: '#6fdc6a' } };
-const MMCOL = ['#5fb0ff', '#ff5040', '#5fe6f0', '#ffa040', '#ff8c2a', '#b070ff']; // strong but realistic military blue / oxide red // olive drab vs desert tan
+const TEAMCOL = [0x3f7fd0, 0xd04a36, 0x2fc4d0, 0xf08a2a, 0xff7a1a, 0x9a4ae0, 0x2fd0c4, 0xe8eef4]; // accents only (re-assigned per game by alliance)
+const TEAMPAINT = [0x2e4a73, 0x7a2d25, 0x2a6a72, 0x8a5222, 0x8a4a1a, 0x4a2a6a, 0x1f6a6a, 0x8a8f96];
+const TEAM_COLORS = { orange: { n: 'Orange', paint: 0x8a4a1a, acc: 0xff7a1a, css: '#ff8c2a' }, purple: { n: 'Purple', paint: 0x4a2a6a, acc: 0x9a4ae0, css: '#b070ff' }, blue: { n: 'Blue', paint: 0x2e4a73, acc: 0x3f7fd0, css: '#5fb0ff' }, red: { n: 'Red', paint: 0x7a2d25, acc: 0xd04a36, css: '#ff5040' }, yellow: { n: 'Yellow', paint: 0xc4a12c, acc: 0xffd83a, css: '#ffd84a' }, green: { n: 'Green', paint: 0x3f7f37, acc: 0x5fd060, css: '#6fdc6a' }, teal: { n: 'Teal', paint: 0x1f6a6a, acc: 0x2fd0c4, css: '#4fe8dc' }, white: { n: 'White', paint: 0x8a8f96, acc: 0xe8eef4, css: '#eef3f8' } };
+const MMCOL = ['#5fb0ff', '#ff5040', '#5fe6f0', '#ffa040', '#ff8c2a', '#b070ff', '#4fe8dc', '#eef3f8']; // strong but realistic military blue / oxide red // olive drab vs desert tan
 // v4.3: difficulty = skill only (no economy bonus). think = reaction/APM delay (s), slip = chance a decision cycle is fumbled, sat = worker saturation
 const DIFF = {
   easy:   { sys: { sim: 0, hsq: 0, prong: 0, float: 0, prodMax: 1, choke: 0, close: 1 },  sat: 0.6, slip: 0.3, expandAt: 1000, think: 3.0, wave0: 3, waveMax: 7, waveInc: 1, harass: 0.15, harassAfter: 1080, firstAttack: 570, waveGap: 150, scoutAfter: 600 },

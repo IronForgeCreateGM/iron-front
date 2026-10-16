@@ -15,10 +15,11 @@ function newGame(opts) {
   const R = mkRng(opts.seed);
   // slots: [{ ai, diff, ally, fac, start }]; default 1v1 from legacy opts
   const slots = opts.slots || [0, 1].map(t => ({ ai: opts.aiTeams.includes(t), diff: t === 0 && opts.p0diff ? opts.p0diff : opts.diff, ally: t, fac: (opts.facs || [])[t], start: t ? 3 : 0 }));
+  MW = MH = (opts.map === 'volcano8' || slots.length > 6) ? 112 : 96; if (slots.length > 6) opts.map = 'volcano8';
   const NP = slots.length;
   // every player gets its own start corner (guards against duplicate/missing starts from any lobby path)
-  { const taken = new Set(); slots.forEach(sl => { if (sl.start == null || sl.start < 0 || sl.start > 5 || taken.has(sl.start)) sl.start = null; else taken.add(sl.start); });
-    slots.forEach(sl => { if (sl.start == null) { sl.start = (sl.ally ? [3, 1, 5, 2, 0, 4] : [0, 2, 4, 1, 3, 5]).find(k => !taken.has(k)); taken.add(sl.start); } }); }
+  { const taken = new Set(); slots.forEach(sl => { if (sl.start == null || sl.start < 0 || sl.start > 7 || taken.has(sl.start)) sl.start = null; else taken.add(sl.start); });
+    slots.forEach(sl => { if (sl.start == null) { sl.start = (slots.length > 6 ? (sl.ally ? [3, 1, 5, 7, 2, 0, 4, 6] : [0, 2, 4, 6, 1, 3, 5, 7]) : (sl.ally ? [3, 1, 5, 2, 0, 4] : [0, 2, 4, 1, 3, 5])).find(k => !taken.has(k)); taken.add(sl.start); } }); }
   G = { R, opts, tick: 0, time: 0, ents: [], projs: [], events: [], nid: 1, over: null, bver: 1, blockVer: 0, block: null,
     map: new Uint8Array(MW * MH), ore: new Float32Array(MW * MH), elev: new Float32Array(MW * MH), rich: new Uint8Array(MW * MH), bridge: new Uint8Array(MW * MH), forest: new Uint8Array(MW * MH), lvl: new Float32Array(MW * MH), tier: new Uint8Array(MW * MH), lava: new Uint8Array(MW * MH), ice: new Uint8Array(MW * MH),
     visT: [], seenT: [], oreVer: 0, players: [], hist: [] };
@@ -29,7 +30,7 @@ function newGame(opts) {
   G.vis = G.visT[0]; G.seen = G.seenT[0];
   // colours by alliance order
   // colours: each slot's chosen colour (unique), defaults blue/green for team A, red/yellow for team B
-  { const used = new Set(slots.map(sl => sl.color).filter(Boolean)), def = { 0: ['blue', 'green', 'purple', 'yellow', 'red', 'orange'], 1: ['red', 'yellow', 'orange', 'green', 'blue', 'purple'] };
+  { const used = new Set(slots.map(sl => sl.color).filter(Boolean)), def = { 0: ['blue', 'green', 'purple', 'teal', 'yellow', 'red', 'orange', 'white'], 1: ['red', 'yellow', 'orange', 'white', 'green', 'blue', 'purple', 'teal'] };
     slots.forEach((sl, t) => { let c = sl.color; if (!c || !TEAM_COLORS[c]) { c = (def[sl.ally] || def[0]).find(k => !used.has(k)) || 'blue'; used.add(c); } sl.color = c; const C = TEAM_COLORS[c]; TEAMPAINT[t] = C.paint; TEAMCOL[t] = C.acc; MMCOL[t] = C.css; }); }
   if (typeof MODEL_CACHE !== 'undefined') for (const k in MODEL_CACHE) delete MODEL_CACHE[k];
   for (let t = 0; t < NP; t++) { const sl = slots[t]; G.players.push({ team: t, color: sl.color, name: sl.name || (sl.ai ? sl.diff : 'Player ' + (t + 1)), ally: sl.ally, start: sl.start, cr: 5000, pow: 0, gen: 0, use: 0, ai: !!sl.ai, diff: sl.diff || opts.diff,
@@ -51,7 +52,7 @@ function newGame(opts) {
 // 96x96 four-fold mirrored map: mains in corners (cliff ring + 2 ramps), two naturals each,
 // contested mid bases with rich (gold) fields, central monument, river with 4 bridges, forests.
 function genMap(R) {
-  G.mapName = G.opts.map || 'classic'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R);
+  G.mapName = G.opts.map || 'classic'; G.v8 = G.mapName === 'volcano8'; if (G.v8) G.mapName = 'volcano'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R);
   const N = MW * MH, Q = MW / 2, gs = 8, gw = MW / gs + 2;
   const mk = () => { const a = []; for (let i = 0; i < gw * gw; i++) a.push(R()); return a; };
   const g1 = mk(), g2 = mk(), g3 = mk();
@@ -172,24 +173,32 @@ function genCustom(R) {
   G.monument = null; G.weather = null; G.ruins = null; G.crown = null;
   const C = [48, 48];
   if (vol) {
-    const bases = [[14.5, 16.5], [14.5, 79.5], [11.5, 48]]; G.starts = [[14.5, 16.5], [81.5, 16.5], [14.5, 79.5], [81.5, 79.5], [11.5, 48], [84.5, 48]];
-    // lava lanes (visual only): N, S and the four diagonals out of the crater toward the corner bases
-    const lane = pts => path(pts, 1.1, i => { G.lava[i] = 1; G.forest[i] = 0; if (G.map[i] === 1) G.map[i] = 0; });
-    lane([[47.5, 34], [45.5, 24], [48, 14], [46.5, 2]]); lane([[47.5, 61], [49.5, 71], [47, 82], [48.5, 94]]);
+    // v5.5: scaled by k (112/96 for the 8-player 4v4 variant); v8 adds top-middle + bottom-middle bases, wider ramps, bigger plateaus, more ore
+    const k = MW / 96, v8 = !!G.v8, K = v => v * k, M = MW / 2, gwB = v8 ? 2.7 : 1.9, rB = v8 ? 11.5 : 10;
+    const bases = [[K(14.5), K(16.5)], [K(14.5), K(79.5)], [K(11.5), M]];
+    G.starts = [[K(14.5), K(16.5)], [MW - K(14.5), K(16.5)], [K(14.5), K(79.5)], [MW - K(14.5), K(79.5)], [K(11.5), M], [MW - K(11.5), M]];
+    if (v8) G.starts.push([M, K(11.5)], [M, MH - K(11.5)]);
+    const lane = pts => path(pts.map(([x, y]) => [K(x), K(y)]), 1.1, i => { G.lava[i] = 1; G.forest[i] = 0; if (G.map[i] === 1) G.map[i] = 0; });
+    if (!v8) { lane([[47.5, 34], [45.5, 24], [48, 14], [46.5, 2]]); lane([[47.5, 61], [49.5, 71], [47, 82], [48.5, 94]]); } else { lane([[47.5, 34], [45.5, 26]]); lane([[47.5, 61], [49.5, 69]]); }
     lane([[38, 40], [32, 33], [26, 29]]); lane([[38, 56], [31, 61], [26, 66]]); lane([[38, 48], [30, 47], [24, 48.5]]);
-    // plateau bases, ramps facing the volcano + one side ramp (2 entrances each)
-    for (const [bx, by] of bases) { const a = datan2(C[1] - by, C[0] - bx), side = by < 30 ? Math.PI / 2 : by > 66 ? -Math.PI / 2 : (a > 0 ? 1 : -1) * 0.9; plateau(bx, by, 10, 1, 0, [a, by > 30 && by < 66 ? a + 1.0 : side], 1.9, 4.5); }
-    // the central volcano: terrace (lvl 1) with 4 ramps, crown (lvl 2) with N/S ramps, crater lava + rock core
-    plateau(48, 48, 12.5, 1, 0, [0, Math.PI / 2, Math.PI, -Math.PI / 2], 2.0, 4);
-    plateau(48, 48, 6.5, 2, 1, [Math.PI / 2, -Math.PI / 2], 1.7, 3.5);
-    each(48, 48, 3.2, (i, d) => { G.lava[i] = 1; G.map[i] = d < 1.6 ? 1 : 0; G.forest[i] = 0; G.ore[i] = 0; });
-    G.crown = [48, 48];
-    // resources: 2 fields per base (back of the plateau), lowland expansions between bases, rich gold N/S by the lava lanes
-    fieldC(8, 12, 1.8); fieldC(19.5, 9.5, 1.7); fieldC(8, 84, 1.8); fieldC(19.5, 86.5, 1.7); fieldC(6, 42.5, 1.7); fieldC(6, 53.5, 1.7);
-    fieldC(27, 33.5, 2); fieldC(27, 62, 2); fieldC(38, 22, 1.5, 1); fieldC(38, 74, 1.5, 1);
-    site(24.5, 37, 'nat'); site(24.5, 59, 'nat'); site(37, 18, 'mid'); site(37, 78, 'mid');
-    vent(19, 21); vent(19, 74); vent(16, 47); vent(41, 60); vent(41, 35); vent(33, 48);
-    dk(30, 42); dk(30, 54); dk(40, 9); dk(40, 87); dk(48, 38);
+    for (const [bx, by] of bases) { const a = datan2(M - by, M - bx), side = by < K(30) ? Math.PI / 2 : by > K(66) ? -Math.PI / 2 : (a > 0 ? 1 : -1) * 0.9; plateau(bx, by, rB, 1, 0, [a, by > K(30) && by < K(66) ? a + 1.0 : side], gwB, 4.5); }
+    if (v8) for (const by of [K(11.5), MH - K(11.5)]) { const dn = by < M ? 1 : -1; plateau(M, by, rB, 1, 0, [dn * Math.PI / 2, dn * Math.PI / 2 + 1.1, dn * Math.PI / 2 - 1.1], gwB, 4.5); }
+    plateau(M, M, K(12.5), 1, 0, [0, Math.PI / 2, Math.PI, -Math.PI / 2], 2.0 * (v8 ? 1.3 : 1), 4);
+    plateau(M, M, K(6.5), 2, 1, [Math.PI / 2, -Math.PI / 2], 1.7, 3.5);
+    each(M, M, K(3.2), (i, d) => { G.lava[i] = 1; G.map[i] = d < K(1.6) ? 1 : 0; G.forest[i] = 0; G.ore[i] = 0; });
+    G.crown = [M, M];
+    const F = (x, y, r, rich) => fieldC(K(x), K(y), r * (v8 ? 1.15 : 1), rich);
+    F(8, 12, 1.8); F(19.5, 9.5, 1.7); F(8, 84, 1.8); F(19.5, 86.5, 1.7); F(6, 42.5, 1.7); F(6, 53.5, 1.7);
+    F(27, 33.5, 2); F(27, 62, 2); F(38, 22, 1.5, 1); F(38, 74, 1.5, 1);
+    site(K(24.5), K(37), 'nat'); site(K(24.5), K(59), 'nat'); site(K(37), K(18), 'mid'); site(K(37), K(78), 'mid');
+    const V = (x, y) => vent(Math.floor(K(x)), Math.floor(K(y))); V(19, 21); V(19, 74); V(16, 47); V(41, 60); V(41, 35); V(33, 48);
+    dk(Math.floor(K(30)), Math.floor(K(42))); dk(Math.floor(K(30)), Math.floor(K(54))); dk(Math.floor(K(48)), Math.floor(K(38)));
+    if (!v8) { dk(40, 9); dk(40, 87); }
+    else { // mid bases: own ore (behind, toward the map edge) + gas each; extra lowland ore for 8 players
+      for (const by of [K(11.5), MH - K(11.5)]) { const dn = by < M ? -1 : 1; fieldC(M - 4.5, by + dn * 6, 1.9); }
+      vent(Math.floor(M + 5), Math.floor(K(14))); vent(Math.floor(M + 5), Math.floor(MH - K(14) - 1));
+      F(33, 8, 1.6); F(33, 88, 1.6); dk(Math.floor(K(30)), Math.floor(K(26))); dk(Math.floor(K(30)), Math.floor(K(70)));
+    }
   } else {
     G.starts = [[12.5, 12.5], [64.5, 85.5], [31.5, 10.5], [83.5, 83.5], [10.5, 31.5], [85.5, 64.5]];
     // mountains in the NE / SW corners

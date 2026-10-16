@@ -1,6 +1,6 @@
 'use strict';
 // ===== Terrain: smoothed heightfield, splat shader, water, foliage, fog overlay =====
-const HR = 4, HW = MW * HR + 1, HH = MH * HR + 1; // heightfield resolution (verts)
+const HR = 4; let HW = MW * HR + 1, HH = MH * HR + 1; // heightfield resolution (verts)
 let HF = null;
 const GLSL_NOISE = `
 float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * .1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -18,7 +18,7 @@ function heightAt(x, y) {
   return (HF[i] * (1 - tx) + HF[i + 1] * tx) * (1 - ty) + (HF[i + HW] * (1 - tx) + HF[i + HW + 1] * tx) * ty;
 }
 function buildHeightfield() {
-  const R = mkRng(G.opts.seed + 11); HF = new Float32Array(HW * HH);
+  HW = MW * HR + 1; HH = MH * HR + 1; const R = mkRng(G.opts.seed + 11); HF = new Float32Array(HW * HH);
   const tileAt = (x, y) => G.map[Math.max(0, Math.min(MH - 1, y)) * MW + Math.max(0, Math.min(MW - 1, x))];
   for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { const t = tileAt(Math.floor((x - 0.5) / HR + 0.0001), Math.floor((y - 0.5) / HR + 0.0001)); const tx = Math.max(0, Math.min(MW - 1, Math.floor((x - 0.5) / HR + 0.0001))), ty = Math.max(0, Math.min(MH - 1, Math.floor((y - 0.5) / HR + 0.0001))), L = G.lvl[ty * MW + tx] * LVL_H; HF[y * HW + x] = (t === 1 ? 2.0 : t === 2 ? -1.1 : 0) + L; }
   const blur = (r) => { const tmp = new Float32Array(HF.length);
@@ -140,10 +140,10 @@ function buildWater() {
 function buildFogOverlay() {
   R3.fogData = new Uint8Array(MW * MH * 4); for (let i = 0; i < MW * MH; i++) R3.fogData[i * 4 + 3] = 255;
   R3.fogTex = new THREE.DataTexture(R3.fogData, MW, MH, THREE.RGBAFormat); R3.fogTex.magFilter = R3.fogTex.minFilter = THREE.LinearFilter; R3.fogTex.needsUpdate = true;
-  FOW.uFow.value = R3.fogTex;
+  FOW.uFow.value = R3.fogTex; FOW.uMapS.value.set(MW, MH);
 }
 function updFogTex(dt) {
-  const d = R3.fogData, f = R3.fogF || (R3.fogF = new Float32Array(MW * MH).fill(250)), k = 1 - Math.exp(-(dt || 0.016) * 7);
+  const d = R3.fogData, f = (R3.fogF && R3.fogF.length === MW * MH) ? R3.fogF : (R3.fogF = new Float32Array(MW * MH).fill(250)), k = 1 - Math.exp(-(dt || 0.016) * 7);
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x, j = ((MH - 1 - y) * MW + x) * 4; const a = vis0(i) ? 0 : seen0(i) ? 135 : 250; f[i] += (a - f[i]) * k; d[j + 3] = Math.round(f[i]); }
   R3.fogTex.needsUpdate = true;
 }

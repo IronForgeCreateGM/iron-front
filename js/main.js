@@ -10,6 +10,7 @@ const SLOT_TYPES = { off: 'Closed', human: 'Human (you)', remote: 'Human (remote
 const PRESETS = {
   duel:   { n: '1v1', slots: [['human', 'A'], ['normal', 'B']] },
   ffa2:   { n: '2v2', slots: [['human', 'A'], ['hard', 'A'], ['hard', 'B'], ['hard', 'B']] },
+  t4v4:   { n: '4v4 (Volcano XL)', map: 'volcano8', slots: [['human', 'A'], ['hard', 'A'], ['hard', 'A'], ['hard', 'A'], ['hard', 'B'], ['hard', 'B'], ['hard', 'B'], ['hard', 'B']] },
   t3v3:   { n: '3v3', slots: [['human', 'A'], ['hard', 'A'], ['hard', 'A'], ['hard', 'B'], ['hard', 'B'], ['hard', 'B']] },
   coop:   { n: 'Me + Chief SI vs 2 Medium', slots: [['human', 'A'], ['si', 'A'], ['normal', 'B'], ['normal', 'B']] },
   wsi:    { n: 'Watch: Chief SI + Chief vs 2 Hard', slots: [['si', 'A'], ['chief', 'A'], ['hard', 'B'], ['hard', 'B']] },
@@ -17,7 +18,7 @@ const PRESETS = {
   w2:     { n: 'Watch: Chief (SI) vs Hard', slots: [['si', 'A'], ['hard', 'B']] },
 };
 function buildSlots(list, names) { // list rows: [type, team, fac, color]; names: row -> player name
-  const RF = () => ['usa', 'rus', 'fra', 'ger'][(Math.random() * 4) | 0], pref = { A: [0, 2, 4, 1, 3, 5], B: [3, 1, 5, 2, 0, 4] }, taken = new Set(), startFor = team => { const s = (pref[team] || pref.A).find(k => !taken.has(k)); taken.add(s); return s; };
+  const RF = () => ['usa', 'rus', 'fra', 'ger'][(Math.random() * 4) | 0], pref = list.filter(r => r[0] !== 'off').length > 6 ? { A: [0, 2, 4, 6, 1, 3, 5, 7], B: [3, 1, 5, 7, 2, 0, 4, 6] } : { A: [0, 2, 4, 1, 3, 5], B: [3, 1, 5, 2, 0, 4] }, taken = new Set(), startFor = team => { const s = (pref[team] || pref.A).find(k => !taken.has(k)); taken.add(s); return s; };
   return list.map((r, row) => [r, row]).filter(([r]) => r[0] !== 'off').map(([[type, team, fac, color], row]) => ({ row, ai: type !== 'human' && type !== 'remote', local: type === 'human', diff: type === 'human' || type === 'remote' ? 'normal' : type, ally: team === 'A' ? 0 : 1, fac: fac && fac !== 'rand' ? fac : RF(), color: color && color !== 'auto' ? color : undefined, start: startFor(team === 'B' ? 'B' : 'A'), name: (names && names[row]) || (type === 'human' ? 'You' : type === 'remote' ? 'Remote ' + (row + 1) : SLOT_TYPES[type]) }));
 }
 function startGame(diff, opts) {
@@ -224,13 +225,13 @@ function director(dt) {
 function lobbyInit() {
   const box = document.getElementById('lobby'); if (!box) return;
   const facOpt = '<option value="rand">Random</option>' + Object.keys(FACTIONS).map(f => `<option value="${f}">${FACTIONS[f].flag} ${FACTIONS[f].n}</option>`).join('');
-  box.innerHTML = '<div class="lrow lh"><span>Slot</span><span>Player</span><span>Team</span><span>Faction</span><span>Colour</span></div>' + [0, 1, 2, 3, 4, 5].map(i => `<div class="lrow"><span>${i + 1}</span>
+  box.innerHTML = '<div class="lrow lh"><span>Slot</span><span>Player</span><span>Team</span><span>Faction</span><span>Colour</span></div>' + [0, 1, 2, 3, 4, 5, 6, 7].map(i => `<div class="lrow"><span>${i + 1}</span>
     <select class="lt">${Object.keys(SLOT_TYPES).filter(k => i === 0 ? k !== 'remote' : k !== 'human').map(k => `<option value="${k}">${SLOT_TYPES[k]}</option>`).join('')}</select>
     <select class="la"><option value="A">Team A</option><option value="B">Team B</option></select><select class="lf">${facOpt}</select><select class="lc"><option value="auto">Auto</option>${Object.keys(TEAM_COLORS).map(c => `<option value="${c}">${TEAM_COLORS[c].n}</option>`).join('')}</select></div>`).join('');
   box.querySelectorAll('.lc').forEach(sel => sel.onchange = () => { if (sel.value === 'auto') return; box.querySelectorAll('.lc').forEach(o => { if (o !== sel && o.value === sel.value) o.value = 'auto'; }); if (typeof lobbyChanged === 'function') lobbyChanged(); });
   box.querySelectorAll('select').forEach(sel => sel.addEventListener('change', () => { if (typeof lobbyChanged === 'function') lobbyChanged(); }));
   const pb = document.getElementById('presets'); pb.innerHTML = Object.keys(PRESETS).filter(k => k[0] !== 'w').map(k => `<button data-p="${k}">${k[0] === 'w' ? '▶ ' : ''}${PRESETS[k].n}</button>`).join('');
-  pb.querySelectorAll('button').forEach(b => b.onclick = () => { lobbySet(PRESETS[b.dataset.p].slots); if (b.dataset.p[0] === 'w') { audioInit(); startGame('normal', { slots: buildSlots(lobbyRead()), seed: (Math.random() * 1e6) | 0 }); } });
+  pb.querySelectorAll('button').forEach(b => b.onclick = () => { lobbySet(PRESETS[b.dataset.p].slots); { const ms = document.getElementById('mapSel'), pm = PRESETS[b.dataset.p].map; if (ms && pm) { ms.value = pm; ms.dispatchEvent(new Event('change')); } } if (b.dataset.p[0] === 'w') { audioInit(); startGame('normal', { slots: buildSlots(lobbyRead()), seed: (Math.random() * 1e6) | 0 }); } });
   lobbySet(PRESETS.duel.slots);
   box.querySelector('.lf').onchange = e => { if (e.target.value !== 'rand') MENU.fac = e.target.value; };
 }
