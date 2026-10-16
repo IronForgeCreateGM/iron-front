@@ -190,6 +190,7 @@ function selfTest() {
     const tur2 = addB('turret', 0, 12, 13, true); tur2.born = -10; const lv0 = defW(tur2).rng; const okU = upgradeB(tur2); for (let i = 0; i < 30 * 16; i++) stepGame(); const lv = tur2.lvl;
     const army = []; for (let i = 0; i < 8; i++) army.push(addU(['heavy', 'rifle', 'arty', 'rocketeer'][i % 4], 0, 16 + i % 3, 16 + (i / 3 | 0)));
     setSel(army); sidebar(); doFormation(false); const fmOk = army.every(u => u.stance === 'hold'); toggleStance(); const agg = army.every(u => u.stance === 'aggr');
+    { r3Render(0.016); const c = worldToScreen(tur2.x, tur2.y, heightAt(tur2.x, tur2.y) + 0.9), pk = pickAt(c.x, c.y); extra += ` pick=${!!pk && pk.id === tur2.id}`; if (!pk || pk.id !== tur2.id) throw new Error('pick offset'); }
     extra += ` upg=${okU}:${lv}:${lv0}->${defW(tur2).rng} formation=${fmOk} stance=${agg}`;
     for (let i = 0; i < 300; i++) stepGame();
     for (let i = 0; i < 20; i++) { uiFrame(0.05); r3Render(0.05); }

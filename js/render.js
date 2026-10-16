@@ -299,7 +299,10 @@ function updView() {
 function screenToWorld(sx, sy) {
   const el = R3.renderer.domElement, v = new THREE.Vector2(sx / el.clientWidth * 2 - 1, -(sy / el.clientHeight) * 2 + 1);
   R3.raycaster.setFromCamera(v, R3.camera); const p = new THREE.Vector3();
-  if (!R3.raycaster.ray.intersectPlane(R3.ground, p)) return null; return { x: p.x, y: p.z };
+  if (!R3.raycaster.ray.intersectPlane(R3.ground, p)) return null;
+  // v5.5: refine against terrain height (plateaus/hills) so the cursor hits what is drawn under it
+  if (typeof heightAt === 'function') { const pl = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); for (let k = 0; k < 4; k++) { pl.constant = -heightAt(p.x, p.z); const q = new THREE.Vector3(); if (!R3.raycaster.ray.intersectPlane(pl, q)) break; p.copy(q); } }
+  return { x: p.x, y: p.z };
 }
 const _v3 = typeof THREE !== 'undefined' ? new THREE.Vector3() : null;
 function worldToScreen(x, y, z) { const el = R3.renderer.domElement; _v3.set(x, z, y).project(R3.camera); return { x: (_v3.x + 1) / 2 * el.clientWidth, y: (1 - _v3.y) / 2 * el.clientHeight, behind: _v3.z > 1 }; }

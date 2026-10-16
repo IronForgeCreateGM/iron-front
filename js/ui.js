@@ -31,7 +31,7 @@ function uiSetup() {
   $('muteBtn').onclick = () => { AU.muted = !AU.muted; $('muteBtn').textContent = AU.muted ? '🔇' : '🔊'; };
   const cv = $('view');
   cv.addEventListener('contextmenu', e => e.preventDefault());
-  cv.addEventListener('mousemove', e => { const r = cv.getBoundingClientRect(); const nx = e.clientX - r.left, ny = e.clientY - r.top;
+  cv.addEventListener('mousemove', e => { const r = (R3.renderer ? R3.renderer.domElement : cv).getBoundingClientRect(); const nx = e.clientX - r.left, ny = e.clientY - r.top;
     if (UI.pan) { const a = screenToWorld(UI.mouse.x, UI.mouse.y), b = screenToWorld(nx, ny); if (a && b) { R3.cam.tx -= b.x - a.x; R3.cam.ty -= b.y - a.y; R3.cam.x -= b.x - a.x; R3.cam.y -= b.y - a.y; } }
     UI.mouse.x = nx; UI.mouse.y = ny; });
   cv.addEventListener('mouseleave', () => { UI.mouse.x = -1; });
@@ -120,8 +120,11 @@ function pickAt(sx, sy) {
   let best = null, bd = 1e9;
   for (const e of G.ents) {
     if (!visibleTo0(e)) continue;
-    if (e.kind === 'b') { if (w.x >= e.tx && w.x <= e.tx + e.w && w.y >= e.ty - 0.6 && w.y <= e.ty + e.h) { if (bd > 40) { best = e; bd = 40; } } continue; }
-    const rs = R3.rs.get(e.id) || e, p = worldToScreen(rs.x, rs.y, (rs.z || 0) + 0.3), d = Math.hypot(p.x - sx, p.y - sy), rr = 12 + UT[e.t].r * 900 / R3.cam.d;
+    if (e.kind === 'b') { // v5.5: screen-space box of the projected building (base + top), exact under the cursor
+      const h0 = typeof heightAt === 'function' ? heightAt(e.x, e.y) : 0, ht = e.t === 'tesla' ? 2.4 : e.t === 'wall' || e.t === 'gate' ? 0.9 : BT[e.t].cat === 'def' ? 1.3 : 1.6;
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [cx, cy] of [[e.tx, e.ty], [e.tx + e.w, e.ty], [e.tx, e.ty + e.h], [e.tx + e.w, e.ty + e.h]]) for (const z of [h0, h0 + ht]) { const q = worldToScreen(cx, cy, z); x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+      if (sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1) { const c = worldToScreen(e.x, e.y, h0 + ht * 0.5), d = Math.hypot(c.x - sx, c.y - sy) * 0.5 + 6; if (d < bd) { best = e; bd = d; } } continue; }
+    const rs = R3.rs.get(e.id) || e, p = worldToScreen(rs.x, rs.y, (R3.rs.get(e.id) ? rs.z : heightAt(e.x, e.y) + (e.z || 0)) + 0.3), d = Math.hypot(p.x - sx, p.y - sy), rr = 12 + UT[e.t].r * 900 / R3.cam.d;
     if (d < rr && d < bd) { bd = d; best = e; }
   }
   return best;
@@ -134,7 +137,7 @@ function setSel(list) {
 }
 function onDown(e) {
   audioInit();
-  const m = UI.mouse; const r = $('view').getBoundingClientRect(); m.x = e.clientX - r.left; m.y = e.clientY - r.top;
+  const m = UI.mouse; const r = (R3.renderer ? R3.renderer.domElement : $('view')).getBoundingClientRect(); m.x = e.clientX - r.left; m.y = e.clientY - r.top;
   if (e.button === 1) { e.preventDefault(); UI.pan = true; return; }
   const w = screenToWorld(m.x, m.y);
   if (e.altKey && w && !G.spectate) { e.preventDefault(); const en = G.ents.some(o => foe(o.team, ME) && visibleTo0(o) && Math.hypot(o.x - w.x, o.y - w.y) < 6); NET.issue({ c: 'ping', x: w.x, y: w.y, k: en ? 'attack' : 'defend' }); UI.pings.push({ x: w.x, y: w.y, t: 3 }); marker(w.x, w.y, en); uiMsg(en ? 'Ping: attack here!' : 'Ping: help here!'); sfx('alert'); return; }
