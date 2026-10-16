@@ -27,18 +27,33 @@
 <div id="tip"></div>
 <div id="menu" class="screen"><div class="panel">
   <h1>IRON<span>FRONT</span></h1><p class="sub">Real-time strategy · v5.5</p>
+  <div id="homeBtns">
+    <button id="playBotsBtn" class="big">▶ Play vs Bots</button>
+    <button id="playOnlineBtn" class="big alt">🌐 Play Online</button>
+    <div class="homeSmall"><button id="replayBtn">Replays</button> <button id="lastReplayBtn" style="display:none">▶ Watch last game</button> <button id="homeSetBtn" onclick="openSettings(true)">Settings</button><input type="file" id="replayFile" accept=".json,application/json" style="display:none"></div>
+  </div>
+  <div id="setup" style="display:none">
+    <div class="setupTop"><button id="backBtn" class="back">← Back</button><span id="setupTitle">Game setup</span></div>
+    <div class="setupRow"><div class="setupL">
   <div class="lopts"><label>Map <select id="mapSel"><option value="classic">Iron Crossroads (4)</option><option value="frost">Frostline Pass (2v2)</option><option value="volcano">Volcano Crown (3v3)</option><option value="volcano8">Volcano Crown XL (4v4)</option></select></label> <label>Peace time <select id="peaceSel"><option value="0">Off</option><option value="180" selected>3 min</option><option value="300">5 min</option><option value="480">8 min</option></select></label> <span class="dim">Quick setup:</span> <span id="presets"></span></div>
-  <div id="lobby"></div>
-  <div class="fsel"><div class="flbl">Your faction</div><div id="facs"></div><div id="facDesc"></div></div>
+      <canvas id="mapPrev" width="200" height="200" title="Map preview: bases (numbers), ore (gold), gas (teal), water, cliffs, lava"></canvas><div id="mapPrevTxt" class="dim small"></div>
+    </div><div class="setupR">
+  <div id="onWrap" style="display:none">
   <div id="onBox"><input id="pname" placeholder="Your name" maxlength="16"> <button id="hostBtn">🌐 Host online game</button> <input id="joinCode" placeholder="CODE" maxlength="6" size="6"> <button id="joinBtn">Join</button></div>
   <div id="onStatus"></div>
   <div id="onPanel" style="display:none"><div id="onPeers"></div><div id="chatLog"></div><input id="chatIn" placeholder="Chat… (Enter)" maxlength="140"> <button id="readyBtn" style="display:none">Ready</button></div>
+  </div>
+  <div id="lobby"></div>
+  <div class="fsel"><div class="flbl">Your faction</div><div id="facs"></div><div id="facDesc"></div></div>
   <label><input type="checkbox" id="fogChk" checked> Fog of war</label>
+    </div></div>
   <button id="startBtn" class="big">DEPLOY</button>
-  <div class="reprow"><button id="replayBtn">▶ Load replay…</button> <button id="lastReplayBtn" style="display:none">▶ Watch last game</button><input type="file" id="replayFile" accept=".json,application/json" style="display:none"></div>
+  <details class="howto"><summary>How to play</summary>
   <div class="help">Build Power → Barracks → Ore Refinery → War Factory. The Research Lab unlocks heavy armor, artillery and the Helipad. Harvesters can also be built at the Command Yard.<br>
   Counters: bullets shred infantry · cannons beat armor · rockets hit armor &amp; air · flak downs aircraft · artillery wrecks bases.<br>
   Build Command Centers to expand (bases, production, refineries extend your build radius). Alt-click pings allies. Destroy every enemy base &amp; production structure to win.</div>
+  </details>
+  </div>
 </div></div>
 <div id="pause" class="screen" style="display:none"><div class="panel"><h2>PAUSED</h2><button id="resumeBtn" class="big">Resume</button><button onclick="openSettings(true)">Settings</button><button id="surrBtn">🏳 Surrender</button><button class="quitBtn">Quit to menu</button></div></div>
 <div id="settings" class="screen" style="display:none"><div class="panel set">

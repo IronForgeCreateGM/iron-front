@@ -87,3 +87,14 @@ button:disabled{opacity:.5;cursor:not-allowed}
 #bhint{font-size:11px;color:rgba(180,200,220,.75);padding:2px 0}
 #hint{font-size:12px;bottom:128px}
 #view{position:relative}
+
+/* v5.5 simplified home + setup with map preview */
+#homeBtns{display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:18px}
+#homeBtns .big{width:300px;margin:6px auto}#homeBtns .big.alt{background:linear-gradient(#2a8a6a,#1a5a47)}
+.homeSmall{margin-top:8px}.homeSmall button{font-size:13px;padding:6px 14px}
+#menu .panel{max-width:980px}
+.setupTop{display:flex;align-items:center;gap:12px;margin:6px 0 10px}.setupTop .back{margin:0}#setupTitle{font-size:18px;letter-spacing:2px;color:#cfe}
+.setupRow{display:flex;gap:18px;align-items:flex-start;text-align:left}.setupL{flex:0 0 230px}.setupR{flex:1;min-width:0}
+.setupL .lopts{flex-direction:column;align-items:flex-start;gap:6px}
+#mapPrev{width:200px;height:200px;border:1px solid #2f4258;border-radius:6px;background:#000;image-rendering:pixelated;margin-top:6px}
+.howto{margin-top:8px;color:#93a7bb;font-size:12px;text-align:left}.howto summary{cursor:pointer;color:#9cc}

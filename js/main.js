@@ -292,3 +292,38 @@ function netOverlay(stall, dt) {
 }
 
 function uiMsgMenu(t) { const e = document.getElementById('onStatus'); if (e) e.textContent = t; }
+// ===== v5.5 home screen + map preview =====
+function homeShow(mode) { // mode: null = home, 'bots', 'online'
+  const hb = document.getElementById('homeBtns'), su = document.getElementById('setup'), ow = document.getElementById('onWrap'); if (!hb || !su) return;
+  hb.style.display = mode ? 'none' : ''; su.style.display = mode ? '' : 'none'; if (ow) ow.style.display = mode === 'online' ? '' : 'none';
+  const t = document.getElementById('setupTitle'); if (t) t.textContent = mode === 'online' ? 'Online game — host or join, then set up slots' : 'Game vs bots';
+  if (mode) mapPreview();
+}
+function mapPreview() {
+  const cv = document.getElementById('mapPrev'), sel = document.getElementById('mapSel'); if (!cv || !sel) return;
+  const map = sel.value, key = map; if (MP_CACHE[key]) { cv.getContext('2d').putImageData(MP_CACHE[key].img, 0, 0); document.getElementById('mapPrevTxt').textContent = MP_CACHE[key].txt; return; }
+  const n = map === 'volcano8' ? 8 : map === 'volcano' || map === 'frost' ? 6 : 4, slots = []; for (let i = 0; i < n; i++) slots.push({ ai: true, diff: 'easy', ally: i % 2 });
+  const G0 = typeof G !== 'undefined' ? G : null, MW0 = MW, MH0 = MH;
+  try { newGame({ seed: 1, map, slots }); } catch (e) { return; }
+  const x = cv.getContext('2d'), W = cv.width, s = W / MW, img = x.createImageData(W, W), d = img.data;
+  for (let py = 0; py < W; py++) for (let px = 0; px < W; px++) { const tx = Math.floor(px / s), ty = Math.floor(py / s), i = ty * MW + tx, t = G.map[i], l = G.lvl[i];
+    let r, g, b; if (t === 1) { r = 88; g = 82; b = 74; } else if (t === 2) { r = 28; g = 80; b = 120; } else if (G.lava[i]) { r = 230; g = 90; b = 30; } else if (G.ore[i] > 0) { r = 230; g = 190; b = 60; } else if (G.ice[i]) { r = 170; g = 210; b = 230; } else { const base = map === 'frost' ? [190, 205, 215] : map.startsWith('volcano') ? [70, 62, 58] : [70, 110, 60]; r = base[0] + l * 22; g = base[1] + l * 22; b = base[2] + l * 18; if (G.forest[i]) { r *= 0.7; g *= 0.85; b *= 0.7; } }
+    const o = (py * W + px) * 4; d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255; }
+  x.putImageData(img, 0, 0);
+  x.fillStyle = '#4fe8dc'; for (const [vx, vy] of G.vents || []) { x.beginPath(); x.arc((vx + 0.5) * s, (vy + 0.5) * s, 2.6, 0, 7); x.fill(); }
+  x.font = 'bold 12px system-ui'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  G.starts.forEach(([sx, sy], k) => { x.fillStyle = k % 2 ? '#ff5040' : '#5fb0ff'; x.beginPath(); x.arc(sx * s, sy * s, 8, 0, 7); x.fill(); x.fillStyle = '#fff'; x.fillText(String(k + 1), sx * s, sy * s + 0.5); });
+  const txt = `${MW}×${MH} · ${G.starts.length} bases · ${(G.vents || []).length} gas vents`;
+  MP_CACHE[key] = { img: x.getImageData(0, 0, W, W), txt }; document.getElementById('mapPrevTxt').textContent = txt;
+  G = G0; MW = MW0; MH = MH0;
+}
+const MP_CACHE = {};
+window.addEventListener('load', () => {
+  const $$ = id => document.getElementById(id);
+  if ($$('playBotsBtn')) $$('playBotsBtn').onclick = () => { audioInit && audioInit(); homeShow('bots'); };
+  if ($$('playOnlineBtn')) $$('playOnlineBtn').onclick = () => { audioInit && audioInit(); homeShow('online'); };
+  if ($$('backBtn')) $$('backBtn').onclick = () => homeShow(null);
+  if ($$('mapSel')) $$('mapSel').addEventListener('change', mapPreview);
+  if (new URLSearchParams(location.search).get('room')) homeShow('online');
+  if (QS.get('lobbytest') || QS.get('home')) homeShow(QS.get('home') === 'online' ? 'online' : 'bots');
+});
