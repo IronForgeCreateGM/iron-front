@@ -49,7 +49,10 @@ function aiStep(P) {
     S.saving = want && avail(P.team, want) && P.cr <= BT[want].cost * 0.3 && ['refinery', 'cc', 'factory', 'power', 'extractor', 'barracks'].includes(want) ? want : null;
     if (want && avail(P.team, want) && P.cr > BT[want].cost * 0.3) enqueue(P.team, want);
   }
-  if (doc) defenseMgr(P, S, D, me, cnt, hq);
+  { const nd = me.filter(e => e.kind === 'b' && BT[e.t].cat === 'def' && e.t !== 'wall' && e.t !== 'gate').length, nw = (cnt.wall || 0) + (cnt.gate || 0);
+    S.defFull = nd >= 14 + 4 * (cnt.cc || 0) || (G.time > END_T && nd >= 8); S.wallFull = nw >= 36 || G.time > END_T; // v5.6: towers must not starve the army
+    if (S.defFull && !S.underAttack) for (const it of P.queues.def.slice()) if (it.t !== 'wall' && it.prog < 0.3) cancel(P.team, it.t); }
+  if (doc && !(S.defFull && !S.underAttack)) defenseMgr(P, S, D, me, cnt, hq);
   else if (!P.queues.def.length && !P.ready.def && (cnt.factory || 0) > 0) {
     const need = {}; for (const b of (D.order || (D.si ? AI_ORDER_SI : D.chief ? AI_ORDER_CHIEF : AI_ORDER))) { if (BT[b].cat !== 'def') continue; need[b] = (need[b] || 0) + 1; if ((cnt[b] || 0) < need[b] && avail(P.team, b) && (S.bad[b] || 0) < G.time) { if (!aiSpot(P, b, hq, foes)) { S.bad[b] = G.time + 45; continue; } if (P.cr > (D.defCr || 1200)) enqueue(P.team, b); break; } }
   }
@@ -66,9 +69,13 @@ function aiStep(P) {
     const sac = ['airpad', 'tech', 'aagun', 'turret', 'wall'].map(t => myBld().find(b => b.t === t)).find(Boolean) || (cnt.barracks > 1 && myBld().find(b => b.t === 'barracks'));
     if (sac) { sellB(sac); S.sellT = G.time + 15; }
   }
+  // v5.6: no construction yard left -> power can't be rebuilt; sell dark power consumers (defenses first) until the grid is positive
+  if (P.pow < 0 && !me.some(e => (e.t === 'hq' || e.t === 'cc') && e.hp > 0) && G.time > (S.shedT || 0)) { const dr = myBld().filter(b => BT[b.t].pow < 0 && b.t !== 'factory' && b.t !== 'barracks').sort((a, b) => (BT[a.t].cat === 'def' ? 0 : 1) - (BT[b.t].cat === 'def' ? 0 : 1) || BT[a.t].pow - BT[b.t].pow)[0]; if (dr) { sellB(dr); S.shedT = G.time + 2; } }
   // v5.4 power watchdog: never sit dark — rebuild/expand power before any other spend
-  if ((P.pow < 40 || me.some(e => e.offline)) && avail(P.team, 'power') && (cnt.power || 0) < 40) {
+  if ((P.pow < (G.time > 300 ? 60 : 40) || me.some(e => e.offline)) && avail(P.team, 'power') && (cnt.power || 0) < 60) {
+    if (P.queues.bld.length && P.queues.bld[0].t !== 'power' && P.pow < 0) cancel(P.team, P.queues.bld[0].t); // power before anything else
     if (!P.queues.bld.length && !P.ready.bld && P.cr > BT.power.cost * 0.25) enqueue(P.team, 'power');
+    if ((S.bad.power || 0) > G.time && G.time > (S.clearT || 0)) { const jb = myBld().filter(b => b.t === 'wall' || b.t === 'turret' || b.t === 'aagun' || b.t === 'gate').sort((a, b) => dhypot(a.x - hq.x, a.y - hq.y) - dhypot(b.x - hq.x, b.y - hq.y))[0]; if (jb) { sellB(jb); S.clearT = G.time + 6; S.bad.power = 0; } }
     if (P.pow < 0) return; // stay focused on power while blacked out
   }
   if (realH < 2 && P.cr < UT.harv.cost + 200 && P.pow >= 0) return; // save for harvesters
@@ -100,7 +107,7 @@ function aiStep(P) {
   if (intruders.length) {
     const mine = intruders.filter(f => myB.some(b => dhypot(b.x - f.x, b.y - f.y) < 12)), c = mine[0] || intruders[0];
     let defenders = home.filter(u => u.order !== 'attack' && dhypot(u.x - c.x, u.y - c.y) < 25);
-    if (!mine.length && G.time > (S.helpT || 0) && armyVal(intruders) > 800 && armyVal(home) > 4000) { S.helpT = G.time + 40; defenders = home.filter(u => u.t !== 'harv' && !UT[u.t].jet).slice(0, Math.ceil(home.length * 0.4)); defenders.forEach(u => S.attackers.add(u.id)); G.events.push({ e: 'allyAck', team: P.team, x: c.x, y: c.y }); }
+    if (!mine.length && G.time > (S.helpT || 0) && armyVal(intruders) > 500 && armyVal(home) > 1500) { S.helpT = G.time + 30; defenders = home.filter(u => u.t !== 'harv' && !UT[u.t].jet).slice(0, Math.ceil(home.length * 0.55)); defenders.forEach(u => S.attackers.add(u.id)); G.events.push({ e: 'allyAck', team: P.team, x: c.x, y: c.y }); }
     if (D.firstAttack && G.time < D.firstAttack) defenders.forEach(u => S.attackers.delete(u.id));
     if (defenders.length) orderMove(defenders, c.x, c.y, true);
   }
@@ -123,7 +130,7 @@ function aiStep(P) {
   macroMgr(P, S, D, cnt, me); harassMgr(P, S, D, me, foes, knownB, home, hq); dropMgr(P, S, D, me, foes, knownB, home, hq); derrickMgr(P, S, D, me, cnt, hq);
   S.doc = doc;
   if (D.si) siExtras(P, S, me, foes, knownB, hq, estart, intruders);
-  if (D.chief || D.sys.sim) { chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart); return; }
+  if (D.chief || D.sys.sim) { chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart); keepBusy(P, S, D, me, cnt, hq, intruders); return; }
   // 8) waves
   for (const id of [...S.attackers]) { const u = byId(id); if (!u) S.attackers.delete(id); else if (u.order === 'idle' && !u.tgt && G.R() < 0.2) S.attackers.delete(id); }
   const ready = home.filter(u => u.t !== 'harv');
@@ -143,6 +150,7 @@ function aiStep(P) {
   }
   // 8b) defense upgrades when rich
   if (P.cr > 2500 && G.R() < 0.1) { const t = myB.find(b => UPG[b.t] && (b.lvl || 1) < 3 && b.upT == null); if (t) upgradeB(t); }
+  keepBusy(P, S, D, me, cnt, hq, intruders);
   // 9) repair damaged buildings
   for (const b of myB) if (b.hp < b.mhp * 0.6 && P.cr > 500) b.repair = true;
 }
@@ -172,6 +180,19 @@ function aiSpot(P, t, hq, foes) {
     if (d.cat !== 'def') { let ok = true; for (let yy = y - 1; yy <= y + d.h && ok; yy++) for (let xx = x - 1; xx <= x + d.w; xx++) if (inb(xx, yy) && g[idx(xx, yy)] === 2) { ok = false; break; } if (!ok) continue; }
     return [x, y];
   }
+  if (d.cat === 'bld' && !aiSpot.inner) { aiSpot.inner = true; try { return aiSpotWide(P, t, hq); } finally { aiSpot.inner = false; } }
+  return null;
+}
+// v5.6: crowded base -> look around every own building (expansions too) out to 22 tiles, then without the spacing rule
+function aiSpotWide(P, t, hq) {
+  const d = BT[t], g = getBlock(), anchors = G.ents.filter(e => e.team === P.team && e.kind === 'b' && e.t !== 'wall' && e.t !== 'gate' && e.hp > 0);
+  for (const strict of [true, false]) { const cands = [];
+    for (const a of anchors) for (let y = Math.max(1, Math.floor(a.y - 9)); y < Math.min(MH - d.h, a.y + 9); y++) for (let x = Math.max(1, Math.floor(a.x - 9)); x < Math.min(MW - d.w, a.x + 9); x++) cands.push([dhypot(x - hq.x, y - hq.y) + (a.t === 'hq' || a.t === 'cc' ? 0 : 3), x, y]);
+    cands.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]); let last = -1;
+    for (const [dd, x, y] of cands) { if (dd > 26) break; const k = y * MW + x; if (k === last) continue; last = k; if (!canPlace(t, P.team, x, y)) continue;
+      if (P.aiS && P.aiS.lanes && P.aiS.lanes.some(l => dhypot(l.x - x - d.w / 2, l.y - y - d.h / 2) < 1.2 + d.w * 0.5)) continue;
+      if (strict) { let ok = true; for (let yy = y - 1; yy <= y + d.h && ok; yy++) for (let xx = x - 1; xx <= x + d.w; xx++) if (inb(xx, yy) && g[idx(xx, yy)] === 2) { ok = false; break; } if (!ok) continue; }
+      return [x, y]; } }
   return null;
 }
 
@@ -471,7 +492,7 @@ function defenseMgr(P, S, D, me, cnt, hq) {
   const dv = myD.reduce((a, d) => a + BT[d.t].cost, 0), av = armyVal(me.filter(u => u.kind === 'u' && UT[u.t].wpn && u.t !== 'harv')); const share = SIOFF.def53 ? (S.underAttack ? 0.45 : 0.3) : (S.underAttack ? 0.6 : 0.45); const capped = dv > 1500 && dv > (av + dv) * share;
   S.lanes = ents.flatMap(e => e.lane);
   // entrance walls with a gate (own units pass, enemies must break through under tower fire)
-  if (!SIOFF.walls && tier >= 2 && P.cr > 700 && avail(P.team, 'wall')) for (const en of ents) if (G.time > (en.wallT || 0) && myD.filter(d => dhypot(d.x - en.x, d.y - en.y) < 5).length >= 2) { en.wallT = G.time + 150; aiWallEntrance(P, en); return; }
+  if (!SIOFF.walls && !S.wallFull && tier >= 2 && P.cr > 700 && avail(P.team, 'wall')) for (const en of ents) if (G.time > (en.wallT || 0) && myD.filter(d => dhypot(d.x - en.x, d.y - en.y) < 5).length >= 2) { en.wallT = G.time + 150; aiWallEntrance(P, en); return; }
   for (const [t, n] of plan) for (const en of ents) { if (!n || !avail(P.team, t) || (S.bad[t] || 0) > G.time || (capped && !(t === 'turret' && n <= 2))) continue; const have = myD.filter(d => d.t === t && dhypot(d.x - en.x, d.y - en.y) < 5.5).length; if (have < n) { if (BT[t].pow < 0 && P.pow + BT[t].pow < 0) return; // never build towers that would black out the base
       let at = { x: en.x + (en.b.x - en.x) * 0.15, y: en.y + (en.b.y - en.y) * 0.15 };
       if (t === 'tesla') { const near = myD.find(d => d.t === 'tesla' && dhypot(d.x - en.x, d.y - en.y) < 5.5); if (near) at = { x: near.x, y: near.y }; } // cluster within relay range
@@ -563,3 +584,46 @@ function warheadMgr(P, S, D, me, foes, knownB) {
 }
 // allied coordination: post a team attack plan; allies with a decent army launch at the same time from another angle
 function teamPlan(P) { G.tplan = G.tplan || {}; const p = G.tplan[P.ally]; return p && G.time - p.t < 25 ? p : null; }
+
+// ===== v5.6 keep-busy layer: idle watchdog, rich-spend, map centre, endgame all-in =====
+const END_T = 22 * 60;
+function endTarget(P) { // shared per alliance: weakest surviving enemy (fewest known structures) -> its nearest known building / start
+  G.etgt = G.etgt || {}; let e = G.etgt[P.ally];
+  if (!e || G.players[e.team].out || G.time - e.t > 20) { let best = null, bv = 1e9; const S = P.aiS;
+    for (const Q of G.players) if (foe(Q.team, P.team) && !Q.out) { let v = 0; for (const b of S.known.values()) if (b.team === Q.team) v += BT[b.t].cost; v = v || 1e5 - Q.team; if (v < bv) { bv = v; best = Q.team; } }
+    if (best == null) return null; e = G.etgt[P.ally] = { team: best, t: G.time }; }
+  const st = G.starts[G.players[e.team].start]; let tx = st[0], ty = st[1], bd = 1e9; const hq = G.ents.find(x => x.team === P.team && x.kind === 'b');
+  for (const b of P.aiS.known.values()) if (b.team === e.team && b.hp > 0) { const d = dhypot(b.x - (hq ? hq.x : tx), b.y - (hq ? hq.y : ty)); if (d < bd) { bd = d; tx = b.x; ty = b.y; } }
+  return { team: e.team, x: tx, y: ty };
+}
+function keepBusy(P, S, D, me, cnt, hq, intruders) {
+  const army = me.filter(u => u.kind === 'u' && UT[u.t].wpn && u.t !== 'harv' && !UT[u.t].engineer && u.hp > 0);
+  // production progress key
+  let key = 0; for (const c in P.queues) for (const it of P.queues[c]) key += (it.prog || 0) + 1; for (const c in P.ready) if (P.ready[c]) key += 7;
+  if (key !== S.pKey || army.some(u => u.tgt)) { S.pKey = key; S.busyT = G.time; }
+  const idleFor = G.time - (S.busyT || G.time);
+  const rich = P.cr > 2500 && P.pow >= 0;
+  if (!P.queues.bld.length && !P.ready.bld && P.pow >= 30 && P.cr > 3000 && G.time > 360) { // turn a bank into production
+    const t = (cnt.factory || 0) < 3 ? 'factory' : (cnt.barracks || 0) < 2 ? 'barracks' : (cnt.refinery || 0) < 4 && G.ore.some(o => o > 200) ? 'refinery' : avail(P.team, 'silo') && !(cnt.silo) && G.time > 900 ? 'silo' : (cnt.airfield || 0) < 2 && avail(P.team, 'airfield') ? 'airfield' : null;
+    if (t && avail(P.team, t) && (S.bad[t] || 0) < G.time && aiSpot(P, t, hq, [])) enqueue(P.team, t);
+  }
+  if (P.pow >= 0 && P.cr > 600) { for (const [c, t] of [['inf', 'rifle'], ['veh', 'light']]) if (producers(P.team, c) && P.queues[c].length < Math.min(5, producers(P.team, c) * 2) && (rich || idleFor > 15)) { const opts = c === 'inf' ? ['rifle', 'rocketeer', 'rifle', 'pyro'] : ['heavy', 'light', 'arty', 'heavy', 'titan', 'tsar']; const pk = opts.filter(x => avail(P.team, x)); if (pk.length) enqueue(P.team, pk[(G.R() * pk.length) | 0]); } }
+  // idle watchdog
+  if (idleFor > 20) { S.busyT = G.time - 10;
+    if (!(cnt.refinery) && avail(P.team, 'refinery')) enqueue(P.team, 'refinery');
+    else if (me.filter(e => e.t === 'harv').length < 2 && avail(P.team, 'harv')) enqueue(P.team, 'harv');
+    else if (!(cnt.barracks) && avail(P.team, 'barracks')) enqueue(P.team, 'barracks');
+    else if (!(cnt.factory) && avail(P.team, 'factory')) enqueue(P.team, 'factory');
+    else if (avail(P.team, 'rifle')) enqueue(P.team, 'rifle');
+    const lazy = army.filter(u => u.order === 'idle' && !u.tgt && !UT[u.t].jet);
+    if (lazy.length && !intruders.length && peaceOver(P)) { const e = G.time > END_T ? endTarget(P) : null, M = MW / 2; const x = e ? e.x : M + (G.R() - 0.5) * 8, y = e ? e.y : MH / 2 + (G.R() - 0.5) * 8; orderMove(lazy, x, y, true); for (const u of lazy) S.attackers.add(u.id); }
+  }
+  // endgame: allied all-in on the weakest enemy, nonstop reinforcement, no retreat
+  if (G.time > END_T && G.time > (S.endT || 0)) { S.endT = G.time + 6; const e = endTarget(P); if (!e) return;
+    const mine = intruders.filter(f => me.some(b => b.kind === 'b' && dhypot(b.x - f.x, b.y - f.y) < 9));
+    const go = army.filter(u => !UT[u.t].jet && !(u.order === 'attack' && u.tgt) && !(mine.length && dhypot(u.x - mine[0].x, u.y - mine[0].y) < 14 && army.length < 25));
+    const far = go.filter(u => dhypot(u.x - e.x, u.y - e.y) > 6 || u.order === 'idle'); if (far.length) { orderMove(far, e.x, e.y, true); for (const u of far) S.attackers.add(u.id); }
+    S.allIn = true; S.lastAttack = G.time;
+    if (!(cnt.silo) && avail(P.team, 'silo') && P.cr > 3500 && !P.queues.bld.length && !P.ready.bld && aiSpot(P, 'silo', hq, [])) enqueue(P.team, 'silo');
+  }
+}
