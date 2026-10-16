@@ -48,3 +48,4 @@ Also earlier backlog: wall gate.
 - HOTKEY REWORK: keep WASD camera pan, but no overlap with other hotkeys (remap conflicting ones, e.g. A attack-move vs A pan, S stop, D, W).
 - CLICK ACCURACY: clicks are offset; must aim slightly below-left of a turret to select/upgrade it. Fix picking (raycast vs mesh/bounds, devicePixelRatio/canvas offset) so the cursor lines up exactly.
 - ONLINE LAG: friends played online and saw lag. Profile netcode (lockstep input delay, peer latency, sim cost), smooth it out; decide whether to publish to GitHub Pages (needs Nicholas's OK to push).
+  - Lag specifically seen with 4 human players online; test and optimize the 4-human case.
