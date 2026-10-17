@@ -1,4 +1,4 @@
-// v5.7 mobile view: Playwright iPhone emulation (touch events) — NODE_PATH=/tmp/pw/node_modules node test/mobile-test.js [url]
+// v5.7 mobile view: Playwright iPhone emulation (touch events) — NODE_PATH=/workspace/pwlib/node_modules node test/mobile-test.js [url]
 const { chromium, devices } = require('playwright-core'), path = require('path');
 const URL0 = process.argv[2] || 'file://' + path.resolve(__dirname, '../index.html');
 (async () => {

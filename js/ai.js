@@ -10,6 +10,7 @@ function aiInit(P) { P.aiS = { next: 0, wave: DIFF[P.diff].wave0, scoutT: DIFF[P
 // v5.0 peace window: no attacks on bases before G.opts.peace seconds (default 180; lobby Off/3/5/8 min)
 function peaceOver(P) { if (P && DIFF[P.diff].human) return true; return G.time >= (G.opts.peace == null ? 180 : G.opts.peace); }
 function aiStep(P) {
+  if (!P.ai) return; // bot logic never touches a human player's units
   const S = P.aiS, D = DIFF[P.diff], doc = (!D.order || D.doc) && !SIOFF.doc;
   const myBld = () => G.ents.filter(e => e.team === P.team && e.kind === 'b' && e.sell < 0);
   if (G.time < S.next) return;

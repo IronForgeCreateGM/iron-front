@@ -301,7 +301,10 @@ function screenToWorld(sx, sy) {
   R3.raycaster.setFromCamera(v, R3.camera); const p = new THREE.Vector3();
   if (!R3.raycaster.ray.intersectPlane(R3.ground, p)) return null;
   // v5.5: refine against terrain height (plateaus/hills) so the cursor hits what is drawn under it
-  if (typeof heightAt === 'function') { const pl = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); for (let k = 0; k < 4; k++) { pl.constant = -heightAt(p.x, p.z); const q = new THREE.Vector3(); if (!R3.raycaster.ray.intersectPlane(pl, q)) break; p.copy(q); } }
+  if (typeof heightAt === 'function') { // v5.7.1: march the ray to the FIRST terrain hit (fixed-point refinement could land on the wrong side of a cliff)
+    const o = R3.raycaster.ray.origin, dv = R3.raycaster.ray.direction, top = 6; let t0 = dv.y < 0 ? Math.max(0, (o.y - top) / -dv.y) : 0, t1 = o.distanceTo(p) + 4, prev = t0, hit = -1;
+    for (let t = t0; t <= t1; t += 0.25) { const x = o.x + dv.x * t, y = o.y + dv.y * t, z = o.z + dv.z * t; if (y <= heightAt(x, z)) { hit = t; break; } prev = t; }
+    if (hit >= 0) { let a = prev, b = hit; for (let k = 0; k < 8; k++) { const m = (a + b) / 2, y = o.y + dv.y * m; if (y <= heightAt(o.x + dv.x * m, o.z + dv.z * m)) b = m; else a = m; } p.set(o.x + dv.x * b, 0, o.z + dv.z * b); } }
   return { x: p.x, y: p.z };
 }
 const _v3 = typeof THREE !== 'undefined' ? new THREE.Vector3() : null;

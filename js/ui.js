@@ -120,6 +120,8 @@ function pickAt(sx, sy) {
   let best = null, bd = 1e9;
   for (const e of G.ents) {
     if (!visibleTo0(e)) continue;
+    // v5.7.1: the thing under the cursor must be near the clicked ground point (objects behind the camera project to garbage boxes)
+    if (dhypot(e.x - w.x, e.y - w.y) > (e.kind === 'b' ? Math.max(e.w, e.h) * 0.75 + 2.5 : UT[e.t] && (UT[e.t].air || UT[e.t].jet) ? 4.5 : 2.5)) continue;
     if (e.kind === 'b') { // v5.5: screen-space box of the projected building (base + top), exact under the cursor
       const h0 = typeof heightAt === 'function' ? heightAt(e.x, e.y) : 0, ht = e.t === 'tesla' ? 2.4 : e.t === 'wall' || e.t === 'gate' ? 0.9 : BT[e.t].cat === 'def' ? 1.3 : 1.6;
       let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [cx, cy] of [[e.tx, e.ty], [e.tx + e.w, e.ty], [e.tx, e.ty + e.h], [e.tx + e.w, e.ty + e.h]]) for (const z of [h0, h0 + ht]) { const q = worldToScreen(cx, cy, z); x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }

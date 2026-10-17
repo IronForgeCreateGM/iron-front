@@ -81,7 +81,7 @@ function onlRenderPeers(st) {
   e.innerHTML = `<div>Slot 1: <b>${st.hostName}</b> (host)</div>` + Object.values(st.peers).map(p => `<div>Slot ${p.row + 1}: <b>${p.name}</b> ${p.ready ? '✔ ready' : '… not ready'}</div>`).join('');
 }
 function onlStartHost() {
-  const rows = lobbyRead(), names = { 0: ONL.name }; for (const p of Object.values(ONL.peers)) names[p.row] = p.name;
+  const rows = lobbyRead(), names = { [Math.max(0, rows.findIndex(r => r[0] === 'human'))]: ONL.name }; for (const p of Object.values(ONL.peers)) names[p.row] = p.name;
   const slots = buildSlots(rows, names), seed = (Math.random() * 1e9) | 0;
   const peerTeam = {}; for (const pid in ONL.peers) { const k = slots.findIndex(s => s.row === ONL.peers[pid].row); if (k >= 0) peerTeam[pid] = k; }
   const me = slots.findIndex(s => s.local), humans = slots.map((s, i) => !s.ai ? i : -1).filter(i => i >= 0);

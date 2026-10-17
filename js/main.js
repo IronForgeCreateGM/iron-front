@@ -6,7 +6,7 @@ window.addEventListener('error', e => { if (QS.get('stk')) document.title = 'STK
 function togglePause() { if (!started || G.over) return; if (NET.online) { const pz = document.getElementById('pause'); pz.style.display = pz.style.display === 'flex' ? 'none' : 'flex'; return; } paused = !paused; document.getElementById('pause').style.display = paused ? 'flex' : 'none'; }
 const MENU = { fac: 'usa', aiFac: 'rand' };
 const DIFF_NAME = d => ({ si: 'Chief SI', chief: 'Chief', easy: 'Easy AI', normal: 'Medium AI', hard: 'Hard AI' })[d] || d;
-const SLOT_TYPES = { off: 'Closed', human: 'Human (you)', remote: 'Human (remote)', si: 'Chief SI', chief: 'Chief', easy: 'Easy AI', normal: 'Medium AI', hard: 'Hard AI' };
+const SLOT_TYPES = { off: 'Closed', human: 'You', remote: 'Human (remote)', si: 'Chief SI', chief: 'Chief', easy: 'Easy AI', normal: 'Medium AI', hard: 'Hard AI' };
 const PRESETS = {
   duel:   { n: '1v1', slots: [['human', 'A'], ['normal', 'B']] },
   ffa2:   { n: '2v2', slots: [['human', 'A'], ['hard', 'A'], ['hard', 'B'], ['hard', 'B']] },
@@ -192,6 +192,11 @@ function selfTest() {
     const army = []; for (let i = 0; i < 8; i++) army.push(addU(['heavy', 'rifle', 'arty', 'rocketeer'][i % 4], 0, 16 + i % 3, 16 + (i / 3 | 0)));
     setSel(army); sidebar(); doFormation(false); const fmOk = army.every(u => u.stance === 'hold'); toggleStance(); const agg = army.every(u => u.stance === 'aggr');
     { r3Render(0.016); const c = worldToScreen(tur2.x, tur2.y, heightAt(tur2.x, tur2.y) + 0.9), pk = pickAt(c.x, c.y); extra += ` pick=${!!pk && pk.id === tur2.id}`; if (!pk || pk.id !== tur2.id) throw new Error('pick offset'); }
+    { // v5.7.1: picks anywhere on screen must be near the clicked ground (no far-away/behind-camera objects)
+      const el = R3.renderer.domElement; let bad = 0, n = 0; const sv = [R3.cam.x, R3.cam.y, R3.cam.d, R3.cam.tx, R3.cam.ty, R3.cam.td];
+      for (const [cx, cy, d] of [[20, 30, 26], [48, 60, 40], [70, 20, 18], [30, 80, 60]]) { R3.cam.td = R3.cam.d = d; jumpTo(cx, cy, true); r3Render(0.016);
+        for (let i = 1; i < 10; i++) for (let j = 1; j < 8; j++) { const sx = el.clientWidth * i / 10, sy = el.clientHeight * j / 8, w = screenToWorld(sx, sy), pk = pickAt(sx, sy); if (!w) continue; n++; if (pk && dhypot(pk.x - w.x, pk.y - w.y) > 6) bad++; } }
+      [R3.cam.x, R3.cam.y, R3.cam.d, R3.cam.tx, R3.cam.ty, R3.cam.td] = sv; extra += ` farpick=${bad}/${n}`; if (bad) throw new Error('far pick ' + bad); }
     extra += ` upg=${okU}:${lv}:${lv0}->${defW(tur2).rng} formation=${fmOk} stance=${agg}`;
     for (let i = 0; i < 300; i++) stepGame();
     for (let i = 0; i < 20; i++) { uiFrame(0.05); r3Render(0.05); }
@@ -226,9 +231,11 @@ function lobbyInit() {
   const box = document.getElementById('lobby'); if (!box) return;
   const facOpt = '<option value="rand">Random</option>' + Object.keys(FACTIONS).map(f => `<option value="${f}">${FACTIONS[f].flag} ${FACTIONS[f].n}</option>`).join('');
   box.innerHTML = '<div class="lrow lh"><span>Slot</span><span>Player</span><span>Team</span><span>Faction</span><span>Colour</span></div>' + [0, 1, 2, 3, 4, 5, 6, 7].map(i => `<div class="lrow"><span>${i + 1}</span>
-    <select class="lt">${Object.keys(SLOT_TYPES).filter(k => i === 0 ? k !== 'remote' : k !== 'human').map(k => `<option value="${k}">${SLOT_TYPES[k]}</option>`).join('')}</select>
+    <select class="lt">${Object.keys(SLOT_TYPES).map(k => `<option value="${k}">${SLOT_TYPES[k]}</option>`).join('')}</select>
     <select class="la"><option value="A">Team A</option><option value="B">Team B</option></select><select class="lf">${facOpt}</select><select class="lc"><option value="auto">Auto</option>${Object.keys(TEAM_COLORS).map(c => `<option value="${c}">${TEAM_COLORS[c].n}</option>`).join('')}</select></div>`).join('');
   box.querySelectorAll('.lc').forEach(sel => sel.onchange = () => { if (sel.value === 'auto') return; box.querySelectorAll('.lc').forEach(o => { if (o !== sel && o.value === sel.value) o.value = 'auto'; }); if (typeof lobbyChanged === 'function') lobbyChanged(); });
+  // v5.7.1: "You" can be any slot; only one row can be You (the previous one becomes a Hard AI)
+  box.querySelectorAll('.lt').forEach(sel => sel.addEventListener('change', () => { if (sel.value !== 'human') return; box.querySelectorAll('.lt').forEach(o => { if (o !== sel && o.value === 'human') o.value = 'hard'; }); }));
   box.querySelectorAll('select').forEach(sel => sel.addEventListener('change', () => { if (typeof lobbyChanged === 'function') lobbyChanged(); }));
   const pb = document.getElementById('presets'); pb.innerHTML = Object.keys(PRESETS).filter(k => k[0] !== 'w').map(k => `<button data-p="${k}">${k[0] === 'w' ? '▶ ' : ''}${PRESETS[k].n}</button>`).join('');
   pb.querySelectorAll('button').forEach(b => b.onclick = () => { lobbySet(PRESETS[b.dataset.p].slots); { const ms = document.getElementById('mapSel'), pm = PRESETS[b.dataset.p].map; if (ms && pm) { ms.value = pm; ms.dispatchEvent(new Event('change')); } } if (b.dataset.p[0] === 'w') { audioInit(); startGame('normal', { slots: buildSlots(lobbyRead()), seed: (Math.random() * 1e6) | 0 }); } });
