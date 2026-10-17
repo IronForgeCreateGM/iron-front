@@ -85,8 +85,8 @@ function onlStartHost() {
   const slots = buildSlots(rows, names), seed = (Math.random() * 1e9) | 0;
   const peerTeam = {}; for (const pid in ONL.peers) { const k = slots.findIndex(s => s.row === ONL.peers[pid].row); if (k >= 0) peerTeam[pid] = k; }
   const me = slots.findIndex(s => s.local), humans = slots.map((s, i) => !s.ai ? i : -1).filter(i => i >= 0);
-  const gopt = lobbyOpts(); ONL.acts.start({ seed, slots, peerTeam, humans, host: ONL.selfId, map: gopt.map, peace: gopt.peace });
-  ONL.started = true; onlBegin({ seed, slots, me, humans, peerTeam, host: true, hostPeer: ONL.selfId, map: gopt.map, peace: gopt.peace });
+  const gopt = lobbyOpts(); ONL.acts.start({ seed, slots, peerTeam, humans, host: ONL.selfId, map: gopt.map, peace: gopt.peace, fog: gopt.fog });
+  ONL.started = true; onlBegin({ seed, slots, me, humans, peerTeam, host: true, hostPeer: ONL.selfId, map: gopt.map, peace: gopt.peace, fog: gopt.fog });
 }
 // ---- client ----
 function onlJoin(code) {
@@ -100,14 +100,14 @@ function onlJoin(code) {
   ONL.handlers.kick = d => { onlStatus('❌ ' + d.reason); };
   ONL.handlers.chat = d => onlChatLine(d.n + ': ' + d.m);
   ONL.handlers.sync = (d, pid) => { if (ONL.started || !d.full) return; ONL.started = true; ONL.hostId = pid; const o = d.opts;
-    onlBegin({ seed: o.seed, slots: o.slots, me: d.me, humans: d.humans, peerTeam: d.peerTeam, host: false, hostPeer: pid, map: o.map, peace: o.peace }); NET._applySync(d); };
-  ONL.handlers.start = (d, pid) => { ONL.started = true; ONL.hostId = pid; onlBegin({ seed: d.seed, slots: d.slots, me: d.peerTeam[ONL.selfId], humans: d.humans, peerTeam: d.peerTeam, host: false, hostPeer: pid, map: d.map, peace: d.peace }); };
+    onlBegin({ seed: o.seed, slots: o.slots, me: d.me, humans: d.humans, peerTeam: d.peerTeam, host: false, hostPeer: pid, map: o.map, peace: o.peace, fog: o.fog !== false }); NET._applySync(d); };
+  ONL.handlers.start = (d, pid) => { ONL.started = true; ONL.hostId = pid; onlBegin({ seed: d.seed, slots: d.slots, me: d.peerTeam[ONL.selfId], humans: d.humans, peerTeam: d.peerTeam, host: false, hostPeer: pid, map: d.map, peace: d.peace, fog: d.fog !== false }); };
   document.getElementById('readyBtn').style.display = '';
 }
 function onlBegin(o) {
   if (o.me == null) { onlStatus('You were not assigned a slot.'); return; }
   audioInit(); document.getElementById('menu').style.display = 'none';
-  startGame('normal', { slots: o.slots, seed: o.seed, me: o.me, map: o.map, peace: o.peace, online: { tr: onlTransport, host: o.host, me: o.me, humans: o.humans, peerTeam: o.peerTeam, hostPeer: o.hostPeer } });
+  startGame('normal', { slots: o.slots, seed: o.seed, me: o.me, map: o.map, peace: o.peace, fog: o.fog !== false, online: { tr: onlTransport, host: o.host, me: o.me, humans: o.humans, peerTeam: o.peerTeam, hostPeer: o.hostPeer } });
   announce('Online match — lockstep ' + NET.DELAY + ' ticks', 'net0', 1);
 }
 function onlInitUI() {

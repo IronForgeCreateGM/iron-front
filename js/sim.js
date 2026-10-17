@@ -867,7 +867,7 @@ function updFog() {
         for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(MW - 1, cx + r); x++) { const dd = (x + 0.5 - cx) * (x + 0.5 - cx) + (y + 0.5 - cy) * (y + 0.5 - cy);
           if (dd <= r2 && (G.tier[idx(x, y)] <= myT || dd < 4)) { v[idx(x, y)] = 1; sn[idx(x, y)] = 1; } }
     }
-    if (!G.opts.fog && t === 0) { v.fill(1); sn.fill(1); }
+    if (!G.opts.fog) { v.fill(1); sn.fill(1); } // v5.7.2: fog off = every team sees everything (was team 0 only)
   }
 }
 function visibleTo(team, e) {

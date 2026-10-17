@@ -29,8 +29,9 @@ async function browser(port, reuse) {
     console.log('peer joined lobby:', joined, ((Date.now() - t0) / 1000).toFixed(0) + 's'); if (!joined) throw new Error('no peer connection (relays/WebRTC)');
     await B.ev(`document.getElementById('readyBtn').click(); 1`); await sleep(2000);
     console.log('host start button:', await A.ev(`document.getElementById('startBtn').textContent`));
+    await A.ev(`(() => { const f = document.getElementById('fogChk'); if (f.checked) f.click(); return f.checked; })()`); // v5.7.2: host turns fog OFF; must reach the client
     await A.ev(`document.getElementById('startBtn').click(); 1`); await sleep(8000);
-    const st = async X => JSON.parse(await X.ev(`JSON.stringify({ tick: G.tick, me: ME, online: NET.online, host: NET.host, desync: NET.desync, d: NET.DELAY, ahead: (NET.maxTurn || 0) - G.tick, sent: NET.stats && NET.stats.sent, players: G.players.map(p => p.name + (p.ai ? '[AI]' : '')) })`));
+    const st = async X => JSON.parse(await X.ev(`JSON.stringify({ tick: G.tick, me: ME, online: NET.online, host: NET.host, desync: NET.desync, fog: G.opts.fog, vis: +(G.vis.reduce((a, v) => a + v, 0) / G.vis.length).toFixed(3), d: NET.DELAY, ahead: (NET.maxTurn || 0) - G.tick, sent: NET.stats && NET.stats.sent, players: G.players.map(p => p.name + (p.ai ? '[AI]' : '')) })`));
     console.log('A', await st(A)); console.log('B', await st(B));
     // client orders its army to a point; verify on host
     await B.ev(`(() => { const u = G.ents.filter(e => e.team === ME && e.kind === 'u' && e.t !== 'harv'); NET.issue({ c: 'move', u: u.map(e => e.id), x: 48, y: 48, am: false }); return u.length; })()`);
@@ -44,6 +45,7 @@ async function browser(port, reuse) {
     for (let i = 0; i < 30 && !(await A.ev('window.__h != null') && await B.ev('window.__h != null')); i++) await sleep(1000); const ha = await A.ev('window.__h'), hb = await B.ev('window.__h');
     console.log('hash @tick', hA, ha, hb, ha === hb ? 'MATCH' : 'MISMATCH');
     ok = sa.tick > 100 && sb.tick > 100 && !sa.desync && !sb.desync && moved && ha != null && ha === hb;
+    const fogOk = sa.fog === false && sb.fog === false && sa.vis === 1 && sb.vis === 1; console.log('fog off synced to both peers, map fully visible:', fogOk); ok = ok && fogOk;
     // disconnect: kill client, host should hand slot to AI and continue
     if (LOCAL) await B.cmd('Page.navigate', { url: 'about:blank' }); else B.ch.kill('SIGKILL'); await sleep(15000); const after = await st(A); console.log('after client quit:', after);
     ok = ok && after.players[1].includes('[AI]');

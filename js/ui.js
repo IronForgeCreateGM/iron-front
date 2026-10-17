@@ -39,7 +39,7 @@ function uiSetup() {
   window.addEventListener('mouseup', onUp);
   cv.addEventListener('wheel', e => { e.preventDefault(); R3.cam.td *= e.deltaY > 0 ? 1.12 : 0.89; if (G.spectate || G.watch) { if (typeof DIR !== 'undefined') DIR.userZoom = true; } }, { passive: false });
   window.addEventListener('keydown', onKey); window.addEventListener('keyup', e => { UI.keys[e.key.toLowerCase()] = false; UI.keys.shift = e.shiftKey; UI.keys.control = e.ctrlKey || e.metaKey; });
-  window.addEventListener('blur', () => { UI.keys = {}; });
+  window.addEventListener('blur', () => { UI.keys = {}; }); document.addEventListener('visibilitychange', () => { UI.keys = {}; });
   const mm = $('minimap');
   const mmPos = e => { const r = mm.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * MW, y: (e.clientY - r.top) / r.height * MH }; };
   mm.addEventListener('contextmenu', e => e.preventDefault());
@@ -195,6 +195,11 @@ function onUp(e) {
   setSel(list); if (list.length && list[0].team === ME) sfx('ack');
 }
 function onKey(e) {
+  const ae = document.activeElement, tag = ae && ae.tagName;
+  if (tag === 'TEXTAREA' || (tag === 'INPUT' && /^(text|search|number|password|email|)$/i.test(ae.type || ''))) return; // typing (chat, name, code): keys are text
+  if (started && ae && ae !== document.body && (tag === 'SELECT' || tag === 'INPUT' || tag === 'BUTTON')) ae.blur(); // v5.7.2: a focused dropdown/checkbox must not swallow camera keys
+  const k0 = e.key.toLowerCase(); if (started && (/^arrow/.test(k0) || ('wasd'.includes(k0) && k0.length === 1))) e.preventDefault();
+  if (k0 === 'meta') { UI.keys = {}; } // macOS: no keyup for letters released while Cmd is held
   const k = e.key.toLowerCase(); UI.keys[k] = true; UI.keys.control = e.ctrlKey || e.metaKey; UI.keys.shift = e.shiftKey;
   if (!started) return;
   if (k === 'escape') { if ($('settings').style.display === 'flex') openSettings(false); else if (UI.placing || UI.mode) { UI.placing = null; UI.mode = null; } else togglePause(); return; }
@@ -209,6 +214,7 @@ function onKey(e) {
     const now = performance.now(); if (UI.lastGroupKey === k && now - UI.lastGroupT < 400 && list.length) jumpTo(list[0].x, list[0].y);
     UI.lastGroupKey = k; UI.lastGroupT = now; return;
   }
+  if ('wasd'.includes(k) && k.length === 1 && !e.ctrlKey && !e.metaKey) return; // WASD = camera only (before grid hotkeys)
   const hi = HOTKEYS.indexOf(k); if (hi >= 0 && !e.ctrlKey && !e.metaKey) { const list = UI.hotPanel === 'bot' ? (UI.botList || []) : UI.gridList; if (list[hi]) { clickItem(list[hi], false, e.shiftKey); return; } }
   if (k === 'b') { const trs = UI.sel.filter(s => s.cargo && s.team === ME); if (trs.length) { if (e.shiftKey) trs.forEach(tr => NET.issue({ c: 'unload', tr: tr.id, x: tr.x, y: tr.y })); else { UI.mode = 'unload'; uiMsg('Unload: click where to drop (Shift+B drops right here). Carrying ' + trs.reduce((a, t) => a + t.cargo.length, 0)); } return; } }
   if (k === 'c' && !G.watch) orderStop(UI.sel.filter(s => s.team === ME));

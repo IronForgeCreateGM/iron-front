@@ -23,6 +23,7 @@ function buildSlots(list, names) { // list rows: [type, team, fac, color]; names
 }
 function startGame(diff, opts) {
   opts = opts || {};
+  try { if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); } catch (e) {} // v5.7.2: no focus left in the lobby form
   document.getElementById('menu').style.display = 'none';
   let slots = opts.slots;
   if (!slots) {
@@ -243,7 +244,7 @@ function lobbyInit() {
   box.querySelector('.lf').onchange = e => { if (e.target.value !== 'rand') MENU.fac = e.target.value; };
 }
 function lobbySet(list) { const rows = document.querySelectorAll('#lobby .lrow:not(.lh)'); rows.forEach((r, i) => { const s = list[i] || ['off', i % 2 ? 'B' : 'A']; r.querySelector('.lt').value = s[0]; r.querySelector('.la').value = s[1]; r.querySelector('.lf').value = s[2] || (i === 0 && s[0] === 'human' ? MENU.fac : 'rand'); r.querySelector('.lc').value = s[3] || 'auto'; }); }
-function lobbyOpts() { const m = document.getElementById('mapSel'), p = document.getElementById('peaceSel'); return { map: m ? m.value : 'classic', peace: p ? +p.value : 180 }; }
+function lobbyOpts() { const m = document.getElementById('mapSel'), p = document.getElementById('peaceSel'), f = document.getElementById('fogChk'); return { map: m ? m.value : 'classic', peace: p ? +p.value : 180, fog: f ? !!f.checked : true }; }
 function lobbyRead() { return [...document.querySelectorAll('#lobby .lrow:not(.lh)')].map(r => [r.querySelector('.lt').value, r.querySelector('.la').value, r.querySelector('.lf').value, r.querySelector('.lc').value]); }
 
 
