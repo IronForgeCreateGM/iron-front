@@ -34,7 +34,7 @@ function newGame(opts) {
     slots.forEach((sl, t) => { let c = sl.color; if (!c || !TEAM_COLORS[c]) { c = (def[sl.ally] || def[0]).find(k => !used.has(k)) || 'blue'; used.add(c); } sl.color = c; const C = TEAM_COLORS[c]; TEAMPAINT[t] = C.paint; TEAMCOL[t] = C.acc; MMCOL[t] = C.css; }); }
   if (typeof MODEL_CACHE !== 'undefined') for (const k in MODEL_CACHE) delete MODEL_CACHE[k];
   for (let t = 0; t < NP; t++) { const sl = slots[t]; G.players.push({ team: t, color: sl.color, name: sl.name || (sl.ai ? sl.diff : 'Player ' + (t + 1)), ally: sl.ally, start: sl.start, cr: 5000, pow: 0, gen: 0, use: 0, ai: !!sl.ai, diff: sl.diff || opts.diff,
-    gas: 150, fac: sl.fac || ['usa', 'rus', 'fra', 'ger'][(R() * 4) | 0], queues: { bld: [], def: [], inf: [], veh: [], air: [] }, ready: { bld: null, def: null }, stats: { kills: 0, lost: 0, mined: 0, built: 0 }, out: false }); }
+    gas: 150, fac: sl.fac || FAC_KEYS[(R() * FAC_KEYS.length) | 0], queues: { bld: [], def: [], inf: [], veh: [], air: [] }, ready: { bld: null, def: null }, stats: { kills: 0, lost: 0, mined: 0, built: 0 }, out: false }); }
   G.players.forEach((P, t) => {
     const [sx, sy] = G.starts[P.start], x = Math.round(sx - 1.5), y = Math.round(sy - 1.5), dx = sx < MW / 2 ? 1 : -1, dy = sy < MH / 2 ? 1 : -1;
     addB('hq', t, x, y, true);
@@ -663,6 +663,8 @@ function damage(t, amt, w, team, src) {
   if (src && foe(t.team, team) && t.kind === 'u') { respond(t, src); if (G.time - (t.helpT || 0) > 1) { t.helpT = G.time; for (const o of G.ents) if (o.team === t.team && o.kind === 'u' && o !== t && !o.tgt && dhypot(o.x - t.x, o.y - t.y) < 5) respond(o, src); } }
   if (t.hp <= 0) return;
   if (src && src.kind && !isAir(src) && !isAir(t) && G.tier[idx(Math.floor(t.x), Math.floor(t.y))] > G.tier[idx(Math.floor(src.x), Math.floor(src.y))]) amt *= 0.75; // high ground
+  if (src && src.kind === 'u' && src.nb && UT[src.t].marine) amt *= 1 + MAR.dmgN * src.nb; // v5.8 strength in numbers
+  if (t.kind === 'u' && UT[t.t].marine) { if (MAR.take[w.type]) amt *= MAR.take[w.type]; else if (MAR.plated[w.type]) amt *= 1 - MAR.plated[w.type] - MAR.drN * (t.nb || 0); }
   t.hp -= amt * DMG[w.type][armorOf(t)];
   t.lastHitBy = team; t.hitT = G.time;
   const TP = G.players[t.team]; if (TP && G.time - (TP.alertT || -99) > 12) { TP.alertT = G.time; G.events.push({ e: 'attacked', team: t.team, x: t.x, y: t.y, harv: t.t === 'harv' }); }
@@ -696,6 +698,7 @@ function stepUnit(u) {
   if (false) { // v5.1: lava is purely visual (no damage)
  u.hp -= 26 * DT * 6 * (d.armor === 'inf' ? 1 : 1.4); u.lastHitBy = null; u.hitT = G.time; }
   if (d.heal) medic(u, d);
+  if (d.marine && (G.tick + u.id) % 15 === 0) { let n = 0; for (const o of G.ents) if (o !== u && o.kind === 'u' && o.t === 'marine' && o.team === u.team && o.hp > 0 && dhypot(o.x - u.x, o.y - u.y) < MAR.rad && ++n >= MAR.cap) break; u.nb = n; }
   if (d.regen && u.hp < u.mhp) u.hp = Math.min(u.mhp, u.hp + d.regen * DT);
   if (d.jet && jetStep(u, d)) return;
   let engaged = false;

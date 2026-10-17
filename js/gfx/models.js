@@ -101,7 +101,7 @@ function tracks(B, L, W, H, wheels) {
   }
 }
 const UNIT_MODELS = {
-  rifle(B) { inf(B, 'rifle'); }, kommando(B) { inf(B, 'kommando'); B.piv.squad = 3; }, sniper(B) { inf(B, 'sniper'); }, pyro(B) { inf(B, 'pyro'); }, medic(B) { inf(B, 'medic'); }, rocketeer(B) { inf(B, 'rocketeer'); }, engineer(B) { inf(B, 'engineer'); },
+  rifle(B) { inf(B, 'rifle'); }, marine(B) { marineModel(B); }, kommando(B) { inf(B, 'kommando'); B.piv.squad = 3; }, sniper(B) { inf(B, 'sniper'); }, pyro(B) { inf(B, 'pyro'); }, medic(B) { inf(B, 'medic'); }, rocketeer(B) { inf(B, 'rocketeer'); }, engineer(B) { inf(B, 'engineer'); },
   light(B) {
     tracks(B, 0.92, 0.6, 0.2, 5);
     B.box('body', 0.78, 0.17, 0.44, 'T', PBR.PAINT, -0.02, 0.29, 0);
@@ -303,6 +303,27 @@ function inf(B, kind) {
     B.glow('body', 0.01 * s, 0.012 * s, 0.03 * s, 0xff3333, 0, 0.545 * s, 0); P('body', 0.06, 0.06, 0.04, COL.WHITE, PBR.CLOTH, 0.02, 0.25, -0.08); }
   if (kind === 'engineer') { B.sph('body', 0.047 * s, COL.YEL, PBR.PAINT, 0, 0.51 * s, 0, { half: true, seg: 12 }); P('body', 0.12, 0.08, 0.06, COL.YEL, PBR.PAINT, -0.02, 0.17, 0.11); }
   B.piv.tip = 0.45;
+}
+// v5.8 Brazil Iron Marine: bulky powered plate armour over team paint, green/yellow accents, visored helmet, heavy carbine
+function marineModel(B) {
+  const s = 1.42, GR = 0x1f8a3c, YE = 0xf2c81a, P = (part, w, h, d, c, m, x, y, z, o) => B.box(part, w * s, h * s, d * s, c, m, x * s, y * s, z * s, Object.assign({ bevel: 0.008 }, o || {}));
+  legRig(B, s, 0.27, 0.115, 0.155, 0.046, 'T', COL.DARK, 1.35);
+  for (const z of [0.046, -0.046]) { P('body', 0.075, 0.05, 0.075, GR, PBR.PAINT, 0.01, 0.22, z); } // hip plates
+  P('body', 0.11, 0.06, 0.15, COL.DARK, PBR.CLOTH, 0, 0.28, 0);
+  P('body', 0.12, 0.17, 0.17, 'T', PBR.PAINT, 0, 0.37, 0);                       // armoured torso
+  P('body', 0.13, 0.12, 0.175, COL.STEEL, PBR.METAL, 0.012, 0.38, 0);            // chest plate
+  P('body', 0.005, 0.03, 0.12, YE, PBR.PAINT, 0.08, 0.4, 0, { bevel: 0 });        // yellow chest band
+  P('body', 0.005, 0.025, 0.025, GR, PBR.PAINT, 0.081, 0.36, 0, { bevel: 0 });    // green diamond badge
+  for (const z of [0.1, -0.1]) { P('body', 0.09, 0.05, 0.07, GR, PBR.PAINT, 0, 0.46, z, { bevel: 0.015 }); P('body', 0.092, 0.012, 0.072, YE, PBR.PAINT, 0, 0.437, z, { bevel: 0 }); } // pauldrons
+  P('body', 0.08, 0.15, 0.14, COL.PANTS, PBR.CLOTH, -0.095, 0.38, 0);            // power pack
+  B.glow('body', 0.01 * s, 0.03 * s, 0.08 * s, 0x5cff7a, -0.136 * s, 0.4 * s, 0);
+  B.sph('body', 0.056 * s, 'T', PBR.PAINT, 0, 0.51 * s, 0, { seg: 12, sy: 0.95 }); // helmet
+  P('body', 0.03, 0.022, 0.085, YE, PBR.GLASS, 0.045, 0.505, 0, { bevel: 0 });     // visor (yellow)
+  P('body', 0.06, 0.012, 0.012, GR, PBR.PAINT, 0, 0.56, 0, { bevel: 0 });          // helmet crest stripe
+  for (const z of [0.085, -0.085]) { P('body', 0.12, 0.045, 0.045, 'T', PBR.PAINT, 0.04, 0.4, z, { rz: -0.5 }); P('body', 0.11, 0.04, 0.04, COL.STEEL, PBR.METAL, 0.1, 0.36, z * 0.6, { ry: z > 0 ? 0.5 : -0.5 }); }
+  const gy = 0.36; P('body', 0.34, 0.045, 0.035, COL.GUN, PBR.DARKM, 0.16, gy, 0.03); P('body', 0.08, 0.06, 0.04, COL.GUN, PBR.DARKM, 0.08, gy - 0.03, 0.03); P('body', 0.06, 0.02, 0.036, GR, PBR.PAINT, 0.2, gy + 0.03, 0.03);
+  B.box('body', 0.02 * s, 0.025 * s, 0.012 * s, 'TA', PBR.ACC, 0, 0.44 * s, 0.13 * s, { bevel: 0 });
+  B.piv.tip = 0.5;
 }
 // ---------- buildings ----------
 function foundation(B, w, h) {

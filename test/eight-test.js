@@ -12,8 +12,8 @@ for (const P of G.players) { const [sx, sy] = G.starts[P.start];
   const vent = G.vents.some(([vx, vy]) => Math.hypot(vx - sx, vy - sy) < 13);
   G.curTeam = P.team; const p = findPath(sx, sy + 3, A.MW / 2, A.MW / 2 + 9); G.curTeam = null;
   ok(ore > 2500 && vent && p && p.length, `base ${P.start} @${sx.toFixed(0)},${sy.toFixed(0)}: ore ${ore | 0}, gas ${vent}, path to centre ${!!(p && p.length)}`); }
-let err = null; try { for (let n = 0; n < 30 * 60 * 6 && !G.over; n++) { A.stepGame(); G.events.length = 0; } } catch (e) { err = e; console.log(e.stack); }
+const peak = G.players.map(() => 0); let err = null; try { for (let n = 0; n < 30 * 60 * 6 && !G.over; n++) { A.stepGame(); G.events.length = 0; if (n % 300 === 0) G.players.forEach((P, i) => { peak[i] = Math.max(peak[i], G.ents.filter(e => e.team === P.team && e.kind === 'b').length); }); } } catch (e) { err = e; console.log(e.stack); }
 ok(!err, '8 bots run 6 min without errors');
-const built = G.players.map(P => G.ents.filter(e => e.team === P.team && e.kind === 'b').length);
+const built = peak; // v5.8: peak (a base can legitimately be razed in an early 4v4 fight)
 ok(built.every(n => n >= 5), 'every bot built a base (' + built.join(',') + ')');
 console.log(fail ? 'EIGHT FAIL' : 'EIGHT OK'); process.exit(fail ? 1 : 0);

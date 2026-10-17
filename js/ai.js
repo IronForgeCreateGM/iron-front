@@ -90,7 +90,7 @@ function aiStep(P) {
   if (P.cr > 300) {
     const myInf = me.filter(e => e.kind === 'u' && UT[e.t].armor === 'inf').length;
     const pq = c => Math.max(2, Math.ceil(producers(P.team, c) * (doc ? 1.5 : 1)));
-    if (P.queues.inf.length < pq('inf')) { const t = pick([['rifle', 2 + ft.inf], ['rocketeer', 1 + ft.armor * 1.5 + ft.air], ['sniper', ft.inf > 3 ? 1 + ft.inf * 0.25 : 0.2], ['pyro', 0.8 + ft.inf * 0.25], ['kommando', P.gas > 200 ? 1.5 : 0], ['medic', myInf > 6 && (cnt.medic || 0) < 2 + myInf / 10 ? 1.2 : 0]]); if (t) enqueue(P.team, t); }
+    if (P.queues.inf.length < pq('inf')) { const t = pick([['rifle', 2 + ft.inf], ['rocketeer', 1 + ft.armor * 1.5 + ft.air], ['sniper', ft.inf > 3 ? 1 + ft.inf * 0.25 : 0.2], ['pyro', 0.8 + ft.inf * 0.25], ['kommando', P.gas > 200 ? 1.5 : 0], ['marine', 8 + ft.inf * 0.5 + ft.armor * 0.3 + ft.air * 0.5], ['medic', myInf > 6 && (cnt.medic || 0) < 2 + myInf / 10 ? 1.2 : 0]]); if (t) enqueue(P.team, t); }
     if (P.queues.veh.length < pq('veh') && harvs >= Math.min(2, refs * 2)) {
       const t = pick([['light', 3], ['heavy', 2 + ft.armor], ['titan', P.gas > 300 ? 1.5 + ft.air * 0.3 + (P.gas > 1200 ? 4 : 0) : 0], ['tsar', P.gas > 350 ? 2 + (P.gas > 1200 ? 4 : 0) : 0], ['scout', 1 + ft.inf * 0.5], ['arty', 1 + ft.inf * 0.4 + (S.towerHeavy ? 5 : S.siege ? 3 : 0)], ['aa', ft.air * 2]]);
       if (t) enqueue(P.team, t);
@@ -209,7 +209,7 @@ function threatsNear(P, foes, x, y, r) { return foes.filter(f => (f.kind === 'u'
 // macro manager: spending discipline (no float), production scaling
 function macroMgr(P, S, D, cnt, me) {
   const Y = D.sys; if (!Y.float || P.cr < Y.float) return;
-  const order = [['veh', ['heavy', 'light', 'arty', 'aa', 'titan', 'tsar']], ['inf', ['rocketeer', 'rifle', 'sniper', 'pyro', 'kommando']], ['air', ['gunship', 'intercept', 'jet', 'stealth']]];
+  const order = [['veh', ['heavy', 'light', 'arty', 'aa', 'titan', 'tsar']], ['inf', ['rocketeer', 'rifle', 'sniper', 'pyro', 'kommando', 'marine', 'marine']], ['air', ['gunship', 'intercept', 'jet', 'stealth']]];
   for (const [cat, list] of order) {
     const cap = Math.min(queueCap(P.team, cat), producers(P.team, cat) * 2);
     for (let k = 0; k < 4 && P.queues[cat].length < cap && P.cr > Y.float * 0.5; k++) { const ok = list.filter(t => avail(P.team, t) && P.gas >= (UT[t].gas || 0)); if (!ok.length) break; if (!enqueue(P.team, ok[(G.tick + k) % ok.length])) break; }

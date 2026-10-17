@@ -18,7 +18,7 @@ const PRESETS = {
   w2:     { n: 'Watch: Chief (SI) vs Hard', slots: [['si', 'A'], ['hard', 'B']] },
 };
 function buildSlots(list, names) { // list rows: [type, team, fac, color]; names: row -> player name
-  const RF = () => ['usa', 'rus', 'fra', 'ger'][(Math.random() * 4) | 0], pref = list.filter(r => r[0] !== 'off').length > 6 ? { A: [0, 2, 4, 6, 1, 3, 5, 7], B: [3, 1, 5, 7, 2, 0, 4, 6] } : { A: [0, 2, 4, 1, 3, 5], B: [3, 1, 5, 2, 0, 4] }, taken = new Set(), startFor = team => { const s = (pref[team] || pref.A).find(k => !taken.has(k)); taken.add(s); return s; };
+  const RF = () => FAC_KEYS[(Math.random() * FAC_KEYS.length) | 0], pref = list.filter(r => r[0] !== 'off').length > 6 ? { A: [0, 2, 4, 6, 1, 3, 5, 7], B: [3, 1, 5, 7, 2, 0, 4, 6] } : { A: [0, 2, 4, 1, 3, 5], B: [3, 1, 5, 2, 0, 4] }, taken = new Set(), startFor = team => { const s = (pref[team] || pref.A).find(k => !taken.has(k)); taken.add(s); return s; };
   return list.map((r, row) => [r, row]).filter(([r]) => r[0] !== 'off').map(([[type, team, fac, color], row]) => ({ row, ai: type !== 'human' && type !== 'remote', local: type === 'human', diff: type === 'human' || type === 'remote' ? 'normal' : type, ally: team === 'A' ? 0 : 1, fac: fac && fac !== 'rand' ? fac : RF(), color: color && color !== 'auto' ? color : undefined, start: startFor(team === 'B' ? 'B' : 'A'), name: (names && names[row]) || (type === 'human' ? 'You' : type === 'remote' ? 'Remote ' + (row + 1) : SLOT_TYPES[type]) }));
 }
 function startGame(diff, opts) {
@@ -252,7 +252,7 @@ function lobbyRead() { return [...document.querySelectorAll('#lobby .lrow:not(.l
 function lobbySelfTest() {
   const errs = [], box = document.getElementById('lobby'), rows = () => [...box.querySelectorAll('.lrow:not(.lh)')];
   const setSel = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); };
-  const facs = ['rand', 'usa', 'rus', 'fra', 'ger'], cols = ['auto', ...Object.keys(TEAM_COLORS)], R = mkRng(99); let n = 0;
+  const facs = ['rand', ...FAC_KEYS], cols = ['auto', ...Object.keys(TEAM_COLORS)], R = mkRng(99); let n = 0;
   const check = (label) => {
     const list = lobbyRead(), slots = buildSlots(list), me = Math.max(0, slots.findIndex(s => s.local));
     if (slots.length < 2) return; newGame({ seed: 7, slots }); n++;
