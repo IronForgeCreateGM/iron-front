@@ -48,7 +48,9 @@ function onlShowPanel(on) { ['hostBtn', 'joinBtn'].forEach(id => document.getEle
 function onlHost() {
   if (!onlAvailable()) { onlStatus('Online play unavailable (network library failed to load).'); return; }
   ONL.host = true; ONL.name = onlName(); const code = onlCode(); onlJoinRoom(code);
-  const rows = lobbyRead(); rows[0][0] = 'human'; if (!rows.some(r => r[0] === 'remote')) { rows[1][0] = 'remote'; } lobbySet(rows);
+  const rows = lobbyRead(); // v5.7.3: keep the host's chosen "You" row; exactly one human row; at least one remote row
+  let me = rows.findIndex(r => r[0] === 'human'); if (me < 0) { me = 0; rows[0][0] = 'human'; } rows.forEach((r, i) => { if (i !== me && r[0] === 'human') r[0] = 'hard'; });
+  if (!rows.some(r => r[0] === 'remote')) { rows[me === 1 ? 0 : 1][0] = 'remote'; } lobbySet(rows); ONL.meRow = me;
   onlShowPanel(true); document.getElementById('readyBtn').style.display = 'none';
   const link = location.origin + location.pathname + '?room=' + code;
   onlStatus(`Room <b>${code}</b> — share: <a href="${link}" target="_blank">${link}</a><br>${location.protocol === 'file:' ? '⚠ Hosting from file:// — friends must open the same game build via https.' : ''}`);
@@ -57,7 +59,7 @@ function onlHost() {
     if (d.ver !== codeHash()) { ONL.acts.kick({ reason: 'Version mismatch — reload the page (host ' + codeHash() + ', you ' + d.ver + ').' }, pid); return; }
     const taken = new Set(Object.values(ONL.peers).map(p => p.row)), rows = lobbyRead();
     let row = rows.findIndex((r, i) => r[0] === 'remote' && !taken.has(i));
-    if (row < 0) row = rows.findIndex((r, i) => i > 0 && r[0] === 'off'); if (row >= 0 && rows[row][0] === 'off') { rows[row][0] = 'remote'; lobbySet(rows); }
+    if (row < 0) row = rows.findIndex((r, i) => i !== ONL.meRow && r[0] === 'off'); if (row >= 0 && rows[row][0] === 'off') { rows[row][0] = 'remote'; lobbySet(rows); }
     if (row < 0) { ONL.acts.kick({ reason: 'Lobby is full.' }, pid); return; }
     ONL.peers[pid] = { name: String(d.name || 'Guest').slice(0, 16), row, ready: false }; onlChatLine(`* ${ONL.peers[pid].name} joined (slot ${row + 1})`); onlBroadcastLobby();
   };
@@ -70,18 +72,21 @@ function lobbyChanged() { if (ONL.host && !ONL.started) onlBroadcastLobby(); }
 function onlBroadcastLobby() {
   if (!ONL.room) return; const rows = lobbyRead();
   // remote rows that lost their peer stay 'remote' (open)
-  const st = { rows, peers: ONL.peers, hostName: ONL.name, ver: codeHash() };
+  const st = { rows, peers: ONL.peers, hostName: ONL.name, hostRow: ONL.meRow, ver: codeHash() };
   ONL.acts.lobby(st); onlRenderPeers(st);
-  const need = Object.values(ONL.peers), openRemote = rows.filter((r, i) => r[0] === 'remote' && !need.some(p => p.row === i)).length;
-  const sb = document.getElementById('startBtn'); sb.disabled = need.some(p => !p.ready) || openRemote > 0;
-  sb.textContent = sb.disabled ? (openRemote ? `WAITING (${openRemote} open)` : 'WAITING FOR READY') : 'START ONLINE';
+  // v5.7.3: empty remote rows never block START (they become Hard AI); only joined-but-not-ready players do
+  const need = Object.values(ONL.peers), openRemote = rows.filter((r, i) => r[0] === 'remote' && !need.some(p => p.row === i)).length, notReady = need.filter(p => !p.ready);
+  const sb = document.getElementById('startBtn'); sb.disabled = notReady.length > 0;
+  sb.textContent = notReady.length ? 'WAITING FOR ' + notReady.map(p => p.name).join(', ') + ' TO PRESS READY' : 'START ONLINE' + (openRemote ? ` (${openRemote} empty slot${openRemote > 1 ? 's become' : ' becomes'} Hard AI)` : '');
 }
 function onlRenderPeers(st) {
   const e = document.getElementById('onPeers'); if (!e) return;
-  e.innerHTML = `<div>Slot 1: <b>${st.hostName}</b> (host)</div>` + Object.values(st.peers).map(p => `<div>Slot ${p.row + 1}: <b>${p.name}</b> ${p.ready ? '✔ ready' : '… not ready'}</div>`).join('');
+  const hr = st.rows ? st.rows.findIndex(r => r[0] === 'human') : 0, open = st.rows ? st.rows.map((r, i) => r[0] === 'remote' && !Object.values(st.peers).some(p => p.row === i) ? i : -1).filter(i => i >= 0) : [];
+  e.innerHTML = `<div>Slot ${(st.hostRow != null ? st.hostRow : Math.max(0, hr)) + 1}: <b>${st.hostName}</b> (host) 🟢</div>` + Object.values(st.peers).map(p => `<div>Slot ${p.row + 1}: <b>${p.name}</b> 🟢 connected · ${p.ready ? '✔ READY' : '⏳ not ready yet'}</div>`).join('') + open.map(i => `<div class="dim">Slot ${i + 1}: open — waiting for a friend to open the link (becomes Hard AI if empty)</div>`).join('');
 }
 function onlStartHost() {
-  const rows = lobbyRead(), names = { [Math.max(0, rows.findIndex(r => r[0] === 'human'))]: ONL.name }; for (const p of Object.values(ONL.peers)) names[p.row] = p.name;
+  const rows = lobbyRead(); rows.forEach((r, i) => { if (r[0] === 'remote' && !Object.values(ONL.peers).some(p => p.row === i)) r[0] = 'hard'; }); lobbySet(rows);
+  const names = { [Math.max(0, rows.findIndex(r => r[0] === 'human'))]: ONL.name }; for (const p of Object.values(ONL.peers)) names[p.row] = p.name;
   const slots = buildSlots(rows, names), seed = (Math.random() * 1e9) | 0;
   const peerTeam = {}; for (const pid in ONL.peers) { const k = slots.findIndex(s => s.row === ONL.peers[pid].row); if (k >= 0) peerTeam[pid] = k; }
   const me = slots.findIndex(s => s.local), humans = slots.map((s, i) => !s.ai ? i : -1).filter(i => i >= 0);
@@ -95,7 +100,9 @@ function onlJoin(code) {
   ONL.host = false; ONL.name = onlName(); onlJoinRoom(code); onlShowPanel(true);
   document.querySelectorAll('#lobby select').forEach(s => s.disabled = true); document.getElementById('startBtn').style.display = 'none';
   onlStatus(`Joining room <b>${code}</b>… (looking for host via relays)`);
-  ONL.handlers.lobby = (st, pid) => { ONL.hostId = pid; lobbySet(st.rows); document.querySelectorAll('#lobby select').forEach(s => s.disabled = true); onlRenderPeers(st);
+  ONL.joinT0 = Date.now(); clearTimeout(ONL.reachT); ONL.reachT = setTimeout(() => { if (ONL.hostId || ONL.started) return;
+    onlStatus(`❌ Can't reach the host of room <b>${code}</b> yet. Check: 1) the host is still on the lobby screen with this room open; 2) you both have the same version (reload this page — the host too); 3) try again with <b>Join</b>. If it never connects, one of your networks blocks direct connections: a TURN relay is needed (js/net-config.js → turnConfig) or try a different network (e.g. phone hotspot).`); }, 20000);
+  ONL.handlers.lobby = (st, pid) => { ONL.hostId = pid; clearTimeout(ONL.reachT); lobbySet(st.rows); document.querySelectorAll('#lobby select').forEach(s => s.disabled = true); onlRenderPeers(st);
     const mine = st.peers[ONL.selfId]; onlStatus(`Room <b>${code}</b> — host <b>${st.hostName}</b>. ${mine ? `You are slot ${mine.row + 1}. Pick your faction/colour, then press Ready.` : 'Waiting for a slot…'}`); };
   ONL.handlers.kick = d => { onlStatus('❌ ' + d.reason); };
   ONL.handlers.chat = d => onlChatLine(d.n + ': ' + d.m);

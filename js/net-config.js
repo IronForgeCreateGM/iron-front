@@ -4,5 +4,6 @@
 window.IRONFRONT_NET = window.IRONFRONT_NET || {
   appId: 'ironfront-rts-v4',
   relayUrls: null, // e.g. ['wss://relay.damus.io', 'wss://nos.lol'] — null = Trystero defaults
-  turnConfig: null, // e.g. [{ urls: ['turn:turn.example.com:3478'], username: 'u', credential: 'p' }]
+  // v5.7.3: free public TURN fallback (Open Relay Project) for strict NATs; used only if a direct connection fails.
+  turnConfig: [{ urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' }],
 };
