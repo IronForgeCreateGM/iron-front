@@ -52,7 +52,7 @@ function onlHost() {
   let me = rows.findIndex(r => r[0] === 'human'); if (me < 0) { me = 0; rows[0][0] = 'human'; } rows.forEach((r, i) => { if (i !== me && r[0] === 'human') r[0] = 'hard'; });
   if (!rows.some(r => r[0] === 'remote')) { rows[me === 1 ? 0 : 1][0] = 'remote'; } lobbySet(rows); ONL.meRow = me;
   onlShowPanel(true); document.getElementById('readyBtn').style.display = 'none';
-  const link = location.origin + location.pathname + '?room=' + code;
+  const _rq = new URLSearchParams(location.search).get('relays'); const link = location.origin + location.pathname + '?room=' + code + (_rq ? '&relays=' + _rq : '');
   onlStatus(`Room <b>${code}</b> — share: <a href="${link}" target="_blank">${link}</a><br>${location.protocol === 'file:' ? '⚠ Hosting from file:// — friends must open the same game build via https.' : ''}`);
   ONL.handlers.hello = (d, pid) => {
     if (ONL.started) { if (d.ver === codeHash() && NET.rejoinReq(pid, d.name)) onlChatLine('* ' + d.name + ' rejoined'); else ONL.acts.kick({ reason: 'Match already running (no free slot to rejoin).' }, pid); return; }

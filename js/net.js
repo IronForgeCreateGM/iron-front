@@ -3,7 +3,7 @@
 // Every player action is a command {c:'move',...}. Offline: executed immediately.
 // Online: tagged for tick (now + DELAY); the host collects every human's input for a tick,
 // broadcasts the merged "turn", and all peers execute it before stepping that tick.
-const NET_VERSION = 'v5.9';
+const NET_VERSION = 'v5.9.1';
 const own = (T, ids) => (ids || []).map(byId).filter(e => e && e.team === T && e.hp > 0);
 const CMD = {
   mbuild(T, c) { const b = byId(c.b); return !!(b && b.team === T && siloBuild(b, c.k)); },
