@@ -42,3 +42,11 @@ The `test/` folder is harmless on Pages; delete it from a release branch if you 
 - `node test/net-test.js [minutes]` — lockstep determinism (multi-peer fake transport, replay ×2, disconnect, negative control)
 - `node --experimental-websocket test/online-e2e.js` with `MODE=local` — two real Chrome tabs through the online lobby
 - `bash test/batch.sh si 10` — Chief SI vs Hard win rate
+
+## 📱 Mobile (v6.1)
+Phones are auto-detected (coarse pointer + small screen); toggle with **📱 Touch controls** on the home screen (or `?mobile=1` / `?mobile=0`). Play in landscape.
+- **Camera:** drag empty ground to pan (with glide), pinch to zoom, tap the minimap to jump.
+- **Build:** the card bar at the bottom has tabs 🏗 Structures, 🛡 Defenses, 🪖 Infantry, 🚙 Vehicles, ✈ Aircraft. Tap a card to build or queue it. When a structure is finished, a ghost appears: drag it to a green spot, then tap ✓ (✗ cancels). For walls, tap the Wall card, drag a line on the ground, then tap ✗ when done. Long-press a card for its info; long-press a queued card to cancel one.
+- **Army:** tap a unit to select it, and double-tap to select every unit of that type on screen. Buttons: ⚔ Army, 💤 Idle, 👥 Type, ⬚ Box (drag to box-select). Tap the ground to attack-move there; tap an enemy to attack it. ✋ Stop, ⚓ Hold, 🏠 Home (retreat), 🚩 Rally (then tap the ground).
+- **🤖 Helpers** (on by default, all toggleable; they only give orders to your own units): auto-rebuild lost harvesters, new units go to the rally point, idle units engage nearby enemies, optional auto-repair, and ⚡ +Power (one tap builds and places a Power Plant when power is low).
+- Can be installed to the Home Screen (PWA manifest). Online play: if iOS drops the connection while the app is in the background, tap **Rejoin** within ~20 s to get your seat back.

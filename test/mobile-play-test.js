@@ -97,8 +97,8 @@ const ROOT = 'file://' + path.resolve(__dirname, '../index.html'), PART = proces
     const en = await pg.evaluate(() => { const a = myArmy(); for (const u of a) { u.idleT = 9; u.order = 'idle'; u.path = []; } const u0 = a[0]; const e = addU('rifle', 1, u0.x + 7, u0.y); MOB.engT = {}; mobAuto(); return { n: a.length, ord: a.map(u => u.order), e: !!e }; });
     ok(en.ord.filter(o => o === 'amove').length >= 1, 'idle auto-engage: idle army attack-moves at a nearby visible enemy ' + JSON.stringify(en));
     // power helper
-    await pg.evaluate(() => { const P = G.players[ME]; P.cr += 3000; for (const e of G.ents) if (e.team === ME && e.t === 'power') e.hp = 0; }); await tick(2); await pg.waitForTimeout(1200);
-    const pv = await pg.evaluate(() => ({ low: G.players[ME].pow, vis: getComputedStyle(document.getElementById('mPowerBtn')).display }));
+    await pg.evaluate(() => { const P = G.players[ME]; P.cr += 3000; for (const e of G.ents) if (e.team === ME && e.t === 'power') e.hp = 0; const h = mobHome(); for (const t of ['factory', 'tech']) { const sp = aiSpot(P, t, h, []); if (sp) addB(t, ME, sp[0], sp[1], true); } }); await tick(40); await pg.waitForTimeout(1200);
+    const pv = await pg.evaluate(() => ({ low: G.players[ME].pow, pp: G.ents.filter(e => e.team === ME && e.kind === 'b').map(e => e.t + ':' + Math.round(e.hp)).join(','), vis: getComputedStyle(document.getElementById('mPowerBtn')).display }));
     ok(pv.vis !== 'none', 'power helper button appears when power is low ' + JSON.stringify(pv));
     const np0 = await pg.evaluate(() => G.ents.filter(e => e.team === ME && e.t === 'power' && e.hp > 0).length);
     await pg.tap('#mPowerBtn'); await pg.waitForTimeout(300); await tick(30 * 14); await tick(2); await tick(2);
