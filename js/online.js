@@ -3,37 +3,64 @@
 // Host owns the lobby: assigns 4 slots, broadcasts seed/slots/version, starts when all remote humans are ready.
 const ONL = { room: null, host: false, code: null, peers: {}, acts: {}, handlers: {}, leaveCbs: [], hostId: null, name: '', ready: false, started: false };
 // Same-browser transport (two tabs, ?transport=local): BroadcastChannel with a Trystero-like API. For local testing.
-function bcTrystero() {
+function bcTrystero(tag) {
+  tag = tag || '';
   const selfId = Math.random().toString(36).slice(2, 10);
   return { selfId, joinRoom(conf, roomId) {
-    const ch = new BroadcastChannel(conf.appId + ':' + roomId), acts = {}, peers = {}, room = { onPeerJoin: null, onPeerLeave: null };
+    const ch = new BroadcastChannel(conf.appId + ':' + tag + roomId), acts = {}, peers = {}, room = { onPeerJoin: null, onPeerLeave: null };
     const post = m => ch.postMessage(Object.assign({ from: selfId }, m));
     const seen = pid => { const n = !peers[pid]; peers[pid] = Date.now(); if (n && room.onPeerJoin) room.onPeerJoin(pid); };
     ch.onmessage = ({ data: m }) => { if (m.from === selfId || (m.to && m.to !== selfId)) return; if (m.t === 'bye') { if (peers[m.from]) { delete peers[m.from]; room.onPeerLeave && room.onPeerLeave(m.from); } return; }
       seen(m.from); if (m.t === 'hi') post({ t: 'hb', to: m.from }); if (m.t === 'msg' && acts[m.n] && acts[m.n].onMessage) acts[m.n].onMessage(m.d, { peerId: m.from }); };
-    setInterval(() => { post({ t: 'hb' }); for (const p in peers) if (Date.now() - peers[p] > 4000) { delete peers[p]; room.onPeerLeave && room.onPeerLeave(p); } }, 1000);
-    addEventListener('pagehide', () => post({ t: 'bye' }));
+    let closed = false; const iv = setInterval(() => { if (closed) return; post({ t: 'hb' }); for (const p in peers) if (Date.now() - peers[p] > 4000) { delete peers[p]; room.onPeerLeave && room.onPeerLeave(p); } }, 1000);
+    addEventListener('pagehide', () => { if (!closed) post({ t: 'bye' }); });
     room.makeAction = n => (acts[n] = { onMessage: null, send: (d, o) => post({ t: 'msg', n, d, to: o && o.target }) });
-    room.getPeers = () => Object.assign({}, peers); room.leave = () => { post({ t: 'bye' }); ch.close(); };
+    room.getPeers = () => Object.assign({}, peers); room.leave = () => { if (closed) return; post({ t: 'bye' }); closed = true; clearInterval(iv); ch.close(); };
     setTimeout(() => post({ t: 'hi' }), 30); return room; } };
 }
-function onlAvailable() { if (new URLSearchParams(location.search).get('transport') === 'local') { window.Trystero = { nostr: window.__bcT || (window.__bcT = bcTrystero()) }; } return typeof window !== 'undefined' && window.Trystero && window.Trystero.nostr; }
+function onlAvailable() { if (new URLSearchParams(location.search).get('transport') === 'local') { window.Trystero = window.__bcT || (window.__bcT = { nostr: bcTrystero('n:'), mqtt: bcTrystero('m:') }); /* two fake strategies exercise the multi-strategy join */ } return typeof window !== 'undefined' && window.Trystero && Object.keys(window.Trystero).length > 0; }
+// v5.9.2: WebRTC handshake telemetry (signalling vs direct-connection), used for the joiner's status/diagnosis
+const RTCDIAG = { pcs: 0, remoteOffer: 0, remoteAnswer: 0, connected: 0, failed: 0 };
+(() => { if (typeof window === 'undefined' || !window.RTCPeerConnection || window.RTCPeerConnection.__ifw) return; const O = window.RTCPeerConnection;
+  const W = function (c) { const pc = new O(c); RTCDIAG.pcs++; const sr = pc.setRemoteDescription.bind(pc);
+    pc.setRemoteDescription = d => { if (d && d.type === 'offer') RTCDIAG.remoteOffer++; if (d && d.type === 'answer') RTCDIAG.remoteAnswer++; return sr(d); };
+    pc.addEventListener('connectionstatechange', () => { if (pc.connectionState === 'connected') RTCDIAG.connected++; if (pc.connectionState === 'failed') RTCDIAG.failed++; }); return pc; };
+  W.prototype = O.prototype; W.__ifw = 1; Object.setPrototypeOf(W, O); window.RTCPeerConnection = W; })();
+// v5.9.2: signalling strategies run in parallel (Nostr relays + MQTT brokers + WebTorrent trackers); the joiner commits to the
+// strategy over which the host actually admitted it. Override with ?strategies=nostr,mqtt  ?relays=…(nostr)  ?mqtt=…  ?trackers=…  ?turn=turn:host:port,user,pass
+function onlStrategyConf(s, cfg, q) {
+  const conf = { appId: cfg.appId || 'ironfront-rts-v4' }, urls = l => l.split(',').map(u => u.includes('://') ? u : 'wss://' + u);
+  if (cfg.turnConfig) conf.turnConfig = cfg.turnConfig;
+  if (s === 'nostr') { const u = q.get('relays') ? urls(q.get('relays')) : cfg.relayUrls; if (u) conf.relayConfig = { urls: u }; }
+  if (s === 'mqtt') { const u = q.get('mqtt') ? urls(q.get('mqtt')) : cfg.mqttUrls; if (u) conf.relayConfig = { urls: u }; }
+  if (s === 'torrent') { const u = q.get('trackers') ? urls(q.get('trackers')) : cfg.trackerUrls; if (u) conf.relayConfig = { urls: u }; }
+  return conf;
+}
 function onlJoinRoom(code) {
-  const cfg = window.IRONFRONT_NET || {}, T = window.Trystero.nostr;
-  const qr = new URLSearchParams(location.search).get('relays'); if (qr) cfg.relayUrls = qr.split(',').map(u => u.includes('://') ? u : 'wss://' + u);
-  const conf = { appId: cfg.appId || 'ironfront-rts-v4' }; if (cfg.relayUrls) conf.relayConfig = { urls: cfg.relayUrls }; if (cfg.turnConfig) conf.turnConfig = cfg.turnConfig;
-  const room = T.joinRoom(conf, 'room-' + code); ONL.room = room; ONL.code = code; ONL.selfId = T.selfId;
+  const cfg = window.IRONFRONT_NET || {}, q = new URLSearchParams(location.search);
+  if (q.get('turn')) { const [u, n, c] = q.get('turn').split(','); cfg.turnConfig = [{ urls: [u], username: n, credential: c }].concat(cfg.turnConfig || []); }
+  const want = (q.get('strategies') || (cfg.strategies || ['nostr', 'mqtt', 'torrent']).join(',')).split(',').filter(s => window.Trystero[s]);
+  const subs = []; for (const s of want) { try { const T = window.Trystero[s]; subs.push({ s, T, room: T.joinRoom(onlStrategyConf(s, cfg, q), 'room-' + code) }); } catch (e) { console.warn('strategy ' + s + ' failed to start', e); } }
+  if (!subs.length) { onlStatus('Online play unavailable (no matchmaking strategy could start).'); return; }
+  const host = ONL.host, via = {}; let chosen = null; ONL.strategies = subs.map(x => x.s); ONL.selfId = subs[0].T.selfId; ONL.code = code;
+  const commit = sub => { if (chosen) return; chosen = sub; ONL.selfId = sub.T.selfId; ONL.strategy = sub.s; setTimeout(() => { for (const o of subs) if (o !== sub) { try { o.room.leave(); } catch (e) {} } }, 1500); };
+  const live = sub => host || !chosen || chosen === sub;
+  const room = { getPeers: () => { const o = {}; for (const x of subs) if (live(x)) Object.assign(o, x.room.getPeers()); return o; }, leave: () => subs.forEach(x => { try { x.room.leave(); } catch (e) {} }), subs };
+  ONL.room = room;
   for (const name of ['lobby', 'hello', 'ready', 'pref', 'chat', 'start', 'kick', 'in', 'turn', 'hash', 'desync', 'pg', 'po', 'sync', 'rejoin']) {
-    const a = room.makeAction(name);
-    if (Array.isArray(a)) { ONL.acts[name] = (d, to) => a[0](d, to || null); a[1]((d, pid) => onlDispatch(name, d, pid)); }
-    else { ONL.acts[name] = (d, to) => a.send(d, to ? { target: to } : undefined); a.onMessage = (d, meta) => onlDispatch(name, d, meta && meta.peerId || meta); }
+    const sends = subs.map(sub => { const a = sub.room.makeAction(name); const send = Array.isArray(a) ? (d, to) => a[0](d, to || null) : (d, to) => a.send(d, to ? { target: to } : undefined);
+      const onm = (d, pid) => { if (!host && !chosen && name === 'lobby' && d && d.peers && d.peers[sub.T.selfId]) commit(sub); if (!live(sub)) return; via[pid] = via[pid] || sub; onlDispatch(name, d, pid); };
+      if (Array.isArray(a)) a[1]((d, pid) => onm(d, pid)); else a.onMessage = (d, meta) => onm(d, meta && meta.peerId || meta);
+      return { sub, send }; });
+    ONL.acts[name] = (d, to) => { if (to) { const v = via[to]; const t = v ? sends.find(x => x.sub === v) : null; (t ? [t] : sends.filter(x => live(x.sub))).forEach(x => x.send(d, to)); } else sends.filter(x => live(x.sub)).forEach(x => x.send(d)); };
   }
-  const pj = pid => onlPeerJoin(pid), pl = pid => onlPeerLeave(pid);
-  if (typeof room.onPeerJoin === 'function' && room.onPeerJoin.length) { try { room.onPeerJoin(pj); room.onPeerLeave(pl); } catch (e) { room.onPeerJoin = pj; room.onPeerLeave = pl; } } else { room.onPeerJoin = pj; room.onPeerLeave = pl; }
+  for (const sub of subs) { const r = sub.room;
+    const pj = pid => { if (!live(sub)) return; via[pid] = sub; ONL.stratSeen = sub.s; onlPeerJoin(pid, sub); }, pl = pid => { if (via[pid] !== sub) return; delete via[pid]; onlPeerLeave(pid); };
+    if (typeof r.onPeerJoin === 'function' && r.onPeerJoin.length) { try { r.onPeerJoin(pj); r.onPeerLeave(pl); } catch (e) { r.onPeerJoin = pj; r.onPeerLeave = pl; } } else { r.onPeerJoin = pj; r.onPeerLeave = pl; } }
 }
 function onlDispatch(name, d, pid) { if (ONL.handlers[name]) ONL.handlers[name](d, pid); }
 const onlTransport = { send(type, data, to) { ONL.acts[type] && ONL.acts[type](data, to); }, on(type, cb) { ONL.handlers[type] = cb; }, onLeave(cb) { ONL.leaveCbs.push(cb); } };
-function onlPeerJoin(pid) { if (!ONL.host) { onlStatus('Connected to a peer…'); ONL.acts.hello({ name: ONL.name, ver: codeHash() }); } else onlStatus('Peer connecting…'); }
+function onlPeerJoin(pid, sub) { if (!ONL.host) { onlStatus('Connected to a peer' + (sub ? ' via ' + sub.s : '') + ' — asking the host for a slot…'); ONL.cid = ONL.cid || Math.random().toString(36).slice(2, 12); ONL.acts.hello({ name: ONL.name, ver: codeHash(), cid: ONL.cid }, pid); } else onlStatus('Peer connecting' + (sub ? ' via ' + sub.s : '') + '…'); }
 function onlPeerLeave(pid) {
   if (ONL.started) { ONL.leaveCbs.forEach(f => f(pid)); return; }
   if (ONL.host && ONL.peers[pid]) { delete ONL.peers[pid]; onlBroadcastLobby(); onlChatLine('* a player left'); }
@@ -52,16 +79,17 @@ function onlHost() {
   let me = rows.findIndex(r => r[0] === 'human'); if (me < 0) { me = 0; rows[0][0] = 'human'; } rows.forEach((r, i) => { if (i !== me && r[0] === 'human') r[0] = 'hard'; });
   if (!rows.some(r => r[0] === 'remote')) { rows[me === 1 ? 0 : 1][0] = 'remote'; } lobbySet(rows); ONL.meRow = me;
   onlShowPanel(true); document.getElementById('readyBtn').style.display = 'none';
-  const _rq = new URLSearchParams(location.search).get('relays'); const link = location.origin + location.pathname + '?room=' + code + (_rq ? '&relays=' + _rq : '');
+  const _q = new URLSearchParams(location.search), _x = ['relays', 'mqtt', 'trackers', 'strategies', 'turn'].filter(k => _q.get(k)).map(k => '&' + k + '=' + encodeURIComponent(_q.get(k))).join(''); const link = location.origin + location.pathname + '?room=' + code + _x; // share link keeps signalling/TURN overrides
   onlStatus(`Room <b>${code}</b> — share: <a href="${link}" target="_blank">${link}</a><br>${location.protocol === 'file:' ? '⚠ Hosting from file:// — friends must open the same game build via https.' : ''}`);
   ONL.handlers.hello = (d, pid) => {
     if (ONL.started) { if (d.ver === codeHash() && NET.rejoinReq(pid, d.name)) onlChatLine('* ' + d.name + ' rejoined'); else ONL.acts.kick({ reason: 'Match already running (no free slot to rejoin).' }, pid); return; }
     if (d.ver !== codeHash()) { ONL.acts.kick({ reason: 'Version mismatch — reload the page (host ' + codeHash() + ', you ' + d.ver + ').' }, pid); return; }
+    if (d.cid && Object.values(ONL.peers).some(p => p.cid === d.cid)) return; // v5.9.2: same player reached us over a second signalling strategy
     const taken = new Set(Object.values(ONL.peers).map(p => p.row)), rows = lobbyRead();
     let row = rows.findIndex((r, i) => r[0] === 'remote' && !taken.has(i));
     if (row < 0) row = rows.findIndex((r, i) => i !== ONL.meRow && r[0] === 'off'); if (row >= 0 && rows[row][0] === 'off') { rows[row][0] = 'remote'; lobbySet(rows); }
     if (row < 0) { ONL.acts.kick({ reason: 'Lobby is full.' }, pid); return; }
-    ONL.peers[pid] = { name: String(d.name || 'Guest').slice(0, 16), row, ready: false }; onlChatLine(`* ${ONL.peers[pid].name} joined (slot ${row + 1})`); onlBroadcastLobby();
+    ONL.peers[pid] = { name: String(d.name || 'Guest').slice(0, 16), row, ready: false, cid: d.cid }; onlChatLine(`* ${ONL.peers[pid].name} joined (slot ${row + 1})`); onlBroadcastLobby();
   };
   ONL.handlers.ready = (d, pid) => { if (ONL.peers[pid]) { ONL.peers[pid].ready = !!d.r; onlBroadcastLobby(); } };
   ONL.handlers.pref = (d, pid) => { const p = ONL.peers[pid]; if (!p) return; const rows = lobbyRead(); if (d.fac && FACTIONS[d.fac]) rows[p.row][2] = d.fac; if (d.color && TEAM_COLORS[d.color] && !rows.some((r, i) => i !== p.row && r[3] === d.color)) rows[p.row][3] = d.color; lobbySet(rows); onlBroadcastLobby(); };
@@ -99,10 +127,14 @@ function onlJoin(code) {
   code = String(code || '').trim().toUpperCase(); if (!code) return;
   ONL.host = false; ONL.name = onlName(); onlJoinRoom(code); onlShowPanel(true);
   document.querySelectorAll('#lobby select').forEach(s => s.disabled = true); document.getElementById('startBtn').style.display = 'none';
-  onlStatus(`Joining room <b>${code}</b>… (looking for host via relays)`);
-  ONL.joinT0 = Date.now(); clearTimeout(ONL.reachT); ONL.reachT = setTimeout(() => { if (ONL.hostId || ONL.started) return;
-    onlStatus(`❌ Can't reach the host of room <b>${code}</b> yet. Check: 1) the host is still on the lobby screen with this room open; 2) you both have the same version (reload this page — the host too); 3) try again with <b>Join</b>. If it never connects, one of your networks blocks direct connections: a TURN relay is needed (js/net-config.js → turnConfig) or try a different network (e.g. phone hotspot).`); }, 20000);
-  ONL.handlers.lobby = (st, pid) => { ONL.hostId = pid; clearTimeout(ONL.reachT); lobbySet(st.rows); document.querySelectorAll('#lobby select').forEach(s => s.disabled = true); onlRenderPeers(st);
+  ONL.joinT0 = Date.now(); clearTimeout(ONL.reachT); clearInterval(ONL.reachI);
+  // v5.9.2: tell the joiner which stage is failing: matchmaking (signalling) vs the direct WebRTC connection
+  ONL.reachI = setInterval(() => { if (ONL.hostId || ONL.started) { clearInterval(ONL.reachI); return; } const sec = (Date.now() - ONL.joinT0) / 1000, sig = RTCDIAG.remoteOffer + RTCDIAG.remoteAnswer;
+    if (sec < 20) { onlStatus(sig ? `Room <b>${code}</b>: host found via matchmaking — opening a direct connection… (${sec | 0}s)` : `Joining room <b>${code}</b>… looking for the host via ${(ONL.strategies || []).join(' + ')} (${sec | 0}s)`); return; }
+    clearInterval(ONL.reachI);
+    if (sig) onlStatus(`❌ Found the host of room <b>${code}</b> (matchmaking works) but your browsers could not open a direct connection${RTCDIAG.failed ? ' (WebRTC failed)' : ''}. One of your networks blocks peer-to-peer (strict/CGNAT router, VPN, corporate or school Wi-Fi). Fixes: turn off VPNs; try a phone hotspot on one side; or add a TURN relay (free Metered/Cloudflare TURN account → paste its username/credential into js/net-config.js turnConfig, or open the link with &turn=turn:HOST:PORT,USER,PASS on both sides). Then press Join again.`);
+    else onlStatus(`❌ Can't find the host of room <b>${code}</b> on any matchmaking server (${(ONL.strategies || []).join(', ')}). Check: 1) the host still has this room open on the lobby screen; 2) you both run the same version — reload this page (the host too); 3) press <b>Join</b> again. If an ad-blocker/firewall blocks WebSocket servers, disable it for this site.`); }, 1000);
+  ONL.handlers.lobby = (st, pid) => { ONL.hostId = pid; clearTimeout(ONL.reachT); clearInterval(ONL.reachI); lobbySet(st.rows); document.querySelectorAll('#lobby select').forEach(s => s.disabled = true); onlRenderPeers(st);
     const mine = st.peers[ONL.selfId]; onlStatus(`Room <b>${code}</b> — host <b>${st.hostName}</b>. ${mine ? `You are slot ${mine.row + 1}. Pick your faction/colour, then press Ready.` : 'Waiting for a slot…'}`); };
   ONL.handlers.kick = d => { onlStatus('❌ ' + d.reason); };
   ONL.handlers.chat = d => onlChatLine(d.n + ': ' + d.m);

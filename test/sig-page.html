@@ -1,0 +1,12 @@
+<!doctype html><meta charset="utf-8"><title>sig</title>
+<script>// diag: count WebRTC handshake steps (offers/answers that actually reached this peer via signalling)
+window.__rtc = { pcs: 0, localOffer: 0, localAnswer: 0, remoteOffer: 0, remoteAnswer: 0, cand: 0, states: [] };
+(() => { const O = RTCPeerConnection; window.RTCPeerConnection = function (c) { const pc = new O(c); __rtc.pcs++; __rtc.ice = JSON.stringify((c && c.iceServers || []).map(s => s.urls)).slice(0, 300);
+  const sl = pc.setLocalDescription.bind(pc), sr = pc.setRemoteDescription.bind(pc), ac = pc.addIceCandidate.bind(pc);
+  pc.setLocalDescription = async d => { const r = await sl(d); const t = pc.localDescription && pc.localDescription.type; if (t === 'offer') __rtc.localOffer++; if (t === 'answer') __rtc.localAnswer++; return r; };
+  pc.setRemoteDescription = async d => { if (d && d.type === 'offer') __rtc.remoteOffer++; if (d && d.type === 'answer') __rtc.remoteAnswer++; return sr(d); };
+  pc.addIceCandidate = async c => { __rtc.cand++; return ac(c); };
+  pc.addEventListener('connectionstatechange', () => __rtc.states.push(pc.connectionState)); return pc; }; window.RTCPeerConnection.prototype = O.prototype; })();
+</script>
+<script src="../js/net-config.js"></script><script src="../vendor/trystero-nostr.js"></script>
+<script>const s = new URLSearchParams(location.search).get('s'); if (s && s !== 'nostr') document.write('<script src="../vendor/trystero-' + s + '.js"><\/script>');</script>
