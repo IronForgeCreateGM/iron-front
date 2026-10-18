@@ -117,13 +117,17 @@ function handleEvents() {
         flash(p.x, p.y, p.z, big ? 0.9 : w === 'bullet' ? 0.35 : 0.55, 1, 0.8, 0.45);
         { const r0 = R3.rs.get(s.id); if (r0 && s.kind === 'u' && (UT[s.t].armor === 'inf' || UT[s.t].mech)) r0.kick = 1; }
         if (big) { for (let i = 0; i < 4 * FX.mul; i++) puff(p.x + Math.cos(s.tang) * 0.2, p.y + Math.sin(s.tang) * 0.2, p.z, 0.25, 1.1, 0.55, 0.45, 0.3); const rs = R3.rs.get(s.id); if (rs) rs.recoil = 0.09; }
+        if (w === 'gat') { // v5.9 gatling: bright flash, ejected brass casings, faint gun smoke
+          flash(p.x, p.y, p.z, 0.5, 1, 0.85, 0.4); const sx = -Math.sin(s.tang), sy = Math.cos(s.tang);
+          for (let i = 0; i < 2 * FX.mul; i++) FX.spark.spawn(p.x - Math.cos(s.tang) * 0.45, p.y - Math.sin(s.tang) * 0.45, p.z, sx * (1.2 + Math.random()) + rnd(0.4), sy * (1.2 + Math.random()) + rnd(0.4), 1.2 + Math.random(), 0.7, 0.045, 0.04, 1, 0.75, 0.3, 1, 9, 0);
+          if (Math.random() < 0.25 * FX.mul) puff(p.x, p.y, p.z, 0.18, 0.7, 0.6, 0.3, 0.3); }
         if (w === 'rocket') puff(p.x - Math.cos(s.tang) * 0.4, p.y - Math.sin(s.tang) * 0.4, p.z, 0.3, 0.8, 0.6, 0.5, 0.2);
         sfx(ev.w.snd, s.x, s.y); break;
       }
       case 'hit': {
         if (G.opts.fog && !vis0(idx(Math.floor(ev.x), Math.floor(ev.y)))) break;
         const z = (ev.z || 0) + (ev.z > 1.5 ? heightAt(ev.x, ev.y) * 0.3 : heightAt(ev.x, ev.y));
-        if (ev.kind === 'bullet') { sparks(ev.x, ev.y, z + 0.2, 2, 2); flash(ev.x, ev.y, z + 0.25, 0.18, 1, 0.8, 0.5); }
+        if (ev.kind === 'bullet' || ev.kind === 'gat') { sparks(ev.x, ev.y, z + 0.2, 2, 2); flash(ev.x, ev.y, z + 0.25, 0.18, 1, 0.8, 0.5); }
         else if (ev.kind === 'snipe') { sparks(ev.x, ev.y, z + 0.2, 3, 2.5); flash(ev.x, ev.y, z + 0.25, 0.3, 1, 0.9, 0.7); }
         else if (ev.kind === 'fire') { for (let i = 0; i < 6 * FX.mul; i++) FX.fire.spawn(ev.x + rnd(0.8), ev.y + rnd(0.8), z + 0.15, rnd(0.5), rnd(0.5), 0.8, 0.5, 0.2, 0.6, 1, 0.45, 0.1, 0.9, -1); if (Math.random() < 0.3) puff(ev.x, ev.y, z + 0.4, 0.25, 1.4, 0.12, 0.5, 0.8); }
         else if (ev.kind === 'aam') { explosion3(ev.x, ev.y, z, 0.45); sfx('boom', ev.x, ev.y); }
@@ -193,6 +197,9 @@ function r3Render(dt) {
       let sy = 0.02 + 0.98 * ease; if (e.sell >= 0) sy = Math.max(0.02, 1 - (G.time - e.sell) / 1.2);
       o.body.scale.y = sy; o.sc.visible = cons < 1 || e.sell >= 0;
       if (o.parts.spin) o.parts.spin.rotation.y += dt * 1.4; if (o.parts.head) o.parts.head.rotation.y = -e.tang;
+      if (o.parts.gat) { // v5.9 gatling spin-up / spin-down; barrel cluster yaws with the head and rolls about its own axis
+        const firing = e.tgt && e.tgt.hp > 0 && G.time - (e.lastFire || -9) < 0.5 && !e.offline; o.gv = (o.gv || 0) + ((firing ? 34 : 0) - (o.gv || 0)) * Math.min(1, dt * (firing ? 2.2 : 0.9)); o.gr = ((o.gr || 0) + o.gv * dt) % 628;
+        const g = o.parts.gat, hp = o.parts.head.position; g.rotation.order = 'YXZ'; g.rotation.set(o.gr, -e.tang, 0); g.position.set(hp.x + Math.cos(e.tang) * 0.2, 0.66, hp.z + Math.sin(e.tang) * 0.2); }
       if ((e.lvl || 1) !== (o.lvl || 1)) setLevelDecor(o, e);
       if (e.upT != null && Math.random() < dt * 12) FX.spark.spawn(e.x + rnd(e.w), e.y + rnd(e.h), 0.5 + Math.random() * 0.6, rnd(1), rnd(1), 1.5, 0.5, 0.12, 0.04, 0.5, 0.9, 1, 1, 3);
       o.sc.visible = o.sc.visible || e.upT != null;

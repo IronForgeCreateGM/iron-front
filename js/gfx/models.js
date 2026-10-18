@@ -426,6 +426,27 @@ const BLD_MODELS = {
     const R = [0.4, 0.34, 0.27, 0.2]; R.forEach((r, k) => { const y = 1.12 + k * 0.27; B.torus('body', r, 0.055, IRON, PBR.METAL, 0, y, 0, { rx: Math.PI / 2, seg: 28 }); B.torus('body', r - 0.03, 0.03, BLUE, PBR.GLOW, 0, y - 0.035, 0, { rx: Math.PI / 2, seg: 28 }); });
     B.piv.head = [0, 2.2, 0]; B.sph('head', 0.15, 0x66bbff, PBR.GLOW, 0, 0, 0, { seg: 16 }); B.torus('head', 0.1, 0.02, IRON, PBR.METAL, 0, -0.13, 0, { rx: Math.PI / 2 }); B.piv.tip = 0.1;
   },
+  gatling(B) { // v5.9 France Tourelle Gatling: armoured octagonal plinth, blue/white/red trim, yawing head with a six-barrel rotary cluster (part 'gat' rolls)
+    const NAVY = 0x23356b, RED = 0xb8262c, WH = 0xd8d8d0;
+    B.cyl('body', 0.47, 0.2, COL.CONCD, PBR.CONC, 0, 0.1, 0, { seg: 8 }); B.cyl('body', 0.4, 0.26, COL.STEEL, PBR.METAL, 0, 0.32, 0, { rt: 0.32, seg: 8 });
+    for (let k = 0; k < 8; k++) { const a = k * 0.785 + 0.39; B.box('body', 0.07, 0.2, 0.2, 'T', PBR.PAINT, Math.cos(a) * 0.4, 0.3, Math.sin(a) * 0.4, { ry: -a, bevel: 0.01 }); }
+    for (const [c, y] of [[NAVY, 0.46], [WH, 0.49], [RED, 0.52]]) B.cyl('body', 0.34, 0.03, c, PBR.PAINT, 0, y, 0, { seg: 16 });
+    B.glow('body', 0.05, 0.05, 0.05, 'TA', 0.0, 0.56, 0.3);
+    B.piv.head = [0, 0.62, 0];
+    B.box('head', 0.42, 0.26, 0.38, 'T', PBR.PAINT, -0.04, 0.06, 0, { bevel: 0.04 });            // gun housing
+    B.box('head', 0.3, 0.06, 0.4, COL.STEEL, PBR.METAL, -0.06, 0.21, 0, { bevel: 0.02 });         // top armour
+    for (const z of [0.21, -0.21]) { B.box('head', 0.36, 0.22, 0.04, COL.STEEL, PBR.METAL, 0.02, 0.06, z, { bevel: 0.01 }); B.box('head', 0.2, 0.03, 0.045, 'TA', PBR.ACC, 0.0, 0.14, z, { bevel: 0 }); }
+    B.box('head', 0.18, 0.2, 0.16, COL.DARK, PBR.DARKM, -0.18, 0.02, 0.27, { bevel: 0.02 });       // ammo drum
+    B.cyl('head', 0.012, 0.5, 0xc8a040, PBR.METAL, -0.1, 0.0, 0.2, { rz: Math.PI / 2, seg: 4 });    // ammo belt
+    B.cyl('head', 0.08, 0.1, COL.GUN, PBR.DARKM, 0.2, 0.04, 0, { rz: Math.PI / 2, seg: 10 });       // barrel mount
+    B.glow('head', 0.03, 0.03, 0.06, 0xff4422, 0.0, 0.26, 0.1);
+    B.piv.gat = [0.2, 0.66, 0];                                                                      // rotary cluster (axis = local +x)
+    B.cyl('gat', 0.065, 0.12, COL.STEEL, PBR.METAL, 0.06, 0, 0, { rz: Math.PI / 2, seg: 12 });
+    for (let k = 0; k < 6; k++) { const a = k * 1.047, y = Math.cos(a) * 0.045, z = Math.sin(a) * 0.045; B.cyl('gat', 0.016, 0.5, COL.GUN, PBR.DARKM, 0.3, y, z, { rz: Math.PI / 2, seg: 6 }); }
+    for (const x of [0.22, 0.48]) B.cyl('gat', 0.068, 0.025, x > 0.3 ? RED : COL.STEEL, PBR.METAL, x, 0, 0, { rz: Math.PI / 2, seg: 12 });
+    B.cyl('gat', 0.02, 0.04, 0x111111, PBR.DARKM, 0.56, 0, 0, { rz: Math.PI / 2, seg: 8 });
+    B.piv.tip = 0.78;
+  },
   silo(B) { // v5.2 Warhead Launcher: pad, blast doors, gantry and an upright missile (piv 'mis' hidden when empty)
     B.box('body', 1.9, 0.18, 1.9, COL.CONCD, PBR.CONC, 0, 0.09, 0, { bevel: 0.05 }); B.box('body', 1.1, 0.06, 1.1, 0x2a2b2c, PBR.DARKM, 0.15, 0.2, 0.15, { bevel: 0.02 });
     for (const s of [-1, 1]) B.box('body', 0.52, 0.08, 1.05, 'T', PBR.PAINT, 0.15 + s * 0.3, 0.24, 0.15, { bevel: 0.02 });

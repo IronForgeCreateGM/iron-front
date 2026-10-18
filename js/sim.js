@@ -260,7 +260,7 @@ function teamEnts(team, t) { return G.ents.filter(e => e.team === team && (!t ||
 function hasBuilt(team, t) { return G.ents.some(e => e.kind === 'b' && e.team === team && e.t === t && e.hp > 0 && e.sell < 0); }
 function reqOk(team, d) { return d.req.every(r => hasBuilt(team, r)); }
 function avail(team, t) {
-  const dd = BT[t] || UT[t]; if (dd.fac && G.players[team].fac !== dd.fac) return false;
+  const dd = BT[t] || UT[t]; if (dd.fac && G.players[team].fac !== dd.fac) return false; if (dd.noFac && G.players[team].fac === dd.noFac) return false;
   if (BT[t]) return (hasBuilt(team, 'hq') || hasBuilt(team, 'cc')) && reqOk(team, BT[t]);
   const d = UT[t]; return (hasBuilt(team, d.from) || (d.alt || []).some(a => hasBuilt(team, a))) && reqOk(team, d);
 }
@@ -442,8 +442,8 @@ function orderMove(units, x, y, attackMove, queue) {
   const left = units.slice();
   for (const s of slots) { let bi = 0, bd = 1e9; left.forEach((u, i) => { const d = dhypot(u.x - s.x, u.y - s.y); if (d < bd) { bd = d; bi = i; } });
     const u = left.splice(bi, 1)[0]; u.grp = units.length;
-    if (queue && (u.path.length || (u.wq && u.wq.length))) { (u.wq = u.wq || []).push({ x: s.x, y: s.y, am: attackMove }); continue; }
-    u.wq = []; u.order = attackMove ? 'amove' : 'move'; u.face = null; if (u.stance === 'hold') u.guard = { x: s.x, y: s.y }; u.tgt = null; u.anchor = { x: s.x, y: s.y };
+    if (queue && (u.path.length || (u.wq && u.wq.length))) { (u.wq = u.wq || []).push({ x: s.x, y: s.y, am: attackMove || (UT[u.t].marine && u.stance !== 'hold') }); continue; }
+    u.wq = []; u.order = attackMove || (UT[u.t].marine && u.stance !== 'hold') ? 'amove' : 'move'; u.face = null; if (u.stance === 'hold') u.guard = { x: s.x, y: s.y }; u.tgt = null; u.anchor = { x: s.x, y: s.y }; u.amDest = u.order === 'amove' && UT[u.t].marine ? { x: s.x, y: s.y } : null; // v5.9 Iron Marines auto-engage on the move (attack-move by default)
     if (u.t === 'harv') { u.hst = 'manual'; const oi = idx(Math.floor(s.x), Math.floor(s.y)); if (G.ore[oi] > 0) { u.hst = 'idle'; u.prefOre = oi; } }
     setPath(u, s.x, s.y); }
 }
@@ -664,7 +664,8 @@ function damage(t, amt, w, team, src) {
   if (t.hp <= 0) return;
   if (src && src.kind && !isAir(src) && !isAir(t) && G.tier[idx(Math.floor(t.x), Math.floor(t.y))] > G.tier[idx(Math.floor(src.x), Math.floor(src.y))]) amt *= 0.75; // high ground
   if (src && src.kind === 'u' && src.nb && UT[src.t].marine) amt *= 1 + MAR.dmgN * src.nb; // v5.8 strength in numbers
-  if (t.kind === 'u' && UT[t.t].marine) { if (MAR.take[w.type]) amt *= MAR.take[w.type]; else if (MAR.plated[w.type]) amt *= 1 - MAR.plated[w.type] - MAR.drN * (t.nb || 0); }
+  if (t.kind === 'u' && UT[t.t].marine) { if (src && src.kind === 'u' && !UT[src.t].air && UT[src.t].armor !== 'inf' && !MAR.counter[w.type]) amt *= MAR.veh; // v5.9 vehicle-weapon resistance
+    if (MAR.take[w.type]) amt *= MAR.take[w.type]; else if (MAR.plated[w.type]) amt *= 1 - MAR.plated[w.type] - MAR.drN * (t.nb || 0); }
   t.hp -= amt * DMG[w.type][armorOf(t)];
   t.lastHitBy = team; t.hitT = G.time;
   const TP = G.players[t.team]; if (TP && G.time - (TP.alertT || -99) > 12) { TP.alertT = G.time; G.events.push({ e: 'attacked', team: t.team, x: t.x, y: t.y, harv: t.t === 'harv' }); }
@@ -707,15 +708,15 @@ function stepUnit(u) {
   if (u.stance === 'hold' && u.guard && u.order === 'idle') u.anchor = u.guard;
   if (!engaged && u.order === 'idle' && !u.path.length && dhypot(u.x - u.anchor.x, u.y - u.anchor.y) > (u.stance === 'hold' ? 0.5 : 2.5) && u.t !== 'harv') setPath(u, u.anchor.x, u.anchor.y);
   if (!engaged && u.order === 'idle' && !u.path.length && u.face != null && u.stance === 'hold') { u.ang = turnTo(u.ang, u.face, 2 * DT); u.tang = turnTo(u.tang, u.face, 2 * DT); }
-  if (!engaged && u.order === 'amove' && !u.path.length && u.dest && dhypot(u.x - u.dest.x, u.y - u.dest.y) > 1.5) setPath(u, u.dest.x, u.dest.y);
+  { const ad = u.amDest || u.dest; if (!engaged && u.order === 'amove' && !u.path.length && ad && dhypot(u.x - ad.x, u.y - ad.y) > 1.5) setPath(u, ad.x, ad.y); } // v5.9: marines resume their original move destination after a fight
   // movement
   if (u.path.length) {
     const p = u.path[0], dx = p.x - u.x, dy = p.y - u.y, dist = dhypot(dx, dy);
     const last = u.path.length === 1;
     const crowdArrive = last && u.grp > 1 && dist < 0.6 + 0.35 * Math.sqrt(u.grp) && u.blockedT > 0.6;
     if (dist < (last ? 0.12 : 0.4) || crowdArrive) { u.path.shift(); if (crowdArrive) u.path = [];
-      if (!u.path.length && u.wq && u.wq.length) { const w = u.wq.shift(); u.order = w.am ? 'amove' : 'move'; u.anchor = { x: w.x, y: w.y }; setPath(u, w.x, w.y); }
-      else if (!u.path.length && (u.order === 'move' || u.order === 'amove')) { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; } }
+      if (!u.path.length && u.wq && u.wq.length) { const w = u.wq.shift(); u.order = w.am ? 'amove' : 'move'; u.anchor = { x: w.x, y: w.y }; u.amDest = w.am && UT[u.t].marine ? { x: w.x, y: w.y } : null; setPath(u, w.x, w.y); }
+      else if (!u.path.length && (u.order === 'move' || (u.order === 'amove' && !(u.amDest && dhypot(u.x - u.amDest.x, u.y - u.amDest.y) > 1.5)))) { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; } }
     else {
       const want = datan2(dy, dx);
       const veh = d.armor !== 'inf';

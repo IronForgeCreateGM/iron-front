@@ -49,3 +49,21 @@ Also earlier backlog: wall gate.
 - CLICK ACCURACY: clicks are offset; must aim slightly below-left of a turret to select/upgrade it. Fix picking (raycast vs mesh/bounds, devicePixelRatio/canvas offset) so the cursor lines up exactly.
 - ONLINE LAG: friends played online and saw lag. Profile netcode (lockstep input delay, peer latency, sim cost), smooth it out; decide whether to publish to GitHub Pages (needs Nicholas's OK to push).
   - Lag specifically seen with 4 human players online; test and optimize the 4-human case.
+
+## iPhone App Store push (added 2026-10-17, this week's to-do)
+1. Super fine-tuned mobile version: full touch controls (drag-select, tap move/attack, pinch zoom, two-finger pan), phone-sized UI, iPhone performance pass, original names/art only (no RA2 IP).
+2. Nicholas plays it on iPhone from the GitHub Pages link for a few days.
+3. Wrap with Capacitor, build in Xcode on his iMac Pro; Nicholas pays $99 Apple Developer fee.
+4. TestFlight for brother + friends, then App Store. Pricing TBD ($4.99 paid vs free + IAP).
+
+## Brazil Iron Marine tweaks (Nicholas, 2026-10-17)
+- Cost $450 -> $400.
+- Move speed slightly faster.
+- Auto-engage: when a marine runs into enemy ground units or air units while moving, it stops and attacks them (attack-move style by default), then resumes.
+- (added 9:35 PM) Iron Marine: extra armor vs tank/vehicle damage, and longer attack range. Nicholas is fine with Brazil being a bit OP (his main faction).
+
+## France faction tower (Nicholas, 2026-10-17 9:39 PM)
+- France replaces the Tesla tower with its own minigun defense tower.
+- Strength between Tesla tower and Grand Cannon.
+- Hits ground AND air; especially strong vs infantry and aircraft (weaker vs heavy tanks).
+- Make it look really cool: spinning multi-barrel gatling turret, muzzle flash, tracer fire, spent-shell effects.

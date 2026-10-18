@@ -4,6 +4,7 @@
 // counter-composition army, base defense, waves, harass, scouting.
 const AI_ORDER = ['power', 'barracks', 'refinery', 'power', 'factory', 'extractor', 'turret', 'refinery', 'power', 'tech', 'aagun', 'power', 'turret', 'airpad', 'power', 'turret', 'aagun', 'refinery', 'power'];
 const AI_ORDER_CHIEF = ['power', 'barracks', 'refinery', 'power', 'extractor', 'factory', 'refinery', 'power', 'turret', 'refinery', 'tech', 'power', 'aagun', 'turret', 'power', 'airfield', 'power', 'turret', 'extractor', 'gcannon', 'aagun', 'power', 'refinery', 'power'];
+const facDef = (P, b) => b === 'tesla' && P.fac === 'fra' ? 'gatling' : b; // v5.9 France builds the Gatling Bastion where others build Teslas
 const AI_ORDER_SI = ['power', 'barracks', 'refinery', 'power', 'extractor', 'factory', 'refinery', 'turret', 'power', 'tech', 'refinery', 'aagun', 'power', 'power', 'tesla', 'airfield', 'turret', 'power', 'extractor', 'gcannon', 'aagun', 'power', 'power'];
 const AI_ORDER_AIR = AI_ORDER.concat(['power', 'airfield', 'extractor', 'power', 'gcannon', 'power']);
 function aiInit(P) { P.aiS = { next: 0, wave: DIFF[P.diff].wave0, scoutT: DIFF[P.diff].scoutAfter, lastAttack: 0, attackers: new Set(), known: new Map(), sellT: 0 }; }
@@ -55,7 +56,7 @@ function aiStep(P) {
     if (S.defFull && !S.underAttack) for (const it of P.queues.def.slice()) if (it.t !== 'wall' && it.prog < 0.3) cancel(P.team, it.t); }
   if (doc && !(S.defFull && !S.underAttack)) defenseMgr(P, S, D, me, cnt, hq);
   else if (!P.queues.def.length && !P.ready.def && (cnt.factory || 0) > 0) {
-    const need = {}; for (const b of (D.order || (D.si ? AI_ORDER_SI : D.chief ? AI_ORDER_CHIEF : AI_ORDER))) { if (BT[b].cat !== 'def') continue; need[b] = (need[b] || 0) + 1; if ((cnt[b] || 0) < need[b] && avail(P.team, b) && (S.bad[b] || 0) < G.time) { if (!aiSpot(P, b, hq, foes)) { S.bad[b] = G.time + 45; continue; } if (P.cr > (D.defCr || 1200)) enqueue(P.team, b); break; } }
+    const need = {}; for (const b0 of (D.order || (D.si ? AI_ORDER_SI : D.chief ? AI_ORDER_CHIEF : AI_ORDER))) { const b = facDef(P, b0); if (BT[b].cat !== 'def') continue; need[b] = (need[b] || 0) + 1; if ((cnt[b] || 0) < need[b] && avail(P.team, b) && (S.bad[b] || 0) < G.time) { if (!aiSpot(P, b, hq, foes)) { S.bad[b] = G.time + 45; continue; } if (P.cr > (D.defCr || 1200)) enqueue(P.team, b); break; } }
   }
   // 2b) ally pings
   aiPing(P, S, me);
@@ -314,7 +315,7 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
       if (S.grpWp && !near.length) orderMove(S.grp, S.grpWp.x, S.grpWp.y, true);
       else if (far.length > S.grp.length * 0.3 && !near.length && G.time > (S.regroupT || 0) && (S.regroupT = G.time + 12)) { orderMove(S.grp, c.x, c.y, true); }
       else {
-        const tgts = knownB.slice(); const pref = S.towerHeavy ? ['turret', 'tesla', 'gcannon', 'aagun', 'wall', 'power', 'refinery', 'factory', 'barracks', 'cc', 'hq'] : D.si && !SIOFF.pref ? ['cc', 'factory', 'barracks', 'refinery', 'hq', 'airfield', 'turret', 'aagun', 'tech', 'power'] : ['turret', 'aagun', 'refinery', 'factory', 'barracks', 'power', 'airfield', 'tech', 'hq'];
+        const tgts = knownB.slice(); const pref = S.towerHeavy ? ['turret', 'tesla', 'gatling', 'gcannon', 'aagun', 'wall', 'power', 'refinery', 'factory', 'barracks', 'cc', 'hq'] : D.si && !SIOFF.pref ? ['cc', 'factory', 'barracks', 'refinery', 'hq', 'airfield', 'turret', 'aagun', 'tech', 'power'] : ['turret', 'aagun', 'refinery', 'factory', 'barracks', 'power', 'airfield', 'tech', 'hq'];
         tgts.sort((a, b) => dhypot(a.x - c.x, a.y - c.y) * 0.3 + (pref.indexOf(a.t) + 1 || 9) - dhypot(b.x - c.x, b.y - c.y) * 0.3 - (pref.indexOf(b.t) + 1 || 9));
         let t = tgts[0] || huntTarget(P, S, c, estart);
         // v5.1 siege: break the weakest section of the wall/defence line in front of the pack (lowest hp, closest)
@@ -485,9 +486,9 @@ function defenseMgr(P, S, D, me, cnt, hq) {
   const ents = baseEntrances(P, S, hq); if (!ents.length) return;
   const myD = me.filter(e => e.kind === 'b' && BT[e.t].cat === 'def' && BT[e.t].wpn);
   const tier = G.time < 300 ? 1 : !hasBuilt(P.team, 'tech') ? 2 : G.time < 840 ? 3 : 4;
-  const gc = avail(P.team, 'gcannon'), heavyDef = gc ? 'gcannon' : 'tesla';
+  const gc = avail(P.team, 'gcannon'), TES = facDef(P, 'tesla'), heavyDef = gc && TES === 'tesla' ? 'gcannon' : TES; // France: Gatlings first at the entrance, Grand Cannons behind (tier 4 + special)
   // v5.3 defence-first: many towers per entrance; Teslas come in clusters of 2-3 (they chain/stack), Grand Cannon behind
-  const plan = tier === 1 ? [['turret', 2]] : tier === 2 ? [['turret', 2], ['aagun', 1], ['turret', 3]] : tier === 3 ? [['turret', 2], ['aagun', 1], [heavyDef, 1], ['tesla', 2], ['turret', 3]] : [['turret', 3], ['aagun', 2], [heavyDef, 1], ['tesla', 3], ['gcannon', gc ? 2 : 0], ['aagun', 3]];
+  const plan = tier === 1 ? [['turret', 2]] : tier === 2 ? [['turret', 2], ['aagun', 1], ['turret', 3]] : tier === 3 ? [['turret', 2], ['aagun', 1], [heavyDef, 1], [TES, 2], ['turret', 3]] : [['turret', 3], ['aagun', 2], [heavyDef, 1], [TES, 3], ['gcannon', gc ? 2 : 0], ['aagun', 3]];
   if (P.cr < 150) return;
   // budget: static D may not starve the army; defence-first allows a big share (more when under attack / army wiped)
   const dv = myD.reduce((a, d) => a + BT[d.t].cost, 0), av = armyVal(me.filter(u => u.kind === 'u' && UT[u.t].wpn && u.t !== 'harv')); const share = SIOFF.def53 ? (S.underAttack ? 0.45 : 0.3) : (S.underAttack ? 0.6 : 0.45); const capped = dv > 1500 && dv > (av + dv) * share;
@@ -561,7 +562,7 @@ function airRaidMgr(P, S, D, me, foes, knownB, hq) {
     return; }
   if (!peaceOver(P) || G.time < (S.raidT || 0) || !knownB.length) return;
   const armed = air.filter(u => u.js === 'landed' && u.ammo >= W[UT[u.t].wpn].ammo); if (armed.length < (G.time > 1300 ? 4 : 5)) return;
-  const aa = knownB.filter(b => b.t === 'aagun' || b.t === 'tesla').concat(foes.filter(f => f.kind === 'u' && (f.t === 'aa' || f.t === 'intercept' || f.t === 'rocketeer')));
+  const aa = knownB.filter(b => b.t === 'aagun' || b.t === 'tesla' || b.t === 'gatling').concat(foes.filter(f => f.kind === 'u' && (f.t === 'aa' || f.t === 'intercept' || f.t === 'rocketeer')));
   const aaAt = (x, y) => aa.reduce((s, a) => s + (dhypot(a.x - x, a.y - y) < 7.5 ? (a.kind === 'b' ? 2 * ((a.lvl || 1) + 1) / 2 : 1) : 0), 0);
   const pri = S.towerHeavy ? { power: 0, refinery: 2, factory: 2, silo: 0, airfield: 3, tech: 3 } : { refinery: 0, power: 1, factory: 1, silo: 0, airfield: 2, tech: 3, barracks: 3, extractor: 2 };
   const cands = knownB.filter(b => pri[b.t] != null).map(b => ({ b, s: pri[b.t] * 2 + aaAt(b.x, b.y) * 1.5 })).sort((a, b) => a.s - b.s); if (!cands.length) return;

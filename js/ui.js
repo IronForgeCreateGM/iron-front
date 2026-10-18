@@ -62,7 +62,7 @@ function uiSetup() {
 }
 function openSettings(on) { $('settings').style.display = on ? 'flex' : 'none'; }
 function jumpTo(x, y, instant) { R3.cam.tx = x; R3.cam.ty = y + R3.cam.d * 0.18; if (instant) { R3.cam.x = R3.cam.tx; R3.cam.y = R3.cam.ty; } }
-function listFor(cat) { const f = G.players[ME].fac, ok = t => !(BT[t] || UT[t]).fac || (BT[t] || UT[t]).fac === f; return [...Object.keys(BT).filter(t => t !== 'hq' && BT[t].cat === cat && ok(t)), ...Object.keys(UT).filter(t => FROMCAT[UT[t].from] === cat && ok(t))]; }
+function listFor(cat) { const f = G.players[ME].fac, ok = t => { const d = BT[t] || UT[t]; return (!d.fac || d.fac === f) && d.noFac !== f; }; return [...Object.keys(BT).filter(t => t !== 'hq' && BT[t].cat === cat && ok(t)), ...Object.keys(UT).filter(t => FROMCAT[UT[t].from] === cat && ok(t))]; }
 function itemHTML(t, hk) { const d = BT[t] || UT[t]; return `<img src="${icon(t)}"><div class="nm">${d.n}</div><div class="cost">$${d.cost}${d.gas ? `<i class="gas"> ◆${d.gas}</i>` : ""}</div>${hk ? `<div class="hk">${hk.toUpperCase()}</div>` : ''}<div class="prog"></div><div class="cnt"></div><div class="rdy">READY</div><div class="lock">🔒</div>`; }
 function wireItem(b, t, panel) {
   b.dataset.t = t;
