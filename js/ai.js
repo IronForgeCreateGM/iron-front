@@ -9,7 +9,9 @@ const AI_ORDER_SI = ['power', 'barracks', 'refinery', 'power', 'extractor', 'fac
 const AI_ORDER_AIR = AI_ORDER.concat(['power', 'airfield', 'extractor', 'power', 'gcannon', 'power']);
 function aiInit(P) { P.aiS = { next: 0, wave: DIFF[P.diff].wave0, scoutT: DIFF[P.diff].scoutAfter, lastAttack: 0, attackers: new Set(), known: new Map(), sellT: 0 }; }
 // v5.0 peace window: no attacks on bases before G.opts.peace seconds (default 180; lobby Off/3/5/8 min)
-function peaceOver(P) { if (P && DIFF[P.diff].human) return true; return G.time >= (G.opts.peace == null ? 180 : G.opts.peace); }
+function peaceOver(P) { if (P && DIFF[P.diff].human) return true; const t0 = (G.opts.peace == null ? 180 : G.opts.peace) + ((P && P.stagger) || 0); if (G.time < t0) return false;
+  // v6.0 Hellgate warlords wake up one at a time, then raid in 3.5-min-on / 1.5-min-off cycles (offset per warlord) until the endgame
+  if (P && P.stagger != null && G.time < END_T) return (G.time - t0) % 300 < 210; return true; }
 function aiStep(P) {
   if (!P.ai) return; // bot logic never touches a human player's units
   const S = P.aiS, D = DIFF[P.diff], doc = (!D.order || D.doc) && !SIOFF.doc;
@@ -280,7 +282,7 @@ function derrickMgr(P, S, D, me, cnt, hq) {
   if (!free.length || mine >= (P.diff === 'easy' ? 2 : 8)) return;
   const eng = me.filter(u => u.t === 'engineer'), busy = eng.filter(u => u.order === 'derrick');
   if (eng.length - busy.length === 0 && (cnt.engineer || 0) < (P.diff === 'easy' ? 1 : 3) && avail(P.team, 'engineer') && P.cr > 600 && P.queues.inf.length < 3) enqueue(P.team, 'engineer');
-  for (const u of eng) if (u.order !== 'derrick') { const tg = free.filter(d => !busy.some(b => b.dk === d.id)).sort((a, b) => dhypot(a.x - hq.x, a.y - hq.y) - dhypot(b.x - hq.x, b.y - hq.y))[0]; if (tg) { orderDerrick([u], tg.id); busy.push(u); } }
+  for (const u of eng) if (u.order !== 'derrick') { const tg = free.filter(d => !busy.some(b => b.dk === d.id)).sort((a, b) => dhypot(a.x - hq.x, a.y - hq.y) - (a.op ? 14 : 0) - dhypot(b.x - hq.x, b.y - hq.y) + (b.op ? 14 : 0))[0]; if (tg) { orderDerrick([u], tg.id); busy.push(u); } }
 }
 
 // ===== Chief: stronger commander (no resource cheats) =====

@@ -80,6 +80,8 @@ function buildFx3() {
   FX.scorch.frustumCulled = false; FX.scorch.renderOrder = 1; for (let i = 0; i < 80; i++) FX.scorch.setMatrixAt(i, zero); R3.scene.add(FX.scorch); FX.sList = []; FX.sIdx = 0;
   // shockwave rings
   FX.rings = []; for (let i = 0; i < 12; i++) { const m = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffd0a0, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); m.visible = false; R3.scene.add(m); FX.rings.push({ m, t: 0, s: 1 }); }
+  // v6.0 vertical muzzle shockwave rings (Grand Cannon)
+  FX.vrings = []; for (let i = 0; i < 4; i++) { const m = new THREE.Mesh(new THREE.RingGeometry(0.7, 1, 40), new THREE.MeshBasicMaterial({ color: 0xfff0d0, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })); m.visible = false; R3.scene.add(m); FX.vrings.push({ m, t: 0, s: 1 }); }
   // projectiles (instanced)
   const PB = new MB(0); PB.cyl('rocket', 0.035, 0.28, COL.LIGHT, PBR.METAL, 0, 0, 0, { rz: Math.PI / 2, seg: 6 }); PB.glow('rocket', 0.06, 0.06, 0.06, 0xffaa44, -0.16, 0, 0);
   PB.sph('shell', 0.07, 0xffc070, PBR.GLOW, 0, 0, 0, { seg: 8 }); PB.box('tracer', 0.5, 0.025, 0.025, 0xffe7a0, [0, 0.5, 6], 0, 0, 0, { bevel: 0 }); PB.sph('flak', 0.05, 0xffd080, PBR.GLOW, 0, 0, 0, { seg: 6 });
@@ -101,6 +103,7 @@ function explosion3(x, y, z, size) {
   if (size >= 0.8) debris(x, y, z + 0.3, Math.round(size * 5), 0x3a3634, size > 1.2);
   scorch3(x, y, size * 1.6); ring(x, y, size * 2.2);
 }
+function vring(x, y, z, ang, s) { const r = FX.vrings.find(r => r.t <= 0) || FX.vrings[0]; r.t = 0.4; r.s = s; r.m.visible = true; r.m.position.set(x + Math.cos(ang) * 0.5, z, y + Math.sin(ang) * 0.5); r.m.rotation.set(0, Math.PI / 2 - ang, 0); }
 function ring(x, y, s) { const r = FX.rings.find(r => r.t <= 0) || FX.rings[0]; r.t = 0.45; r.s = s; r.m.visible = true; r.m.position.set(x, heightAt(x, y) + 0.12, y); }
 function scorch3(x, y, s) { const i = FX.sIdx++ % 80; FX.sList[i] = { x, y, s, life: 30, rot: Math.random() * 6 }; }
 function debris(x, y, z, n, col, burn) {
@@ -119,6 +122,7 @@ function updFx(dt) {
   FX.sList.forEach((s, i) => { if (!s || s.life <= 0) return; s.life -= dt; sn = true; const k = s.life > 0 ? Math.min(1, s.life / 8) : 0, sc = s.s * (0.7 + 0.3 * k);
     _e.set(0, s.rot, 0); _q.setFromEuler(_e); FX.scorch.setMatrixAt(i, _m4.compose(_v.set(s.x, heightAt(s.x, s.y) + 0.04, s.y), _q, _s.set(sc * (k > 0 ? 1 : 0), 1, sc * (k > 0 ? 1 : 0)))); });
   if (sn) FX.scorch.instanceMatrix.needsUpdate = true;
+  for (const r of FX.vrings || []) if (r.t > 0) { r.t -= dt; const k = 1 - r.t / 0.4; r.m.scale.setScalar(0.3 + k * r.s); r.m.material.opacity = (1 - k) * 0.9; if (r.t <= 0) r.m.visible = false; }
   for (const r of FX.rings) if (r.t > 0) { r.t -= dt; const k = 1 - r.t / 0.45; r.m.scale.setScalar(0.2 + k * r.s); r.m.material.opacity = (1 - k) * 0.8; if (r.t <= 0) r.m.visible = false; }
   // projectiles
   const cnt = { rocket: 0, shell: 0, tracer: 0, flak: 0 };
@@ -126,8 +130,10 @@ function updFx(dt) {
     if (p.delay > 0) continue; const vis = !G.opts.fog || vis0(idx(Math.floor(p.x), Math.floor(p.y))); if (!vis) continue;
     if (p.kind === 'fire') { for (let i = 0; i < 2; i++) FX.fire.spawn(p.x + rnd(0.15), p.y + rnd(0.15), heightAt(p.x, p.y) + p.z * 0.7, rnd(0.6), rnd(0.6), 0.4, 0.35, 0.12, 0.45, 1, 0.5, 0.12, 0.9, -1); continue; }
     const k = p.kind === 'bullet' || p.kind === 'snipe' || p.kind === 'gat' ? 'tracer' : p.kind === 'cannon' || p.kind === 'bomb' ? 'shell' : p.kind === 'aam' ? 'rocket' : p.kind; const im = FX.proj[k]; if (!im || cnt[k] >= 400) continue;
-    const gz = heightAt(p.x, p.y) * (p.tz > 1.5 ? 0.3 : 1) + p.z, ang = Math.atan2(p.ty - p.y, p.tx - p.x);
-    _e.set(0, -ang, 0); _q.setFromEuler(_e); im.setMatrixAt(cnt[k]++, _m4.compose(_v.set(p.x, gz, p.y), _q, _s.set(1, 1, 1)));
+    const BIG = p.w && p.w.big; if (BIG && Math.hypot(p.x - p.sx, p.y - p.sy) < 3.2) continue;
+    const gz = heightAt(p.x, p.y) * (p.tz > 1.5 ? 0.3 : 1) + p.z + (BIG ? 0.5 : 0), ang = Math.atan2(p.ty - p.y, p.tx - p.x);
+    _e.set(0, -ang, 0); _q.setFromEuler(_e); im.setMatrixAt(cnt[k]++, _m4.compose(_v.set(p.x, gz, p.y), _q, BIG ? _s.set(2.4, 2.4, 2.4) : _s.set(1, 1, 1)));
+    if (BIG) { for (let i = 0; i < 3 * FX.mul; i++) FX.fire.spawn(p.x - Math.cos(ang) * i * 0.12, p.y - Math.sin(ang) * i * 0.12, gz, 0, 0, 0, 0.35, 0.22, 0.06, 1, 0.75, 0.35, 1, 0, 0); if (Math.random() < 0.6 * FX.mul) puff(p.x, p.y, gz, 0.12, 1.0, 0.7, 0.3, 0.05); }
     if ((p.kind === 'rocket' || p.kind === 'aam') && Math.random() < 0.9 * FX.mul) puff(p.x, p.y, gz, 0.1, 0.8, 0.42, 0.4, 0.2);
     if ((p.kind === 'shell') && Math.random() < 0.7 * FX.mul) FX.fire.spawn(p.x, p.y, gz, 0, 0, 0, 0.25, 0.15, 0.05, 1, 0.6, 0.3, 0.8, 0, 0);
     if (p.kind === 'cannon' && Math.random() < 0.5 * FX.mul) puff(p.x, p.y, gz, 0.07, 0.4, 0.6, 0.35, 0.1);

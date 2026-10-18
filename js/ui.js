@@ -346,13 +346,14 @@ function minimap() {
   const b = UI.mmBase.getContext('2d'), img = b.createImageData(MW, MH);
   for (let i = 0; i < MW * MH; i++) {
     let r = 46, g = 82, bl = 36; const t = G.map[i];
-    if (t === 1) { r = 112; g = 104; bl = 92; } else if (t === 2) { r = 28; g = 86; bl = 118; } else if (G.lava[i]) { r = 230; g = 80; bl = 20; } else if (G.ice[i]) { r = 170; g = 210; bl = 230; } else if (G.ore[i] > 30) { r = 210; g = 165; bl = 50; } else if (G.mapName === 'frost') { r = 190; g = 200; bl = 210; } else if (G.mapName === 'volcano') { r = 52; g = 44; bl = 40; }
+    if (t === 1) { r = 112; g = 104; bl = 92; } else if (t === 2) { r = 28; g = 86; bl = 118; } else if (G.lava[i]) { r = 230; g = 80; bl = 20; } else if (G.ice[i]) { r = 170; g = 210; bl = 230; } else if (G.ore[i] > 30) { r = 210; g = 165; bl = 50; } else if (G.mapName === 'frost') { r = 190; g = 200; bl = 210; } else if (G.mapName === 'volcano') { r = 52; g = 44; bl = 40; } else if (G.desert) { r = G.wadi && G.wadi[i] ? 200 : 168; g = G.wadi && G.wadi[i] ? 176 : 136; bl = G.wadi && G.wadi[i] ? 128 : 92; }
+    if (t === 1 && G.mud && G.mud[i]) { r = 150; g = 108; bl = 70; } else if (t === 1 && G.desert) { r = 122; g = 94; bl = 70; }
     if (t === 0 && G.lvl[i] > 0.5) { r *= 1.18; g *= 1.18; bl *= 1.18; }
     const f = vis0(i) ? 1 : seen0(i) ? 0.5 : 0.08; img.data.set([r * f, g * f, bl * f, 255], i * 4);
   }
   b.putImageData(img, 0, 0); x.imageSmoothingEnabled = true; x.drawImage(UI.mmBase, 0, 0, c.width, c.height);
   for (const e of G.ents) { if (!visibleTo0(e)) continue; x.fillStyle = MMCOL[e.team] || '#ff5040'; if (e.kind === 'b') x.fillRect(e.tx * s, e.ty * s, e.w * s, e.h * s); else x.fillRect(e.x * s - 1.5, e.y * s - 1.5, 3, 3); }
-  for (const d of G.derricks || []) { x.fillStyle = d.owner >= 0 ? MMCOL[d.owner] : '#ddd'; x.fillRect(d.x * s - 2.5, d.y * s - 2.5, 5, 5); x.strokeStyle = '#000'; x.strokeRect(d.x * s - 2.5, d.y * s - 2.5, 5, 5); }
+  for (const d of G.derricks || []) { if (d.op) { x.fillStyle = d.owner >= 0 ? MMCOL[d.owner] : '#ffd060'; x.beginPath(); x.moveTo(d.x * s, d.y * s - 5); x.lineTo(d.x * s + 5, d.y * s); x.lineTo(d.x * s, d.y * s + 5); x.lineTo(d.x * s - 5, d.y * s); x.closePath(); x.fill(); x.strokeStyle = '#000'; x.stroke(); continue; } x.fillStyle = d.owner >= 0 ? MMCOL[d.owner] : '#ddd'; x.fillRect(d.x * s - 2.5, d.y * s - 2.5, 5, 5); x.strokeStyle = '#000'; x.strokeRect(d.x * s - 2.5, d.y * s - 2.5, 5, 5); }
   x.fillStyle = '#5fe8c4'; for (const [vx, vy] of G.vents || []) { x.beginPath(); x.arc((vx + 0.5) * s, (vy + 0.5) * s, 3, 0, 7); x.fill(); }
   for (const p of UI.pings) { x.strokeStyle = `rgba(255,80,60,${p.t / 3})`; x.lineWidth = 2; x.beginPath(); x.arc(p.x * s, p.y * s, (3 - p.t) * 10 % 12 + 4, 0, 7); x.stroke(); }
   if (R3.viewPts) { const v = R3.viewPts; x.strokeStyle = 'rgba(255,255,255,.85)'; x.lineWidth = 1; x.beginPath(); x.moveTo(v[0].x * s, v[0].y * s); x.lineTo(v[1].x * s, v[1].y * s); x.lineTo(v[3].x * s, v[3].y * s); x.lineTo(v[2].x * s, v[2].y * s); x.closePath(); x.stroke(); }

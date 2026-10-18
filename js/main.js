@@ -11,6 +11,7 @@ const PRESETS = {
   duel:   { n: '1v1', slots: [['human', 'A'], ['normal', 'B']] },
   ffa2:   { n: '2v2', slots: [['human', 'A'], ['hard', 'A'], ['hard', 'B'], ['hard', 'B']] },
   t4v4:   { n: '4v4 (Volcano XL)', map: 'volcano8', slots: [['human', 'A'], ['hard', 'A'], ['hard', 'A'], ['hard', 'A'], ['hard', 'B'], ['hard', 'B'], ['hard', 'B'], ['hard', 'B']] },
+  hellgate: { n: '2v6 Hindu Kush Hellgate', map: 'hellgate', slots: [['human', 'A'], ['hard', 'A'], ['hard', 'B'], ['hard', 'B'], ['hard', 'B'], ['hard', 'B'], ['hard', 'B'], ['hard', 'B']] },
   t3v3:   { n: '3v3', slots: [['human', 'A'], ['hard', 'A'], ['hard', 'A'], ['hard', 'B'], ['hard', 'B'], ['hard', 'B']] },
   coop:   { n: 'Me + Chief SI vs 2 Medium', slots: [['human', 'A'], ['si', 'A'], ['normal', 'B'], ['normal', 'B']] },
   wsi:    { n: 'Watch: Chief SI + Chief vs 2 Hard', slots: [['si', 'A'], ['chief', 'A'], ['hard', 'B'], ['hard', 'B']] },
@@ -243,6 +244,17 @@ function lobbyInit() {
   lobbySet(PRESETS.duel.slots);
   box.querySelector('.lf').onchange = e => { if (e.target.value !== 'rand') MENU.fac = e.target.value; };
 }
+// v6.0: picking Hindu Kush Hellgate auto-fills 2 humans (Team A) + 6 Hard AI warlords (Team B); the 'You' row and any joined peers keep their rows
+function hellgateSetup() {
+  const on = typeof ONL !== 'undefined' && ONL.room && ONL.host, cur = lobbyRead(), me = Math.max(0, cur.findIndex(r => r[0] === 'human'));
+  const peerRows = on ? Object.values(ONL.peers || {}).map(p => p.row).filter(r => r != null && r !== me) : [];
+  const rows = cur.map((r, i) => [i === me ? 'human' : 'hard', i === me ? 'A' : 'B', r[2] || 'rand', 'auto']);
+  const mate = on ? (peerRows.length ? peerRows : [me === 1 ? 0 : 1]) : [me === 1 ? 0 : 1];
+  for (const i of mate) rows[i] = [on ? 'remote' : 'hard', 'A', cur[i][2] || 'rand', 'auto'];
+  if (rows[me][2] === 'rand' && MENU.fac) rows[me][2] = MENU.fac;
+  { const ps = document.getElementById('peaceSel'); if (ps && ps.value === '180') ps.value = '300'; } // 5-min peace: time to dig in at the Hellgate
+  lobbySet(rows); if (on) { ONL.meRow = me; if (typeof lobbyChanged === 'function') lobbyChanged(); }
+}
 function lobbySet(list) { const rows = document.querySelectorAll('#lobby .lrow:not(.lh)'); rows.forEach((r, i) => { const s = list[i] || ['off', i % 2 ? 'B' : 'A']; r.querySelector('.lt').value = s[0]; r.querySelector('.la').value = s[1]; r.querySelector('.lf').value = s[2] || (i === 0 && s[0] === 'human' ? MENU.fac : 'rand'); r.querySelector('.lc').value = s[3] || 'auto'; }); }
 function lobbyOpts() { const m = document.getElementById('mapSel'), p = document.getElementById('peaceSel'), f = document.getElementById('fogChk'); return { map: m ? m.value : 'classic', peace: p ? +p.value : 180, fog: f ? !!f.checked : true }; }
 function lobbyRead() { return [...document.querySelectorAll('#lobby .lrow:not(.lh)')].map(r => [r.querySelector('.lt').value, r.querySelector('.la').value, r.querySelector('.lf').value, r.querySelector('.lc').value]); }
@@ -314,18 +326,19 @@ function homeShow(mode) { // mode: null = home, 'bots', 'online'
 function mapPreview() {
   const cv = document.getElementById('mapPrev'), sel = document.getElementById('mapSel'); if (!cv || !sel) return;
   const map = sel.value, key = map; if (MP_CACHE[key]) { cv.getContext('2d').putImageData(MP_CACHE[key].img, 0, 0); document.getElementById('mapPrevTxt').textContent = MP_CACHE[key].txt; return; }
-  const n = map === 'volcano8' ? 8 : map === 'volcano' || map === 'frost' ? 6 : 4, slots = []; for (let i = 0; i < n; i++) slots.push({ ai: true, diff: 'easy', ally: i % 2 });
+  const n = map === 'volcano8' || map === 'hellgate' ? 8 : map === 'volcano' || map === 'frost' ? 6 : 4, slots = []; for (let i = 0; i < n; i++) slots.push({ ai: true, diff: 'easy', ally: map === 'hellgate' ? (i < 2 ? 0 : 1) : i % 2 });
   const G0 = typeof G !== 'undefined' ? G : null, MW0 = MW, MH0 = MH;
   try { newGame({ seed: 1, map, slots }); } catch (e) { return; }
   const x = cv.getContext('2d'), W = cv.width, s = W / MW, img = x.createImageData(W, W), d = img.data;
   for (let py = 0; py < W; py++) for (let px = 0; px < W; px++) { const tx = Math.floor(px / s), ty = Math.floor(py / s), i = ty * MW + tx, t = G.map[i], l = G.lvl[i];
-    let r, g, b; if (t === 1) { r = 88; g = 82; b = 74; } else if (t === 2) { r = 28; g = 80; b = 120; } else if (G.lava[i]) { r = 230; g = 90; b = 30; } else if (G.ore[i] > 0) { r = 230; g = 190; b = 60; } else if (G.ice[i]) { r = 170; g = 210; b = 230; } else { const base = map === 'frost' ? [190, 205, 215] : map.startsWith('volcano') ? [70, 62, 58] : [70, 110, 60]; r = base[0] + l * 22; g = base[1] + l * 22; b = base[2] + l * 18; if (G.forest[i]) { r *= 0.7; g *= 0.85; b *= 0.7; } }
+    let r, g, b; if (t === 1) { r = G.mud && G.mud[i] ? 150 : G.desert ? 112 : 88; g = G.mud && G.mud[i] ? 106 : G.desert ? 88 : 82; b = G.mud && G.mud[i] ? 68 : G.desert ? 66 : 74; } else if (t === 2) { r = 28; g = 80; b = 120; } else if (G.lava[i]) { r = 230; g = 90; b = 30; } else if (G.ore[i] > 0) { r = 230; g = 190; b = 60; } else if (G.ice[i]) { r = 170; g = 210; b = 230; } else { const base = map === 'frost' ? [190, 205, 215] : map.startsWith('volcano') ? [70, 62, 58] : map === 'hellgate' ? (G.wadi[i] ? [205, 180, 130] : [172, 138, 92]) : [70, 110, 60]; r = base[0] + l * 22; g = base[1] + l * 22; b = base[2] + l * 18; if (G.forest[i]) { r *= 0.7; g *= 0.85; b *= 0.7; } }
     const o = (py * W + px) * 4; d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255; }
   x.putImageData(img, 0, 0);
   x.fillStyle = '#4fe8dc'; for (const [vx, vy] of G.vents || []) { x.beginPath(); x.arc((vx + 0.5) * s, (vy + 0.5) * s, 2.6, 0, 7); x.fill(); }
   x.font = 'bold 12px system-ui'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  G.starts.forEach(([sx, sy], k) => { x.fillStyle = k % 2 ? '#ff5040' : '#5fb0ff'; x.beginPath(); x.arc(sx * s, sy * s, 8, 0, 7); x.fill(); x.fillStyle = '#fff'; x.fillText(String(k + 1), sx * s, sy * s + 0.5); });
-  const txt = `${MW}×${MH} · ${G.starts.length} bases · ${(G.vents || []).length} gas vents`;
+  G.starts.forEach(([sx, sy], k) => { x.fillStyle = (map === 'hellgate' ? k >= 2 : k % 2) ? '#ff5040' : '#5fb0ff'; x.beginPath(); x.arc(sx * s, sy * s, 8, 0, 7); x.fill(); x.fillStyle = '#fff'; x.fillText(String(k + 1), sx * s, sy * s + 0.5); });
+  if (G.derricks) { x.fillStyle = '#ffffff'; x.strokeStyle = '#000'; for (const d of G.derricks) { if (d.op) { x.save(); x.fillStyle = '#ffd060'; x.beginPath(); x.moveTo(d.x * s, d.y * s - 6); x.lineTo(d.x * s + 6, d.y * s); x.lineTo(d.x * s, d.y * s + 6); x.lineTo(d.x * s - 6, d.y * s); x.closePath(); x.fill(); x.stroke(); x.restore(); continue; } x.fillRect(d.x * s - 2, d.y * s - 2, 4, 4); x.strokeRect(d.x * s - 2, d.y * s - 2, 4, 4); } }
+  const txt = `${MW}×${MH} · ${G.starts.length} bases · ${(G.vents || []).length} gas vents · ${(G.derricks || []).length} derricks` + (map === 'hellgate' ? ` · ${G.derricks.filter(d => d.op).length} outposts (◆ capture = build radius) · Team A (1-2) vs 6 warlords — one canyon in` : '');
   MP_CACHE[key] = { img: x.getImageData(0, 0, W, W), txt }; document.getElementById('mapPrevTxt').textContent = txt;
   G = G0; MW = MW0; MH = MH0;
 }
@@ -335,7 +348,7 @@ window.addEventListener('load', () => {
   if ($$('playBotsBtn')) $$('playBotsBtn').onclick = () => { audioInit && audioInit(); homeShow('bots'); };
   if ($$('playOnlineBtn')) $$('playOnlineBtn').onclick = () => { audioInit && audioInit(); homeShow('online'); };
   if ($$('backBtn')) $$('backBtn').onclick = () => homeShow(null);
-  if ($$('mapSel')) $$('mapSel').addEventListener('change', mapPreview);
+  if ($$('mapSel')) $$('mapSel').addEventListener('change', () => { if ($$('mapSel').value === 'hellgate') hellgateSetup(); mapPreview(); });
   if (new URLSearchParams(location.search).get('room')) homeShow('online');
   if (QS.get('lobbytest') || QS.get('home')) homeShow(QS.get('home') === 'online' ? 'online' : 'bots');
 });

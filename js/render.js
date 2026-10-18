@@ -98,8 +98,19 @@ function makeBuildingObj(b) {
 function disposeObj(id) { const o = R3.objs.get(id); if (!o) return; R3.scene.remove(o.g); R3.objs.delete(id); }
 // ---------- events -> fx / sound ----------
 function barrelTip(s) { const pv = s.kind === 'b' ? getModel('b', s.t, s.team).piv : getModel('u', s.t, s.team).piv; const tip = pv.tip || 0.3; const rs = R3.rs.get(s.id);
-  const x = rs ? rs.x : s.x, y = rs ? rs.y : s.y, base = s.kind === 'b' ? heightAt(s.x, s.y) + (pv.head ? pv.head[1] + 0.08 : 0.6) : (rs ? rs.z : heightAt(x, y)) + (pv.turret ? pv.turret[1] + 0.07 : UT[s.t].armor === 'inf' ? 0.38 : 0.3);
+  const x = rs ? rs.x : s.x, y = rs ? rs.y : s.y, base = s.kind === 'b' ? heightAt(s.x, s.y) + (pv.tipZ || (pv.head ? pv.head[1] + 0.08 : 0.6)) : (rs ? rs.z : heightAt(x, y)) + (pv.turret ? pv.turret[1] + 0.07 : UT[s.t].armor === 'inf' ? 0.38 : 0.3);
   return { x: x + Math.cos(s.tang) * tip, y: y + Math.sin(s.tang) * tip, z: base }; }
+// v6.0 Grand Cannon firing: recoil kick, huge muzzle fireball, muzzle-brake side jets, vertical shockwave ring, ground dust ring, shake
+function gcannonBlast(s, p) {
+  const o = R3.objs.get(s.id); if (o) { o.rc = 1; o.smk = 2.6; }
+  const c = Math.cos(s.tang), sn = Math.sin(s.tang), px = -sn, py = c, m = FX.mul;
+  flash(p.x, p.y, p.z, 3.2, 1, 0.82, 0.5); flash(p.x + c * 0.8, p.y + sn * 0.8, p.z, 2.2, 1, 0.65, 0.3);
+  for (let i = 0; i < 16 * m; i++) { const v = 2 + Math.random() * 5; FX.fire.spawn(p.x, p.y, p.z, c * v + rnd(1.2), sn * v + rnd(1.2), rnd(0.8) + 0.3, 0.25 + Math.random() * 0.2, 0.35, 0.9, 1, 0.6 + Math.random() * 0.3, 0.2, 1, 0); }
+  for (const sd of [1, -1]) for (let i = 0; i < 6 * m; i++) { const v = 2.5 + Math.random() * 2.5; FX.fire.spawn(p.x - c * 0.25, p.y - sn * 0.25, p.z, px * sd * v + c * 0.6, py * sd * v + sn * 0.6, rnd(0.5), 0.2, 0.2, 0.55, 1, 0.7, 0.3, 1, 0); puff(p.x - c * 0.2 + px * sd * 0.5, p.y - sn * 0.2 + py * sd * 0.5, p.z, 0.45, 2.2, 0.62, 0.55, 0.3); }
+  for (let i = 0; i < 12 * m; i++) puff(p.x + c * (0.4 + Math.random() * 2.2) + rnd(0.6), p.y + sn * (0.4 + Math.random() * 2.2) + rnd(0.6), p.z + rnd(0.3), 0.6, 2.8, 0.58, 0.55, 0.35);
+  for (let i = 0; i < 18 * m; i++) { const a = Math.random() * 6.28, r = 1.3 + Math.random() * 0.9; puff(s.x + Math.cos(a) * r, s.y + Math.sin(a) * r, heightAt(s.x, s.y) + 0.15, 0.45, 2.2, G.desert ? 0.75 : 0.55, 0.45, 0.15); }
+  if (typeof vring === 'function') vring(p.x, p.y, p.z, s.tang, 2.4); ring(p.x, p.y, 2.4); shake(0.28);
+}
 function handleEvents() {
   const zfl = (x, y, z, sz, r, g, b) => FX.spark.spawn(x, y, z, 0, 0, 0, 0.26, sz, sz * 1.2, r, g, b, 1, 0, 0);
   for (const ev of G.events) if (ev.e === 'zap' && inView(ev.pts[0].x, ev.pts[0].y)) { // v5.3: big jagged bolt (2 strands + glow core), relay arcs between chained coils
@@ -113,7 +124,7 @@ function handleEvents() {
     switch (ev.e) {
       case 'fire': {
         const s = ev.src; if (!visibleTo0(s) || !inView(s.x, s.y)) { sfx(ev.w.snd, s.x, s.y); break; }
-        const p = barrelTip(s), w = ev.w.type, big = w === 'cannon' || w === 'shell'; if (ev.w.big) { flash(p.x, p.y, p.z, 2.0, 1, 0.8, 0.5); for (let i = 0; i < 10 * FX.mul; i++) puff(p.x + rnd(0.5), p.y + rnd(0.5), p.z, 0.5, 2.0, 0.6, 0.55, 0.5); shake(0.15); }
+        const p = barrelTip(s), w = ev.w.type, big = w === 'cannon' || w === 'shell'; if (s.kind === 'b' && s.t === 'gcannon') gcannonBlast(s, p); else if (ev.w.big) { flash(p.x, p.y, p.z, 2.0, 1, 0.8, 0.5); for (let i = 0; i < 10 * FX.mul; i++) puff(p.x + rnd(0.5), p.y + rnd(0.5), p.z, 0.5, 2.0, 0.6, 0.55, 0.5); shake(0.15); }
         flash(p.x, p.y, p.z, big ? 0.9 : w === 'bullet' ? 0.35 : 0.55, 1, 0.8, 0.45);
         { const r0 = R3.rs.get(s.id); if (r0 && s.kind === 'u' && (UT[s.t].armor === 'inf' || UT[s.t].mech)) r0.kick = 1; }
         if (big) { for (let i = 0; i < 4 * FX.mul; i++) puff(p.x + Math.cos(s.tang) * 0.2, p.y + Math.sin(s.tang) * 0.2, p.z, 0.25, 1.1, 0.55, 0.45, 0.3); const rs = R3.rs.get(s.id); if (rs) rs.recoil = 0.09; }
@@ -131,7 +142,7 @@ function handleEvents() {
         else if (ev.kind === 'snipe') { sparks(ev.x, ev.y, z + 0.2, 3, 2.5); flash(ev.x, ev.y, z + 0.25, 0.3, 1, 0.9, 0.7); }
         else if (ev.kind === 'fire') { for (let i = 0; i < 6 * FX.mul; i++) FX.fire.spawn(ev.x + rnd(0.8), ev.y + rnd(0.8), z + 0.15, rnd(0.5), rnd(0.5), 0.8, 0.5, 0.2, 0.6, 1, 0.45, 0.1, 0.9, -1); if (Math.random() < 0.3) puff(ev.x, ev.y, z + 0.4, 0.25, 1.4, 0.12, 0.5, 0.8); }
         else if (ev.kind === 'aam') { explosion3(ev.x, ev.y, z, 0.45); sfx('boom', ev.x, ev.y); }
-        else if (ev.kind === 'mega') { explosion3(ev.x, ev.y, z, 2.4); explosion3(ev.x + 0.6, ev.y - 0.4, z, 1.2); for (let i = 0; i < 8 * FX.mul; i++) puff(ev.x + rnd(1.6), ev.y + rnd(1.6), z + 0.3, 0.6, 2.4, 0.2, 0.18, 0.16); flash(ev.x, ev.y, z + 0.6, 2.2, 1, 0.75, 0.4); sfx('boomBig', ev.x, ev.y); shake(0.35); }
+        else if (ev.kind === 'mega') { explosion3(ev.x, ev.y, z, 2.4); explosion3(ev.x + 0.6, ev.y - 0.4, z, 1.2); for (let i = 0; i < 8 * FX.mul; i++) puff(ev.x + rnd(1.6), ev.y + rnd(1.6), z + 0.3, 0.6, 2.4, 0.2, 0.18, 0.16); flash(ev.x, ev.y, z + 0.6, 2.2, 1, 0.75, 0.4); sfx('boomBig', ev.x, ev.y); shake(0.35); { const gz = heightAt(ev.x, ev.y), dc = G.desert ? [0.78, 0.64, 0.46] : [0.5, 0.45, 0.38]; for (let i = 0; i < 22 * FX.mul; i++) { const a = Math.random() * 6.28, v = 2.2 + Math.random() * 2.5; FX.smoke.spawn(ev.x + Math.cos(a) * 0.6, ev.y + Math.sin(a) * 0.6, gz + 0.12, Math.cos(a) * v, Math.sin(a) * v, 0.15 + Math.random() * 0.3, 1.6 + Math.random(), 0.35, 1.5, dc[0], dc[1], dc[2], 0.5, 0); } for (let i = 0; i < 10 * FX.mul; i++) FX.spark.spawn(ev.x, ev.y, gz + 0.2, rnd(6), rnd(6), 3 + Math.random() * 4, 0.9, 0.06, 0.04, 0.5, 0.42, 0.32, 1, 9, 0); ring(ev.x, ev.y, 4.2); } }
         else if (ev.kind === 'bomb') { explosion3(ev.x, ev.y, z, 1.4); sfx('boomBig', ev.x, ev.y); shake(0.12); }
         else if (ev.kind === 'flak') { flash(ev.x, ev.y, z, 0.7, 1, 0.75, 0.4); puff(ev.x, ev.y, z, 0.35, 1.2, 0.18, 0.7, 0.1); sparks(ev.x, ev.y, z, 3, 3); }
         else { explosion3(ev.x, ev.y, z, ev.kind === 'shell' ? 1.1 : 0.55); sfx(ev.kind === 'shell' ? 'boomBig' : 'boom', ev.x, ev.y); }
@@ -157,7 +168,7 @@ function handleEvents() {
       case 'unit': if (ev.team === ME) { sfx('unit'); if (ev.u && FACTIONS[G.players[ME].fac].sp === ev.u.t) announce(UT[ev.u.t].n + ' ready for battle', 'spu', 5); } break;
       case 'upgraded': if (ev.team === ME) { sfx('ready'); uiMsg(ev.b.upKind === 'def' ? 'Research complete: ' + DEF_RESEARCH.n : BT[ev.b.t].n + ' upgraded to level ' + ev.b.lvl); } flash(ev.b.x, ev.b.y, 1, 1.5, 0.6, 0.9, 1); break;
       case 'capture': if (ev.team === ME || ev.b.team === ME) { sfx('ready'); uiMsg('Structure captured!'); } disposeObj(ev.b.id); break;
-      case 'derrick': if (typeof uiMsg === 'function') { if (ev.team === ME) { uiMsg('Oil derrick captured! +income'); announce('Derrick captured', 'dk', 3); } else if (ev.prev === ME) { uiMsg('We lost an oil derrick!'); UI.alerts.unshift({ txt: 'Derrick lost', x: ev.x, y: ev.y, t: 8 }); announce('Derrick lost', 'dkl', 3); } else if (foe(ev.team, ME)) uiMsg('Enemy captured an oil derrick'); } break;
+      case 'derrick': if (typeof uiMsg === 'function') { const op = G.derricks.find(d => d.op && d.x === ev.x && d.y === ev.y); if (op && ev.team === ME) uiMsg('Outpost "' + op.name + '" captured! You can now BUILD within ' + OUTPOST_R + ' tiles — perfect spot for a Grand Cannon.'); else if (op && ev.prev === ME) uiMsg('We lost the outpost "' + op.name + '"!'); if (ev.team === ME) { if (!op) uiMsg('Oil derrick captured! +income'); announce('Derrick captured', 'dk', 3); } else if (ev.prev === ME) { uiMsg('We lost an oil derrick!'); UI.alerts.unshift({ txt: 'Derrick lost', x: ev.x, y: ev.y, t: 8 }); announce('Derrick lost', 'dkl', 3); } else if (foe(ev.team, ME)) uiMsg('Enemy captured an oil derrick'); } break;
       case 'launch': { const mine = ev.team === ME, ally = !foe(ev.team, ME); R3.misT = R3.misT || []; R3.misT.push({ ms: ev.ms, t0: R3.time });
         if (ev.big || !ally) { uiMsg(mine ? MIS[ev.k].n + ' launched!' : ally ? 'Allied ' + MIS[ev.k].n + ' launched' : '⚠ ENEMY ' + MIS[ev.k].n.toUpperCase() + ' LAUNCH DETECTED!'); if (!ally) { UI.alerts.unshift({ txt: 'Missile incoming', x: ev.x, y: ev.y, t: ev.T + 2 }); announce(ev.big ? 'Warning: warhead launch detected' : 'Missile launch detected', 'ml', 3); sfx('alert'); } }
         if (mine) sfx('ready'); if (inView(ev.ms.x0, ev.ms.y0)) { const z = heightAt(ev.ms.x0, ev.ms.y0); for (let i = 0; i < 14; i++) puff(ev.ms.x0 + rnd(0.6), ev.ms.y0 + rnd(0.6), z + 0.3, 0.5, 1.6, 0.6, 0.55, 0.5); flash(ev.ms.x0, ev.ms.y0, z + 0.6, 1.4, 1, 0.7, 0.3); } break; }
@@ -200,6 +211,10 @@ function r3Render(dt) {
       if (o.parts.gat) { // v5.9 gatling spin-up / spin-down; barrel cluster yaws with the head and rolls about its own axis
         const firing = e.tgt && e.tgt.hp > 0 && G.time - (e.lastFire || -9) < 0.5 && !e.offline; o.gv = (o.gv || 0) + ((firing ? 34 : 0) - (o.gv || 0)) * Math.min(1, dt * (firing ? 2.2 : 0.9)); o.gr = ((o.gr || 0) + o.gv * dt) % 628;
         const g = o.parts.gat, hp = o.parts.head.position; g.rotation.order = 'YXZ'; g.rotation.set(o.gr, -e.tang, 0); g.position.set(hp.x + Math.cos(e.tang) * 0.2, 0.66, hp.z + Math.sin(e.tang) * 0.2); }
+      if (o.parts.gun) { // v6.0 Grand Cannon: barrel yaws with the turret, slams back on firing then runs out again; muzzle smoke lingers
+        o.rc = Math.max(0, (o.rc || 0) - dt * 1.5); const k = o.rc > 0.85 ? (1 - o.rc) / 0.15 : o.rc / 0.85, back = 0.5 * Math.min(1, k) * (o.rc > 0.85 ? 1 : o.rc / 0.85 * 1.0), c = Math.cos(e.tang), sn = Math.sin(e.tang), g = o.parts.gun, pv = o.piv.gun;
+        g.rotation.y = -e.tang; g.position.set(pv[0] - c * back * 0.9, pv[1], pv[2] - sn * back * 0.9); if (o.parts.head) o.parts.head.position.set(o.piv.head[0] - c * back * 0.12, o.piv.head[1], o.piv.head[2] - sn * back * 0.12);
+        if (o.smk > 0) { o.smk -= dt; if (Math.random() < dt * 10 * FX.mul) { const p = barrelTip(e); puff(p.x, p.y, p.z, 0.16, 1.4, 0.55, 0.35, 0.5); } } }
       if ((e.lvl || 1) !== (o.lvl || 1)) setLevelDecor(o, e);
       if (e.upT != null && Math.random() < dt * 12) FX.spark.spawn(e.x + rnd(e.w), e.y + rnd(e.h), 0.5 + Math.random() * 0.6, rnd(1), rnd(1), 1.5, 0.5, 0.12, 0.04, 0.5, 0.9, 1, 1, 3);
       o.sc.visible = o.sc.visible || e.upT != null;
@@ -267,7 +282,7 @@ function r3Render(dt) {
   for (const id of [...R3.objs.keys()]) if (!alive.has(id)) disposeObj(id);
   if (G.tick % 300 === 0) for (const id of [...R3.rs.keys()]) if (!alive.has(id)) R3.rs.delete(id);
   for (const mk of R3.markPool) if (mk.t > 0) { mk.t -= dt; mk.m.scale.setScalar(0.2 + mk.t * 1.4); mk.m.material.opacity = mk.t * 2; if (mk.t <= 0) mk.m.visible = false; }
-  updFx(dt);
+  updFx(dt); if (G.desert) desertFx(dt);
   updFogTex(dt);
   for (const v of R3.vents || []) if (inView(v.x, v.y) && Math.random() < dt * 9 * FX.mul && (!G.opts.fog || seen0(idx(Math.floor(v.x), Math.floor(v.y))))) FX.smoke.spawn(v.x + rnd(0.3), v.y + rnd(0.3), heightAt(v.x, v.y) + 0.15, rnd(0.15), rnd(0.15), 0.7, 1.6, 0.12, 0.5, 0.35, 0.95, 0.8, 0.35, 0);
   if (G.oreVer !== R3.oreVer) { R3.oreVer = G.oreVer; updOre(); }
@@ -458,10 +473,18 @@ function derricksUpdate(dt) {
       const arm = new THREE.Mesh(A.build().a, pbrMaterial()); arm.position.set(0, 1.62, 0); arm.castShadow = true; g.add(arm);
       const fm = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.6, emissive: 0x000000 }), flag = new THREE.Mesh(F.build().f, fm); flag.position.set(0, 2.05, 0); g.add(flag);
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.6, 5), new THREE.MeshStandardMaterial({ color: 0x333333 })); pole.position.set(0, 1.85, 0); g.add(pole);
-      R3.scene.add(g); return { g, arm, fm, owner: -2 }; }); }
+      let zone = null; if (d.op) { // v6.0 outpost: sandbag bunker ring, tall command mast, faint build-radius square when owned
+        const O = new MB(0); for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2; O.cyl('o', 0.13, 0.42, 0xb09468, PBR.CLOTH, Math.cos(a) * 1.15, 0.12, Math.sin(a) * 1.15, { rz: Math.PI / 2, ry: -a + Math.PI / 2, seg: 7 }); if (k % 2) O.cyl('o', 0.13, 0.42, 0xa08658, PBR.CLOTH, Math.cos(a) * 1.15, 0.32, Math.sin(a) * 1.15, { rz: Math.PI / 2, ry: -a + Math.PI / 2, seg: 7 }); }
+        O.cyl('o', 0.035, 3.2, 0x2a2a2a, PBR.METAL, -0.7, 1.6, -0.7, { seg: 6 }); O.box('o', 0.5, 0.06, 0.06, 0x2a2a2a, PBR.METAL, -0.7, 3.0, -0.7, { bevel: 0 });
+        const om = new THREE.Mesh(O.build().o, pbrMaterial()); om.castShadow = om.receiveShadow = true; g.add(om);
+        flag.position.set(-0.5, 2.95, -0.7); flag.scale.set(2.2, 2.2, 1); pole.visible = false;
+        const R = typeof OUTPOST_R !== 'undefined' ? OUTPOST_R : 7, sq = new THREE.EdgesGeometry(new THREE.PlaneGeometry(R * 2 + 1, R * 2 + 1).rotateX(-Math.PI / 2));
+        zone = new THREE.LineSegments(sq, new THREE.LineBasicMaterial({ color: 0xffd060, transparent: true, opacity: 0.55, fog: false })); zone.position.set(d.x, h + 0.25, d.y); zone.visible = false; R3.scene.add(zone); }
+      R3.scene.add(g); return { g, arm, fm, owner: -2, zone }; }); }
   G.derricks.forEach((d, i) => { const r = R3.dk[i]; r.g.visible = seen0(idx(Math.floor(d.x), Math.floor(d.y)));
     if (r.owner !== d.owner) { r.owner = d.owner; const c = d.owner >= 0 ? new THREE.Color(MMCOL[d.owner]) : new THREE.Color(0xdddddd); r.fm.color.copy(c); r.fm.emissive.copy(c).multiplyScalar(d.owner >= 0 ? 0.35 : 0); }
-    if (d.owner >= 0) r.arm.rotation.z = Math.sin(R3.time * 1.8 + i) * 0.35; });
+    if (d.owner >= 0) r.arm.rotation.z = Math.sin(R3.time * 1.8 + i) * 0.35;
+    if (r.zone) { r.zone.visible = d.owner === ME && r.g.visible; if (r.zone.visible) r.zone.material.opacity = 0.35 + 0.25 * Math.sin(R3.time * 3); } });
 }
 // day/night: 8-minute cycle, render only (no sim effect -> lockstep-safe). Night keeps contrast and lets emissive lights glow.
 function dayNight(dt) {

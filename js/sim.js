@@ -15,10 +15,11 @@ function newGame(opts) {
   const R = mkRng(opts.seed);
   // slots: [{ ai, diff, ally, fac, start }]; default 1v1 from legacy opts
   const slots = opts.slots || [0, 1].map(t => ({ ai: opts.aiTeams.includes(t), diff: t === 0 && opts.p0diff ? opts.p0diff : opts.diff, ally: t, fac: (opts.facs || [])[t], start: t ? 3 : 0 }));
-  MW = MH = (opts.map === 'volcano8' || slots.length > 6) ? 112 : 96; if (slots.length > 6) opts.map = 'volcano8';
+  const HG = opts.map === 'hellgate'; MW = MH = HG ? 128 : (opts.map === 'volcano8' || slots.length > 6) ? 112 : 96; if (slots.length > 6 && !HG) opts.map = 'volcano8';
   const NP = slots.length;
   // every player gets its own start corner (guards against duplicate/missing starts from any lobby path)
-  { const taken = new Set(); slots.forEach(sl => { if (sl.start == null || sl.start < 0 || sl.start > 7 || taken.has(sl.start)) sl.start = null; else taken.add(sl.start); });
+  if (HG) { const pool = { 0: [0, 1, 2, 3, 4, 5, 6, 7], 1: [2, 3, 4, 5, 6, 7, 0, 1] }, taken = new Set(); slots.forEach(sl => { sl.start = (pool[sl.ally ? 1 : 0]).find(k => !taken.has(k)); taken.add(sl.start); }); } // v6.0: Team A takes the valley seats 1-2, Team B the six warlord bases
+  else { const taken = new Set(); slots.forEach(sl => { if (sl.start == null || sl.start < 0 || sl.start > 7 || taken.has(sl.start)) sl.start = null; else taken.add(sl.start); });
     slots.forEach(sl => { if (sl.start == null) { sl.start = (slots.length > 6 ? (sl.ally ? [3, 1, 5, 7, 2, 0, 4, 6] : [0, 2, 4, 6, 1, 3, 5, 7]) : (sl.ally ? [3, 1, 5, 2, 0, 4] : [0, 2, 4, 1, 3, 5])).find(k => !taken.has(k)); taken.add(sl.start); } }); }
   G = { R, opts, tick: 0, time: 0, ents: [], projs: [], events: [], nid: 1, over: null, bver: 1, blockVer: 0, block: null,
     map: new Uint8Array(MW * MH), ore: new Float32Array(MW * MH), elev: new Float32Array(MW * MH), rich: new Uint8Array(MW * MH), bridge: new Uint8Array(MW * MH), forest: new Uint8Array(MW * MH), lvl: new Float32Array(MW * MH), tier: new Uint8Array(MW * MH), lava: new Uint8Array(MW * MH), ice: new Uint8Array(MW * MH),
@@ -44,15 +45,17 @@ function newGame(opts) {
   });
   // v5.0 capturable oil derricks (neutral map features): an Engineer captures one; owner gets a trickle of credits
   G.derricks = []; for (const [x, y] of G.dkPos ? [] : G.six ? [[25, 25], [40, 21], [24, 47]] : [[25, 25], [40, 21]]) for (const [a, b] of [[x, y], [MW - 1 - x, y], [x, MH - 1 - y], [MW - 1 - x, MH - 1 - y]]) { const f = nearFree(a, b, 6); if (!G.derricks.some(d => dhypot(d.x - f[0] - 0.5, d.y - f[1] - 0.5) < 3)) G.derricks.push({ id: G.derricks.length, x: f[0] + 0.5, y: f[1] + 0.5, owner: -1 }); }
-  if (G.dkPos) for (const [x, y] of G.dkPos) { const f = nearFree(x, y, 6); if (!G.derricks.some(d => dhypot(d.x - f[0] - 0.5, d.y - f[1] - 0.5) < 3)) G.derricks.push({ id: G.derricks.length, x: f[0] + 0.5, y: f[1] + 0.5, owner: -1 }); }
+  if (G.dkPos) for (const [x, y, op] of G.dkPos) { const f = nearFree(x, y, 6); if (!G.derricks.some(d => dhypot(d.x - f[0] - 0.5, d.y - f[1] - 0.5) < 3)) G.derricks.push(op ? { id: G.derricks.length, x: f[0] + 0.5, y: f[1] + 0.5, owner: -1, op: 1, name: op } : { id: G.derricks.length, x: f[0] + 0.5, y: f[1] + 0.5, owner: -1 }); }
+  if (HG) { const tb = G.players.filter(P => P.ally === 1 && P.ai), n = tb.length; tb.forEach((P, k) => { P.stagger = Math.round((k * 7 % n) * 50); }); } // v6.0: 0..250 s staggered aggression for the six warlords
   if (typeof aiInit === 'function') G.players.forEach(p => p.ai && aiInit(p));
+  if (HG) G.players.forEach((P, k) => { if (P.aiS) P.aiS.next = k * 0.067; }); // v6.0: phase-shift bot think ticks so 6-8 bots never all re-plan (and re-path) on the same tick
   updFog();
   return G;
 }
 // 96x96 four-fold mirrored map: mains in corners (cliff ring + 2 ramps), two naturals each,
 // contested mid bases with rich (gold) fields, central monument, river with 4 bridges, forests.
 function genMap(R) {
-  G.mapName = G.opts.map || 'classic'; G.v8 = G.mapName === 'volcano8'; if (G.v8) G.mapName = 'volcano'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R);
+  G.mapName = G.opts.map || 'classic'; G.v8 = G.mapName === 'volcano8'; if (G.v8) G.mapName = 'volcano'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R); if (G.mapName === 'hellgate') return genHellgate(R);
   const N = MW * MH, Q = MW / 2, gs = 8, gw = MW / gs + 2;
   const mk = () => { const a = []; for (let i = 0; i < gw * gw; i++) a.push(R()); return a; };
   const g1 = mk(), g2 = mk(), g3 = mk();
@@ -237,6 +240,90 @@ function genCustom(R) {
   for (let i = 0; i < N; i++) if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.ore[i] = 0; G.forest[i] = 0; }
   G.six = true; G.oreMax = Float32Array.from(G.ore);
 }
+// v6.0 "Hindu Kush Hellgate" — 128x128 2v6 desert warzone. Team A (2 seats) holds a raised western valley
+// behind the Hindu Kush ridge; the ONLY way in is the 7-tile Hellgate canyon. Six warlord bases ring the eastern
+// desert (seats 3-8). Dry wadi, mud-brick compounds (blocking), mesas, lots of ore + derricks in no-man's-land.
+function genHellgate(R) {
+  const N = MW * MH;
+  const nz = (() => { const s = 7, w = Math.ceil(MW / s) + 2, g = []; for (let i = 0; i < w * w * 3; i++) g.push(R()); const sm = t => t * t * (3 - 2 * t);
+    return (x, y, o) => { x /= s; y /= s; const xi = Math.floor(x), yi = Math.floor(y), fx = sm(x - xi), fy = sm(y - yi), v = (a, b) => g[(o * w * w + b * w + a) % g.length];
+      return (v(xi, yi) * (1 - fx) + v(xi + 1, yi) * fx) * (1 - fy) + (v(xi, yi + 1) * (1 - fx) + v(xi + 1, yi + 1) * fx) * fy; }; })();
+  const each = (cx, cy, r, f) => { for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(MH - 1, cy + r); y++) for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(MW - 1, cx + r); x++) { const d = dhypot(x + 0.5 - cx, y + 0.5 - cy); if (d <= r) f(idx(x, y), d, x, y); } };
+  const fieldC = (cx, cy, r, rich) => each(cx, cy, r + 0.3, i => { G.map[i] = 0; G.ore[i] = (rich ? 560 : 420) * ORE_MULT * (0.8 + 0.4 * R()); G.rich[i] = rich ? 1 : 0; G.mud[i] = 0; });
+  const clearC = (cx, cy, r) => each(cx, cy, r, i => { G.map[i] = 0; G.mud[i] = 0; });
+  const path = (pts, r, f) => { for (let k = 0; k < pts.length - 1; k++) { const [x0, y0] = pts[k], [x1, y1] = pts[k + 1], n = Math.ceil(dhypot(x1 - x0, y1 - y0) * 2); for (let j = 0; j <= n; j++) each(x0 + (x1 - x0) * j / n, y0 + (y1 - y0) * j / n, r, f); } };
+  G.mud = new Uint8Array(N); G.wadi = new Uint8Array(N); G.rim = new Uint8Array(N);
+  G.vents = []; const vent = (x, y) => { clearC(x + 0.5, y + 0.5, 1.6); G.vents.push([x, y]); };
+  G.sites = []; const site = (x, y, k) => G.sites.push({ x, y, k });
+  G.dkPos = []; const dk = (x, y) => G.dkPos.push([x, y]);
+  G.monument = null; G.weather = null; G.ruins = null; G.crown = null; G.desert = true;
+  const RX0 = 38, RX1 = 50, CY = x => 64 + 1.6 * dsin((x - RX0) / (RX1 - RX0) * Math.PI * 2); // canyon centre line (gentle S-bend)
+  G.canyon = { x0: RX0, x1: RX1, y: 64, w: 7 };
+  // base: noise dunes + mesas in the east; west valley raised to lvl 1 (high ground); rock border
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = idx(x, y), n = nz(x, y, 0), m = nz(x, y, 1);
+    G.elev[i] = n; G.map[i] = 0;
+    const rx0 = RX0 + (nz(x, y, 2) - 0.5) * 4, rx1 = RX1 + (nz(x, y, 2) - 0.5) * 3;
+    if (x < rx0) { G.lvl[i] = 1; if (y < 16 + m * 5 || y > MH - 17 - m * 5) G.map[i] = 1; else if (n > 0.86 && x > 4) G.map[i] = 1; }
+    else if (x <= rx1) G.map[i] = 1; // the Hindu Kush ridge
+    else if (n > 0.8 || m > 0.86) G.map[i] = 1; // mesas / rock spurs
+    if (x < 2 || y < 2 || x > MW - 3 || y > MH - 3) G.map[i] = 1; }
+  // the Hellgate canyon: 7 tiles wide, ramp from the valley (lvl 1) down to the desert (lvl 0)
+  for (let x = RX0 - 6; x <= RX1 + 6; x++) { const cy = CY(Math.max(RX0, Math.min(RX1, x))); for (let y = Math.floor(cy - 6); y <= cy + 6; y++) { if (!inb(x, y)) continue; const i = idx(x, y), d = Math.abs(y + 0.5 - cy);
+      if (d < 3.75) { G.map[i] = 0; } else if (x >= RX0 - 1 && x <= RX1 + 1 && d < 5.5) G.map[i] = 1; // crisp canyon walls
+      if (x >= RX0 - 2 && x <= RX1 + 2) G.lvl[i] = Math.max(0, Math.min(1, (RX1 + 2 - x) / (RX1 - RX0 + 4))); } }
+  for (let y = 0; y < MH; y++) for (let x = RX1 + 3; x < RX1 + 10; x++) { const i = idx(x, y); if (Math.abs(y - 64) > 10) continue; if (G.map[i] === 1 && Math.abs(y + 0.5 - 64) < 5) G.map[i] = 0; } // clear east mouth
+  // starts: seats 1-2 = Team A valley (side by side), seats 3-8 = six warlord bases
+  G.starts = [[14.5, 50.5], [14.5, 79.5], [64.5, 15.5], [101.5, 14.5], [116.5, 45.5], [116.5, 84.5], [101.5, 114.5], [64.5, 113.5]];
+  const out = [[0, 0], [0, 0], [0, -1], [0.5, -0.86], [1, 0], [1, 0], [0.5, 0.86], [0, 1]];
+  // Team A valley: wide open floor between the two HQs, generous fields
+  clearC(15, 65, 13); clearC(14.5, 50.5, 9.5); clearC(14.5, 79.5, 9.5); path([[24, 64], [36, 64]], 4.5, i => { G.map[i] = 0; });
+  fieldC(5.5, 42, 2.0); fieldC(23, 41, 1.8); fieldC(5.5, 88, 2.0); fieldC(23, 89, 1.8); fieldC(5.5, 65, 1.7);
+  fieldC(26, 27, 1.9); fieldC(26, 102, 1.9); fieldC(31, 57, 1.4, 1); fieldC(31, 72, 1.4, 1);
+  vent(9, 56); vent(21, 56); vent(9, 73); vent(21, 73); vent(13, 26); vent(13, 103);
+  site(25.5, 31, 'nat'); site(25.5, 98, 'nat');
+  dk(27, 49); dk(27, 80); dk(31, 33); dk(31, 96); dk(34, 61); dk(34, 68); dk(6, 22); dk(6, 107);
+  // warlord bases: clear compound, two fields toward the map edge, two gas vents, one derrick toward the desert
+  for (let k = 2; k < 8; k++) { const [bx, by] = G.starts[k], [ox, oy] = out[k], tx = -oy, ty = ox; clearC(bx, by, 9);
+    fieldC(bx + ox * 6.5 + tx * 5, by + oy * 6.5 + ty * 5, 1.8); fieldC(bx + ox * 6.5 - tx * 5, by + oy * 6.5 - ty * 5, 1.8);
+    vent(Math.floor(bx - ox * 1.5 + tx * 7.5), Math.floor(by - oy * 1.5 + ty * 7.5)); vent(Math.floor(bx - ox * 1.5 - tx * 7.5), Math.floor(by - oy * 1.5 - ty * 7.5));
+    dk(Math.floor(bx - ox * 11), Math.floor(by - oy * 11)); }
+  // dry wadi snaking N-S through no-man's-land (sand riverbed, cleared of rock)
+  path([[58, 3], [66, 26], [76, 42], [72, 56], [70, 64], [74, 74], [77, 88], [66, 104], [58, 125]], 2.2, (i, d) => { G.map[i] = 0; G.wadi[i] = 1; G.elev[i] *= 0.4; });
+  // mud-brick compounds (blocking walls with gates) — the ruined village of Deh-e Khak in the centre and two outposts
+  const compound = (x0, y0, w, h, gates) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) { if (!inb(x, y)) continue; const i = idx(x, y), edge = x === x0 || y === y0 || x === x0 + w - 1 || y === y0 + h - 1;
+      G.ore[i] = 0; if (edge && !gates.some(([gx, gy]) => Math.abs(x - gx) <= 1 && Math.abs(y - gy) <= 1)) { G.map[i] = 1; G.mud[i] = 1; } else { G.map[i] = 0; G.mud[i] = 0; } } };
+  clearC(88, 64, 12);
+  compound(81, 56, 7, 6, [[84, 61], [87, 58]]); compound(91, 66, 6, 7, [[91, 69], [94, 66]]); compound(80, 69, 5, 5, [[82, 69]]); compound(93, 54, 5, 5, [[95, 58]]);
+  compound(82, 30, 6, 5, [[84, 34]]); compound(82, 94, 6, 5, [[84, 94]]);
+  // v6.0 OUTPOSTS: raised mesa overlooks (lvl 1, cliff ring, one/two ramps) with a capturable command post on top.
+  // An Engineer captures it; the owner can then build within OUTPOST_R tiles — perfect for a Grand Cannon (15 range) locking a lane.
+  const mesa = (cx, cy, r, gaps, name) => { const ring = 2.2, rl = 4, gw = 2.3;
+    each(cx, cy, r + ring + rl, (i, d, x, y) => { const aa = datan2(y + 0.5 - cy, x + 0.5 - cx), inGap = gaps.some(g => { let da = Math.abs(aa - g) % (Math.PI * 2); if (da > Math.PI) da = Math.PI * 2 - da; return da < gw / Math.max(1, d); });
+      if (d < r) { G.lvl[i] = 1; G.map[i] = 0; G.ore[i] = 0; G.mud[i] = 0; G.wadi[i] = 0; return; }
+      if (d < r + ring && !inGap) { G.map[i] = 1; G.ore[i] = 0; G.mud[i] = 0; G.rim[i] = 1; G.lvl[i] = Math.max(G.lvl[i], d < r + 1.2 ? 1 : 0.4); }
+      else if (inGap) { G.map[i] = 0; G.ore[i] = 0; G.mud[i] = 0; G.lvl[i] = Math.max(G.lvl[i], 1 - Math.min(1, (d - r) / rl)); } });
+    G.dkPos.push([Math.floor(cx), Math.floor(cy), name]); (G.outposts = G.outposts || []).push({ x: cx, y: cy, r, name }); };
+  G.outposts = [];
+  mesa(58, 52, 4.2, [0.55, 1.6], "Eagle's Nest");   // north overlook of the Hellgate mouth
+  mesa(58, 76, 4.2, [-0.55, -1.6], 'Gunner\'s Rock'); // south overlook of the Hellgate mouth
+  mesa(76, 64, 3.8, [0, Math.PI], 'Dead Man\'s Mesa'); // centre, over the wadi + village road
+  mesa(100, 40, 4.0, [2.4, -0.7], 'Ghazni Watch');     // north warlord lane
+  mesa(100, 88, 4.0, [-2.4, 0.7], 'Kandahar Watch');   // south warlord lane
+  // rich fields: hot spots at the canyon mouth + no-man's-land
+  fieldC(53, 58.5, 1.5, 1); fieldC(53, 69.5, 1.5, 1); fieldC(88, 64, 1.7, 1); fieldC(84, 42, 1.5, 1); fieldC(84, 86, 1.5, 1); fieldC(104, 64, 1.6, 1);
+  fieldC(68, 34, 1.6); fieldC(68, 94, 1.6); fieldC(95, 29, 1.6); fieldC(95, 99, 1.6); fieldC(62, 64, 1.3);
+  vent(76, 50); vent(76, 78); vent(98, 61); vent(64, 46); vent(64, 82);
+  site(70, 38, 'nat'); site(70, 90, 'nat'); site(100, 30, 'nat'); site(100, 98, 'nat'); site(88, 46, 'mid'); site(88, 82, 'mid'); site(106, 64, 'mid'); site(60, 64, 'mid');
+  dk(55, 59); dk(55, 69); dk(72, 44); dk(72, 84); dk(88, 50); dk(88, 78); dk(100, 70); dk(78, 22); dk(78, 106); dk(110, 30); dk(110, 98); dk(66, 64);
+  for (const [sx, sy] of G.starts) each(sx, sy, 4, i => { G.map[i] = 0; G.ore[i] = 0; G.mud[i] = 0; });
+  for (const s of G.starts) G.sites.push({ x: s[0], y: s[1], k: 'main' });
+  for (let i = 0; i < N; i++) { G.forest[i] = 0; G.tier[i] = Math.round(G.lvl[i]); if (G.map[i] !== 1) G.mud[i] = 0; }
+  const seen = new Uint8Array(N), st = [idx(Math.floor(G.starts[0][0]), Math.floor(G.starts[0][1]))]; seen[st[0]] = 1;
+  while (st.length) { const c = st.pop(), x = c % MW, y = (c / MW) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (!inb(nx, ny)) continue; const n = idx(nx, ny); if (!seen[n] && G.map[n] === 0) { seen[n] = 1; st.push(n); } } }
+  for (let i = 0; i < N; i++) if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.ore[i] = 0; }
+  G.six = true; G.oreMax = Float32Array.from(G.ore);
+}
 function addB(t, team, tx, ty, instant) {
   const d = BT[t];
   const b = { id: G.nid++, kind: 'b', t, team, tx, ty, w: d.w, h: d.h, x: tx + d.w / 2, y: ty + d.h / 2, hp: d.hp, mhp: d.hp,
@@ -280,6 +367,7 @@ const gateOpen = i => G.block[i] === 3 && G.curTeam != null && G.gateT[i] >= 0 &
 const blk = (x, y) => { x = Math.floor(x); y = Math.floor(y); if (!inb(x, y)) return true; const g = getBlock(), i = idx(x, y); return g[i] > 0 && !gateOpen(i); };
 
 // ---------- placement ----------
+const OUTPOST_R = 7; // v6.0: build radius (tiles) around a captured Hellgate outpost
 function canPlace(t, team, tx, ty) {
   const d = BT[t];
   if (tx < 0 || ty < 0 || tx + d.w > MW || ty + d.h > MH) return false;
@@ -289,6 +377,8 @@ function canPlace(t, team, tx, ty) {
   if ((t === 'extractor') !== onVent) return false;
   for (const e of G.ents) if (e.kind === 'u' && !isAir(e) && foe(e.team, team) && e.x > tx && e.x < tx + d.w && e.y > ty && e.y < ty + d.h) return false;
   if (t === 'cc') { const cx = tx + 1.5, cy = ty + 1.5; if (G.ents.some(e => e.kind === 'b' && foe(e.team, team) && dhypot(e.x - cx, e.y - cy) < 12)) return false; if (G.ents.some(e => e.kind === 'b' && (e.t === 'cc' || e.t === 'hq') && dhypot(e.x - cx, e.y - cy) < 9)) return false; return !!G.seenT[team][idx(Math.floor(cx), Math.floor(cy))] || G.ents.some(e => e.kind === 'b' && e.team === team && dhypot(e.x - cx, e.y - cy) < 26); }
+  if (G.derricks && G.derricks.some(o => o.x > tx && o.x < tx + d.w && o.y > ty && o.y < ty + d.h)) return false; // v6.0: never build on top of a derrick/outpost post
+  if (G.derricks && t !== 'extractor' && G.derricks.some(o => o.op && o.owner === team && tx < o.x + OUTPOST_R && tx + d.w > o.x - OUTPOST_R && ty < o.y + OUTPOST_R && ty + d.h > o.y - OUTPOST_R)) return true; // v6.0 captured outpost = forward build radius
   return G.ents.some(e => { if (e.kind !== 'b' || e.team !== team || e.t === 'wall') return false; const R = e.t === 'hq' || e.t === 'cc' ? 10 : t === 'extractor' ? 12 : 5; return tx < e.tx + e.w + R && tx + d.w > e.tx - R && ty < e.ty + e.h + R && ty + d.h > e.ty - R; });
 }
 function placeReady(team, cat, tx, ty) {
@@ -439,12 +529,24 @@ function orderMove(units, x, y, attackMove, queue) {
     slots.push({ x: sx, y: sy });
   }
   // fastest/frontline first: greedy nearest assignment
-  const left = units.slice();
+  const left = units.slice(), mv = [];
   for (const s of slots) { let bi = 0, bd = 1e9; left.forEach((u, i) => { const d = dhypot(u.x - s.x, u.y - s.y); if (d < bd) { bd = d; bi = i; } });
     const u = left.splice(bi, 1)[0]; u.grp = units.length;
     if (queue && (u.path.length || (u.wq && u.wq.length))) { (u.wq = u.wq || []).push({ x: s.x, y: s.y, am: attackMove || (UT[u.t].marine && u.stance !== 'hold') }); continue; }
     u.wq = []; u.order = attackMove || (UT[u.t].marine && u.stance !== 'hold') ? 'amove' : 'move'; u.face = null; if (u.stance === 'hold') u.guard = { x: s.x, y: s.y }; u.tgt = null; u.anchor = { x: s.x, y: s.y }; u.amDest = u.order === 'amove' && UT[u.t].marine ? { x: s.x, y: s.y } : null; // v5.9 Iron Marines auto-engage on the move (attack-move by default)
     if (u.t === 'harv') { u.hst = 'manual'; const oi = idx(Math.floor(s.x), Math.floor(s.y)); if (G.ore[oi] > 0) { u.hst = 'idle'; u.prefOre = oi; } }
+    mv.push([u, s]); }
+  // v6.0 big maps (128+): a large group shares its leader's path (one A* instead of one per unit) when each unit can see the
+  // leader's first waypoint and its own slot from the leader's last waypoint; otherwise it paths on its own. Deterministic.
+  const share = MW >= 128 && mv.length >= 5, leads = [];
+  if (share) mv.sort((p, q) => dhypot(p[0].x - cx, p[0].y - cy) - dhypot(q[0].x - cx, q[0].y - cy) || p[0].id - q[0].id); // centre-out, so the first leader is central
+  for (const m of mv) { const [u, s] = m;
+    if (share && !isAir(u)) { G.curTeam = u.team; let pth = null;
+      for (const L of leads) { if (dhypot(u.x - L.x, u.y - L.y) >= 10) continue; const lp = L.p;
+        if (!lp.length) continue; if (lp.length === 1 && los(u, s)) { pth = []; break; }
+        if (los(u, lp[0])) { if (lp.length >= 2 && los(lp[lp.length - 2], s)) { pth = lp.slice(0, -1); break; } if (los(lp[lp.length - 1], s)) { pth = lp.slice(); break; } } }
+      if (pth) { u.dest = { x: s.x, y: s.y }; u.moveT = 0; u.lastP = { x: u.x, y: u.y }; u.path = pth.map(q => ({ x: q.x, y: q.y })).concat([{ x: s.x, y: s.y }]); continue; }
+      setPath(u, s.x, s.y); if (leads.length < 12) leads.push({ x: u.x, y: u.y, p: u.path }); continue; }
     setPath(u, s.x, s.y); }
 }
 function orderAttack(units, tgt) {

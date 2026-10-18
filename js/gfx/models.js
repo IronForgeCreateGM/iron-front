@@ -482,12 +482,36 @@ const BLD_MODELS = {
     B.box('body', 0.9, 0.08, 0.08, COL.STEEL, PBR.METAL, 0.2, 0.3, 0.55); B.box('body', 0.08, 0.08, 0.9, COL.STEEL, PBR.METAL, 0.55, 0.3, 0.1);
     B.glow('body', 0.6, 0.06, 0.6, 0x44ffbb, -0.2, 1.3, -0.2, { bevel: 0 }); B.piv.smoke = [-0.2, 1.4, -0.2];
   },
-  gcannon(B) {
-    B.box('body', 1.95, 0.4, 1.95, 0x5a5b56, PBR.CONC, 0, 0.2, 0, { bevel: 0.08 }); B.box('body', 1.6, 0.25, 1.6, 'T', PBR.PAINT, 0, 0.5, 0);
-    B.piv.head = [0, 0.65, 0];
-    B.cyl('head', 0.7, 0.35, 'T', PBR.PAINT, 0, 0.17, 0, { seg: 18 }); B.box('head', 0.9, 0.5, 0.8, 'T', PBR.PAINT, 0.05, 0.5, 0);
-    B.cyl('head', 0.16, 2.0, COL.STEEL, PBR.METAL, 1.3, 0.55, 0, { rz: -Math.PI / 2, seg: 14 }); B.cyl('head', 0.22, 0.3, COL.DARK, PBR.DARKM, 2.2, 0.55, 0, { rz: -Math.PI / 2, seg: 14 });
-    B.cyl('head', 0.2, 0.5, COL.STEEL, PBR.METAL, 0.6, 0.55, 0, { rz: -Math.PI / 2, seg: 14 }); B.glow('head', 0.05, 0.08, 0.6, 'TL', -0.4, 0.6, 0);
+  gcannon(B) { // v6.0 Grand Cannon rework: fortified octagonal bastion, massive armoured turret, long 3-section barrel + muzzle brake (part 'gun' recoils)
+    const fac = (typeof G !== 'undefined' && G.players && G.players[B.team]) ? G.players[B.team].fac : 'fra';
+    const TRI = { fra: [0x1f3b8c, 0xe8e8e0, 0xc8232c], usa: [0x2b2f6b, 0xe8e8e0, 0xb22234], rus: [0xe8e8e0, 0x1e48a8, 0xc8232c], ger: [0x1a1a1a, 0xc8232c, 0xe0b020], bra: [0x009c3b, 0xffd400, 0x1a3a8a] }[fac] || ['TA', 'TL', 'TA'];
+    const CON = 0x7d7a70, COND = 0x5c5a53, ARM = COL.STEEL;
+    // bastion: stepped octagonal concrete fort with buttresses, firing-step parapet, armour skirt, team band + national stripes
+    B.cyl('body', 1.02, 0.28, COND, PBR.CONC, 0, 0.14, 0, { rt: 0.98, seg: 8 }); B.cyl('body', 0.94, 0.3, CON, PBR.CONC, 0, 0.42, 0, { rt: 0.84, seg: 8 });
+    for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4 + Math.PI / 8; B.box('body', 0.26, 0.5, 0.34, COND, PBR.CONC, Math.cos(a) * 0.9, 0.25, Math.sin(a) * 0.9, { ry: -a, bevel: 0.03 });
+      B.box('body', 0.12, 0.14, 0.5, ARM, PBR.METAL, Math.cos(a + Math.PI / 8) * 0.83, 0.62, Math.sin(a + Math.PI / 8) * 0.83, { ry: -(a + Math.PI / 8) + Math.PI / 2, bevel: 0.02 }); }
+    B.cyl('body', 0.86, 0.06, 'T', PBR.PAINT, 0, 0.58, 0, { seg: 8 });
+    for (let k = 0; k < 3; k++) for (const sd of [1, -1]) B.box('body', 0.04, 0.16, 0.14, TRI[k], PBR.PAINT, sd * 0.955, 0.36, (k - 1) * 0.14, { bevel: 0 }); // stripes on both flanks
+    for (let k = 0; k < 3; k++) B.box('body', 0.14, 0.16, 0.04, TRI[k], PBR.PAINT, (k - 1) * 0.14, 0.36, 0.955, { bevel: 0 });
+    for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; B.cyl('body', 0.1, 0.36, 0xa89670, PBR.CLOTH, Math.cos(a) * 1.04, 0.07, Math.sin(a) * 1.04, { rz: Math.PI / 2, ry: -a + Math.PI / 2, seg: 7 }); } // sandbags at the foot
+    B.box('body', 0.3, 0.12, 0.2, 0x4a4a3a, PBR.DARKM, -0.62, 0.66, 0.42, { bevel: 0.02 }); B.box('body', 0.3, 0.12, 0.2, 0x4a4a3a, PBR.DARKM, -0.62, 0.66, -0.42, { bevel: 0.02 }); // ammo lockers
+    // turret (yaws): turntable ring, sloped glacis, side cheeks, rear bustle, commander cupola, periscopes, national stripe
+    B.piv.head = [0, 0.66, 0];
+    B.cyl('head', 0.72, 0.12, COL.DARK, PBR.DARKM, 0, 0.06, 0, { seg: 20 }); B.cyl('head', 0.66, 0.24, 'T', PBR.PAINT, 0, 0.24, 0, { rt: 0.6, seg: 16 });
+    B.box('head', 1.0, 0.42, 0.9, 'T', PBR.PAINT, -0.05, 0.55, 0, { bevel: 0.06 }); B.box('head', 0.42, 0.34, 0.8, 'TD', PBR.PAINT, 0.48, 0.5, 0, { rz: 0.5, bevel: 0.05 }); // glacis
+    for (const sd of [1, -1]) { B.box('head', 0.9, 0.36, 0.12, ARM, PBR.METAL, 0.02, 0.55, sd * 0.5, { ry: sd * 0.05, bevel: 0.03 }); for (let k = 0; k < 3; k++) B.box('head', 0.12, 0.1, 0.02, TRI[k], PBR.PAINT, -0.22 + k * 0.12, 0.62, sd * 0.565, { bevel: 0 }); }
+    B.box('head', 0.42, 0.3, 0.7, 'TD', PBR.PAINT, -0.7, 0.55, 0, { bevel: 0.05 }); B.box('head', 0.08, 0.06, 0.74, COL.DARK, PBR.DARKM, -0.92, 0.62, 0, { bevel: 0 }); // bustle + rack
+    B.cyl('head', 0.17, 0.16, 'T', PBR.PAINT, -0.3, 0.84, 0.22, { seg: 12 }); B.sph('head', 0.15, COL.STEEL, PBR.METAL, -0.3, 0.92, 0.22, { seg: 10, half: 1 }); B.glow('head', 0.05, 0.04, 0.12, 'TL', -0.16, 0.86, 0.22);
+    B.box('head', 0.06, 0.14, 0.06, COL.DARK, PBR.DARKM, -0.05, 0.84, -0.25, { bevel: 0 }); B.cyl('head', 0.012, 0.5, 0x222222, PBR.METAL, -0.75, 1.0, -0.3, { seg: 4 }); // periscope + antenna
+    B.cyl('head', 0.22, 0.36, COL.STEEL, PBR.METAL, 0.62, 0.55, 0, { rz: -Math.PI / 2, seg: 16 }); // mantlet
+    // barrel (part 'gun', yaws with the turret + recoils): 3 tapering sections, reinforcement bands, fume extractor, muzzle brake
+    B.piv.gun = [0, 0.66, 0]; const E = 0.07, ax = (d, r) => [0.62 + Math.cos(E) * d, 0.55 + Math.sin(E) * d]; const seg = (d0, len, r, c, pb) => { const [x, y] = ax(d0 + len / 2); B.cyl('gun', r, len, c || COL.GUN, pb || PBR.DARKM, x, y, 0, { rz: E - Math.PI / 2, seg: 14, rt: r * 0.96 }); };
+    seg(0.1, 0.9, 0.17, COL.STEEL, PBR.METAL); seg(1.0, 0.85, 0.145); seg(1.85, 0.8, 0.125);
+    for (const d of [0.95, 1.8]) seg(d, 0.1, d < 1 ? 0.195 : 0.165, ARM, PBR.METAL);
+    seg(1.25, 0.3, 0.175, COL.DARK); // fume extractor
+    seg(2.65, 0.08, 0.15, 'TA', PBR.ACC); seg(2.73, 0.36, 0.17, COL.DARK); // team band + muzzle brake body
+    { const [x, y] = ax(2.9); for (const sd of [1, -1]) B.box('gun', 0.08, 0.13, 0.08, COL.GUN, PBR.DARKM, x, y, sd * 0.17, { bevel: 0.01 }); const [x2, y2] = ax(2.8); for (const sd of [1, -1]) B.box('gun', 0.08, 0.13, 0.08, COL.GUN, PBR.DARKM, x2, y2, sd * 0.17, { bevel: 0.01 }); }
+    { const [x, y] = ax(3.1); B.piv.tip = 3.1 + 0.62; B.piv.tipZ = 0.66 + y; }
   },
   wall(B) { B.box('body', 0.42, 0.72, 0.42, COL.CONC, PBR.CONC, 0, 0.36, 0, { bevel: 0.05 }); B.box('body', 0.48, 0.08, 0.48, 'TD', PBR.PAINT, 0, 0.74, 0, { bevel: 0.02 }); B.box('body', 0.5, 0.1, 0.5, 0x55595e, PBR.METAL, 0, 0.05, 0, { bevel: 0.02 }); },
 };

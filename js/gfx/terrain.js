@@ -20,7 +20,7 @@ function heightAt(x, y) {
 function buildHeightfield() {
   HW = MW * HR + 1; HH = MH * HR + 1; const R = mkRng(G.opts.seed + 11); HF = new Float32Array(HW * HH);
   const tileAt = (x, y) => G.map[Math.max(0, Math.min(MH - 1, y)) * MW + Math.max(0, Math.min(MW - 1, x))];
-  for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { const t = tileAt(Math.floor((x - 0.5) / HR + 0.0001), Math.floor((y - 0.5) / HR + 0.0001)); const tx = Math.max(0, Math.min(MW - 1, Math.floor((x - 0.5) / HR + 0.0001))), ty = Math.max(0, Math.min(MH - 1, Math.floor((y - 0.5) / HR + 0.0001))), L = G.lvl[ty * MW + tx] * LVL_H; HF[y * HW + x] = (t === 1 ? 2.0 : t === 2 ? -1.1 : 0) + L; }
+  for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { const t = tileAt(Math.floor((x - 0.5) / HR + 0.0001), Math.floor((y - 0.5) / HR + 0.0001)); const tx = Math.max(0, Math.min(MW - 1, Math.floor((x - 0.5) / HR + 0.0001))), ty = Math.max(0, Math.min(MH - 1, Math.floor((y - 0.5) / HR + 0.0001))), L = G.lvl[ty * MW + tx] * LVL_H; HF[y * HW + x] = (t === 1 ? (G.desert ? (G.mud && G.mud[ty * MW + tx] ? 0.15 : G.rim && G.rim[ty * MW + tx] ? 0.35 : 2.7) : 2.0) : t === 2 ? -1.1 : G.desert && G.wadi && G.wadi[ty * MW + tx] ? -0.45 : 0) + L; }
   const blur = (r) => { const tmp = new Float32Array(HF.length);
     for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { let s = 0, n = 0; for (let k = -r; k <= r; k++) { const xx = Math.max(0, Math.min(HW - 1, x + k)); s += HF[y * HW + xx]; n++; } tmp[y * HW + x] = s / n; }
     for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { let s = 0, n = 0; for (let k = -r; k <= r; k++) { const yy = Math.max(0, Math.min(HH - 1, y + k)); s += tmp[yy * HW + x]; n++; } HF[y * HW + x] = s / n; } };
@@ -55,6 +55,11 @@ function terrainMaterial() {
           grass = mix(vec3(0.46,0.5,0.56), vec3(0.66,0.7,0.76), n1) * (0.85 + 0.2*n3); dirt = mix(vec3(0.30,0.30,0.32), vec3(0.45,0.46,0.5), n2); sand = vec3(0.55,0.62,0.7); rock = mix(rock, vec3(0.5,0.55,0.6), 0.35);
         #elif THEME == 2
           grass = mix(vec3(0.07,0.06,0.055), vec3(0.16,0.13,0.11), n1) * (0.8 + 0.35*n3); dirt = mix(vec3(0.2,0.1,0.05), vec3(0.32,0.16,0.07), n2); rock = rock * vec3(0.7,0.62,0.58);
+        #elif THEME == 3
+          { float rip = 0.5 + 0.5*sin(q.x*2.3 + q.y*0.9 + n1*9.0);
+          grass = mix(vec3(0.42,0.29,0.15), vec3(0.56,0.41,0.22), n1) * (0.86 + 0.18*n3) * (0.94 + 0.08*rip); grass = mix(grass, vec3(0.36,0.27,0.16), smoothstep(0.6, 0.8, n2) * 0.5);
+          dirt = mix(vec3(0.27,0.17,0.09), vec3(0.38,0.25,0.13), n2) * (0.8 + 0.35*n3); sand = mix(vec3(0.62,0.5,0.32), vec3(0.72,0.6,0.4), n3) * (0.92 + 0.1*rip);
+          rock = rock * vec3(1.55,1.12,0.8) * (0.9 + 0.25*smoothstep(0.3, 0.7, fract(vW.y*1.6 + n1*0.6))); }
         #endif
         diffuseColor.rgb *= grass*w.x + dirt*w.y + rock*w.z + sand*w.w;
         float tRock = w.z; float tGrass = w.x;`)
@@ -66,7 +71,7 @@ function terrainMaterial() {
           vec3 grad = sign(det) * (dhx * r1 + dhy * r2); normal = normalize(abs(det) * normal - grad * 2.5); }`);
     fowPatch(sh);
   };
-  m.defines = { THEME: G.mapName === 'frost' ? 1 : G.mapName === 'volcano' ? 2 : 0 }; m.customProgramCacheKey = () => 'terrain3_' + m.defines.THEME;
+  m.defines = { THEME: G.mapName === 'frost' ? 1 : G.mapName === 'volcano' ? 2 : G.desert ? 3 : 0 }; m.customProgramCacheKey = () => 'terrain3_' + m.defines.THEME;
   return m;
 }
 function buildTerrain3() {
@@ -82,7 +87,7 @@ function buildTerrain3() {
   for (let i = 0; i < n; i++) {
     const x = pos.getX(i), z = pos.getZ(i), h = pos.getY(i), ny = nor.getY(i);
     const hl = h - lvlAt(x, z) * LVL_H; let rock = Math.max(0, Math.min(1, (0.93 - ny) / 0.15)) * (lvlAt(x, z) % 1 > 0.05 && lvlAt(x, z) % 1 < 0.95 ? 0.25 : 1) + Math.max(0, Math.min(1, (hl - 0.6) / 0.6));
-    let sand = hl < -0.1 ? Math.min(1, (-0.1 - hl) / 0.3) : 0, dirt = oreAt(x, z) * 1.2;
+    let sand = hl < -0.1 ? Math.min(1, (-0.1 - hl) / 0.3) : 0, dirt = oreAt(x, z) * 1.2; if (G.wadi && G.wadi[Math.min(MH - 1, Math.floor(z)) * MW + Math.min(MW - 1, Math.floor(x))]) sand = Math.max(sand, 0.85);
     rock = Math.min(1, rock); const grass = Math.max(0, 1 - rock - sand - dirt);
     spl.set([grass, dirt, rock, sand], i * 4);
     // cavity AO: compare with neighborhood
@@ -93,10 +98,10 @@ function buildTerrain3() {
   geo.setAttribute('splat', new THREE.BufferAttribute(spl, 4)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   const mesh = new THREE.Mesh(geo, terrainMaterial()); mesh.receiveShadow = true; R3.scene.add(mesh); R3.terrain = mesh;
   // outside skirt
-  const sk = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x1c2416, roughness: 1 }));
+  const sk = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: G.desert ? 0x4a3a28 : 0x1c2416, roughness: 1 }));
   sk.position.set(MW / 2, -0.6, MH / 2); R3.scene.add(sk);
   const edge = new THREE.Mesh(new THREE.BoxGeometry(MW + 0.6, 0.6, MH + 0.6), new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.9 })); edge.position.set(MW / 2, -0.62, MH / 2); R3.scene.add(edge);
-  buildFogOverlay(); buildWater(); buildOre(); buildFoliage(); buildVents(); buildLandmarks(); buildSurfaces();
+  buildFogOverlay(); buildWater(); buildOre(); buildFoliage(); buildVents(); buildLandmarks(); buildSurfaces(); if (G.desert) buildDesert();
 }
 function buildWater() {
   // height texture for shoreline foam (bytes)
@@ -189,7 +194,7 @@ function buildFoliage() {
     g.setAttribute('normal', new THREE.Float32BufferAttribute([0, 1, 0, 0, 1, 0, 0, 1, 0], 3)); blades.push(g); }
   const tg = new THREE.BufferGeometry(); { let P = [], C = [], N = []; for (const b of blades) { P.push(...b.attributes.position.array); C.push(...b.attributes.color.array); N.push(...b.attributes.normal.array); }
     tg.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); tg.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); tg.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); }
-  const MAXG = 30000, gm = new THREE.InstancedMesh(tg, windMat(true, 0.9), MAXG); gm.receiveShadow = true; gm.frustumCulled = false;
+  const MAXG = G.desert ? 12000 : 30000, gm = new THREE.InstancedMesh(tg, windMat(true, 0.9), MAXG); gm.receiveShadow = true; gm.frustumCulled = false;
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), cl = new THREE.Color(); let k = 0; R3.grassTile = [];
   let tries = 0;
   while (k < MAXG && tries++ < MAXG * 4) {
@@ -198,22 +203,22 @@ function buildFoliage() {
     const s = 0.45 + R() * 0.5; e.set(0, R() * 6.28, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(x, h, y), q, new THREE.Vector3(s, s * (0.8 + R() * 0.6), s)); gm.setMatrixAt(k, m4);
     cl.setRGB(0.8 + R() * 0.4, 0.85 + R() * 0.3, 0.7 + R() * 0.3); gm.setColorAt(k, cl); (R3.grassTile[ti] = R3.grassTile[ti] || []).push(k); k++;
   }
-  gm.count = k; R3.grassMax = k; R3.grass = gm; if (G.mapName === 'frost' || G.mapName === 'volcano') { gm.material = gm.material.clone(); gm.material.color.set(G.mapName === 'frost' ? 0x9aa4ad : 0x3a2e26); } R3.scene.add(gm);
+  gm.count = k; R3.grassMax = k; R3.grass = gm; if (G.mapName === 'frost' || G.mapName === 'volcano' || G.desert) { gm.material = gm.material.clone(); gm.material.color.set(G.mapName === 'frost' ? 0x9aa4ad : G.desert ? 0x8a6c3c : 0x3a2e26); } R3.scene.add(gm);
   // trees (pine) near cliffs and scattered
   const B = new MB(0); B.cyl('t', 0.05, 0.4, 0x4a3524, PBR.RUB, 0, 0.2, 0, { seg: 6 });
   for (let i = 0; i < 3; i++) B.cone('t', 0.36 - i * 0.09, 0.5, 0x2f5a26 + i * 0x061006, [0, 0.85, 0], 0, 0.45 + i * 0.27, 0, { seg: 8 });
   const treeGeo = B.build().t; const trees = [];
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x; if (G.map[i] !== 0 || G.oreMax[i] > 0 || nearBase(x + 0.5, y + 0.5)) continue;
     const nearRock = [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [0, 2], [-2, 0], [0, -2]].some(([a, b]) => inb(x + a, y + b) && G.map[(y + b) * MW + x + a] === 1);
-    if (R() < (G.forest && G.forest[i] ? 0.6 : nearRock ? 0.45 : 0.012)) trees.push([x + 0.2 + R() * 0.6, y + 0.2 + R() * 0.6, 0.7 + R() * 0.7]); }
+    if (R() < (G.desert ? 0 : G.forest && G.forest[i] ? 0.6 : nearRock ? 0.45 : 0.012)) trees.push([x + 0.2 + R() * 0.6, y + 0.2 + R() * 0.6, 0.7 + R() * 0.7]); }
   const tm = new THREE.InstancedMesh(treeGeo, windMat(false, 0.8), trees.length); tm.castShadow = true; tm.receiveShadow = true; tm.frustumCulled = false;
   trees.forEach((t, j) => { e.set((R() - 0.5) * 0.1, R() * 6.28, (R() - 0.5) * 0.1); q.setFromEuler(e); m4.compose(new THREE.Vector3(t[0], heightAt(t[0], t[1]) - 0.05, t[1]), q, new THREE.Vector3(t[2], t[2] * (0.9 + R() * 0.4), t[2])); tm.setMatrixAt(j, m4);
     cl.setRGB(0.8 + R() * 0.4, 0.8 + R() * 0.4, 0.8 + R() * 0.3); tm.setColorAt(j, cl); (R3.treeTile = R3.treeTile || {})[Math.floor(t[1]) * MW + Math.floor(t[0])] = j; });
   R3.trees = tm; R3.scene.add(tm);
   // boulders on cliffs: displaced icosahedra
   const rg = new THREE.IcosahedronGeometry(0.5, 1); { const p = rg.attributes.position; for (let i = 0; i < p.count; i++) { const v = new THREE.Vector3().fromBufferAttribute(p, i); v.multiplyScalar(0.8 + 0.35 * Math.sin(v.x * 7 + v.y * 5) * Math.cos(v.z * 6)); p.setXYZ(i, v.x, v.y * 0.75, v.z); } rg.computeVertexNormals(); }
-  const RB = new MB(0); RB.add('r', rg, 0x77706a, [0, 0.85, 0], 0, 0, 0); const rgeo = RB.build().r; const rocks = [];
-  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x; if (G.map[i] === 1 && R() < 0.3) rocks.push([x + R(), y + R(), 0.25 + R() * 0.55]);
+  const RB = new MB(0); RB.add('r', rg, G.desert ? 0x9a7652 : 0x77706a, [0, 0.85, 0], 0, 0, 0); const rgeo = RB.build().r; const rocks = [];
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x; if (G.map[i] === 1 && !(G.mud && G.mud[i]) && R() < 0.3) rocks.push([x + R(), y + R(), 0.25 + R() * 0.55]);
     else if (G.map[i] === 0 && !G.oreMax[i] && R() < 0.02 && !nearBase(x, y)) rocks.push([x + R(), y + R(), 0.1 + R() * 0.12]); }
   const rm = new THREE.InstancedMesh(rgeo, pbrMaterial(), rocks.length); rm.castShadow = true; rm.receiveShadow = true; rm.frustumCulled = false;
   rocks.forEach((r, j) => { e.set(R() * 3, R() * 6, R() * 3); q.setFromEuler(e); m4.compose(new THREE.Vector3(r[0], heightAt(r[0], r[1]) + r[2] * 0.1, r[1]), q, new THREE.Vector3(r[2], r[2], r[2])); rm.setMatrixAt(j, m4); });
@@ -243,6 +248,7 @@ function clearFoliage(b) { // remove grass/trees under a new building
   const m0 = new THREE.Matrix4().makeScale(0, 0, 0);
   for (let y = b.ty - 1; y <= b.ty + b.h; y++) for (let x = b.tx - 1; x <= b.tx + b.w; x++) { if (!inb(x, y)) continue; const i = y * MW + x;
     const gl = R3.grassTile[i]; if (gl) { for (const k of gl) R3.grass.setMatrixAt(k, m0); R3.grass.instanceMatrix.needsUpdate = true; R3.grassTile[i] = null; }
+    if (R3.propTile && R3.propTile[i]) { for (const [mesh, k] of R3.propTile[i]) { mesh.setMatrixAt(k, m0); mesh.instanceMatrix.needsUpdate = true; } R3.propTile[i] = null; }
     if (R3.treeTile && R3.treeTile[i] != null && x >= b.tx && x < b.tx + b.w && y >= b.ty && y < b.ty + b.h) { R3.trees.setMatrixAt(R3.treeTile[i], m0); R3.trees.instanceMatrix.needsUpdate = true; } }
 }
 
@@ -274,4 +280,53 @@ function buildSurfaces() {
   if (ig) { const me = new THREE.Mesh(ig, new THREE.MeshStandardMaterial({ color: 0xbfe3f5, roughness: 0.12, metalness: 0.1, transparent: true, opacity: 0.85, envMapIntensity: 1.2 })); me.receiveShadow = true; R3.scene.add(me); }
   if (G.ruins) { const [mx, my] = G.ruins, B = new MB(0); for (let k = 0; k < 7; k++) { const a = k * 0.9, r = 1.2 + (k % 3) * 0.5; B.box('m', 0.5 + (k % 2) * 0.4, 0.4 + (k % 3) * 0.35, 0.35, 0x8a8f96, PBR.CONC, Math.cos(a) * r, 0.25, Math.sin(a) * r, { bevel: 0.05, ry: a }); }
     B.box('m', 0.25, 2.2, 0.25, 0x5b5f66, PBR.METAL, 0.3, 1.1, -0.2, { bevel: 0.02 }); const mesh = new THREE.Mesh(B.build().m, pbrMaterial()); mesh.position.set(mx, heightAt(mx, my), my); mesh.castShadow = mesh.receiveShadow = true; R3.scene.add(mesh); }
+}
+
+// v6.0 Hindu Kush Hellgate desert dressing: mud-brick compound walls (on blocking G.mud tiles), burnt-out wrecks,
+// sandbag nests at the canyon mouths, warm dust haze. All visual-only and seeded locally (never touches the sim RNG).
+function buildDesert() {
+  const R = mkRng((G.opts.seed | 0) + 606), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3(), cl = new THREE.Color();
+  R3.propTile = {}; const tag = (x, y, mesh, k) => { const i = Math.floor(y) * MW + Math.floor(x); (R3.propTile[i] = R3.propTile[i] || []).push([mesh, k]); };
+  const S = R3.scene; S.fog.color.set(0xcdb08a); S.fog.density = 0.0058; if (S.background && S.background.isColor) S.background.set(0xcdb08a);
+  if (R3.hemi) { R3.hemi.color.set(0xffe2b8); R3.hemi.groundColor.set(0x6a4a2a); R3.hemi.intensity *= 1.3; } if (R3.sun) R3.sun.color.lerp(new THREE.Color(0xffd8a0), 0.35);
+  // mud-brick walls: one crumbling block per wall tile + parapet bumps
+  const mud = []; for (let i = 0; i < MW * MH; i++) if (G.mud && G.mud[i]) mud.push(i);
+  if (mud.length) { const B = new MB(0); B.box('w', 1.0, 1.0, 1.0, 0xffffff, PBR.CONC, 0, 0.5, 0, { bevel: 0.06 });
+    const wm = new THREE.InstancedMesh(B.build().w, pbrMaterial(), mud.length * 2); let k = 0;
+    for (const i of mud) { const x = i % MW + 0.5, y = (i / MW | 0) + 0.5, h = heightAt(x, y) - 0.05, hh = 0.75 + R() * 0.65 * (R() < 0.8 ? 1 : 0.3);
+      e.set(0, (R() - 0.5) * 0.08, 0); q.setFromEuler(e); m4.compose(v.set(x, h, y), q, sc.set(1.0, hh, 1.0)); wm.setMatrixAt(k, m4); cl.setRGB(0.58 + R() * 0.08, 0.42 + R() * 0.05, 0.27 + R() * 0.04); wm.setColorAt(k++, cl);
+      if (R() < 0.45) { m4.compose(v.set(x + (R() - 0.5) * 0.5, h + hh, y + (R() - 0.5) * 0.5), q, sc.set(0.3, 0.22, 0.3)); wm.setMatrixAt(k, m4); cl.setRGB(0.52, 0.38, 0.24); wm.setColorAt(k++, cl); } }
+    wm.count = k; wm.castShadow = wm.receiveShadow = true; wm.frustumCulled = false; S.add(wm); }
+  // wrecks: burnt tank hulks + gutted trucks in no-man's-land and along the wadi
+  const W = new MB(0);
+  W.box('t', 1.5, 0.42, 0.85, 0x2e2620, PBR.DARKM, 0, 0.32, 0, { bevel: 0.05 }); W.box('t', 1.55, 0.18, 0.22, 0x1c1814, PBR.RUB, 0, 0.12, 0.42); W.box('t', 1.55, 0.18, 0.22, 0x1c1814, PBR.RUB, 0, 0.12, -0.42);
+  W.box('t', 0.7, 0.3, 0.6, 0x3a2c22, PBR.DARKM, -0.1, 0.66, 0.05, { ry: 0.5, bevel: 0.05 }); W.cyl('t', 0.05, 1.1, 0x241e1a, PBR.DARKM, 0.45, 0.62, 0.35, { rz: -1.3, ry: 0.5, seg: 6 });
+  W.box('t', 0.5, 0.06, 0.4, 0x6a4a30, PBR.RUB, 0.35, 0.56, -0.1, { ry: 0.3, bevel: 0 }); // rust patch
+  W.box('k', 0.55, 0.5, 0.7, 0x4a3a2c, PBR.DARKM, 0.6, 0.38, 0, { bevel: 0.05 }); W.box('k', 1.0, 0.12, 0.72, 0x3a3028, PBR.DARKM, -0.25, 0.3, 0, { bevel: 0.02 });
+  for (const [wx, wz] of [[0.65, 0.36], [0.65, -0.36], [-0.45, 0.36], [-0.45, -0.36]]) W.cyl('k', 0.16, 0.1, 0x161210, PBR.RUB, wx, 0.15, wz, { rx: Math.PI / 2, seg: 8 });
+  const wg = W.build(), spots = [];
+  for (let n = 0; n < 400 && spots.length < 34; n++) { const x = 52 + R() * 72, y = 6 + R() * 116; const i = Math.floor(y) * MW + Math.floor(x); if (G.map[i] !== 0 || G.oreMax[i] > 0 || G.starts.some(s => Math.hypot(s[0] - x, s[1] - y) < 11) || spots.some(p => Math.hypot(p[0] - x, p[1] - y) < 3.5)) continue; spots.push([x, y]); }
+  for (const p of [[57, 61], [58, 68], [34, 62.5]]) spots.push(p);
+  for (const key of ['t', 'k']) { const list = spots.filter((_, j) => (j % 3 === 2) === (key === 'k')); const im = new THREE.InstancedMesh(wg[key], pbrMaterial(), list.length);
+    list.forEach(([x, y], k) => { e.set((R() - 0.5) * 0.12, R() * 6.28, (R() - 0.5) * 0.18); q.setFromEuler(e); const s = 0.9 + R() * 0.3; m4.compose(v.set(x, heightAt(x, y) - 0.08, y), q, sc.set(s, s, s)); im.setMatrixAt(k, m4); tag(x, y, im, k); });
+    im.castShadow = im.receiveShadow = true; im.frustumCulled = false; S.add(im); R3.wrecks = (R3.wrecks || []).concat([im]); R3.wreckSpots = spots; }
+  // sandbag nests: arcs at both canyon mouths + a few around the village
+  const SB = new MB(0); SB.cyl('s', 0.13, 0.42, 0xffffff, PBR.CLOTH, 0, 0.12, 0, { rz: Math.PI / 2, seg: 7 }); const bags = [];
+  const nest = (cx, cy, r, a0, a1, rows) => { for (let row = 0; row < rows; row++) for (let a = a0; a <= a1; a += 0.42 / r) bags.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r, a + Math.PI / 2, row]); };
+  const cyW = (G.canyon && G.canyon.y) || 64;
+  nest(33.5, cyW - 4.6, 1.3, -0.2, 2.6, 2); nest(33.5, cyW + 4.6, 1.3, -2.6, 0.2, 2); nest(29.5, cyW, 1.6, -1.2, 1.2, 2);
+  nest(55.5, cyW - 5, 1.2, 1.2, 3.6, 2); nest(55.5, cyW + 5.5, 1.2, -3.6, -1.2, 2); nest(86, 52.5, 1.4, 0, 3.1, 2); nest(86, 75.5, 1.4, -3.1, 0, 2); nest(102, 64, 1.3, 1.6, 4.6, 2);
+  const bm = new THREE.InstancedMesh(SB.build().s, pbrMaterial(), bags.length);
+  bags.forEach(([x, y, a, row], k) => { e.set(0, -a, 0); q.setFromEuler(e); m4.compose(v.set(x, heightAt(x, y) + row * 0.2, y), q, sc.set(1, 1, 1)); bm.setMatrixAt(k, m4); cl.setRGB(0.62 + R() * 0.08, 0.52 + R() * 0.06, 0.34 + R() * 0.05); bm.setColorAt(k, cl); tag(x, y, bm, k); });
+  bm.castShadow = bm.receiveShadow = true; bm.frustumCulled = false; S.add(bm);
+  // ruined watchtowers on the ridge flanks of the Hellgate
+  const T = new MB(0); T.box('m', 1.1, 2.2, 1.1, 0x8e6a46, PBR.CONC, 0, 1.1, 0, { bevel: 0.08 }); T.box('m', 1.3, 0.18, 1.3, 0x7a5a3a, PBR.CONC, 0, 2.25, 0, { bevel: 0.03 }); T.box('m', 0.3, 0.3, 0.06, 0x1a120c, PBR.RUB, 0, 1.6, 0.56, { bevel: 0 });
+  const tg = T.build().m; for (const [x, y] of [[41.5, cyW - 6.5], [47.5, cyW + 6.5], [44, cyW - 7.5]]) { const mesh = new THREE.Mesh(tg, pbrMaterial()); mesh.position.set(x, heightAt(x, y) - 0.4, y); mesh.castShadow = mesh.receiveShadow = true; S.add(mesh); }
+}
+// v6.0: drifting desert dust + the odd dust devil near the camera (render-only, Math.random is fine here)
+function desertFx(dt) {
+  if (!G.desert || !FX.smoke) return; const c = R3.cam, sp = Math.max(8, c.d * 0.7);
+  if (Math.random() < dt * 7 * FX.mul) { const x = c.tx + (Math.random() - 0.5) * sp * 2, y = c.ty + (Math.random() - 0.5) * sp * 1.4; if (x > 0 && y > 0 && x < MW && y < MH) FX.smoke.spawn(x, y, heightAt(x, y) + 0.15, 0.9 + Math.random() * 0.5, 0.25, 0.04, 4.5, 0.7, 2.6, 0.78, 0.64, 0.46, 0.1, 0); }
+  R3.devT = (R3.devT || 0) - dt; if (R3.devT <= 0) { R3.devT = 9 + Math.random() * 12; R3.dev = { x: c.tx + (Math.random() - 0.5) * sp, y: c.ty + (Math.random() - 0.5) * sp * 0.8, t: 5 }; }
+  const d = R3.dev; if (d && d.t > 0) { d.t -= dt; d.x += dt * 0.8; d.y += dt * 0.25; if (Math.random() < dt * 30 * FX.mul) { const a = Math.random() * 6.28, r = 0.25 + Math.random() * 0.4; FX.smoke.spawn(d.x + Math.cos(a) * r, d.y + Math.sin(a) * r, heightAt(d.x, d.y) + 0.1, -Math.sin(a) * 1.4, Math.cos(a) * 1.4, 1.6 + Math.random(), 1.6, 0.25, 0.9, 0.8, 0.66, 0.48, 0.22, 0); } }
 }
