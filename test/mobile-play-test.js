@@ -117,7 +117,7 @@ const ROOT = 'file://' + path.resolve(__dirname, '../index.html'), PART = proces
     ok(lb.rows === 8 && lb.ow && lb.small === 0, 'Hellgate auto-setup fills 8 lobby rows; lobby fits the phone and every control >= 44px ' + JSON.stringify(lb));
     // change my faction by touch (first row faction select)
     const fs = await pg.$('#lobby .lrow:not(.lh) select.lf, #lobby .lrow:not(.lh) select[data-k="fac"]'); if (fs) { await fs.selectOption({ index: 2 }); }
-    await pg.screenshot({ path: 'shots/v6_1-mobile-lobby.png' });
+    await pg.evaluate(() => document.getElementById('lobby').scrollIntoView({ block: 'start' })); await pg.waitForTimeout(300); await pg.screenshot({ path: 'shots/v6_1-mobile-lobby.png' });
     await pg.tap('#startBtn'); await pg.waitForTimeout(5000);
     const g = await pg.evaluate(() => ({ map: G.opts.map || G.map, np: G.players.length, mplay: document.body.classList.contains('mplay'), q: R3.q.label, far: R3.camera.far, cards: document.querySelectorAll('#mCards .item').length }));
     ok(g.np === 8 && g.mplay && g.cards > 3, 'Hellgate 2v6 starts in mobile play mode ' + JSON.stringify(g));

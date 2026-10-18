@@ -13,7 +13,7 @@ function mobDetect() { // phone / small tablet: coarse primary pointer + small v
   try { const coarse = matchMedia('(pointer: coarse)').matches, small = Math.max(screen.width, screen.height) <= 1400 && Math.min(screen.width, screen.height) <= 1100; return coarse && small; } catch (e) { return false; } }
 function mobSet(on, save) {
   MOB.on = !!on; document.body.classList.toggle('mobile', MOB.on); if (save !== false) try { localStorage.setItem('ifMobile', MOB.on ? '1' : '0'); } catch (e) {}
-  const b = document.getElementById('mobileBtn'); if (b) b.textContent = '📱 Mobile controls: ' + (MOB.on ? 'On' : 'Off');
+  const b = document.getElementById('mobileBtn'); if (b) b.textContent = '📱 Touch controls: ' + (MOB.on ? 'On' : 'Off');
   const w = document.getElementById('mobWatchBtn'); if (w) w.style.display = MOB.on ? '' : 'none';
   if (MOB.on) mobBuildHud();
   const ctx = document.getElementById('ctx'); if (ctx) { const host = MOB.on ? document.getElementById('mCtx') : document.getElementById('side'); if (host && ctx.parentNode !== host) host.appendChild(ctx); }

@@ -169,3 +169,6 @@ body.mobile.mplay #msg{top:calc(max(4px,env(safe-area-inset-top)) + 96px);font-s
 body.mobile #tip{max-width:300px}
 #mRejoin{display:none;position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);z-index:70;background:rgba(8,14,22,.97);border:1px solid #ffc23d;border-radius:12px;padding:16px;text-align:center;color:#fff;font-size:16px}
 #mRejoin button{margin-top:12px;min-height:52px;font-size:18px;padding:0 20px;border-radius:10px}
+@media (max-height:520px){body.mobile #menu h1{font-size:30px;margin:2px 0}body.mobile #menu .sub{font-size:11px;margin:0 0 6px}body.mobile #menu .panel{padding:6px 12px}
+body.mobile .setupRow{flex-direction:row;gap:12px;align-items:flex-start}body.mobile .setupL{flex:0 0 38%}body.mobile .setupR{flex:1;min-width:0}body.mobile #mapPrev{width:min(34vw,200px);height:min(34vw,200px)}}
+@media (max-height:520px){body.mobile #lobby .lrow{grid-template-columns:18px repeat(4,minmax(0,1fr));gap:4px;margin-bottom:6px}body.mobile #lobby .lrow > .lf{grid-column:auto}body.mobile #lobby .lrow select{font-size:14px;padding:4px 6px}}
