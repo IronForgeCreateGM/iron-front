@@ -83,6 +83,30 @@ const ROOT = 'file://' + path.resolve(__dirname, '../index.html'), PART = proces
     await pg.screenshot({ path: 'shots/v6_1-mobile-hud.png' });
     const sc = await pg.evaluate(() => [scrollX, scrollY]); ok(sc[0] === 0 && sc[1] === 0, 'no page scroll');
   }
+  if (PART === 'auto') { // helpers: auto-rally, auto-harvester, idle engage, power helper
+    await pg.goto(ROOT + '?slots=human:A:usa,easy:B&seed=7&peace=600'); await pg.waitForTimeout(3500);
+    const tick = n => pg.evaluate(n => { for (let i = 0; i < n; i++) NET.tick(); mobAuto(); }, n);
+    await pg.evaluate(() => { G.players[ME].cr += 8000; const P = G.players[ME], h = mobHome(); for (const t of ['power', 'barracks', 'refinery']) { const sp = aiSpot(P, t, h, []); if (sp) addB(t, ME, sp[0], sp[1], true); } });
+    await tick(5); await tick(5);
+    const ra = await pg.evaluate(() => { const b = G.ents.find(e => e.team === ME && e.t === 'barracks'); return { rally: b && b.rally, mob: MOB.rally }; });
+    ok(ra.rally && ra.mob && Math.hypot(ra.rally.x - ra.mob.x, ra.rally.y - ra.mob.y) < 0.5, 'auto-rally: barracks rally set to the default rally point ' + JSON.stringify(ra));
+    const h0 = await pg.evaluate(() => { const hs = G.ents.filter(e => e.team === ME && e.t === 'harv'); MOB.harvPeak = hs.length; hs[0].hp = 0; return hs.length; });
+    await tick(3); await tick(3);
+    const hq = await pg.evaluate(() => ({ q: G.players[ME].queues.veh.map(q => q.t).concat(G.players[ME].queues.bld.map(q => q.t)), n: G.ents.filter(e => e.team === ME && e.t === 'harv' && e.hp > 0).length }));
+    ok(hq.q.includes('harv'), 'auto-harvester: lost harvester is re-queued (' + h0 + ' -> ' + hq.n + ', queue ' + hq.q + ')');
+    const en = await pg.evaluate(() => { const a = myArmy(); for (const u of a) { u.idleT = 9; u.order = 'idle'; u.path = []; } const u0 = a[0]; const e = addU('rifle', 1, u0.x + 7, u0.y); MOB.engT = {}; mobAuto(); return { n: a.length, ord: a.map(u => u.order), e: !!e }; });
+    ok(en.ord.filter(o => o === 'amove').length >= 1, 'idle auto-engage: idle army attack-moves at a nearby visible enemy ' + JSON.stringify(en));
+    // power helper
+    await pg.evaluate(() => { const P = G.players[ME]; P.cr += 3000; for (const e of G.ents) if (e.team === ME && e.t === 'power') e.hp = 0; }); await tick(2); await pg.waitForTimeout(1200);
+    const pv = await pg.evaluate(() => ({ low: G.players[ME].pow, vis: getComputedStyle(document.getElementById('mPowerBtn')).display }));
+    ok(pv.vis !== 'none', 'power helper button appears when power is low ' + JSON.stringify(pv));
+    const np0 = await pg.evaluate(() => G.ents.filter(e => e.team === ME && e.t === 'power' && e.hp > 0).length);
+    await pg.tap('#mPowerBtn'); await pg.waitForTimeout(300); await tick(30 * 14); await tick(2); await tick(2);
+    const np1 = await pg.evaluate(() => G.ents.filter(e => e.team === ME && e.t === 'power' && e.hp > 0).length);
+    ok(np1 === np0 + 1, 'one tap on ⚡ builds AND auto-places a Power Plant (' + np0 + ' -> ' + np1 + ')');
+    await pg.evaluate(() => { const P = G.players[ME]; for (const b of G.ents) if (b.team === ME && b.kind === 'b' && b.t !== 'hq') { b.hp = b.mhp * 0.4; } MOB.auto.repair = true; P.cr = 5000; mobAuto(); });
+    ok(await pg.evaluate(() => G.ents.some(b => b.team === ME && b.kind === 'b' && b.repair)), 'auto-repair (when enabled) turns on repair for damaged buildings');
+  }
   ok(!errs.length, 'no page errors ' + errs.slice(0, 3).join(' | '));
   await br.close(); console.log(fail ? 'FAILED ' + fail : 'ALL PASS'); process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
