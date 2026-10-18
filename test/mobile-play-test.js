@@ -107,6 +107,37 @@ const ROOT = 'file://' + path.resolve(__dirname, '../index.html'), PART = proces
     await pg.evaluate(() => { const P = G.players[ME]; for (const b of G.ents) if (b.team === ME && b.kind === 'b' && b.t !== 'hq') { b.hp = b.mhp * 0.4; } MOB.auto.repair = true; P.cr = 5000; mobAuto(); });
     ok(await pg.evaluate(() => G.ents.some(b => b.team === ME && b.kind === 'b' && b.repair)), 'auto-repair (when enabled) turns on repair for damaged buildings');
   }
+  if (PART === 'hellgate') { // phone lobby by touch -> Hellgate 2v6 auto-setup -> play + frame time
+    await pg.goto(ROOT + '?q=low'); await pg.waitForTimeout(2500);
+    ok(await pg.evaluate(() => MOB.on && document.body.classList.contains('mobile')), 'mobile UI auto-on at the menu');
+    await pg.tap('#playBotsBtn'); await pg.waitForTimeout(600);
+    await pg.selectOption('#mapSel', 'hellgate'); await pg.waitForTimeout(800);
+    const lb = await pg.evaluate(() => ({ rows: [...document.querySelectorAll('#lobby .lrow:not(.lh)')].filter(r => r.offsetParent).length, ow: document.documentElement.scrollWidth <= innerWidth + 2,
+      small: [...document.querySelectorAll('#setup select, #setup button, #lobby select')].filter(e => e.offsetParent).map(e => e.getBoundingClientRect().height | 0).filter(h => h < 44).length }));
+    ok(lb.rows === 8 && lb.ow && lb.small === 0, 'Hellgate auto-setup fills 8 lobby rows; lobby fits the phone and every control >= 44px ' + JSON.stringify(lb));
+    // change my faction by touch (first row faction select)
+    const fs = await pg.$('#lobby .lrow:not(.lh) select.lf, #lobby .lrow:not(.lh) select[data-k="fac"]'); if (fs) { await fs.selectOption({ index: 2 }); }
+    await pg.screenshot({ path: 'shots/v6_1-mobile-lobby.png' });
+    await pg.tap('#startBtn'); await pg.waitForTimeout(5000);
+    const g = await pg.evaluate(() => ({ map: G.opts.map || G.map, np: G.players.length, mplay: document.body.classList.contains('mplay'), q: R3.q.label, far: R3.camera.far, cards: document.querySelectorAll('#mCards .item').length }));
+    ok(g.np === 8 && g.mplay && g.cards > 3, 'Hellgate 2v6 starts in mobile play mode ' + JSON.stringify(g));
+    // build something on Hellgate via the card + auto power placement
+    await pg.tap('#mCards .item[data-t="power"]'); await pg.evaluate(() => { for (let i = 0; i < 400; i++) NET.tick(); }); await pg.waitForTimeout(800);
+    ok(await pg.evaluate(() => UI.placing === 'power'), 'Hellgate: card -> ghost placement'); await pg.evaluate(() => { const sp = mobSpot('power'), d = BT.power, s = worldToScreen(sp[0] + d.w / 2, sp[1] + d.h / 2, heightAt(sp[0] + d.w / 2, sp[1] + d.h / 2)); UI.mouse.x = s.x; UI.mouse.y = s.y; });
+    await pg.waitForTimeout(400); await pg.tap('#mOk'); await pg.waitForTimeout(400);
+    ok(await pg.evaluate(() => G.ents.filter(e => e.team === ME && e.t === 'power').length >= 1), 'Hellgate: ✓ places the building');
+    // frame time: sim 8 players for a while (fast-forward), then measure rendering in emulation (software GL!)
+    await pg.evaluate(() => { for (let i = 0; i < 30 * 90; i++) NET.tick(); });
+    const ft = await pg.evaluate(() => new Promise(res => { const ts = []; let last = performance.now(); const f = t => { ts.push(t - last); last = t; if (ts.length < 40) requestAnimationFrame(f); else res(ts); }; requestAnimationFrame(f); }));
+    const rt = await pg.evaluate(() => { const ts = []; for (let i = 0; i < 12; i++) { const t0 = performance.now(); r3Render(1 / 30); ts.push(performance.now() - t0); } const s0 = []; for (let i = 0; i < 60; i++) { const t0 = performance.now(); NET.tick(); s0.push(performance.now() - t0); } return { render: ts, sim: s0, calls: R3.calls, tris: R3.tris, units: G.ents.filter(e => e.kind === 'u').length }; });
+    const med = a => a.slice().sort((x, y) => x - y)[a.length >> 1], max = a => Math.max(...a);
+    console.log(`PERF Hellgate t=${(await pg.evaluate(() => G.time)).toFixed(0)}s units=${rt.units} draws=${rt.calls} tris=${(rt.tris / 1000).toFixed(0)}k | rAF frame median ${med(ft).toFixed(1)}ms | r3Render median ${med(rt.render).toFixed(1)}ms max ${max(rt.render).toFixed(1)}ms | sim tick median ${med(rt.sim).toFixed(2)}ms max ${max(rt.sim).toFixed(1)}ms`);
+    const gf = await pg.evaluate(() => { const gl = R3.renderer.getContext(), m = () => { const ts = []; for (let i = 0; i < 6; i++) { const t0 = performance.now(); r3Render(1 / 30); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4)); ts.push(performance.now() - t0); } return ts.sort((a, b) => a - b)[3]; };
+      const mob = m(), px = R3.renderer.getPixelRatio(); applyQuality('high'); R3.renderer.setPixelRatio(3); r3Resize && r3Resize(); const hi = m(); applyQuality('mobile'); return { mob, hi, px }; });
+    console.log(`PERF GPU (software GL, render + GPU sync): mobile preset ${gf.mob.toFixed(0)}ms @pr${gf.px} vs desktop High ${gf.hi.toFixed(0)}ms -> ${(gf.hi / gf.mob).toFixed(1)}x lighter`);
+    ok(gf.mob < gf.hi, 'mobile preset renders cheaper than desktop High');
+    ok(med(rt.sim) < 12, 'sim tick cost fine on Hellgate (median ' + med(rt.sim).toFixed(2) + 'ms)');
+  }
   ok(!errs.length, 'no page errors ' + errs.slice(0, 3).join(' | '));
   await br.close(); console.log(fail ? 'FAILED ' + fail : 'ALL PASS'); process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

@@ -170,6 +170,7 @@ function mobFrame(dt) {
   // frame-time telemetry (for the perf readout / tests)
   MOB.ft.push(dt * 1000); if (MOB.ft.length > 120) MOB.ft.shift();
   if (!on) return;
+  { const P = G.players[ME], r = P.ready.bld; if (r && r !== MOB.lastReady && !UI.placing && !UI.mode && !(MOB.wantPower && r === 'power')) UI.placing = r; MOB.lastReady = r; } // structure done -> straight into placement
   if (UI.placing && MOB.placeFor !== UI.placing) mobStartPlace(); // a Defense finished -> auto placement mode
   const placing = !!UI.placing || UI.mode === 'wall';
   document.getElementById('mPlace').style.display = placing ? 'flex' : 'none'; document.getElementById('mOk').style.display = UI.placing ? '' : 'none';
