@@ -1,4 +1,4 @@
-// v5.7 mobile view: Playwright iPhone emulation (touch events) — NODE_PATH=/workspace/pwlib/node_modules node test/mobile-test.js [url]
+// v5.7 mobile view: Playwright iPhone emulation (touch events) — NODE_PATH=/tmp/tb/node_modules node test/mobile-test.js [url]
 const { chromium, devices } = require('playwright-core'), path = require('path');
 const URL0 = process.argv[2] || 'file://' + path.resolve(__dirname, '../index.html');
 (async () => {
@@ -6,8 +6,8 @@ const URL0 = process.argv[2] || 'file://' + path.resolve(__dirname, '../index.ht
   const ctx = await br.newContext({ ...devices['iPhone 13'] }); const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message));
   let fail = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fail++; };
   await pg.goto(URL0 + '?q=low'); await pg.waitForTimeout(2500);
-  ok(await pg.isVisible('#mobHint'), 'touch device -> Mobile view suggestion shown');
-  await pg.tap('#mobileBtn'); ok(await pg.evaluate(() => document.body.classList.contains('mobile')), 'tap "📱 Mobile view" turns it on: ' + await pg.textContent('#mobileBtn'));
+  ok(await pg.evaluate(() => document.body.classList.contains('mobile')) && await pg.isVisible('#mobHint'), 'v6.1: phone auto-detected -> touch controls on: ' + await pg.textContent('#mobileBtn'));
+  await pg.tap('#mobileBtn'); ok(await pg.evaluate(() => !document.body.classList.contains('mobile')), 'toggle turns it off'); await pg.tap('#mobileBtn'); ok(await pg.evaluate(() => document.body.classList.contains('mobile')), 'and on again');
   const vp = await pg.evaluate(() => document.querySelector('meta[name=viewport]').content); ok(/user-scalable=no/.test(vp) && /viewport-fit=cover/.test(vp), 'viewport meta: ' + vp);
   const sz = await pg.evaluate(() => [...document.querySelectorAll('#homeBtns button')].filter(b => b.offsetParent).map(b => [b.textContent.trim(), Math.round(b.getBoundingClientRect().height)]));
   ok(sz.every(([, h]) => h >= 44), 'home tap targets >= 44px: ' + JSON.stringify(sz));
