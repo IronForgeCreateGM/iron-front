@@ -12,6 +12,7 @@ const CMD = {
   attack(T, c) { const u = own(T, c.u), t = byId(c.t); if (u.length && t) orderAttack(u, t); },
   form(T, c) { const u = own(T, c.u); if (u.length) orderFormation(u, c.x, c.y, c.a); },
   stance(T, c) { setStance(own(T, c.u), c.s); },
+  stop(T, c) { orderStop(own(T, c.u)); }, // v6.1: Stop goes through lockstep (was local-only on desktop -> online desync)
   enq(T, c) { let n = 0; for (let i = 0; i < (c.n || 1); i++) if (enqueue(T, c.t)) n++; return n; },
   cancel(T, c) { let n = 0; for (let i = 0; i < (c.n || 1); i++) if (cancel(T, c.t)) n++; return n; },
   place(T, c) { return !!placeReady(T, c.cat, c.x, c.y); },

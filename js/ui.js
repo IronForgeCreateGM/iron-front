@@ -126,7 +126,7 @@ function pickAt(sx, sy) {
       const h0 = typeof heightAt === 'function' ? heightAt(e.x, e.y) : 0, ht = e.t === 'tesla' ? 2.4 : e.t === 'wall' || e.t === 'gate' ? 0.9 : BT[e.t].cat === 'def' ? 1.3 : 1.6;
       let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [cx, cy] of [[e.tx, e.ty], [e.tx + e.w, e.ty], [e.tx, e.ty + e.h], [e.tx + e.w, e.ty + e.h]]) for (const z of [h0, h0 + ht]) { const q = worldToScreen(cx, cy, z); x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
       if (sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1) { const c = worldToScreen(e.x, e.y, h0 + ht * 0.5), d = Math.hypot(c.x - sx, c.y - sy) * 0.5 + 6; if (d < bd) { best = e; bd = d; } } continue; }
-    const rs = R3.rs.get(e.id) || e, p = worldToScreen(rs.x, rs.y, (R3.rs.get(e.id) ? rs.z : heightAt(e.x, e.y) + (e.z || 0)) + 0.3), d = Math.hypot(p.x - sx, p.y - sy), rr = 12 + UT[e.t].r * 900 / R3.cam.d;
+    const rs = R3.rs.get(e.id) || e, p = worldToScreen(rs.x, rs.y, (R3.rs.get(e.id) ? rs.z : heightAt(e.x, e.y) + (e.z || 0)) + 0.3), d = Math.hypot(p.x - sx, p.y - sy), rr = (12 + UT[e.t].r * 900 / R3.cam.d) * (MOBL() ? 1.6 : 1); // v6.1: fat-finger radius on touch
     if (d < rr && d < bd) { bd = d; best = e; }
   }
   return best;
@@ -217,7 +217,7 @@ function onKey(e) {
   if ('wasd'.includes(k) && k.length === 1 && !e.ctrlKey && !e.metaKey) return; // WASD = camera only (before grid hotkeys)
   const hi = HOTKEYS.indexOf(k); if (hi >= 0 && !e.ctrlKey && !e.metaKey) { const list = UI.hotPanel === 'bot' ? (UI.botList || []) : UI.gridList; if (list[hi]) { clickItem(list[hi], false, e.shiftKey); return; } }
   if (k === 'b') { const trs = UI.sel.filter(s => s.cargo && s.team === ME); if (trs.length) { if (e.shiftKey) trs.forEach(tr => NET.issue({ c: 'unload', tr: tr.id, x: tr.x, y: tr.y })); else { UI.mode = 'unload'; uiMsg('Unload: click where to drop (Shift+B drops right here). Carrying ' + trs.reduce((a, t) => a + t.cargo.length, 0)); } return; } }
-  if (k === 'c' && !G.watch) orderStop(UI.sel.filter(s => s.team === ME));
+  if (k === 'c' && !G.watch) { const su = UI.sel.filter(s => s.team === ME && s.kind === 'u'); if (su.length) NET.issue({ c: 'stop', u: ids(su) }); }
   if ('wasd'.includes(k) && k.length === 1) return; // v5.5: WASD is camera pan only
   if (k === 'g') { doFormation(e.shiftKey); return; }
   if (k === 'v') { toggleStance(); return; }
@@ -266,7 +266,7 @@ function uiFrame(dt) {
     if (UI.keys.w || UI.keys.arrowup) dy -= 1; if (UI.keys.s || UI.keys.arrowdown) dy += 1;
     if (UI.keys.a || UI.keys.arrowleft) dx -= 1; if (UI.keys.d || UI.keys.arrowright) dx += 1;
     if (dx || dy) { const n = Math.hypot(dx, dy) || 1; R3.cam.tx += dx / n * sp; R3.cam.ty += dy / n * sp; if (typeof DIR !== 'undefined') DIR.auto = false; } }
-  const sp = dt * R3.cam.d * 1.1 * UI.set.edge, ed = 14;
+  const sp = dt * R3.cam.d * 1.1 * UI.set.edge, ed = typeof MOB !== 'undefined' && MOB.on ? -1e9 : 14; // no edge-pan with touch
   let dx = 0, dy = 0;
   if (UI.keys.arrowleft || (m.x >= 0 && m.x < ed)) dx -= 1; if (UI.keys.arrowright || (m.x >= 0 && m.x > W_ - ed)) dx += 1;
   if (UI.keys.arrowup || (m.x >= 0 && m.y < ed)) dy -= 1; if (UI.keys.arrowdown || (m.x >= 0 && m.y > H_ - ed)) dy += 1;
@@ -281,12 +281,14 @@ function uiFrame(dt) {
   if (UI.msgT > 0) { UI.msgT -= dt; if (UI.msgT <= 0) $('msg').style.opacity = 0; }
   el.style.cursor = UI.pan ? 'grabbing' : UI.placing ? 'cell' : UI.mode === 'sell' ? 'not-allowed' : UI.mode === 'repair' ? 'help' : UI.mode === 'amove' || UI.mode === 'nuke' ? 'crosshair' : (R3.hoverId && byId(R3.hoverId) && byId(R3.hoverId).team !== ME && UI.sel.some(s => s.kind === 'u' && s.team === ME)) ? 'crosshair' : 'default';
   if ((UI.hovT = (UI.hovT || 0) + dt) > 0.05) { UI.hovT = 0; const h = m.x >= 0 && !m.down ? pickAt(m.x, m.y) : null; R3.hoverId = h ? h.id : null; }
-  UI.t = (UI.t || 0) + dt; if (UI.t > 0.1) { UI.t = 0; sidebar(); }
-  if ((UI.mmT = (UI.mmT || 0) + dt) > 0.2) { UI.mmT = 0; minimap(); }
+  UI.t = (UI.t || 0) + dt; if (UI.t > (MOBL() ? 0.25 : 0.1)) { UI.t = 0; sidebar(); }
+  if ((UI.mmT = (UI.mmT || 0) + dt) > (MOBL() ? 0.5 : 0.2)) { UI.mmT = 0; minimap(); }
   UI.alerts.forEach(a => a.t -= dt); UI.alerts = UI.alerts.filter(a => a.t > 0); UI.pings.forEach(p => p.t -= dt); UI.pings = UI.pings.filter(p => p.t > 0);
   const f = $('fps'); f.style.display = UI.set.fps ? 'block' : 'none'; if (UI.set.fps) f.textContent = `${Math.round(R3.fps)} fps · ${R3.calls || 0} draws · ${((R3.tris || 0) / 1000).toFixed(0)}k tris · ${R3.q.label}${R3.auto ? ' (auto)' : ''} · ${G.ents.filter(e => e.kind === 'u').length} units`;
   overlay();
+  if (typeof mobFrame === 'function' && typeof MOB !== 'undefined') mobFrame(dt);
 }
+function MOBL() { return typeof MOB !== 'undefined' && MOB.on; }
 function sidebar() {
   const P = G.players[ME];
   $('cr').textContent = '$' + Math.floor(P.cr); $('gas').textContent = '◆ ' + Math.floor(P.gas);
