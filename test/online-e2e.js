@@ -26,7 +26,9 @@ async function browser(port, reuse) {
     await A.ev(`document.getElementById('pname').value='HostBot'; document.getElementById('hostBtn').click(); 1`);
     const code = await A.ev('ONL.code'); console.log('room', code); await sleep(5000); console.log('relays', await A.ev(`JSON.stringify(Object.entries(Trystero.nostr.getRelaySockets ? Trystero.nostr.getRelaySockets() : {}).map(([k,v])=>k+':'+v.readyState))`));
     if (process.env.MAP) console.log('map setup', await A.ev(`(() => { const m = document.getElementById('mapSel'); m.value = '${process.env.MAP}'; m.dispatchEvent(new Event('change')); return JSON.stringify(lobbyRead().map(r => r[0] + r[1])); })()`));
-    await B.nav(base + '&room=' + code + '&name=GuestBot'); 
+    const MOBILE = !!process.env.MOBILE; // v6.1: the guest is an iPhone-landscape-emulated touch client using the mobile play UI
+    if (MOBILE) { await B.cmd('Emulation.setDeviceMetricsOverride', { width: 844, height: 390, deviceScaleFactor: 3, mobile: true }); await B.cmd('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 }); }
+    await B.nav(base + '&room=' + code + '&name=GuestBot' + (MOBILE ? '&mobile=1' : '')); 
     let joined = false; for (let i = 0; i < 40 && !joined; i++) { await sleep(1000); joined = await A.ev('Object.keys(ONL.peers).length > 0'); }
     console.log('dbgA', await A.ev(`JSON.stringify([Object.keys(ONL.room.getPeers()), document.getElementById('onStatus').textContent.slice(0,80), ONL.strategies, typeof RTCDIAG !== 'undefined' ? RTCDIAG : null])`)); console.log('rtcB', await B.ev(`JSON.stringify([ONL.strategies, ONL.strategy || null, typeof RTCDIAG !== 'undefined' ? RTCDIAG : null])`)); console.log('dbgB', await B.ev(`JSON.stringify([ONL.code, ONL.room && Object.keys(ONL.room.getPeers()), document.getElementById('onStatus').textContent.slice(0,120), document.getElementById('err').textContent.slice(0,300)])`));
     console.log('peer joined lobby:', joined, ((Date.now() - t0) / 1000).toFixed(0) + 's'); if (!joined) throw new Error('no peer connection (relays/WebRTC)');
@@ -40,9 +42,13 @@ async function browser(port, reuse) {
       if (ma.map !== process.env.MAP || mb.map !== process.env.MAP || ma.ally !== 0 || mb.ally !== 0 || ma.mw !== mb.mw) throw new Error('map/seat mismatch online'); }
     if (process.env.HOSTROW) { const chk = await A.ev(`JSON.stringify({ me: ME, start: G.players[ME].start, row: G.opts.slots[ME].row, humans: G.players.filter(p => !p.ai).length, n: G.players.length })`); console.log('host slot check', chk); const c = JSON.parse(chk); if (c.row !== +process.env.HOSTROW || c.humans !== 2 || c.n !== 8) { console.log('HOST SLOT FAIL'); throw new Error('host slot'); } }
     // client orders its army to a point; verify on host
-    await B.ev(`(() => { const u = G.ents.filter(e => e.team === ME && e.kind === 'u' && e.t !== 'harv'); NET.issue({ c: 'move', u: u.map(e => e.id), x: 48, y: 48, am: false }); return u.length; })()`);
+    if (MOBILE) { console.log('mobile client', await B.ev(`JSON.stringify({ mob: MOB.on, mplay: document.body.classList.contains('mplay'), cards: document.querySelectorAll('#mCards .item').length, w: innerWidth, h: innerHeight, q: R3.q.label })`));
+      // mobile UI path: card tap queues a Power Plant, Army button, Stop button, then tap ground (attack-move) — all through NET
+      console.log('mobile actions', await B.ev(`(() => { mobCardTap('power'); mobCmd('army'); const n = UI.sel.length; mobCmd('stop'); const p = worldToScreen(48, 48, 0); jumpTo(40, 40, true); r3Render(0.016); const q = worldToScreen(48, 48, heightAt(48, 48)); mobTap(q.x, q.y); return JSON.stringify({ sel: n, pend: NET.pending.length, q: G.players[ME].queues.bld.length }); })()`));
+      await sleep(1500); console.log('mobile queue+order', await B.ev(`JSON.stringify({ q: G.players[ME].queues.bld.map(q => q.t), ord: G.ents.filter(e => e.team === ME && e.kind === 'u' && e.t !== 'harv').map(e => e.order).slice(0, 4) })`)); }
+    else await B.ev(`(() => { const u = G.ents.filter(e => e.team === ME && e.kind === 'u' && e.t !== 'harv'); NET.issue({ c: 'move', u: u.map(e => e.id), x: 48, y: 48, am: false }); return u.length; })()`);
     await sleep(6000);
-    const moved = await A.ev(`G.ents.filter(e => e.team === 1 && e.kind === 'u' && e.t !== 'harv').some(e => e.order === 'move' || Math.hypot(e.x - 48, e.y - 48) < 30)`);
+    const moved = await A.ev(`G.ents.filter(e => e.team === 1 && e.kind === 'u' && e.t !== 'harv').some(e => e.order === 'move' || e.order === 'amove' || Math.hypot(e.x - 48, e.y - 48) < 30)`);
     const sa = await st(A), sb = await st(B); console.log('after 6s A', sa, 'B', sb, 'client move seen on host:', moved);
     // compare state hash at a common tick: pause both via stepping comparisons
     const hA = await A.ev(`(() => { NET.cmpT = G.tick + 60; return NET.cmpT; })()`); await B.ev(`NET.cmpT = ${hA}; 1`);
