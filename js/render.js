@@ -189,8 +189,8 @@ function handleEvents() {
 function shake(a) { R3.shake = Math.max(R3.shake || 0, a); }
 // v6.2 SM-3 intercept: a bright interceptor streak climbs from the battery to the threat, then a white-blue burst
 function sm3Streak(bx, by, x, y, z, s) { const h0 = heightAt(bx, by) + 1.4, n = 12; for (let i = 1; i <= n; i++) { const f = i / n, px = bx + (x - bx) * f, py = by + (y - by) * f, pz = h0 + (z - h0) * f + Math.sin(f * Math.PI) * 1.2;
-    flash(px, py, pz, 0.22 + 0.1 * f, 0.7, 0.9, 1); if (i % 3 === 0) puff(px, py, pz, 0.35, 0.9, 0.85, 0.35, 0.15); }
-  flash(x, y, z, s, 0.8, 0.95, 1); flash(x, y, z, s * 0.5, 1, 1, 1); sparks(x, y, z, 10, 2.5); if (typeof sfx === 'function') sfx('flak', x, y); }
+    FX.spark.spawn(px, py, pz, 0, 0, 0, 0.35 + 0.25 * f, 0.3 + 0.12 * f, 0.08, 0.55, 0.9, 1, 1, 0, 0); if (i % 2 === 0) puff(px, py, pz, 0.3, 1.1, 0.95, 0.5, 0.1); }
+  FX.spark.spawn(x, y, z, 0, 0, 0, 0.5, s * 1.4, s * 2.2, 0.6, 0.9, 1, 1, 0, 0); flash(x, y, z, s * 0.7, 1, 1, 1); sparks(x, y, z, 16, 3); if (typeof sfx === 'function') sfx('flak', x, y); }
 function inView(x, y) { const v = R3.view; return x > v.x0 && x < v.x1 && y > v.y0 && y < v.y1; }
 // ---------- per-frame ----------
 function r3Render(dt) {
