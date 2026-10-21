@@ -50,3 +50,31 @@ Phones are auto-detected (coarse pointer + small screen); toggle with **📱 Tou
 - **Army:** tap a unit to select it, and double-tap to select every unit of that type on screen. Buttons: ⚔ Army, 💤 Idle, 👥 Type, ⬚ Box (drag to box-select). Tap the ground to attack-move there; tap an enemy to attack it. ✋ Stop, ⚓ Hold, 🏠 Home (retreat), 🚩 Rally (then tap the ground).
 - **🤖 Helpers** (on by default, all toggleable; they only give orders to your own units): auto-rebuild lost harvesters, new units go to the rally point, idle units engage nearby enemies, optional auto-repair, and ⚡ +Power (one tap builds and places a Power Plant when power is low).
 - Can be installed to the Home Screen (PWA manifest). Online play: if iOS drops the connection while the app is in the background, tap **Rejoin** to take your seat back (an AI holds it if you were gone more than 20 s).
+
+## v6.2 changes
+- **Iron Marine (Brazil):** a move or retreat order breaks off combat at once. Auto-engage resumes only on arrival or when idle (attack-move still fights).
+  - Legs step in the direction of travel.
+  - +5% damage, +10% speed, -15% damage from tanks and aircraft, much less splash.
+- **Double-click / double-tap a building:**
+  - Selects every building of that type on screen.
+  - Production buildings share one rally point.
+  - Turrets get **⬆ Upgrade all** (Z): nearest first, as many as you can afford.
+- **Economy:**
+  - Derricks pay +25%.
+  - Ore Hauler costs $750, has a smaller footprint and carries 360 per load. Each field holds at most 4 per team, and haulers auto-move to the nearest field with room.
+  - Ore lasts 30% longer.
+  - Cyan **diamond ore** on fields away from the start bases pays +$140 per load.
+- **SM-3 Interceptor Battery:** a Command Center upgrade ($1800 + 200 gas, needs a Research Lab). It has a 50% chance to shoot down each incoming warhead, missile, rocket or artillery shell within 10 tiles.
+- **Air Command:** replaces the Helipad and Airfield. One queue builds every aircraft.
+  - 4 dock slots where aircraft rearm and are repaired.
+  - The **Extra Pads** add-on ($600) raises it to 8 slots.
+- **Warhound Battle Tank:** one $1050 MBT replaces the Lancer and Bastion. Faction tanks are kept.
+- **Infantry:** the Pyro and Field Medic are removed. The **Engineer** auto-repairs buildings and patches up nearby units, and is no longer used up by repairing.
+- **Howler:** mobile range is 7. **Siege Mode** (B, button, or 🎯 on mobile) takes 3 s to deploy, then gives range 10 and wider splash. Packing up takes 2.5 s, and a move order packs it automatically.
+- **Research Lab tracks:** Tanks, Infantry, Aircraft, Artillery and Defenses.
+  - L2 gives +15% damage and HP ($1000, 60 s).
+  - L3 gives +30% ($2000 + 150 gas, 90 s). It needs a second lab, an Air Command or a Warhead Launcher.
+  - Existing units get the bonus too and show chevrons.
+- Build-card portraits now show one clean figure posed like the in-game model.
+- Bots use all of the above with no resource bonuses.
+- Test: `node test/v62-test.js [marine|upgall|eco|sm3|air|mbt|siege|research]`.
