@@ -107,3 +107,7 @@ Also earlier backlog: wall gate.
 - Engineer: also repairs buildings AND heals units, slower heal rate for units; auto-repairs/heals damaged buildings/units nearby without being consumed (stays a unit; capture-into-building optional/keep separate)
 - Brazil Iron Marine (8:46 PM): player move orders MUST override auto-engage (a retreat/redirect move breaks off the target; auto-engage resumes only after arriving/idle — current "pull back then re-engage nearby" feel is liked). Fix walk-cycle legs/feet direction. +5% damage, +10% speed, +15% armor vs tanks AND aircraft/bombers, reduce splash damage vulnerability.
 - Scope for v6.2: do everything in this file EXCEPT new game modes / maps / map editor.
+
+## v6.2 status (2026-10-20, not pushed)
+- DONE: every item in the two lists above except modes, maps and the editor: Iron Marine orders/legs/buffs, double-click buildings (shared rally, Upgrade all), economy (derricks +25%, $750 hauler, 4 per field, smart haulers, +30% ore, diamond fields), SM-3, Air Command, Warhound MBT, Pyro/Medic removed + Engineer repair/heal, card portraits, Howler range + Siege Mode, Research Lab tracks, mobile ghost/stop fixes.
+- NOT DONE (by scope): game modes (TD/KotH/CTF/Last Stand), new maps, map editor/browser; brainstorm faction abilities.
