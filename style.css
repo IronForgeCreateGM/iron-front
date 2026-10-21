@@ -172,3 +172,9 @@ body.mobile #tip{max-width:300px}
 @media (max-height:520px){body.mobile #menu h1{font-size:30px;margin:2px 0}body.mobile #menu .sub{font-size:11px;margin:0 0 6px}body.mobile #menu .panel{padding:6px 12px}
 body.mobile .setupRow{flex-direction:row;gap:12px;align-items:flex-start}body.mobile .setupL{flex:0 0 38%}body.mobile .setupR{flex:1;min-width:0}body.mobile #mapPrev{width:min(34vw,200px);height:min(34vw,200px)}}
 @media (max-height:520px){body.mobile #lobby .lrow{grid-template-columns:18px repeat(4,minmax(0,1fr));gap:4px;margin-bottom:6px}body.mobile #lobby .lrow > .lf{grid-column:auto}body.mobile #lobby .lrow select{font-size:14px;padding:4px 6px}}
+/* v6.2 Research Lab panel + siege */
+.rsp { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+.rsp .rsh { font-weight: 600; font-size: 12px; margin-bottom: 2px; }
+.rsp .rsb { text-align: left; font-size: 11.5px; padding: 4px 6px; }
+.rsp .rsb .chev { color: #ffd23d; letter-spacing: -2px; font-size: 9px; }
+.act.on { box-shadow: inset 0 0 0 1px #7dff9a; }

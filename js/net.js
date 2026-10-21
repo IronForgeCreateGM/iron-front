@@ -3,7 +3,7 @@
 // Every player action is a command {c:'move',...}. Offline: executed immediately.
 // Online: tagged for tick (now + DELAY); the host collects every human's input for a tick,
 // broadcasts the merged "turn", and all peers execute it before stepping that tick.
-const NET_VERSION = 'v6.1';
+const NET_VERSION = 'v6.2';
 const own = (T, ids) => (ids || []).map(byId).filter(e => e && e.team === T && e.hp > 0);
 const CMD = {
   mbuild(T, c) { const b = byId(c.b); return !!(b && b.team === T && siloBuild(b, c.k)); },
@@ -24,6 +24,8 @@ const CMD = {
   derrick(T, c) { orderDerrick(c.u.map(byId).filter(u => u && u.team === T), c.k); return true; },
   walls(T, c) { return buildWalls(T, c.t); },
   upgall(T, c) { let n = 0; for (const id of c.b || []) { const b = byId(id); if (b && b.team === T && UPG[b.t] && upgradeB(b)) n++; } return n; }, // v6.2 blanket upgrade (client sends nearest-first order)
+  siege(T, c) { let n = 0; for (const id of c.u || []) { const u = byId(id); if (u && u.team === T && siegeToggle(u, c.on)) n++; } return n; }, // v6.2 Howler Siege Mode (on: 1/0, or omit to toggle)
+  research(T, c) { const b = byId(c.b); return !!(b && b.team === T && researchB(b, c.k)); }, // v6.2 Research Lab track
   upg(T, c) { const b = byId(c.b); return !!(b && b.team === T && upgradeB(b)); },
   ping(T, c) { (G.pings = G.pings || []).push({ team: T, x: c.x, y: c.y, t: G.time, kind: c.k }); G.events.push({ e: 'ping', team: T, x: c.x, y: c.y, k: c.k }); },
   drop(T, c) { const P = G.players[c.p]; if (!P || P.ai) return; P.ai = true; P.diff = c.diff || 'normal'; P.name += ' (AI)'; aiInit(P); G.events.push({ e: 'dropped', team: c.p }); },

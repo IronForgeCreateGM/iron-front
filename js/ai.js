@@ -92,7 +92,7 @@ function aiStep(P) {
   const pick = (list) => { const ok = list.filter(([t]) => avail(P.team, t)); let tot = 0; ok.forEach(o => tot += o[1]); let r = G.R() * tot; for (const o of ok) { r -= o[1]; if (r <= 0) return o[0]; } return ok.length ? ok[0][0] : null; };
   if (P.cr > 300) {
     const myInf = me.filter(e => e.kind === 'u' && UT[e.t].armor === 'inf').length;
-    const pq = c => Math.max(2, Math.ceil(producers(P.team, c) * (doc ? 1.5 : 1)));
+    const pq = c => S.rsSave && P.cr < S.rsSave ? 0 : Math.max(2, Math.ceil(producers(P.team, c) * (doc ? 1.5 : 1)));
     if (P.queues.inf.length < pq('inf')) { const t = pick([['rifle', 2 + ft.inf], ['rocketeer', 1 + ft.armor * 1.5 + ft.air], ['sniper', ft.inf > 3 ? 1 + ft.inf * 0.25 : 0.2], ['kommando', P.gas > 200 ? 1.5 : 0], ['marine', 8 + ft.inf * 0.5 + ft.armor * 0.3 + ft.air * 0.5], ['engineer', myInf > 6 && (cnt.engineer || 0) < 1 + myInf / 12 ? 0.8 : 0]]); if (t) enqueue(P.team, t); }
     if (P.queues.veh.length < pq('veh') && harvs >= Math.min(2, refs * 2)) {
       const t = pick([['heavy', 5 + ft.armor], ['titan', P.gas > 300 ? 1.5 + ft.air * 0.3 + (P.gas > 1200 ? 4 : 0) : 0], ['tsar', P.gas > 350 ? 2 + (P.gas > 1200 ? 4 : 0) : 0], ['scout', 1 + ft.inf * 0.5], ['arty', 1 + ft.inf * 0.4 + (S.towerHeavy ? 5 : S.siege ? 3 : 0)], ['aa', ft.air * 2]]);
@@ -104,6 +104,7 @@ function aiStep(P) {
   // 5) defense: enemies near any of my buildings
   const myB = me.filter(e => e.kind === 'b'), allyB = G.ents.filter(e => e.kind === 'b' && !foe(e.team, P.team));
   const army = me.filter(e => e.kind === 'u' && UT[e.t].wpn);
+  aiV62(P, S, cnt, myB);
   const intruders = foes.filter(f => f.kind === 'u' && allyB.some(b => dhypot(b.x - f.x, b.y - f.y) < 10));
   S.underAttack = intruders.length > 0 || G.time - (S.uaT || -99) < 60; if (intruders.length) S.uaT = G.time;
   G.danger = G.danger || {}; G.danger[P.team] = intruders.map(f => ({ x: f.x, y: f.y }));
@@ -155,10 +156,21 @@ function aiStep(P) {
   // 8b) defense upgrades when rich
   if (P.cr > 2500 && G.R() < 0.1) { const t = myB.find(b => UPG[b.t] && (b.lvl || 1) < 3 && b.upT == null); if (t) upgradeB(t); }
   if (P.cr > 3200 && G.time > 420 && (cnt.tech || 0) && G.R() < 0.06) { const t = myB.find(b => (b.t === 'hq' || b.t === 'cc') && !b.sm3 && b.upT == null); if (t) upgradeB(t); } // v6.2 bots buy SM-3 too (same price)
-  if (P.cr > 1400 && (G.tick % 90) === 0) { const af = myB.find(b => b.t === 'airfield' && !b.pads && b.upT == null); if (af && G.ents.filter(e => e.team === P.team && e.kind === 'u' && UT[e.t].jet).length >= 3) upgradeB(af); } // v6.2 Air Command extra pads when the jet wing outgrows 4 slots
   keepBusy(P, S, D, me, cnt, hq, intruders);
   // 9) repair damaged buildings
   for (const b of myB) if (b.hp < b.mhp * 0.6 && P.cr > (G.time > END_T ? 1500 : 500)) b.repair = true; else if (G.time > END_T && P.cr < 800) b.repair = false;
+}
+function aiV62(P, S, cnt, myB) { // v6.2: Air Command pads, Howler siege, research (all deterministic, no bonuses)
+  if (P.cr > 1400 && G.time >= (S.t62p || 0)) { S.t62p = G.time + 3; const af = myB.find(b => b.t === 'airfield' && !b.pads && b.upT == null); if (af && G.ents.filter(e => e.team === P.team && e.kind === 'u' && UT[e.t].jet).length >= 3) upgradeB(af); } // v6.2 Air Command extra pads when the jet wing outgrows 4 slots
+  if (G.time >= (S.t62s || 0) && (S.t62s = G.time + 1)) for (const u of G.ents) if (u.team === P.team && u.t === 'arty' && u.hp > 0) { // v6.2 bots use Howler Siege Mode
+    let near = 1e9, inR = false; for (const o of G.ents) if (o.hp > 0 && foe(o.team, P.team) && (o.kind === 'b' || !UT[o.t].air)) { const dd = dhypot(o.x - u.x, o.y - u.y); if (o.kind === 'u' && dd < near) near = dd; if (dd < SIEGE.rng - 0.3 && dd > W.arty.minRng + 0.5) inR = true; }
+    if (!u.sg && inR && near > 4.5 && (!u.path.length || u.order === 'amove' || u.order === 'idle')) { if (siegeToggle(u, 1)) u.sgHold = true; }
+    else if (u.sg === 2 && (near < 3.2 || !inR)) siegeToggle(u, 0); }
+  S.rsSave = 0;
+  if (cnt.tech && G.time > 360 && G.time >= (S.t62r || 0)) { // v6.2 bots research the track matching their army (same prices as the player; they save up for it)
+    const lab = myB.find(b => b.t === 'tech' && b.upT == null && b.sell < 0 && b.hp > 0 && G.time - b.born > 2); if (lab) { const n = {}; for (const e of G.ents) if (e.team === P.team && e.hp > 0) { const c = resCat(e); if (c) n[c] = (n[c] || 0) + (e.kind === 'b' ? 1.5 : 1); }
+      const best = RES.cats.map(c => [c, n[c] || 0]).filter(([c, v]) => v >= 3 && (() => { const i = researchInfo(P.team, c); return i && !i.busy && !i.lock && P.gas >= i.gas; })()).sort((a, b) => b[1] - a[1])[0];
+      if (best) { const i = researchInfo(P.team, best[0]); if (P.cr >= i.cost + 150) { if (researchB(lab, best[0])) S.t62r = G.time + 60; } else if (!S.underAttack) S.rsSave = i.cost + 150; } } }
 }
 function aiSpot(P, t, hq, foes) {
   const d = BT[t];

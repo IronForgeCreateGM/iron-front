@@ -139,6 +139,8 @@ const UNIT_MODELS = {
     B.barrel('turret', 0.95, 0.045, 0.15, 0.14, 0, 0.42); B.cyl('turret', 0.07, 0.3, COL.STEEL, PBR.METAL, 0.18, 0.17, 0, { rz: 0.42 - Math.PI / 2 });
     B.glow('turret', 0.04, 0.03, 0.03, 'T', -0.28, 0.14, 0.15);
     B.piv.tip = 0.95;
+    B.piv.spade = [0, 0.1, 0]; // v6.2 siege outriggers (scaled out when deployed)
+    for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) { B.box('spade', 0.5, 0.05, 0.07, COL.STEEL, PBR.METAL, sx * 0.42, 0, sz * 0.3, { ry: sx * sz * 0.6, bevel: 0 }); B.box('spade', 0.16, 0.03, 0.16, COL.DARK, PBR.DARKM, sx * 0.62, -0.06, sz * 0.46, { bevel: 0 }); }
   },
   aa(B) {
     tracks(B, 0.88, 0.58, 0.2, 5);

@@ -328,6 +328,7 @@ function addB(t, team, tx, ty, instant) {
   const d = BT[t];
   const b = { id: G.nid++, kind: 'b', t, team, tx, ty, w: d.w, h: d.h, x: tx + d.w / 2, y: ty + d.h / 2, hp: d.hp, mhp: d.hp,
     born: instant ? -10 : G.time, tang: 0, rally: null, repair: false, sell: -1, cd: 0, ang: team ? Math.PI * 0.75 : -Math.PI / 4, tgt: null };
+  { const l = d.wpn ? rsLvl(team, 'def') : 1; if (l > 1) b.hp = b.mhp = Math.round(d.hp * RES_M[l]); }
   G.ents.push(b); G.bver++;
   // push units off footprint
   for (const u of G.ents) if (u.kind === 'u' && !isAir(u) && u.x >= tx - 0.3 && u.x <= tx + d.w + 0.3 && u.y >= ty - 0.3 && u.y <= ty + d.h + 0.3) { u.y = ty + d.h + 0.6; u.path = []; }
@@ -338,7 +339,7 @@ function addU(t, team, x, y) {
   const d = UT[t];
   const u = { id: G.nid++, kind: 'u', t, team, x, y, z: d.air ? 2.6 : 0, hp: d.hp, mhp: d.hp, ang: team ? Math.PI * 0.75 : -Math.PI / 4, tang: 0,
     path: [], order: 'idle', tgt: null, dest: null, anchor: { x, y }, cd: 0, load: 0, hst: 'idle', moveT: 0, lastP: { x, y }, vet: 0 };
-  u.tang = u.ang; if (d.cap) u.cargo = [];
+  u.tang = u.ang; if (d.cap) u.cargo = []; { const l = rsLvl(team, resCat(u)); if (l > 1) u.hp = u.mhp = Math.round(d.hp * RES_M[l]); }
   G.ents.push(u);
   return u;
 }
@@ -647,7 +648,7 @@ function stepBuilding(b) {
   if (b.sell >= 0) { if (G.time - b.sell > 1.2) { P.cr += Math.floor(d.cost * 0.5 * b.hp / b.mhp); b.hp = 0; b.sold = true; } return; }
   if (b.repair && b.hp < b.mhp) { const dh = b.mhp * 0.04 * DT, c = d.cost * 0.4 * dh / b.mhp; if (P.cr >= c) { P.cr -= c; b.hp = Math.min(b.mhp, b.hp + dh); } }
   if (b.repair && b.hp >= b.mhp) b.repair = false;
-  if (b.upT != null && G.time - b.upT >= b.upDur) { b.upT = null; if (b.upKind === 'sm3') b.sm3 = true; else if (b.upKind === 'pads') b.pads = true; else if (b.upKind === 'def') { P.defUp = true; G.ents.forEach(e => { if (e.team === b.team && UPG[e.t]) { e.mhp = Math.round(BT[e.t].hp * DEF_RESEARCH.hp); e.hp = Math.min(e.mhp, e.hp * DEF_RESEARCH.hp); } }); } else b.lvl = (b.lvl || 1) + 1; G.events.push({ e: 'upgraded', b, team: b.team }); }
+  if (b.upT != null && G.time - b.upT >= b.upDur) { b.upT = null; if (b.upKind === 'sm3') b.sm3 = true; else if (b.upKind === 'pads') b.pads = true; else if (b.upKind === 'rs') resDone(b.team, b.upCat); else if (b.upKind === 'def') { P.defUp = true; G.ents.forEach(e => { if (e.team === b.team && UPG[e.t]) { e.mhp = Math.round(BT[e.t].hp * DEF_RESEARCH.hp); e.hp = Math.min(e.mhp, e.hp * DEF_RESEARCH.hp); } }); } else b.lvl = (b.lvl || 1) + 1; G.events.push({ e: 'upgraded', b, team: b.team }); }
   if (b.t === 'extractor' && G.time - b.born > 1.5 && b.sell < 0) { const m = 1; P.gas += GAS_RATE * DT * m * (P.pow < 0 ? 0.5 : 1); b.gasT = (b.gasT || 0) + DT; }
   if (b.t === 'silo' && b.mq && G.time - b.born > 1.5 && P.pow >= 0) { b.mq.p += DT; if (b.mq.p >= MIS[b.mq.k].time) { b.mis = b.mq.k; b.mq = null; G.events.push({ e: 'misReady', team: b.team, k: b.mis }); } }
   if (!d.wpn || G.time - b.born < 1.5) return;
@@ -761,7 +762,7 @@ function stepProjs() {
 function respond(u, src) {
   if (!src || src.hp <= 0 || u.kind !== 'u' || u.hp <= 0 || u.order === 'move' || u.order === 'attack' || u.order === 'capture') return;
   const d = UT[u.t]; if (!d.wpn || (u.tgt && u.tgt.hp > 0 && u.tgt.tgt === u)) return;
-  const w = W[d.wpn]; if (!canHit(w, src) || DMG[w.type][armorOf(src)] <= 0.05) return;
+  if (u.sg === 1 || u.sg === 3) return; const w = uW(u); if (!canHit(w, src) || DMG[w.type][armorOf(src)] <= 0.05) return;
   const dist = distTo(u, src); if (u.stance === 'hold' ? dist > w.rng + 0.5 : dist > d.sight + 6) return;
   if (!u.tgt || u.tgt.hp <= 0 || distTo(u, u.tgt) > w.rng) u.tgt = src;
 }
@@ -811,12 +812,13 @@ function stepUnit(u) {
   if (d.regen && u.hp < u.mhp) u.hp = Math.min(u.mhp, u.hp + d.regen * DT);
   if (d.air && u.hp < u.mhp && (G.tick + u.id) % 15 === 0 && (u.js === 'landed' || !u.path.length)) { for (const b of G.ents) if (b.t === 'airfield' && b.team === u.team && b.kind === 'b' && b.sell < 0 && b.hp > 0 && Math.abs(b.x - u.x) < 2.6 && Math.abs(b.y - u.y) < 2.1) { u.hp = Math.min(u.mhp, u.hp + u.mhp * 0.04); if (!(G.tick % 30)) G.events.push({ e: 'heal', x: u.x, y: u.y, src: b, rep: 1 }); break; } } // v6.2 Air Command repairs docked aircraft (8%/s)
   if (d.jet && jetStep(u, d)) return;
-  if (u.order === 'move' && !u.path.length && !(u.wq && u.wq.length) && !d.air) { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; } // v6.2: an unreachable plain move must not leave a unit inert (no acquire while 'move')
+  if (d.siege && u.sg) siegeStep(u);
+  if (u.order === 'move' && !u.path.length && !u.sgPath && !(u.wq && u.wq.length) && !d.air) { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; } // v6.2: an unreachable plain move must not leave a unit inert (no acquire while 'move')
   let engaged = false;
-  if (d.wpn && !(d.jet && u.ammo <= 0)) engaged = combat(u, W[d.wpn], Math.max(d.sight, W[d.wpn].rng + 0.5), true);
+  if (d.wpn && !(d.jet && u.ammo <= 0) && !(u.sg === 1 || u.sg === 3)) { const w = uW(u); engaged = combat(u, w, Math.max(d.sight, w.rng + 0.5), !u.sg); }
   if (!engaged && u.order === 'attack') { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; }
   if (u.stance === 'hold' && u.guard && u.order === 'idle') u.anchor = u.guard;
-  if (!engaged && u.order === 'idle' && !u.path.length && dhypot(u.x - u.anchor.x, u.y - u.anchor.y) > (u.stance === 'hold' ? 0.5 : 2.5) && u.t !== 'harv') setPath(u, u.anchor.x, u.anchor.y);
+  if (!engaged && u.order === 'idle' && !u.path.length && !u.sg && dhypot(u.x - u.anchor.x, u.y - u.anchor.y) > (u.stance === 'hold' ? 0.5 : 2.5) && u.t !== 'harv') setPath(u, u.anchor.x, u.anchor.y);
   if (!engaged && u.order === 'idle' && !u.path.length && u.face != null && u.stance === 'hold') { u.ang = turnTo(u.ang, u.face, 2 * DT); u.tang = turnTo(u.tang, u.face, 2 * DT); }
   { const ad = u.amDest || u.dest; if (!engaged && u.order === 'amove' && !u.path.length && ad && dhypot(u.x - ad.x, u.y - ad.y) > 1.5) setPath(u, ad.x, ad.y); } // v5.9: marines resume their original move destination after a fight
   // movement
@@ -1019,13 +1021,33 @@ function vis0(i) { return G.spectate || !!G.vis[i]; }
 function seen0(i) { return G.spectate || !!G.seen[i]; }
 // ---------- defense upgrades ----------
 const _defWC = {};
-function defW(b) { const d = BT[b.t], P = G.players[b.team], l = b.lvl || 1, k = d.wpn + l + (P.defUp ? 'd' : '');
-  if (!_defWC[k]) { const base = W[d.wpn]; _defWC[k] = Object.assign({}, base, { dmg: Math.round(base.dmg * UPG_DMG[l - 1] * (P.defUp ? DEF_RESEARCH.dmg : 1)), rng: base.rng + UPG_RNG[l - 1] + (P.defUp ? DEF_RESEARCH.rng : 0) }); }
+// ---------- v6.2 research tracks + per-unit weapon (siege / research) ----------
+function resCat(e) { if (e.kind === 'b') return BT[e.t].wpn ? 'def' : null; const d = UT[e.t]; if (d.armor === 'inf') return 'inf'; if (!d.wpn) return null; if (d.air) return 'air'; if (d.siege || W[d.wpn].arc) return 'arty'; return 'tank'; }
+function rsLvl(team, c) { const P = c && G.players && G.players[team]; return P && P.rs ? P.rs[c] || 1 : 1; }
+function resL3ok(team) { let n = 0; for (const e of G.ents) if (e.team === team && e.kind === 'b' && e.sell < 0 && e.hp > 0 && (e.t === 'tech' && ++n >= 2 || e.t === 'silo' || e.t === 'airfield')) return true; return false; }
+function researchInfo(team, c) { const l = rsLvl(team, c); if (l >= 3) return null; const L = RES.lv[l + 1]; return { cost: L.cost, gas: L.gas, time: L.time, next: l + 1, busy: G.ents.some(e => e.team === team && e.upKind === 'rs' && e.upCat === c && e.upT != null), lock: l + 1 === 3 && !resL3ok(team) }; }
+function researchB(b, c) {
+  if (!b || b.t !== 'tech' || b.upT != null || b.sell >= 0 || b.hp <= 0 || G.time - b.born < 1.5 || !RES.nm[c]) return false; const P = G.players[b.team], i = researchInfo(b.team, c);
+  if (!i || i.busy || i.lock || P.cr < i.cost || P.gas < i.gas) return false; P.cr -= i.cost; P.gas -= i.gas; b.upT = G.time; b.upDur = i.time; b.upKind = 'rs'; b.upCat = c; return true; }
+function resDone(team, c) { const P = G.players[team]; P.rs = P.rs || {}; const o = RES_M[P.rs[c] || 1]; P.rs[c] = (P.rs[c] || 1) + 1; const m = RES_M[P.rs[c]];
+  for (const e of G.ents) if (e.team === team && e.hp > 0 && resCat(e) === c) { const base = e.kind === 'b' ? BT[e.t].hp : UT[e.t].hp; e.mhp = Math.round(base * m); e.hp = Math.min(e.mhp, e.hp * m / o); } }
+const _uWC = {};
+function uW(u) { const d = UT[u.t]; if (!d.wpn) return null; const l = rsLvl(u.team, resCat(u)), sg = u.sg === 2 ? 1 : 0; if (l === 1 && !sg) return W[d.wpn]; const k = d.wpn + l + sg;
+  if (!_uWC[k]) { const b = W[d.wpn]; _uWC[k] = Object.assign({}, b, { dmg: Math.round(b.dmg * RES_M[l]) }, sg ? { rng: SIEGE.rng, splash: SIEGE.splash } : {}); } return _uWC[k]; }
+function siegeStep(u) { // 0 mobile, 1 deploying, 2 sieged, 3 packing. Movement is held (path stashed) until packed.
+  if (u.path.length && u.sgHold && u.sg === 2 && u.order !== 'move') { u.path = []; if (u.order === 'amove') u.order = 'idle'; } // bot-held siege: squad attack-moves don't unpack it (the bot unpacks on its own rule)
+  if (u.path.length) { u.sgPath = u.path; u.sgOrd = u.order; u.path = []; if (u.sg === 1 || u.sg === 2) { u.sg = 3; u.sgT = G.time; } }
+  if (u.sg === 1 && G.time - u.sgT >= SIEGE.dep) { u.sg = 2; G.events.push({ e: 'siege', u, on: 1 }); }
+  else if (u.sg === 3 && G.time - u.sgT >= SIEGE.pack) { u.sg = 0; G.events.push({ e: 'siege', u, on: 0 }); if (u.sgPath) { u.path = u.sgPath; u.order = u.sgOrd || 'move'; } u.sgPath = null; } }
+function siegeToggle(u, want) { if (!u || !UT[u.t].siege || u.hp <= 0) return false; const on = want == null ? !(u.sg === 1 || u.sg === 2) : !!want;
+  if (on && !u.sg) { u.sg = 1; u.sgT = G.time; u.path = []; u.sgPath = null; u.wq = []; if (u.order === 'move' || u.order === 'amove') u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; return true; }
+  if (!on && (u.sg === 1 || u.sg === 2)) { u.sgHold = false; u.sg = 3; u.sgT = G.time; u.sgPath = null; return true; } return false; }
+function defW(b) { const d = BT[b.t], P = G.players[b.team], l = b.lvl || 1, rl = rsLvl(b.team, 'def'), k = d.wpn + l + 'r' + rl;
+  if (!_defWC[k]) { const base = W[d.wpn]; _defWC[k] = Object.assign({}, base, { dmg: Math.round(base.dmg * UPG_DMG[l - 1] * RES_M[rl]), rng: base.rng + UPG_RNG[l - 1] + (rl >= 3 ? 0.5 : 0) }); }
   return _defWC[k]; }
 function upgradeInfo(b) {
   if (b.t === 'hq' || b.t === 'cc') { if (b.sm3 || b.upT != null || !hasBuilt(b.team, 'tech')) return null; return { cost: SM3.cost, gas: SM3.gas, time: SM3.time, kind: 'sm3' }; }
   if (b.t === 'airfield') { if (b.pads || b.upT != null) return null; return { cost: AIRPADS.cost, gas: 0, time: AIRPADS.time, kind: 'pads' }; }
-  if (b.t === 'tech') { const P = G.players[b.team]; if (P.defUp || b.upT != null) return null; return { cost: DEF_RESEARCH.cost, gas: DEF_RESEARCH.gas, time: DEF_RESEARCH.time, kind: 'def' }; }
   const u = UPG[b.t]; if (!u) return null; const l = b.lvl || 1; if (l >= 3) return null; return { cost: u[l - 1][0], time: u[l - 1][1], gas: u[l - 1][2] || 0, kind: 'lvl', next: l + 1 };
 }
 function upgradeB(b) {

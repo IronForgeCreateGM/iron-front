@@ -31,7 +31,7 @@ function mobWatch4v4() { // all-bot 4v4 on Volcano Crown XL, spectated
   document.getElementById('startBtn').click();
 }
 // ---------- HUD ----------
-const MCMDS = [['army', '⚔', 'Army'], ['idle', '💤', 'Idle'], ['type', '👥', 'Type'], ['box', '⬚', 'Box'], ['stop', '✋', 'Stop'], ['hold', '⚓', 'Hold'], ['home', '🏠', 'Home'], ['rally', '🚩', 'Rally']];
+const MCMDS = [['army', '⚔', 'Army'], ['idle', '💤', 'Idle'], ['type', '👥', 'Type'], ['box', '⬚', 'Box'], ['stop', '✋', 'Stop'], ['hold', '⚓', 'Hold'], ['home', '🏠', 'Home'], ['rally', '🚩', 'Rally'], ['siege', '🎯', 'Siege']];
 const MTABS = [['bld', '🏗'], ['def', '🛡'], ['inf', '🪖'], ['veh', '🚙'], ['air', '✈']];
 const MAUTO = [['harv', '⛏ Auto-harvesters (rebuild lost ones)'], ['rally', '🚩 New units go to the rally point'], ['engage', '⚔ Idle units engage nearby enemies'], ['repair', '🔧 Auto-repair damaged buildings'], ['power', '⚡ Power helper (one tap builds + places Power)']];
 function mobBuildHud() {
@@ -98,6 +98,7 @@ function mobCmd(k) {
   else if (k === 'idle') { const l = idleList('army'); if (l.length) { setSel(l); jumpTo(l[0].x, l[0].y); uiMsg(`💤 ${l.length} idle units`); } else uiMsg('No idle units'); }
   else if (k === 'type') { const ts = new Set(us.map(u => u.t)); if (!ts.size) { uiMsg('Select a unit first (or double-tap one)'); return; } setSel(G.ents.filter(o => o.team === ME && o.kind === 'u' && ts.has(o.t) && inView(o.x, o.y))); }
   else if (k === 'box') { MOB.box = !MOB.box; if (MOB.box) uiMsg('⬚ Drag a box to select units'); }
+  else if (k === 'siege') { if (!toggleSiege()) { sfx('error'); uiMsg('Select Howler artillery to deploy Siege Mode'); } }
   else if (k === 'stop') { if (us.length) { NET.issue({ c: 'stop', u: ids(us) }); us.forEach(u => MOB.stopped.add(u.id)); sfx('ack'); } }
   else if (k === 'hold') { if (us.length) { const st = us.every(u => u.stance === 'hold') ? 'aggr' : 'hold'; NET.issue({ c: 'stance', u: ids(us), s: st }); uiMsg(st === 'hold' ? '⚓ Hold position' : '⚔ Aggressive'); sfx('ack'); } }
   else if (k === 'home') { const h = mobHome(); if (us.length && h) { NET.issue({ c: 'move', u: ids(us), x: h.x + (MW / 2 > h.x ? 4 : -4), y: h.y + (MH / 2 > h.y ? 4 : -4), am: false }); uiMsg('🏠 Retreating to base'); sfx('ack'); } else if (h) jumpTo(h.x, h.y); }
@@ -201,6 +202,7 @@ function mobHud() {
   sel.style.display = sh ? 'flex' : 'none';
   const ctx = $m('ctx'); $m('mCtx').style.display = !UI.placing && s.length && s.every(e => e.team === ME) && (s.length === 1 || s.every(e => e.kind === 'b')) && ctx && ctx.innerHTML.trim() ? 'block' : 'none';
   document.querySelectorAll('.mc').forEach(b => b.classList.toggle('on', (b.dataset.k === 'box' && MOB.box) || (b.dataset.k === 'rally' && MOB.mode === 'rally') || (b.dataset.k === 'hold' && su.length && su.every(u => u.stance === 'hold'))));
+  document.querySelectorAll('.mc[data-k="siege"]').forEach(b => { const a = s.filter(u => u.kind === 'u' && u.team === ME && UT[u.t].siege); b.style.display = a.length ? '' : 'none'; b.classList.toggle('on', a.length > 0 && a.every(u => u.sg === 2)); });
   // alerts (tap -> jump)
   const ih = idleList('harv').length; let ah = UI.alerts.slice(0, 3).map((a, i) => `<span class="mal bad" data-a="${i}">⚠ ${a.txt}</span>`).join(''); if (ih) ah += `<span class="mal" data-idle="harv">⛏ ${ih} idle</span>`;
   const al = $m('mAlerts'); if (al.dataset.h !== ah) { al.dataset.h = ah; al.innerHTML = ah; al.querySelectorAll('.mal').forEach(el => el.onclick = () => { if (el.dataset.idle) selectIdle(el.dataset.idle); else { const a = UI.alerts[+el.dataset.a]; if (a) { jumpTo(a.x, a.y, true); MOB.vel.x = MOB.vel.y = 0; } } }); }

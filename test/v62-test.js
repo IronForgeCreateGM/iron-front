@@ -1,7 +1,7 @@
 // v6.2 checklist tests (node, deterministic sim). node test/v62-test.js
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const src = ['data.js', 'sim.js', 'ai.js', 'net.js'].map(f => fs.readFileSync(path.join(__dirname, '../js', f), 'utf8')).join('\n');
-vm.runInThisContext(src + '\nglobalThis.__api={newGame,stepGame,addU,addB,orderMove,avail,execCmd,damage,impact,ensureFields,upgradeB,get G(){return G}};');
+vm.runInThisContext(src + '\nglobalThis.__api={newGame,stepGame,addU,addB,orderMove,avail,execCmd,damage,impact,ensureFields,upgradeB,uW,researchB,researchInfo,rsLvl,siegeToggle,get G(){return G}};');
 const A = globalThis.__api; let ok = true; const chk = (n, c, x) => { console.log((c ? 'PASS ' : 'FAIL ') + n + (x ? '  ' + x : '')); ok = ok && c; };
 const run = s => { for (let i = 0; i < s * 30; i++) { A.stepGame(); A.G.events.length = 0; } };
 function fresh(f0, f1, ai, seed) { A.newGame({ seed: seed || 3, diff: 'hard', aiTeams: ai || [], fog: false, slots: [{ fac: f0, ally: 0, ai: (ai || []).includes(0) }, { fac: f1, ally: 1, ai: (ai || []).includes(1), diff: 'hard' }] });
@@ -95,5 +95,34 @@ if (on('mbt')) {
   fresh('usa', 'rus', [0, 1], 5); for (let i = 0; i < 30 * 600; i++) { A.stepGame(); A.G.events.length = 0; }
   const ty = {}; A.G.ents.forEach(e => { if (e.kind === 'u') ty[e.t] = (ty[e.t] || 0) + 1; }); const af = A.G.ents.filter(e => e.t === 'airfield').length;
   chk('bots field MBTs and no removed units after 10 min', (ty.heavy || 0) > 0 && !ty.light && !ty.pyro && !ty.medic, JSON.stringify(ty) + ' aircmd=' + af);
+}
+// ===== 9. Howler siege =====
+if (on('siege')) {
+  chk('Howler mobile range cut 10 -> 7 (-30%)', W.arty.rng === 7);
+  fresh('usa', 'rus'); const h = A.addU('arty', 0, 30, 40), t = A.addU('heavy', 1, 39, 40); t.stance = 'hold'; t.hp = t.mhp = 1e6; h.stance = 'hold'; run(4);
+  chk('mobile Howler cannot reach a target 9 tiles away', t.hp === 1e6);
+  A.execCmd(0, { c: 'siege', u: [h.id], on: 1 }); run(1); chk('deploying takes time (not sieged after 1 s, no fire)', h.sg === 1 && t.hp === 1e6);
+  run(2.2); chk('sieged after ~3 s: range 10 + wider splash', h.sg === 2 && A.uW(h).rng === 10 && A.uW(h).splash > W.arty.splash, 'rng ' + A.uW(h).rng + ' splash ' + A.uW(h).splash);
+  run(6); chk('sieged Howler hits the target at 9 tiles', t.hp < 1e6, 'dmg ' + (1e6 - t.hp).toFixed(0));
+  const x0 = h.x; A.orderMove([h], 30, 46, false); run(1); chk('a move order packs up first (no movement while packing)', h.sg === 3 && Math.abs(h.x - x0) < 0.01);
+  run(4); chk('...then drives off', !h.sg && Math.hypot(h.x - x0, h.y - 40) > 1, `${h.x.toFixed(1)},${h.y.toFixed(1)}`);
+  // determinism + bots
+  let sieged = 0; A.newGame({ seed: 9, diff: 'hard', aiTeams: [0, 1], fog: false, slots: [{ fac: 'usa', ally: 0, ai: 1, diff: 'hard' }, { fac: 'rus', ally: 1, ai: 1, diff: 'hard' }] }); for (let i = 0; i < 30 * 900; i++) { A.stepGame(); A.G.events.length = 0; if (i % 60 === 0) sieged = Math.max(sieged, A.G.ents.filter(e => e.t === 'arty' && e.sg === 2).length); }
+  const arty = A.G.ents.filter(e => e.t === 'arty').length; chk('bots deploy Siege Mode in a bot-vs-bot game', sieged > 0, 'max sieged at once ' + sieged + ', howlers alive ' + arty);
+  chk('bots research Lab tracks', A.G.players.some(P => P.rs && Object.keys(P.rs).length), JSON.stringify(A.G.players.map(P => P.rs || {})));
+}
+// ===== 10. Research Lab =====
+if (on('research')) {
+  fresh('usa', 'rus'); tech(0); const P = A.G.players[0]; P.cr = 20000; P.gas = 1000; const lab = A.G.ents.find(e => e.team === 0 && e.t === 'tech'); const tk = A.addU('heavy', 0, 40, 46); tk.hp = 295; run(2);
+  chk('5 tracks', RES.cats.join() === 'tank,inf,air,arty,def');
+  const c0 = P.cr; chk('L2 tanks: $1000, 60 s', A.researchB(lab, 'tank') && c0 - P.cr === 1000 && lab.upDur === 60);
+  chk('one track per lab at a time', !A.researchB(lab, 'inf')); run(59); chk('not done before 60 s', A.rsLvl(0, 'tank') === 1); run(1.5);
+  chk('L2 applies to existing units: HP +15% (hp fraction kept)', A.rsLvl(0, 'tank') === 2 && tk.mhp === Math.round(590 * 1.15) && Math.abs(tk.hp / tk.mhp - 0.5) < 0.02, tk.hp.toFixed(0) + '/' + tk.mhp);
+  chk('...and damage +15%', A.uW(tk).dmg === Math.round(45 * 1.15), A.uW(tk).dmg);
+  const nt = A.addU('heavy', 0, 41, 46); chk('new units get it too', nt.mhp === tk.mhp);
+  const i3 = A.researchInfo(0, 'tank'); chk('L3 locked with one lab and no tech building', i3.lock && i3.cost === 2000 && i3.gas > 0 && !A.researchB(lab, 'tank'));
+  const lab2 = A.addB('tech', 0, 50, 64, true); run(2); chk('2nd Research Lab unlocks L3 ($2000 + gas, 90 s)', A.researchB(lab2, 'tank') && lab2.upDur === 90); run(91);
+  chk('L3 = +30% total', A.rsLvl(0, 'tank') === 3 && tk.mhp === Math.round(590 * 1.3) && A.uW(tk).dmg === Math.round(45 * 1.3), tk.mhp + ' / ' + A.uW(tk).dmg);
+  const tr = A.G.ents.find(e => e.team === 0 && e.t === 'turret') || A.addB('turret', 0, 44, 70, true); A.researchB(lab, 'def'); run(61); chk('Defenses track boosts turrets', tr.mhp === Math.round(BT.turret.hp * 1.15));
 }
 console.log(ok ? 'V62 OK' : 'V62 FAIL'); process.exit(ok ? 0 : 1);

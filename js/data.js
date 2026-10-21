@@ -26,7 +26,7 @@ const W = {
   lcannon:{ dmg: 40, rng: 5, cd: 1.6, type: 'cannon', spd: 25, ground: 1, air: 0, snd: 'cannon' },
   hcannon:{ dmg: 70, rng: 5.5, cd: 2.0, type: 'cannon', spd: 25, ground: 1, air: 0, snd: 'cannon', twin: 1 },
   mbt:    { dmg: 45, rng: 5.25, cd: 1.8, type: 'cannon', spd: 25, ground: 1, air: 0, snd: 'cannon', twin: 1 }, // v6.2 Warhound: Lancer 40x1/1.6s, Bastion 70x2/2.0s -> 45x2/1.8s
-  arty:   { dmg: 90, rng: 10, minRng: 3, cd: 3.5, type: 'shell', spd: 9, ground: 1, air: 0, splash: 1.4, arc: 1, snd: 'arty' },
+  arty:   { dmg: 90, rng: 7, minRng: 3, cd: 3.5, type: 'shell', spd: 9, ground: 1, air: 0, splash: 1.4, arc: 1, snd: 'arty' },
   flak:   { dmg: 26, rng: 7, cd: 0.5, type: 'flak', spd: 30, ground: 0, air: 1, splash: 0.8, snd: 'flak' },
   mg:     { dmg: 9, rng: 4.5, cd: 0.4, type: 'bullet', spd: 40, ground: 1, air: 1, snd: 'rifle' },
   gun:    { dmg: 45, rng: 4, cd: 1.4, type: 'rocket', spd: 16, ground: 1, air: 0, snd: 'rocket' },
@@ -78,7 +78,7 @@ const UT = {
     desc: 'Brazil: heavily armored infantry, shoots ground and air. Attack-move (tap/A-click) engages anything it meets, then resumes; a plain move/retreat breaks off at once and it re-engages nearby enemies when it arrives. Vehicle guns/rockets do 35% less (not artillery), +15% armor vs tanks and aircraft, splash hurts it 45% less. Plating shrugs off 45% of small-arms fire (15–30% vs rockets/flak/marines). Strength in numbers: +5% damage and +3% armor per nearby marine (max 6). Countered by flame, Tesla, artillery/bombs and tank cannons (big target: x2.6).' },
   scout:  { n: 'Raider Buggy', hp: 200, sp: 3.6, armor: 'light', wpn: 'mg', cost: 500, time: 5, from: 'factory', sight: 9, r: 0.38, req: [] },
   heavy:  { n: 'Warhound Battle Tank', hp: 590, sp: 1.8, armor: 'heavy', wpn: 'mbt', cost: 1050, time: 9, from: 'factory', sight: 7, r: 0.52, req: [], turret: 1, desc: 'v6.2 main battle tank (replaces the Lancer and Bastion): HP, firepower and speed halfway between them. Twin 105mm cannon.' },
-  arty:   { n: 'Howler Artillery', hp: 260, sp: 1.6, armor: 'light', wpn: 'arty', cost: 1000, time: 10, from: 'factory', sight: 6, r: 0.48, req: ['tech'], turret: 1 },
+  arty:   { n: 'Howler Artillery', hp: 260, sp: 1.6, armor: 'light', wpn: 'arty', cost: 1000, time: 10, from: 'factory', sight: 6, r: 0.48, req: ['tech'], turret: 1, siege: 1, desc: 'Mobile range 7. SIEGE MODE (D): 3 s to deploy, then stationary with range 10 and wider splash; 2.5 s to pack up (a move order packs automatically).' },
   aa:     { n: 'Skyguard', hp: 320, sp: 2.2, armor: 'light', wpn: 'flak', cost: 700, time: 7, from: 'factory', sight: 8, r: 0.45, req: [], turret: 1 },
   titan:  { n: 'Titan Walker', hp: 1500, sp: 1.3, armor: 'heavy', wpn: 'titan', cost: 2600, gas: 250, time: 18, from: 'factory', sight: 8, r: 0.75, req: ['tech'], turret: 1, mech: 1 },
   tsar:   { n: 'Tsar Siege Tank', hp: 2600, sp: 1.0, armor: 'heavy', wpn: 'tsarc', cost: 3200, gas: 300, time: 24, from: 'factory', sight: 8, r: 0.9, req: ['tech'], turret: 1, regen: 6, fac: 'rus' },
@@ -125,6 +125,11 @@ const UPG_DMG = [1, 1.35, 1.75], UPG_RNG = [0, 1, 2];
 const SM3 = { n: 'SM-3 Interceptor Battery', cost: 1800, gas: 200, time: 35, r: 10, p: 0.5 }; // v6.2 Command Yard / Command Center upgrade: 50% to shoot down EACH incoming missile/rocket/shell near the base
 const SM3_KIND = { rocket: 1, shell: 1 };
 const DEF_RESEARCH = { n: 'Hardened Defenses', cost: 1500, gas: 200, time: 40, dmg: 1.15, rng: 0.5, hp: 1.25 };
+// v6.2 Research Lab tracks (replace Hardened Defenses): level 2 = +15% damage & HP, level 3 = +30% total. Applies to existing units too.
+const RES = { cats: ['tank', 'inf', 'air', 'arty', 'def'], nm: { tank: 'Tanks', inf: 'Infantry', air: 'Aircraft', arty: 'Artillery', def: 'Defenses' }, ic: { tank: '🛡', inf: '🪖', air: '✈', arty: '💥', def: '🏰' },
+  lv: [null, null, { cost: 1000, gas: 0, time: 60 }, { cost: 2000, gas: 150, time: 90 }] };
+const RES_M = [1, 1, 1.15, 1.3];
+const SIEGE = { dep: 3, pack: 2.5, rng: 10, splash: 2.0 }; // v6.2 Howler Siege Mode
 
 // v5.8 Iron Marine tuning: base plating (vs small arms/rockets), per-nearby-marine bonus, cap, radius; tank cannons/heavy rounds x TAKE
 const MAR = { vsTank: 0.85, splash: 0.55, splashDirect: 0.85, drN: 0.03, dmgN: 0.05, cap: 6, rad: 3, take: { cannon: 2.6 }, veh: 0.65, counter: { shell: 1, fire: 1, bomb: 1, zap: 1, warhead: 1 }, plated: { bullet: 0.45, snipe: 0.45, cmdo: 0.3, flak: 0.3, aam: 0.3, marine: 0.25, rocket: 0.15 } };
