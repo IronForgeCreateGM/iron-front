@@ -362,7 +362,10 @@ function makePortraits() {
   const out = {};
   const shoot = (kind, t) => {
     const model = getModel(kind, t, 0), g = new THREE.Group(), mat = pbrMaterial(); g.add(new THREE.Mesh(model.body, mat));
-    for (const k in model) if (k !== 'piv' && k !== 'body') { const m = new THREE.Mesh(model[k], mat), pv = model.piv[k] || [0, 0, 0]; m.position.set(...pv); if (k === 'load') m.scale.y = 0.7; g.add(m); }
+    if (model.piv.legs) { // v6.2: rigged infantry/mechs are posed exactly like in game (one clean figure, legs attached)
+      g.clear(); const U = { parts: {} }; for (const k in model) if (k !== 'piv') { const im = new THREE.InstancedMesh(model[k], mat, 1); U.parts[k] = im; g.add(im); }
+      poseRig(U, 0, new THREE.Matrix4(), { spd: 0, ph: 0, aim: 0.6 }, model.piv.legs, 0, 0); for (const k in U.parts) U.parts[k].instanceMatrix.needsUpdate = true;
+    } else for (const k in model) if (k !== 'piv' && k !== 'body' && k !== 'spade') { const m = new THREE.Mesh(model[k], mat), pv = model.piv[k] || [0, 0, 0]; m.position.set(...pv); if (k === 'load') m.scale.y = 0.7; g.add(m); }
     S.add(g); const box = new THREE.Box3().setFromObject(g), c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3()).length();
     g.rotation.y = kind === 'u' ? -0.6 : 0.5;
     cam.position.set(c.x + sz * 0.95, c.y + sz * 0.75, c.z + sz * 1.25); cam.lookAt(c); r.clear(); r.render(S, cam); out[t] = r.domElement.toDataURL(); S.remove(g);
