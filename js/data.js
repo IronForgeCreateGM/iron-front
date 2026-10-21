@@ -41,7 +41,7 @@ const W = {
   kmg:    { dmg: 30, rng: 6, cd: 0.45, type: 'cmdo', spd: 45, ground: 1, air: 1, snd: 'rifle' },
   titan:  { dmg: 85, rng: 7, cd: 1.7, type: 'rocket', spd: 14, ground: 1, air: 1, snd: 'rocket', twin: 1 },
   gatl:   { dmg: 20, rng: 7.5, cd: 0.18, type: 'gat', spd: 45, ground: 1, air: 1, snd: 'rifle' },
-  marine: { dmg: 20, rng: 6.1, cd: 0.8, type: 'marine', spd: 40, ground: 1, air: 1, snd: 'rifle' },
+  marine: { dmg: 21, rng: 6.1, cd: 0.8, type: 'marine', spd: 40, ground: 1, air: 1, snd: 'rifle' },
   tcannon:{ dmg: 85, rng: 6.5, cd: 1.3, type: 'cannon', spd: 25, ground: 1, air: 0, snd: 'cannon' },
 };
 // v5.0: static defense damage -25%
@@ -76,8 +76,8 @@ const UT = {
   pyro:   { n: 'Pyro', hp: 170, sp: 1.6, armor: 'inf', wpn: 'flame', cost: 350, gas: 25, time: 5, from: 'barracks', sight: 5.5, r: 0.24, req: [] },
   medic:  { n: 'Field Medic', hp: 120, sp: 1.7, armor: 'inf', wpn: null, cost: 400, time: 5, from: 'barracks', sight: 6, r: 0.22, req: [], heal: 14 },
   kommando:{ n: 'Jäger Kommando Squad', hp: 600, sp: 1.8, armor: 'inf', wpn: 'kmg', cost: 1500, gas: 150, time: 14, from: 'barracks', sight: 8, r: 0.4, req: ['tech'], squad: 3, fac: 'ger' },
-  marine: { n: 'Fuzileiro Blindado (Iron Marine)', hp: 300, sp: 1.52, armor: 'inf', wpn: 'marine', cost: 400, time: 6, from: 'barracks', sight: 6.5, r: 0.26, req: [], fac: 'bra', marine: 1,
-    desc: 'Brazil: heavily armored infantry, shoots ground and air. Auto-engages enemies while moving (attack-move by default; Hold stance = plain move), then resumes. Vehicle guns/rockets do 35% less (not artillery). Plating shrugs off 45% of small-arms fire (15–30% vs rockets/flak/marines). Strength in numbers: +5% damage and +3% armor per nearby marine (max 6). Countered by flame, Tesla, artillery/bombs and tank cannons (big target: x2.6).' },
+  marine: { n: 'Fuzileiro Blindado (Iron Marine)', hp: 300, sp: 1.67, armor: 'inf', wpn: 'marine', cost: 400, time: 6, from: 'barracks', sight: 6.5, r: 0.26, req: [], fac: 'bra', marine: 1,
+    desc: 'Brazil: heavily armored infantry, shoots ground and air. Attack-move (tap/A-click) engages anything it meets, then resumes; a plain move/retreat breaks off at once and it re-engages nearby enemies when it arrives. Vehicle guns/rockets do 35% less (not artillery), +15% armor vs tanks and aircraft, splash hurts it 45% less. Plating shrugs off 45% of small-arms fire (15–30% vs rockets/flak/marines). Strength in numbers: +5% damage and +3% armor per nearby marine (max 6). Countered by flame, Tesla, artillery/bombs and tank cannons (big target: x2.6).' },
   scout:  { n: 'Raider Buggy', hp: 200, sp: 3.6, armor: 'light', wpn: 'mg', cost: 500, time: 5, from: 'factory', sight: 9, r: 0.38, req: [] },
   light:  { n: 'Lancer Tank', hp: 380, sp: 2.2, armor: 'heavy', wpn: 'lcannon', cost: 700, time: 7, from: 'factory', sight: 7, r: 0.45, req: [], turret: 1 },
   heavy:  { n: 'Bastion Tank', hp: 800, sp: 1.4, armor: 'heavy', wpn: 'hcannon', cost: 1400, gas: 75, time: 12, from: 'factory', sight: 7, r: 0.58, req: ['tech'], turret: 1 },
@@ -126,7 +126,7 @@ const UPG_DMG = [1, 1.35, 1.75], UPG_RNG = [0, 1, 2];
 const DEF_RESEARCH = { n: 'Hardened Defenses', cost: 1500, gas: 200, time: 40, dmg: 1.15, rng: 0.5, hp: 1.25 };
 
 // v5.8 Iron Marine tuning: base plating (vs small arms/rockets), per-nearby-marine bonus, cap, radius; tank cannons/heavy rounds x TAKE
-const MAR = { drN: 0.03, dmgN: 0.05, cap: 6, rad: 3, take: { cannon: 2.6 }, veh: 0.65, counter: { shell: 1, fire: 1, bomb: 1, zap: 1, warhead: 1 }, plated: { bullet: 0.45, snipe: 0.45, cmdo: 0.3, flak: 0.3, aam: 0.3, marine: 0.25, rocket: 0.15 } };
+const MAR = { vsTank: 0.85, splash: 0.55, splashDirect: 0.85, drN: 0.03, dmgN: 0.05, cap: 6, rad: 3, take: { cannon: 2.6 }, veh: 0.65, counter: { shell: 1, fire: 1, bomb: 1, zap: 1, warhead: 1 }, plated: { bullet: 0.45, snipe: 0.45, cmdo: 0.3, flak: 0.3, aam: 0.3, marine: 0.25, rocket: 0.15 } };
 const GAS_RATE = 3.0; // per extractor per second
 const FACTIONS = {
   usa: { n: 'United States', flag: '🇺🇸', sp: 'stealth', desc: 'Nightshade Stealth Fighter — invisible bomber. Only revealed when enemies are within 3 tiles or it attacks. Precision 300-dmg bombs vs. structures.' },

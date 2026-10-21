@@ -379,6 +379,7 @@ function setLevelDecor(o, e) {
 // gait phase advances with distance travelled (no foot sliding); aim pose blends in when engaging; kick = recoil impulse
 function animGait(rs, e, d, dt, L) {
   const px = rs.gx == null ? rs.x : rs.gx, py = rs.gy == null ? rs.y : rs.gy, dist = Math.hypot(rs.x - px, rs.y - py); rs.gx = rs.x; rs.gy = rs.y;
+  if (dist > 1e-4) rs.mvA = Math.atan2(rs.y - py, rs.x - px); // v6.2: direction of travel (legs follow it, torso follows the aim)
   const v = dt > 0 ? Math.min(6, dist / dt) : 0; rs.spd = (rs.spd || 0) + (v - (rs.spd || 0)) * Math.min(1, dt * 8);
   rs.ph = ((rs.ph || (e.id * 1.3)) + dist / L.stride * Math.PI * 2 * (L.mech ? 1 : 1 / 0.85)) % (Math.PI * 200);
   const aimT = e.tgt && e.tgt.hp > 0 && rs.spd < 0.3 ? 1 : 0; rs.aim = (rs.aim || 0) + (aimT - (rs.aim || 0)) * Math.min(1, dt * 7);
@@ -394,7 +395,9 @@ function poseRig(U, i, base, rs, L, seed, fall) {
   const R = _RG, mech = L.mech, sp = rs.spd || 0, w = Math.min(1, sp / (mech ? 0.6 : 0.45)), run = Math.max(0, Math.min(1, (sp - 1.5) / 0.8));
   const ph = (rs.ph || 0) + seed, aim = rs.aim || 0, dead = rs.dead || 0, kick = rs.kick || 0, t = R3.time + seed * 3.1 + (rs.idleT || 0) * 0.01;
   const A = (mech ? 0.4 : 0.5 + 0.25 * run) * w;
-  let thL = Math.sin(ph) * A, thR = -Math.sin(ph) * A;
+  // v6.2: legs/feet step along the direction of travel even while the torso aims elsewhere (backpedal = reversed stride)
+  let ly = 0, rev = 1; if (!mech && sp > 0.12 && rs.mvA != null) { let dl = angDiff(rs.tang, rs.mvA); if (Math.abs(dl) > 1.9) { dl = angDiff(rs.tang, rs.mvA + Math.PI); rev = -1; } ly = -dl; }
+  let thL = Math.sin(ph) * A * rev, thR = -Math.sin(ph) * A * rev;
   let knL = (0.15 + (mech ? 0.6 : 1.0) * Math.max(0, -Math.cos(ph))) * w, knR = (0.15 + (mech ? 0.6 : 1.0) * Math.max(0, Math.cos(ph))) * w;
   // aiming stance: staggered feet, slight crouch
   thL += aim * 0.22 * (1 - w); thR -= aim * 0.12 * (1 - w); knL += aim * 0.2 * (1 - w); knR += aim * 0.28 * (1 - w);
@@ -409,6 +412,7 @@ function poseRig(U, i, base, rs, L, seed, fall) {
   // upper body
   R.B.copy(R.P).multiply(rz(R.A, lean)); R.e.set(0, twist, 0); R.q.setFromEuler(R.e); R.B.multiply(R.A.makeRotationFromQuaternion(R.q)); R.B.multiply(R.A.makeTranslation(-kick * 0.03, -L.hip, 0));
   U.parts.body.setMatrixAt(i, R.B);
+  if (ly) R.P.multiply(R.A.makeRotationY(ly));
   for (const [side, z, th, kn] of [['L', L.hz, thL, knL], ['R', -L.hz, thR, knR]]) {
     R.B.copy(R.P).multiply(R.A.makeTranslation(0, 0, z)).multiply(rz(R.A, th)); U.parts['th' + side].setMatrixAt(i, R.B);
     R.C.copy(R.B).multiply(R.A.makeTranslation(0, -L.tl, 0)).multiply(rz(R.A, -kn)); U.parts['sh' + side].setMatrixAt(i, R.C);

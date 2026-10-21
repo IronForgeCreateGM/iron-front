@@ -532,8 +532,8 @@ function orderMove(units, x, y, attackMove, queue) {
   const left = units.slice(), mv = [];
   for (const s of slots) { let bi = 0, bd = 1e9; left.forEach((u, i) => { const d = dhypot(u.x - s.x, u.y - s.y); if (d < bd) { bd = d; bi = i; } });
     const u = left.splice(bi, 1)[0]; u.grp = units.length;
-    if (queue && (u.path.length || (u.wq && u.wq.length))) { (u.wq = u.wq || []).push({ x: s.x, y: s.y, am: attackMove || (UT[u.t].marine && u.stance !== 'hold') }); continue; }
-    u.wq = []; u.order = attackMove || (UT[u.t].marine && u.stance !== 'hold') ? 'amove' : 'move'; u.face = null; if (u.stance === 'hold') u.guard = { x: s.x, y: s.y }; u.tgt = null; u.anchor = { x: s.x, y: s.y }; u.amDest = u.order === 'amove' && UT[u.t].marine ? { x: s.x, y: s.y } : null; // v5.9 Iron Marines auto-engage on the move (attack-move by default)
+    if (queue && (u.path.length || (u.wq && u.wq.length))) { (u.wq = u.wq || []).push({ x: s.x, y: s.y, am: !!attackMove }); continue; }
+    u.wq = []; u.order = attackMove ? 'amove' : 'move'; /* v6.2: a plain move (retreat/redirect) breaks off the fight for marines too; they re-engage once they arrive (idle auto-acquire) */ u.face = null; if (u.stance === 'hold') u.guard = { x: s.x, y: s.y }; u.tgt = null; u.anchor = { x: s.x, y: s.y }; u.amDest = u.order === 'amove' && UT[u.t].marine ? { x: s.x, y: s.y } : null; // v5.9 Iron Marines auto-engage on the move (attack-move by default)
     if (u.t === 'harv') { u.hst = 'manual'; const oi = idx(Math.floor(s.x), Math.floor(s.y)); if (G.ore[oi] > 0) { u.hst = 'idle'; u.prefOre = oi; } }
     mv.push([u, s]); }
   // v6.0 big maps (128+): a large group shares its leader's path (one A* instead of one per unit) when each unit can see the
@@ -761,12 +761,14 @@ function respond(u, src) {
   const dist = distTo(u, src); if (u.stance === 'hold' ? dist > w.rng + 0.5 : dist > d.sight + 6) return;
   if (!u.tgt || u.tgt.hp <= 0 || distTo(u, u.tgt) > w.rng) u.tgt = src;
 }
-function damage(t, amt, w, team, src) {
+function damage(t, amt, w, team, src, spl) {
   if (src && foe(t.team, team) && t.kind === 'u') { respond(t, src); if (G.time - (t.helpT || 0) > 1) { t.helpT = G.time; for (const o of G.ents) if (o.team === t.team && o.kind === 'u' && o !== t && !o.tgt && dhypot(o.x - t.x, o.y - t.y) < 5) respond(o, src); } }
   if (t.hp <= 0) return;
   if (src && src.kind && !isAir(src) && !isAir(t) && G.tier[idx(Math.floor(t.x), Math.floor(t.y))] > G.tier[idx(Math.floor(src.x), Math.floor(src.y))]) amt *= 0.75; // high ground
   if (src && src.kind === 'u' && src.nb && UT[src.t].marine) amt *= 1 + MAR.dmgN * src.nb; // v5.8 strength in numbers
   if (t.kind === 'u' && UT[t.t].marine) { if (src && src.kind === 'u' && !UT[src.t].air && UT[src.t].armor !== 'inf' && !MAR.counter[w.type]) amt *= MAR.veh; // v5.9 vehicle-weapon resistance
+    if (src && src.kind === 'u' && (UT[src.t].air || (UT[src.t].armor === 'heavy' && UT[src.t].turret))) amt *= MAR.vsTank; // v6.2 +15% armor vs tanks and aircraft/bombers
+    if (spl) amt *= spl === 2 ? MAR.splash : MAR.splashDirect; // v6.2 marines were wiped by splash
     if (MAR.take[w.type]) amt *= MAR.take[w.type]; else if (MAR.plated[w.type]) amt *= 1 - MAR.plated[w.type] - MAR.drN * (t.nb || 0); }
   t.hp -= amt * DMG[w.type][armorOf(t)];
   t.lastHitBy = team; t.hitT = G.time;
@@ -777,7 +779,7 @@ function impact(p) {
   const w = p.w; if (p.tgt) p.tgt.inc = Math.max(0, (p.tgt.inc || 0) - (p.est || 0));
   if (w.splash) {
     for (const o of G.ents) { if (!foe(o.team, p.team)) continue; if (isAir(o) !== (p.tz > 1.5)) continue;
-      const d = distTo(p, o); if (d < w.splash) damage(o, w.dmg * (1 - 0.6 * d / w.splash), w, p.team, p.src); }
+      const d = distTo(p, o); if (d < w.splash) damage(o, w.dmg * (1 - 0.6 * d / w.splash), w, p.team, p.src, o === p.tgt ? 1 : 2); }
   } else if (p.tgt && p.tgt.hp > 0 && distTo(p, p.tgt) < 1.2) damage(p.tgt, w.dmg, w, p.team, p.src);
   G.events.push({ e: 'hit', x: p.x, y: p.y, z: p.z, kind: w.big ? 'mega' : w.type });
 }

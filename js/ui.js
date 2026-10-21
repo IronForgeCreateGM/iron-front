@@ -156,7 +156,7 @@ function onDown(e) {
       else if (tgt && tgt.t === 'refinery' && units.some(u => u.t === 'harv')) { units.filter(u => u.t === 'harv').forEach(h => { h.hst = 'ret'; h.path = []; }); }
       else { NET.issue({ c: 'move', u: ids(units), x: w.x, y: w.y, am: UI.keys.control || false, q: e.shiftKey }); marker(w.x, w.y); }
       sfx('ack');
-    } else { const bs = UI.sel.filter(s => s.kind === 'b' && s.team === ME && ['barracks', 'factory', 'airpad', 'hq'].includes(s.t)); if (bs.length) NET.issue({ c: 'rally', b: ids(bs), x: w.x, y: w.y }); if (bs.length) { marker(w.x, w.y); sfx('ack'); uiMsg('Rally point set'); } }
+    } else { const bs = UI.sel.filter(s => s.kind === 'b' && s.team === ME && (PRODB.includes(s.t) || s.t === 'hq')); if (bs.length) NET.issue({ c: 'rally', b: ids(bs), x: w.x, y: w.y }); if (bs.length) { marker(w.x, w.y); sfx('ack'); uiMsg('Rally point set'); } }
     return;
   }
   if (e.button !== 0) return;
@@ -176,6 +176,13 @@ function onDown(e) {
   if (UI.mode === 'amove') { const units = UI.sel.filter(s => s.kind === 'u' && s.team === ME); if (w && units.length) { NET.issue({ c: 'move', u: ids(units), x: w.x, y: w.y, am: true, q: e.shiftKey }); marker(w.x, w.y, true); sfx('ack'); } if (!e.shiftKey) UI.mode = null; return; }
   m.down = true; m.sx = m.x; m.sy = m.y; m.shift = e.shiftKey;
 }
+const PRODB = ['barracks', 'factory', 'airpad', 'airfield', 'aircmd'];
+function sameTypeOnScreen(t) { const l = G.ents.filter(o => o.team === ME && o.t === t.t && o.hp > 0 && (o.kind !== 'b' || o.sell < 0) && inView(o.x, o.y)); return l.sort((a, b) => dhypot(a.x - t.x, a.y - t.y) - dhypot(b.x - t.x, b.y - t.y)); }
+function upgradeAll() { // v6.2: blanket-upgrade every selected defense of one type, nearest first, as many as affordable (sim stops when money runs out)
+  const bs = UI.sel.filter(b => b.kind === 'b' && b.team === ME && UPG[b.t] && upgradeInfo(b) && b.upT == null); if (!bs.length) { sfx('error'); uiMsg('Nothing to upgrade'); return; }
+  const P = G.players[ME]; let cr = P.cr, gas = P.gas, n = 0; for (const b of bs) { const i = upgradeInfo(b); if (cr >= i.cost && gas >= (i.gas || 0)) { cr -= i.cost; gas -= i.gas || 0; n++; } }
+  if (!n) { sfx('error'); uiMsg('Not enough credits to upgrade any'); return; }
+  NET.issue({ c: 'upgall', b: ids(bs) }); sfx('click'); uiMsg(`⬆ Upgrading ${n} of ${bs.length} ${BT[bs[0].t].n}${bs.length > 1 ? 's' : ''} (nearest first)`); UI.ctxKey = null; }
 function onUp(e) {
   if (e.button === 1) { UI.pan = false; return; }
   if (e.button === 0 && UI.mode === 'wall' && UI.wallA) { const tl = wallTiles(); UI.wallA = null; const ok = tl.filter(([x, y]) => canPlace('wall', ME, x, y)); if (ok.length) { NET.issue({ c: 'walls', t: ok }); sfx('ack'); } else { sfx('error'); uiMsg("Can't build walls there"); } if (!e.shiftKey) UI.mode = null; return; }
@@ -185,7 +192,7 @@ function onUp(e) {
   if (x1 - x0 < 6 && y1 - y0 < 6) {
     const t = pickAt(m.x, m.y); list = t ? [t] : [];
     const now = performance.now();
-    if (t && t.team === ME && t.kind === 'u' && now - UI.lastClick < 350 && UI.lastPick === t.t) list = G.ents.filter(o => o.team === ME && o.t === t.t && inView(o.x, o.y));
+    if (t && t.team === ME && now - UI.lastClick < 350 && UI.lastPick === t.t) list = sameTypeOnScreen(t); // v6.2: buildings too
     UI.lastClick = now; UI.lastPick = t && t.t;
   } else {
     list = G.ents.filter(o => o.team === ME && o.kind === 'u' && (() => { const rs = R3.rs.get(o.id) || o, p = worldToScreen(rs.x, rs.y, (rs.z || 0) + 0.2); return p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1; })());
@@ -221,7 +228,7 @@ function onKey(e) {
   if ('wasd'.includes(k) && k.length === 1) return; // v5.5: WASD is camera pan only
   if (k === 'g') { doFormation(e.shiftKey); return; }
   if (k === 'v') { toggleStance(); return; }
-  if (k === 'z') { doUpgrade(); return; }
+  if (k === 'z') { if (UI.sel.length > 1) upgradeAll(); else doUpgrade(); return; }
   if (k === 'n' && UI.sel.some(s => s.t === 'silo' && s.team === ME)) { siloArm(); return; }
   if (k === 'f' && UI.sel.some(s => s.kind === 'u')) { UI.mode = 'amove'; uiMsg('Attack-move (F): left-click target — units fight what they meet (Shift = waypoint)'); return; }
   if (k === 'h') { const hq = G.ents.find(e => e.team === ME && e.t === 'hq') || G.ents.find(e => e.team === ME && e.t === 'cc'); if (hq) jumpTo(hq.x, hq.y); }
@@ -323,7 +330,10 @@ function sidebar() {
       if (e.kind === 'u' && e.team === ME && UT[e.t].wpn) h += `<div class="acts"><button id="fmBtn" class="act">⛨ Defensive Formation <kbd>G</kbd></button><button id="stBtn" class="act"></button></div>`;
       if (e.kind === 'b' && e.team === ME) { const opts = Object.keys(UT).filter(t => UT[t].from === e.t || (UT[t].alt || []).includes(e.t)); if (opts.length) h += `<div class="cgrid">${opts.map(t => `<div class="item sm">${itemHTML(t)}</div>`).join('')}</div><div class="dim small">Right-click ground to set rally point</div>`; }
     } else if (s.length > 1) { const c = {}; s.forEach(e => c[e.t] = (c[e.t] || 0) + 1); h = '<div class="chips">' + Object.entries(c).map(([t, n]) => `<span class="chip" data-t="${t}"><img src="${icon(t)}">${n}</span>`).join('') + '</div>';
-      if (myUnits().length) h += `<div class="acts"><button id="fmBtn" class="act">⛨ Defensive Formation <kbd>G</kbd></button><button id="stBtn" class="act"></button></div>`; }
+      if (myUnits().length) h += `<div class="acts"><button id="fmBtn" class="act">⛨ Defensive Formation <kbd>G</kbd></button><button id="stBtn" class="act"></button></div>`;
+      const mb = s.filter(e => e.kind === 'b' && e.team === ME);
+      if (mb.length === s.length && mb.every(b => UPG[b.t])) h += `<div class="acts"><button id="upAllBtn" class="act">⬆ Upgrade all (${mb.filter(b => upgradeInfo(b) && b.upT == null).length} upgradable) <kbd>Z</kbd></button></div><div class="dim small">Nearest first, as many as you can afford.</div>`;
+      if (mb.length === s.length && mb.every(b => PRODB.includes(b.t))) h += `<div class="dim small">Right-click the ground: one shared rally point for all ${mb.length}.</div>`; }
     ctx.innerHTML = h;
     const opts = s.length === 1 && s[0].kind === 'b' ? Object.keys(UT).filter(t => UT[t].from === s[0].t || (UT[t].alt || []).includes(s[0].t)) : [];
     ctx.querySelectorAll('.item').forEach((b, i) => wireItem(b, opts[i]));
@@ -331,7 +341,7 @@ function sidebar() {
     const fm = $('fmBtn'); if (fm) { fm.onclick = e => doFormation(e.shiftKey); fm.title = 'Arrange selected units in battle formation facing the nearest enemy and hold. Shift: at base entrance.'; }
     const st = $('stBtn'); if (st) st.onclick = toggleStance;
     ctx.querySelectorAll('.mis').forEach(bt => bt.onclick = () => { const b = UI.sel[0]; if (!b || b.t !== 'silo') return; const m = MIS[bt.dataset.k], P = G.players[ME]; if (b.mq || b.mis) { sfx('error'); uiMsg('Launcher busy: one missile at a time'); return; } if (P.cr < m.cost || P.gas < m.gas) { sfx('error'); uiMsg('Need $' + m.cost + ' and ◆' + m.gas); return; } NET.issue({ c: 'mbuild', b: b.id, k: bt.dataset.k }); sfx('click'); uiMsg('Building ' + m.n); });
-    const nb = $('nukeBtn'); if (nb) nb.onclick = siloArm;
+    const nb = $('nukeBtn'); if (nb) nb.onclick = siloArm; const ua = $('upAllBtn'); if (ua) ua.onclick = upgradeAll;
     const ub = $('upBtn'); if (ub) { ub.onclick = doUpgrade; ub.onmouseenter = () => { const b = UI.sel[0]; UI.tip.innerHTML = upgTip(b); UI.tip.style.display = 'block'; const r = ub.getBoundingClientRect(); UI.tip.style.top = Math.max(8, r.top - 90) + 'px'; UI.tip.style.right = (innerWidth - r.left + 8) + 'px'; }; ub.onmouseleave = () => { UI.tip.style.display = 'none'; }; }
   }
   const sst = $('siloSt'); if (sst && UI.sel[0] && UI.sel[0].t === 'silo') { const b = UI.sel[0], cd = Math.max(0, (b.cdT || 0) - G.time); const t = b.mq ? `Building ${MIS[b.mq.k].n}: ${Math.floor(b.mq.p / MIS[b.mq.k].time * 100)}%` : b.mis ? (cd > 0 ? `${MIS[b.mis].n} ready · cooling down ${Math.ceil(cd)}s` : `<span class="g">${MIS[b.mis].n} READY</span> · range ${MIS[b.mis].rng}`) : cd > 0 ? `Cooling down ${Math.ceil(cd)}s` : 'Empty: build a missile'; if (sst.innerHTML !== t) sst.innerHTML = t; }

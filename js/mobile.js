@@ -7,7 +7,7 @@
 //  - helpers (toggles, on by default): auto-harvesters, auto-rally, idle auto-engage, auto-repair, one-tap power
 //    Every helper only issues normal player commands for YOUR OWN units through NET.issue -> lockstep-safe online.
 const MOB = { on: false, touch: typeof window !== 'undefined' && (('ontouchstart' in window) || navigator.maxTouchPoints > 0), tab: 'bld', g: null,
-  auto: { harv: true, rally: true, engage: true, repair: false, power: true }, rally: null, box: false, mode: null, vel: { x: 0, y: 0 }, autoT: 0, harvPeak: 0, wantPower: false, perfT: 0, ft: [] };
+  auto: { harv: true, rally: true, engage: true, repair: false, power: true }, rally: null, box: false, mode: null, vel: { x: 0, y: 0 }, autoT: 0, harvPeak: 0, wantPower: false, perfT: 0, ft: [], stopped: new Set() };
 try { const s = JSON.parse(localStorage.getItem('ifMobAuto') || 'null'); if (s) Object.assign(MOB.auto, s); } catch (e) {}
 function mobDetect() { // phone / small tablet: coarse primary pointer + small viewport
   try { const coarse = matchMedia('(pointer: coarse)').matches, small = Math.max(screen.width, screen.height) <= 1400 && Math.min(screen.width, screen.height) <= 1100; return coarse && small; } catch (e) { return false; } }
@@ -80,7 +80,7 @@ function mobCardTap(t) {
   if (UI.mode === 'wall') { MOB.mode = 'wall'; uiMsg('Walls: drag on the ground to lay a chain · ✗ when done'); }
   if (UI.placing) mobStartPlace();
 }
-function mobStartPlace() { const el = R3.renderer.domElement; UI.mouse.x = el.clientWidth * 0.5; UI.mouse.y = el.clientHeight * 0.45; MOB.placeFor = UI.placing; if (UI.placing) uiMsg('Drag the building into place, then tap ✓'); }
+function mobStartPlace() { const el = R3.renderer.domElement; UI.mouse.x = el.clientWidth * 0.5; UI.mouse.y = el.clientHeight * 0.45; MOB.ghostW = null; MOB.placeFor = UI.placing; if (UI.placing) uiMsg('Drag the building into place, then tap ✓'); }
 function mobConfirm() {
   if (UI.mode === 'wall') { mobCancel(); return; }
   if (!UI.placing) return; const w = screenToWorld(UI.mouse.x, UI.mouse.y); if (!w) return;
@@ -98,7 +98,7 @@ function mobCmd(k) {
   else if (k === 'idle') { const l = idleList('army'); if (l.length) { setSel(l); jumpTo(l[0].x, l[0].y); uiMsg(`💤 ${l.length} idle units`); } else uiMsg('No idle units'); }
   else if (k === 'type') { const ts = new Set(us.map(u => u.t)); if (!ts.size) { uiMsg('Select a unit first (or double-tap one)'); return; } setSel(G.ents.filter(o => o.team === ME && o.kind === 'u' && ts.has(o.t) && inView(o.x, o.y))); }
   else if (k === 'box') { MOB.box = !MOB.box; if (MOB.box) uiMsg('⬚ Drag a box to select units'); }
-  else if (k === 'stop') { if (us.length) { NET.issue({ c: 'stop', u: ids(us) }); sfx('ack'); } }
+  else if (k === 'stop') { if (us.length) { NET.issue({ c: 'stop', u: ids(us) }); us.forEach(u => MOB.stopped.add(u.id)); sfx('ack'); } }
   else if (k === 'hold') { if (us.length) { const st = us.every(u => u.stance === 'hold') ? 'aggr' : 'hold'; NET.issue({ c: 'stance', u: ids(us), s: st }); uiMsg(st === 'hold' ? '⚓ Hold position' : '⚔ Aggressive'); sfx('ack'); } }
   else if (k === 'home') { const h = mobHome(); if (us.length && h) { NET.issue({ c: 'move', u: ids(us), x: h.x + (MW / 2 > h.x ? 4 : -4), y: h.y + (MH / 2 > h.y ? 4 : -4), am: false }); uiMsg('🏠 Retreating to base'); sfx('ack'); } else if (h) jumpTo(h.x, h.y); }
   else if (k === 'rally') { MOB.mode = MOB.mode === 'rally' ? null : 'rally'; if (MOB.mode) uiMsg('🚩 Tap the ground to set the rally point for new units'); }
@@ -147,12 +147,12 @@ function mobInitTouch() {
 function mobTap(x, y) {
   const r = R3.renderer.domElement.getBoundingClientRect(), fake = b => ({ button: b, clientX: x + r.left, clientY: y + r.top, preventDefault() {}, altKey: false, shiftKey: false });
   if (G.spectate) { const now = performance.now(); if (now - MOB.T.lastTap < 400) { DIR.auto = true; DIR.userZoom = true; DIR.hold = 0; uiMsg('🎥 Following the action (drag to take over)'); } MOB.T.lastTap = now; return; }
-  if (UI.placing) { UI.mouse.x = x; UI.mouse.y = y; return; } // tap moves the ghost there
+  if (UI.placing) { UI.mouse.x = x; UI.mouse.y = y; MOB.ghostSet = true; return; } // tap moves the ghost there
   if (MOB.mode === 'rally') { const w = screenToWorld(x, y); if (w) { MOB.rally = { x: w.x, y: w.y }; MOB.rallied = {}; const bs = G.ents.filter(e => e.team === ME && e.kind === 'b' && ['barracks', 'factory', 'airpad'].includes(e.t)); if (bs.length) NET.issue({ c: 'rally', b: ids(bs), x: w.x, y: w.y }); marker(w.x, w.y); uiMsg('🚩 Rally point set'); sfx('ack'); } MOB.mode = null; return; }
   if (UI.mode) { UI.mouse.x = x; UI.mouse.y = y; onDown(fake(0)); return; } // sell / repair / nuke / unload / attack-move modes
   const t = pickAt(x, y), now = performance.now();
   if (t && t.team === ME) {
-    if (t.kind === 'u' && MOB.T.lastTapT === t.t && now - MOB.T.lastTap < 380) { setSel(G.ents.filter(o => o.team === ME && o.t === t.t && inView(o.x, o.y))); uiMsg('👥 All ' + UT[t.t].n + ' on screen'); }
+    if (MOB.T.lastTapT === t.t && now - MOB.T.lastTap < 380) { setSel(sameTypeOnScreen(t)); uiMsg('👥 All ' + (BT[t.t] || UT[t.t]).n + ' on screen' + (t.kind === 'b' ? (UPG[t.t] ? ' — Upgrade all below' : PRODB.includes(t.t) ? ' — tap ground for a shared rally point' : '') : '')); }
     else if (t.kind === 'b' && UI.sel.some(s => s.kind === 'u' && s.team === ME) && (t.cargo || t.t === 'refinery')) { onDown(fake(2)); }
     else setSel([t]);
     MOB.T.lastTap = now; MOB.T.lastTapT = t.t; sfx('click'); return; }
@@ -172,6 +172,11 @@ function mobFrame(dt) {
   if (!on) return;
   { const P = G.players[ME], r = P.ready.bld; if (r && r !== MOB.lastReady && !UI.placing && !UI.mode && !(MOB.wantPower && r === 'power')) UI.placing = r; MOB.lastReady = r; } // structure done -> straight into placement
   if (UI.placing && MOB.placeFor !== UI.placing) mobStartPlace(); // a Defense finished -> auto placement mode
+  if (UI.placing && UI.mouse.x >= 0) { // v6.2: the ghost stays on its ground spot while you pan/zoom
+    const drag = MOB.T && MOB.T.mode === 'ghost';
+    if (drag || MOB.ghostSet || !MOB.ghostW) { const w = screenToWorld(UI.mouse.x, UI.mouse.y); if (w) MOB.ghostW = w; MOB.ghostSet = false; }
+    else { const p = worldToScreen(MOB.ghostW.x, MOB.ghostW.y, heightAt(MOB.ghostW.x, MOB.ghostW.y)); UI.mouse.x = p.x; UI.mouse.y = p.y; } }
+  else if (!UI.placing) MOB.ghostW = null;
   const placing = !!UI.placing || UI.mode === 'wall';
   document.getElementById('mPlace').style.display = placing ? 'flex' : 'none'; document.getElementById('mOk').style.display = UI.placing ? '' : 'none';
   if (!UI.placing && UI.mode !== 'wall' && UI.mouse.x >= 0 && !(MOB.T && MOB.T.mode === 'box')) UI.mouse.x = -1;
@@ -194,7 +199,7 @@ function mobHud() {
   const sh = !s.length ? '' : su.length > 1 ? `<span>⚔ ${su.length} selected</span>` : `<span>${(BT[s[0].t] || UT[s[0].t]).n}${foe(s[0].team, ME) ? ' (enemy)' : ''}</span>`;
   const sel = $m('mSel'); if (sel.dataset.h !== sh) { sel.dataset.h = sh; sel.innerHTML = sh ? sh + '<button class="mb x">✕</button>' : ''; const x = sel.querySelector('.x'); if (x) x.onclick = () => setSel([]); }
   sel.style.display = sh ? 'flex' : 'none';
-  const ctx = $m('ctx'); $m('mCtx').style.display = !UI.placing && s.length === 1 && s[0].team === ME && ctx && ctx.innerHTML.trim() ? 'block' : 'none';
+  const ctx = $m('ctx'); $m('mCtx').style.display = !UI.placing && s.length && s.every(e => e.team === ME) && (s.length === 1 || s.every(e => e.kind === 'b')) && ctx && ctx.innerHTML.trim() ? 'block' : 'none';
   document.querySelectorAll('.mc').forEach(b => b.classList.toggle('on', (b.dataset.k === 'box' && MOB.box) || (b.dataset.k === 'rally' && MOB.mode === 'rally') || (b.dataset.k === 'hold' && su.length && su.every(u => u.stance === 'hold'))));
   // alerts (tap -> jump)
   const ih = idleList('harv').length; let ah = UI.alerts.slice(0, 3).map((a, i) => `<span class="mal bad" data-a="${i}">⚠ ${a.txt}</span>`).join(''); if (ih) ah += `<span class="mal" data-idle="harv">⛏ ${ih} idle</span>`;
@@ -210,7 +215,8 @@ function mobAuto() {
   if (A.rally) { if (!MOB.rally) { const h = mobHome(); if (h) { const dx = MW / 2 - h.x, dy = MH / 2 - h.y, d = Math.hypot(dx, dy) || 1; MOB.rally = { x: h.x + dx / d * 7, y: h.y + dy / d * 7 }; } }
     if (MOB.rally) { const need = mine.filter(e => e.kind === 'b' && ['barracks', 'factory', 'airpad'].includes(e.t) && e.sell < 0 && !(MOB.rallied[e.id] && MOB.rallied[e.id] === MOB.rally) && !(e.rally && Math.hypot(e.rally.x - MOB.rally.x, e.rally.y - MOB.rally.y) < 0.5));
       if (need.length) { NET.issue({ c: 'rally', b: ids(need), x: MOB.rally.x, y: MOB.rally.y }); need.forEach(b => MOB.rallied[b.id] = MOB.rally); } } }
-  if (A.engage) { const idle = mine.filter(e => e.kind === 'u' && UT[e.t].wpn && e.t !== 'harv' && !UT[e.t].engineer && e.stance !== 'hold' && e.order === 'idle' && (e.idleT || 0) > 2.5 && !e.tgt && !(e.path && e.path.length) && G.time > (MOB.engT[e.id] || 0));
+  for (const id of MOB.stopped) { const u = byId(id); if (!u || u.hp <= 0 || u.order !== 'idle' || u.path.length) MOB.stopped.delete(id); } // a new order clears the 'explicitly stopped' mark
+  if (A.engage) { const idle = mine.filter(e => e.kind === 'u' && UT[e.t].wpn && e.t !== 'harv' && !UT[e.t].engineer && e.stance !== 'hold' && !MOB.stopped.has(e.id) && e.order === 'idle' && (e.idleT || 0) > 2.5 && !e.tgt && !(e.path && e.path.length) && G.time > (MOB.engT[e.id] || 0));
     if (idle.length) { const foes = G.ents.filter(o => foe(o.team, ME) && o.hp > 0 && (o.kind === 'u' || BT[o.t].wpn) && visibleTo0(o));
       const groups = new Map(); for (const u of idle) { let best = null, bd = 13; for (const f of foes) { const d = Math.hypot(f.x - u.x, f.y - u.y); if (d < bd) { bd = d; best = f; } } if (best) { (groups.get(best) || groups.set(best, []).get(best)).push(u); } MOB.engT[u.id] = G.time + 4; }
       for (const [f, us] of groups) NET.issue({ c: 'move', u: ids(us), x: f.x, y: f.y, am: true }); } }

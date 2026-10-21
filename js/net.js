@@ -23,6 +23,7 @@ const CMD = {
   unload(T, c) { const tr = byId(c.tr); if (!tr || tr.team !== T || !tr.cargo) return false; orderUnload(tr, c.x, c.y); return true; },
   derrick(T, c) { orderDerrick(c.u.map(byId).filter(u => u && u.team === T), c.k); return true; },
   walls(T, c) { return buildWalls(T, c.t); },
+  upgall(T, c) { let n = 0; for (const id of c.b || []) { const b = byId(id); if (b && b.team === T && UPG[b.t] && upgradeB(b)) n++; } return n; }, // v6.2 blanket upgrade (client sends nearest-first order)
   upg(T, c) { const b = byId(c.b); return !!(b && b.team === T && upgradeB(b)); },
   ping(T, c) { (G.pings = G.pings || []).push({ team: T, x: c.x, y: c.y, t: G.time, kind: c.k }); G.events.push({ e: 'ping', team: T, x: c.x, y: c.y, k: c.k }); },
   drop(T, c) { const P = G.players[c.p]; if (!P || P.ai) return; P.ai = true; P.diff = c.diff || 'normal'; P.name += ' (AI)'; aiInit(P); G.events.push({ e: 'dropped', team: c.p }); },

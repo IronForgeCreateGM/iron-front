@@ -67,3 +67,43 @@ Also earlier backlog: wall gate.
 - Strength between Tesla tower and Grand Cannon.
 - Hits ground AND air; especially strong vs infantry and aircraft (weaker vs heavy tanks).
 - Make it look really cool: spinning multi-barrel gatling turret, muzzle flash, tracer fire, spent-shell effects.
+
+## Brainstorm 2026-10-20 (Nicholas liked these; brainstorm more before building)
+### Unit abilities (SC2-style micro)
+- Brazil Iron Marine "Carnaval Rush": 4s sprint + fire burst
+- France Grand Cannon "Overcharge": 3x one shot, then 10s shutdown
+- Tanks "Siege Lock": stationary, extra range
+- Snipers "Cloak": invisible until firing
+- Engineers "Field Repair": AoE vehicle heal
+- Mobile: one tap fires for selected group; auto-cast toggle via helpers
+- Open Q: abilities for all units or only stars?
+### Arcade / custom maps
+- In-lobby map editor (terrain, ore, gas, derricks, outposts, spawns), save + share link
+- Built-in modes first: Tower Defense waves, King of the Hill, Last Stand (2 vs endless warlords)
+- Map browser for his and his brother's maps, playable online
+- Open Q: editor vs modes first?
+
+## Nicholas ideas 2026-10-20 (8:19 PM)
+- Howler artillery: cut normal range ~30%; add Siege Mode (stationary, full long range + splash, pack/unpack delay)
+- Research Lab upgrade panel: per-category tracks (Tanks/Infantry/Air/Artillery/Defenses). L2 ~+15% dmg/HP ($1000, 60s); L3 max ~+30% ($2000+gas, 90s, needs 2nd lab/tech). Applies to existing units, chevron visuals, bots research too. L3 could unlock abilities.
+- Later modes: Capture the Flag, King of the Hill
+
+## Nicholas next-update list 2026-10-20 (8:26 PM)
+- Double-click building selects all same-type buildings on screen: barracks/factories -> set shared rally point for all
+- Double-click turret selects all same-type turrets -> blanket upgrade all (as many as affordable)
+- Oil derricks: verify payout works; +25% income
+- Ore Hauler: smaller footprint (less collision jams), cost $750, gathers 40% less per trip (spam-friendly)
+- Mineral patches last 30% longer
+- (Research Lab upgrades + Howler siege are future)
+- Hauler cap: 4 per ore field (confirmed)
+- Smart haulers: when a field is depleted, auto-move to the next nearest field
+- Expansion incentive: ore fields away from start spawns are diamond-colored, +$140 per haul load
+- Command Center upgrade: SM-3 style interceptor; 50% chance to shoot down incoming missiles/warheads near base
+- SM-3: intercepts ALL incoming missiles (superweapon warheads + regular missiles/rocket artillery) near base at 50% chance each
+- Merge Helipad + Airfield into one "Air Command" building (runway + helipads): builds all air units, rearms/repairs all aircraft. Ideas: dock slots (e.g., 4) with add-on pads to expand; jets take off from runway, helis from pads; one queue.
+- Merge Lancer + Bastion tanks into one mid tank: ~$1050, HP/damage/speed midway between the two (pick name; keep faction specials)
+- Build-card portraits (infantry etc.): replace the messy double sprites with ONE clean portrait per card that matches the in-game model
+- Remove Pyro and Field Medic
+- Engineer: also repairs buildings AND heals units, slower heal rate for units; auto-repairs/heals damaged buildings/units nearby without being consumed (stays a unit; capture-into-building optional/keep separate)
+- Brazil Iron Marine (8:46 PM): player move orders MUST override auto-engage (a retreat/redirect move breaks off the target; auto-engage resumes only after arriving/idle — current "pull back then re-engage nearby" feel is liked). Fix walk-cycle legs/feet direction. +5% damage, +10% speed, +15% armor vs tanks AND aircraft/bombers, reduce splash damage vulnerability.
+- Scope for v6.2: do everything in this file EXCEPT new game modes / maps / map editor.

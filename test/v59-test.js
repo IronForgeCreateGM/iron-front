@@ -24,8 +24,8 @@ const c = t => BT[t].cost, h = t => BT[t].hp; chk('Gatling cost/HP between Tesla
   chk('France bot builds Gatling Bastions (no Teslas)', gt >= 1 && tz === 0, 'gatlings peak ' + gt + ', teslas ' + tz); }
 // --- Iron Marine auto-engage while moving, then resumes; hold stance = plain move; stop respected
 fresh('bra', 'usa'); const m = A.addU('marine', 0, 30, 40), e1 = A.addU('rifle', 1, 37, 41); e1.order = 'idle'; e1.stance = 'hold';
-A.orderMove([m], 50, 40, false); let stopped = false; for (let i = 0; i < 30 * 30; i++) { A.stepGame(); A.G.events.length = 0; if (m.tgt === e1 && e1.hp > 0) stopped = true; }
-chk('marine on a plain move order engages an enemy it meets', stopped && e1.hp <= 0, 'enemy hp ' + Math.max(0, e1.hp | 0));
+A.orderMove([m], 50, 40, true); let stopped = false; // v6.2: auto-engage on the move is the attack-move (plain moves now break off — see v62-test) for (let i = 0; i < 30 * 30; i++) { A.stepGame(); A.G.events.length = 0; if (m.tgt === e1 && e1.hp > 0) stopped = true; }
+chk('marine on an attack-move engages an enemy it meets', stopped && e1.hp <= 0, 'enemy hp ' + Math.max(0, e1.hp | 0));
 chk('...then resumes and reaches its destination', Math.hypot(m.x - 50, m.y - 40) < 2, `at ${m.x.toFixed(1)},${m.y.toFixed(1)} order=${m.order}`);
 fresh('bra', 'usa'); const mh = A.addU('marine', 0, 30, 40), e2 = A.addU('rifle', 1, 37, 41); e2.order = 'idle'; e2.stance = 'hold'; mh.stance = 'hold';
 A.orderMove([mh], 50, 40, false); run(14); chk('Hold-stance marine does a plain move (no auto-engage detour)', mh.x > 45 && mh.order !== 'amove', `x=${mh.x.toFixed(1)} order=${mh.order}`);
