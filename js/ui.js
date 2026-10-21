@@ -101,7 +101,7 @@ function showTip(t, el) {
   if (d.fac) h += `<span class="g">${FACTIONS[d.fac].flag} ${FACTIONS[d.fac].n} special.</span> ${FACTIONS[d.fac].desc}<br>`;
   if (t === 'extractor') h += `Must be placed on a Plasma Gas vent (glowing teal). Produces ${GAS_RATE} gas/s.<br>`;
   if (u && u.heal) h += 'Heals nearby infantry.<br>'; if (u && u.mech) h += 'Walker: fires rockets at ground and air.<br>'; if (u && u.jet) h += 'Bomb/missile runs, returns to Airfield to rearm.<br>';
-  if (t === 'harv') h += `Carries ${HARV_CAP} ore. Built at War Factory or Command Yard.<br>`;
+  if (t === 'harv') h += `Carries ${HARV_CAP} ore (~$${Math.round(HARV_CAP * ORE_VALUE)} a load, 💎 diamond fields +$${DIA_BONUS}). Max ${FIELD_CAP} per ore field. Built at War Factory or Command Yard.<br>`;
   const req = (d.req || []).filter(r => r !== '__never'); if (req.length) h += `<span class="dim">Requires: ${req.map(r => BT[r].n).join(', ')}</span><br>`;
   h += `<span class="dim">${BT[t] ? 'Click to build, then place' : 'Shift+click: queue 5'} · Right-click: cancel</span>`;
   UI.tip.innerHTML = h; UI.tip.style.display = 'block'; const r = el.getBoundingClientRect(); UI.tip.style.top = Math.max(8, Math.min(innerHeight - 200, r.top)) + 'px'; UI.tip.style.right = (innerWidth - r.left + 8) + 'px';
@@ -358,7 +358,7 @@ function minimap() {
   const b = UI.mmBase.getContext('2d'), img = b.createImageData(MW, MH);
   for (let i = 0; i < MW * MH; i++) {
     let r = 46, g = 82, bl = 36; const t = G.map[i];
-    if (t === 1) { r = 112; g = 104; bl = 92; } else if (t === 2) { r = 28; g = 86; bl = 118; } else if (G.lava[i]) { r = 230; g = 80; bl = 20; } else if (G.ice[i]) { r = 170; g = 210; bl = 230; } else if (G.ore[i] > 30) { r = 210; g = 165; bl = 50; } else if (G.mapName === 'frost') { r = 190; g = 200; bl = 210; } else if (G.mapName === 'volcano') { r = 52; g = 44; bl = 40; } else if (G.desert) { r = G.wadi && G.wadi[i] ? 200 : 168; g = G.wadi && G.wadi[i] ? 176 : 136; bl = G.wadi && G.wadi[i] ? 128 : 92; }
+    if (t === 1) { r = 112; g = 104; bl = 92; } else if (t === 2) { r = 28; g = 86; bl = 118; } else if (G.lava[i]) { r = 230; g = 80; bl = 20; } else if (G.ice[i]) { r = 170; g = 210; bl = 230; } else if (G.ore[i] > 30) { if (G.dia && G.dia[i]) { r = 120; g = 230; bl = 255; } else { r = 210; g = 165; bl = 50; } } else if (G.mapName === 'frost') { r = 190; g = 200; bl = 210; } else if (G.mapName === 'volcano') { r = 52; g = 44; bl = 40; } else if (G.desert) { r = G.wadi && G.wadi[i] ? 200 : 168; g = G.wadi && G.wadi[i] ? 176 : 136; bl = G.wadi && G.wadi[i] ? 128 : 92; }
     if (t === 1 && G.mud && G.mud[i]) { r = 150; g = 108; bl = 70; } else if (t === 1 && G.desert) { r = 122; g = 94; bl = 70; }
     if (t === 0 && G.lvl[i] > 0.5) { r *= 1.18; g *= 1.18; bl *= 1.18; }
     const f = vis0(i) ? 1 : seen0(i) ? 0.5 : 0.08; img.data.set([r * f, g * f, bl * f, 255], i * 4);

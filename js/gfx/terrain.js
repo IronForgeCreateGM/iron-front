@@ -152,7 +152,7 @@ function updFogTex(dt) {
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x, j = ((MH - 1 - y) * MW + x) * 4; const a = vis0(i) ? 0 : seen0(i) ? 135 : 250; f[i] += (a - f[i]) * k; d[j + 3] = Math.round(f[i]); }
   R3.fogTex.needsUpdate = true;
 }
-function buildOre() {
+function buildOre() { if (typeof ensureFields === 'function') ensureFields();
   R3.oreTiles = []; for (let i = 0; i < MW * MH; i++) if (G.oreMax[i] > 0) R3.oreTiles.push(i);
   const geo = new THREE.OctahedronGeometry(0.2, 0); geo.scale(1, 1.7, 1);
   const B = new MB(0); B.add('c', geo, COL.ORE, PBR.ORE, 0, 0, 0); const g = B.build().c;
@@ -166,7 +166,7 @@ function updOre() {
   R3.oreTiles.forEach((i, k) => { const a = G.ore[i], seen = seen0(i), x = i % MW, y = (i / MW) | 0;
     for (let j = 0; j < 4; j++) { const r = R3.oreJ[k][j], f = a / Math.max(1, G.oreMax[i]); const sc = seen && a > 1 && f > j * 0.22 ? (0.3 + 0.45 * Math.sqrt(f)) * (0.6 + r[2] * 0.7) : 0;
       e.set((r[0] - 0.5) * 0.6, r[1] * 6, (r[3] - 0.5) * 0.6); q.setFromEuler(e); const px = x + 0.15 + r[0] * 0.7, pz = y + 0.15 + r[1] * 0.7; p.set(px, heightAt(px, pz) + sc * 0.12, pz); s.set(sc, sc, sc);
-      m4.compose(p, q, s); R3.oreMesh.setMatrixAt(k * 4 + j, m4); if (!R3.oreCol) R3.oreMesh.setColorAt(k * 4 + j, G.rich && G.rich[i] ? new THREE.Color(2.2, 1.35, 0.25) : new THREE.Color(1, 1, 1)); } });
+      m4.compose(p, q, s); R3.oreMesh.setMatrixAt(k * 4 + j, m4); if (!R3.oreCol) R3.oreMesh.setColorAt(k * 4 + j, G.dia && G.dia[i] ? (G.rich && G.rich[i] ? new THREE.Color(1.6, 2.6, 3.2) : new THREE.Color(0.75, 2.1, 2.9)) : G.rich && G.rich[i] ? new THREE.Color(2.2, 1.35, 0.25) : new THREE.Color(1, 1, 1)); } });
   if (!R3.oreCol) { R3.oreCol = 1; R3.oreMesh.instanceColor.needsUpdate = true; }
   R3.oreMesh.instanceMatrix.needsUpdate = true;
 }

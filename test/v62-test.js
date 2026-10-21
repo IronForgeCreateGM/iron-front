@@ -1,7 +1,7 @@
 // v6.2 checklist tests (node, deterministic sim). node test/v62-test.js
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const src = ['data.js', 'sim.js', 'ai.js', 'net.js'].map(f => fs.readFileSync(path.join(__dirname, '../js', f), 'utf8')).join('\n');
-vm.runInThisContext(src + '\nglobalThis.__api={newGame,stepGame,addU,addB,orderMove,avail,execCmd,damage,impact,get G(){return G}};');
+vm.runInThisContext(src + '\nglobalThis.__api={newGame,stepGame,addU,addB,orderMove,avail,execCmd,damage,impact,ensureFields,get G(){return G}};');
 const A = globalThis.__api; let ok = true; const chk = (n, c, x) => { console.log((c ? 'PASS ' : 'FAIL ') + n + (x ? '  ' + x : '')); ok = ok && c; };
 const run = s => { for (let i = 0; i < s * 30; i++) { A.stepGame(); A.G.events.length = 0; } };
 function fresh(f0, f1, ai, seed) { A.newGame({ seed: seed || 3, diff: 'hard', aiTeams: ai || [], fog: false, slots: [{ fac: f0, ally: 0, ai: (ai || []).includes(0) }, { fac: f1, ally: 1, ai: (ai || []).includes(1), diff: 'hard' }] });
@@ -33,5 +33,25 @@ if (on('upgall')) {
   chk('Upgrade all upgrades as many as affordable, in the given (nearest-first) order', n === 2 && ts[2].upT != null && ts[0].upT != null && ts[1].upT == null, 'n=' + n + ' cr left ' + P.cr);
   const bs = [0, 1].map(i => A.addB('barracks', 0, 40 + i * 3, 50, true)); A.execCmd(0, { c: 'rally', b: bs.map(b => b.id), x: 45, y: 60 });
   chk('one rally command sets a shared rally point for all selected production buildings', bs.every(b => b.rally && b.rally.x === 45 && b.rally.y === 60));
+}
+// ===== 3. economy =====
+if (on('eco')) {
+  fresh('usa', 'rus'); A.G.derricks[0].owner = 0; const P = A.G.players[0], c0 = P.cr; run(10); const per = (P.cr - c0) / 10;
+  chk('captured oil derrick pays out: 9 -> 11.25 $/s (+25%)', Math.abs(per - 11.25) < 0.01, per.toFixed(2) + ' $/s');
+  chk('Ore Hauler $1400 -> $750, load 600 -> 360 (-40%), radius 0.6 -> 0.42', UT.harv.cost === 750 && HARV_CAP === 360 && UT.harv.r === 0.42);
+  chk('ore patches +30% (ORE_MULT 11 -> 14.3)', ORE_MULT === 14.3);
+  A.ensureFields(); const F = A.G.fields, dia = F.find(f => f.dia), home = F.find(f => !f.dia);
+  chk('diamond fields exist away from starts, home fields stay normal', !!dia && !!home && F.filter(f => f.dia).every(f => A.G.starts.every(([x, y]) => Math.hypot(x - f.x, y - f.y) > DIA_DIST)), F.filter(f => f.dia).length + '/' + F.length + ' diamond');
+  const loadOn = fld => { const ti = [...Array(MW * MH).keys()].find(i => A.G.fid[i] === fld.id && A.G.ore[i] > 500 && !A.G.rich[i]); const h = A.addU('harv', 0, ti % MW + 0.5, ((ti / MW) | 0) + 0.5); h.oreT = ti; h.fld = fld.id; h.hst = 'mine';
+    for (let i = 0; i < 30 * 12 && h.hst === 'mine'; i++) { A.stepGame(); A.G.events.length = 0; } const v = h.loadV * ORE_VALUE; h.hp = 0; return v; };
+  const vN = loadOn(home), vD = loadOn(dia);
+  chk('normal load = $327.6 (was $546); diamond load = +$140', Math.abs(vN - 327.6) < 1 && Math.abs(vD - vN - 140) < 1, `normal $${vN.toFixed(1)}, diamond $${vD.toFixed(1)}`);
+  // cap 4 per field + move on when full / depleted
+  fresh('usa', 'rus'); tech(0); A.ensureFields(); const P0 = A.G.players[0], ref = A.G.ents.find(e => e.team === 0 && e.t === 'refinery');
+  const hs = [0, 1, 2, 3, 4, 5].map(i => A.addU('harv', 0, ref.x + (i % 3) - 1, ref.y + 3 + (i / 3 | 0))); run(4);
+  const cnt = {}; hs.forEach(h => { if (h.fld != null) cnt[h.fld] = (cnt[h.fld] || 0) + 1; });
+  chk('max 4 haulers per ore field (6 haulers spread over >= 2 fields)', Object.values(cnt).every(n => n <= FIELD_CAP) && Object.keys(cnt).length >= 2, JSON.stringify(cnt));
+  const f0 = hs[0].fld; for (let i = 0; i < MW * MH; i++) if (A.G.fid[i] === f0) { A.G.ore[i] = 0; A.G.oreMax[i] = 0; } run(4);
+  chk('field depleted -> its haulers auto-move to the nearest field with room', hs.every(h => h.fld !== f0), hs.map(h => h.fld + ':' + h.hst).join(' '));
 }
 console.log(ok ? 'V62 OK' : 'V62 FAIL'); process.exit(ok ? 0 : 1);

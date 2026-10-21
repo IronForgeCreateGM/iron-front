@@ -906,23 +906,32 @@ function oreScore(u, i, refs) {
   if (G.ore[i] < 200) d += 6;
   return d;
 }
+// v6.2 ore fields: connected groups of ore tiles (8-neighbour, 1-tile gaps bridged) -> per-team hauler cap and diamond ore
+function ensureFields() { if (G.fid && G.fid.length === MW * MH) return; const N = MW * MH; G.fid = new Int16Array(N).fill(-1); G.dia = new Uint8Array(N); G.fields = [];
+  for (let s = 0; s < N; s++) { if (!(G.oreMax[s] > 0) || G.fid[s] >= 0) continue; const id = G.fields.length, st = [s], tiles = []; G.fid[s] = id;
+    while (st.length) { const i = st.pop(); tiles.push(i); const x = i % MW, y = (i / MW) | 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const nx = x + dx, ny = y + dy; if (!inb(nx, ny)) continue; const j = idx(nx, ny); if (G.oreMax[j] > 0 && G.fid[j] < 0) { G.fid[j] = id; st.push(j); } } }
+    let cx = 0, cy = 0; for (const i of tiles) { cx += i % MW + 0.5; cy += ((i / MW) | 0) + 0.5; } cx /= tiles.length; cy /= tiles.length;
+    let sd = 1e9; for (const [sx, sy] of G.starts) sd = Math.min(sd, dhypot(sx - cx, sy - cy)); const dia = sd > DIA_DIST; if (dia) for (const i of tiles) G.dia[i] = 1;
+    G.fields.push({ id, x: cx, y: cy, n: tiles.length, dia }); } }
+function fieldLoad(team, skip) { ensureFields(); const c = {}; for (const o of G.ents) if (o.t === 'harv' && o.team === team && o !== skip && o.fld != null && o.fld >= 0) c[o.fld] = (c[o.fld] || 0) + 1; return c; }
 function nearestOre(u, pref) {
   const refs = G.ents.filter(e => e.team === u.team && (e.t === 'refinery' || e.t === 'cc'));
-  if (pref != null && G.ore[pref] > 0 && oreScore(u, pref, refs) < 1e9) return pref;
+  const fl = fieldLoad(u.team, u), room = i => (fl[G.fid[i]] || 0) < FIELD_CAP; // v6.2: max 4 haulers per field; full/depleted -> nearest field with room
+  if (pref != null && G.ore[pref] > 0 && room(pref) && oreScore(u, pref, refs) < 1e9) return pref;
   let b = -1, bd = 1e9;
-  for (let i = 0; i < G.ore.length; i++) if (G.ore[i] > 30) { const d = oreScore(u, i, refs); if (d < bd) { bd = d; b = i; } }
+  for (let i = 0; i < G.ore.length; i++) if (G.ore[i] > 30 && room(i)) { const d = oreScore(u, i, refs) + (G.fid[i] === u.fld ? -4 : 0); if (d < bd) { bd = d; b = i; } }
   return b;
 }
 function harvest(h) {
-  const P = G.players[h.team], CAP = HARV_CAP;
+  const P = G.players[h.team], CAP = HARV_CAP; ensureFields();
   switch (h.hst) {
     case 'manual': if (!h.path.length) h.hst = h.load >= CAP ? 'ret' : 'idle'; break;
     case 'idle': {
       h.oreT = null;
       if (h.load >= CAP) { h.hst = 'ret'; break; }
       if ((G.tick + h.id) % 10) break;
-      const i = nearestOre(h, h.prefOre); h.prefOre = null; if (i < 0) { if (h.load > 0) h.hst = 'ret'; break; }
-      h.oreT = i; h.toT = G.time; setPath(h, i % MW + 0.5, ((i / MW) | 0) + 0.5); h.order = 'idle'; h.hst = 'toOre'; break;
+      const i = nearestOre(h, h.prefOre); h.prefOre = null; if (i < 0) { h.fld = null; if (h.load > 0) h.hst = 'ret'; break; }
+      h.oreT = i; h.fld = G.fid[i]; h.toT = G.time; setPath(h, i % MW + 0.5, ((i / MW) | 0) + 0.5); h.order = 'idle'; h.hst = 'toOre'; break;
     }
     case 'toOre': {
       if (h.oreT == null || G.ore[h.oreT] <= 0) { h.hst = 'idle'; break; }
@@ -935,11 +944,11 @@ function harvest(h) {
     case 'mine': {
       const i = h.oreT;
       if (i == null) { h.hst = 'idle'; break; }
-      if (G.ore[i] > 0) { const a = Math.min(G.ore[i], MINE_RATE * DT, CAP - h.load); G.ore[i] -= a; h.load += a; h.loadV = (h.loadV || 0) + a * (G.rich[i] ? 1.8 : 1); if (G.ore[i] <= 0) { G.ore[i] = 0; G.oreVer++; } }
+      if (G.ore[i] > 0) { const a = Math.min(G.ore[i], MINE_RATE * DT, CAP - h.load); G.ore[i] -= a; h.load += a; h.loadV = (h.loadV || 0) + a * (G.rich[i] ? 1.8 : 1) + (G.dia && G.dia[i] ? a * DIA_BONUS / (HARV_CAP * ORE_VALUE) : 0); if (G.ore[i] <= 0) { G.ore[i] = 0; G.oreVer++; } }
       if (h.load >= CAP - 0.01) { h.hst = 'ret'; h.oreT = null; break; }
       if (G.ore[i] <= 0) { // next patch nearby (unreserved)
         const x = i % MW, y = (i / MW) | 0, refs = G.ents.filter(e => e.team === h.team && (e.t === 'refinery' || e.t === 'cc')); let n = -1, bs = 1e9;
-        for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const j = idx(x + dx, y + dy); if (inb(x + dx, y + dy) && G.ore[j] > 30) { const sc = oreScore(h, j, refs); if (sc < bs) { bs = sc; n = j; } } }
+        for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const j = idx(x + dx, y + dy); if (inb(x + dx, y + dy) && G.ore[j] > 30 && G.fid[j] === h.fld) { const sc = oreScore(h, j, refs); if (sc < bs) { bs = sc; n = j; } } }
         if (n >= 0) { h.oreT = n; h.toT = G.time; h.hst = 'toOre'; setPath(h, n % MW + 0.5, ((n / MW) | 0) + 0.5); } else { h.hst = h.load > CAP * 0.3 ? 'ret' : 'idle'; h.oreT = null; }
       }
       break;

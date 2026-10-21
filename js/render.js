@@ -241,7 +241,7 @@ function r3Render(dt) {
     const moving = e.path.length > 0, bob = 0;
     rs.bank = (rs.bank || 0) * 0.9 + angDiff(rs.pang == null ? rs.ang : rs.pang, rs.ang) * (d.jet ? 9 : 0); rs.pang = rs.ang;
     T.e.set(d.jet ? -Math.max(-0.7, Math.min(0.7, rs.bank)) : 0, -(d.armor === 'inf' ? rs.tang : rs.ang), air && !d.jet ? (moving ? -0.18 : 0) : 0, 'YXZ'); T.q.setFromEuler(T.e);
-    const vs = d.armor === 'inf' ? 1 : d.mech ? 0.85 : d.jet ? 1.1 : air ? 0.9 : 0.8;
+    const vs = d.armor === 'inf' ? 1 : d.mech ? 0.85 : d.jet ? 1.1 : air ? 0.9 : e.t === 'harv' ? 0.62 : 0.8; // v6.2 smaller Ore Hauler
     if (pv.legs) {
       animGait(rs, e, d, dt, pv.legs);
       const sq = pv.squad || 1;

@@ -85,7 +85,7 @@ const UT = {
   aa:     { n: 'Skyguard', hp: 320, sp: 2.2, armor: 'light', wpn: 'flak', cost: 700, time: 7, from: 'factory', sight: 8, r: 0.45, req: [], turret: 1 },
   titan:  { n: 'Titan Walker', hp: 1500, sp: 1.3, armor: 'heavy', wpn: 'titan', cost: 2600, gas: 250, time: 18, from: 'factory', sight: 8, r: 0.75, req: ['tech'], turret: 1, mech: 1 },
   tsar:   { n: 'Tsar Siege Tank', hp: 2600, sp: 1.0, armor: 'heavy', wpn: 'tsarc', cost: 3200, gas: 300, time: 24, from: 'factory', sight: 8, r: 0.9, req: ['tech'], turret: 1, regen: 6, fac: 'rus' },
-  harv:   { n: 'Ore Hauler', hp: 1000, sp: 1.5, armor: 'heavy', wpn: null, cost: 1400, time: 10, from: 'factory', alt: ['hq', 'cc'], sight: 5, r: 0.6, req: [] },
+  harv:   { n: 'Ore Hauler', hp: 1000, sp: 1.5, armor: 'heavy', wpn: null, cost: 750, time: 8, from: 'factory', alt: ['hq', 'cc'], sight: 5, r: 0.42, req: [], desc: 'Gathers ore (360 per load; diamond fields far from the start bases pay +$140 a load). Max 4 haulers per ore field: extra or displaced haulers move to the nearest field with room.' },
   jet:    { n: 'Falcon Strike Jet', hp: 420, sp: 7.0, armor: 'air', wpn: 'jbomb', cost: 2000, gas: 150, time: 14, from: 'airfield', sight: 8, r: 0.6, req: [], air: 1, jet: 1 },
   intercept:{ n: 'Talon Interceptor', hp: 360, sp: 7.5, armor: 'air', wpn: 'aam', cost: 1300, time: 10, from: 'airfield', sight: 10, r: 0.55, req: [], air: 1, jet: 1 },
   bomber: { n: 'Thunder Bomber', hp: 950, sp: 3.6, armor: 'air', wpn: 'cbomb', cost: 2800, gas: 250, time: 20, from: 'airfield', sight: 8, r: 0.9, req: [], air: 1, jet: 1 },
@@ -113,8 +113,9 @@ const DIFF = {
   h_tower:  { human: 1, defCr: 300, order: ['power', 'barracks', 'turret', 'refinery', 'turret', 'power', 'turret', 'factory', 'aagun', 'power', 'turret', 'refinery', 'turret', 'power', 'aagun', 'turret', 'tech', 'power', 'power', 'tesla', 'turret', 'power', 'aagun', 'tesla', 'power'], sys: { sim: 1, hsq: 1, prong: 0, float: 2500, prodMax: 3, choke: 1, close: 1 }, sat: 1, slip: 0, expandAt: 480, think: 0.6, wave0: 14, waveMax: 30, waveInc: 3, harass: 0.3, harassAfter: 300, firstAttack: 540, waveGap: 60, scoutAfter: 30, chief: 1 },
 };
 // economy
-const DERRICK_RATE = 9; // credits / second per captured oil derrick
-const ORE_VALUE = 0.91, HARV_CAP = 600, MINE_RATE = 40, UNLOAD_RATE = 300, ORE_REGROW = 0.8, ORE_MULT = 11; // per second
+const DERRICK_RATE = 11.25; // credits / second per captured oil derrick (v6.2: 9 -> 11.25, +25%)
+const ORE_VALUE = 0.91, HARV_CAP = 360, MINE_RATE = 40, UNLOAD_RATE = 300, ORE_REGROW = 0.8, ORE_MULT = 14.3; // per second (v6.2: load 600 -> 360 = -40%, patches 11 -> 14.3 = +30% ore)
+const FIELD_CAP = 4, DIA_BONUS = 140, DIA_DIST = 20; // v6.2: max haulers per ore field (per team); diamond ore (fields > DIA_DIST tiles from every start) pays +$140 per full load
 // defense upgrades: level 2/3 cost & time per structure; per-level multipliers
 // v5.2 Warhead Launcher missiles: build one at a time in the silo, then launch at a target (arcs through the atmosphere)
 const MIS = {
