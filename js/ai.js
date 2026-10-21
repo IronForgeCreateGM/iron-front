@@ -154,6 +154,7 @@ function aiStep(P) {
   }
   // 8b) defense upgrades when rich
   if (P.cr > 2500 && G.R() < 0.1) { const t = myB.find(b => UPG[b.t] && (b.lvl || 1) < 3 && b.upT == null); if (t) upgradeB(t); }
+  if (P.cr > 3200 && G.time > 420 && (cnt.tech || 0) && G.R() < 0.06) { const t = myB.find(b => (b.t === 'hq' || b.t === 'cc') && !b.sm3 && b.upT == null); if (t) upgradeB(t); } // v6.2 bots buy SM-3 too (same price)
   keepBusy(P, S, D, me, cnt, hq, intruders);
   // 9) repair damaged buildings
   for (const b of myB) if (b.hp < b.mhp * 0.6 && P.cr > (G.time > END_T ? 1500 : 500)) b.repair = true; else if (G.time > END_T && P.cr < 800) b.repair = false;

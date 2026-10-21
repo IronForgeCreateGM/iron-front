@@ -124,6 +124,8 @@ const MIS = {
   heavy:   { n: 'Titan Warhead',   cost: 2800, gas: 1000, time: 80, rng: 200, dmg: 5200, r: 5,   cd: 120, T: 12, sub: 1, big: 1 } };
 const UPG = { turret: [[450, 15], [800, 25, 100]], aagun: [[450, 15], [800, 25, 100]], tesla: [[600, 15], [1000, 25, 150]], gatling: [[700, 15], [1100, 25, 150]] };
 const UPG_DMG = [1, 1.35, 1.75], UPG_RNG = [0, 1, 2];
+const SM3 = { n: 'SM-3 Interceptor Battery', cost: 1800, gas: 200, time: 35, r: 10, p: 0.5 }; // v6.2 Command Yard / Command Center upgrade: 50% to shoot down EACH incoming missile/rocket/shell near the base
+const SM3_KIND = { rocket: 1, shell: 1 };
 const DEF_RESEARCH = { n: 'Hardened Defenses', cost: 1500, gas: 200, time: 40, dmg: 1.15, rng: 0.5, hp: 1.25 };
 
 // v5.8 Iron Marine tuning: base plating (vs small arms/rockets), per-nearby-marine bonus, cap, radius; tank cannons/heavy rounds x TAKE

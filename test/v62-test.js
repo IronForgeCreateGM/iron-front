@@ -1,7 +1,7 @@
 // v6.2 checklist tests (node, deterministic sim). node test/v62-test.js
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const src = ['data.js', 'sim.js', 'ai.js', 'net.js'].map(f => fs.readFileSync(path.join(__dirname, '../js', f), 'utf8')).join('\n');
-vm.runInThisContext(src + '\nglobalThis.__api={newGame,stepGame,addU,addB,orderMove,avail,execCmd,damage,impact,ensureFields,get G(){return G}};');
+vm.runInThisContext(src + '\nglobalThis.__api={newGame,stepGame,addU,addB,orderMove,avail,execCmd,damage,impact,ensureFields,upgradeB,get G(){return G}};');
 const A = globalThis.__api; let ok = true; const chk = (n, c, x) => { console.log((c ? 'PASS ' : 'FAIL ') + n + (x ? '  ' + x : '')); ok = ok && c; };
 const run = s => { for (let i = 0; i < s * 30; i++) { A.stepGame(); A.G.events.length = 0; } };
 function fresh(f0, f1, ai, seed) { A.newGame({ seed: seed || 3, diff: 'hard', aiTeams: ai || [], fog: false, slots: [{ fac: f0, ally: 0, ai: (ai || []).includes(0) }, { fac: f1, ally: 1, ai: (ai || []).includes(1), diff: 'hard' }] });
@@ -53,5 +53,19 @@ if (on('eco')) {
   chk('max 4 haulers per ore field (6 haulers spread over >= 2 fields)', Object.values(cnt).every(n => n <= FIELD_CAP) && Object.keys(cnt).length >= 2, JSON.stringify(cnt));
   const f0 = hs[0].fld; for (let i = 0; i < MW * MH; i++) if (A.G.fid[i] === f0) { A.G.ore[i] = 0; A.G.oreMax[i] = 0; } run(4);
   chk('field depleted -> its haulers auto-move to the nearest field with room', hs.every(h => h.fld !== f0), hs.map(h => h.fld + ':' + h.hst).join(' '));
+}
+// ===== 4. SM-3 =====
+if (on('sm3')) {
+  fresh('usa', 'rus'); const hq = A.G.ents.find(e => e.team === 0 && e.t === 'hq'), P = A.G.players[0]; P.cr = 9000; P.gas = 900;
+  chk('SM-3 needs a Research Lab', !A.upgradeB(hq)); tech(0, hq.x + 6, hq.y - 3); A.G.time += 2;
+  chk('SM-3 upgrade bought on the Command Yard ($1800 + 200 gas)', A.upgradeB(hq) && P.cr === 9000 - SM3.cost); run(SM3.time + 1); chk('...and comes online', hq.sm3 === true);
+  let ic = 0, hit = 0; const N = 400; for (let k = 0; k < N; k++) { const w = k % 2 ? W.rocket : W.arty; A.G.projs.push({ id: A.G.nid++, x: hq.x + 9.5, y: hq.y, z: 1, sx: hq.x + 9.5, sy: hq.y, w, team: 1, tgt: null, src: null, est: 0, home: false, tx: hq.x, ty: hq.y, tz: 0.5, delay: 0, kind: w.type });
+    A.stepGame(); hq.hp = hq.mhp; for (const ev of A.G.events) { if (ev.e === 'icpt') ic++; } A.G.events.length = 0; }
+  run(3); const pct = ic / N;
+  chk('SM-3 shoots down ~50% of incoming rockets/artillery shells near the base', pct > 0.42 && pct < 0.58, (pct * 100).toFixed(1) + '% of ' + N);
+  let mi = 0; hq.mhp = hq.hp = 1e7; for (let k = 0; k < 200; k++) { A.G.missiles = [{ id: A.G.nid++, team: 1, k: k % 3 ? 'small' : 'heavy', x0: hq.x + 60, y0: hq.y, x1: hq.x, y1: hq.y, t0: A.G.time, T: 6 }]; for (let i = 0; i < 30 * 7 && A.G.missiles.length; i++) { A.stepGame(); for (const ev of A.G.events) if (ev.e === 'intercept' && ev.sm3) mi++; A.G.events.length = 0; } hq.hp = hq.mhp; }
+  chk('SM-3 shoots down ~50% of superweapon warheads/missiles too', mi / 200 > 0.38 && mi / 200 < 0.62, (mi / 2).toFixed(1) + '%');
+  const sameRun = () => { fresh('usa', 'rus'); const h = A.G.ents.find(e => e.team === 0 && e.t === 'hq'); h.sm3 = true; let r = ''; for (let k = 0; k < 40; k++) { A.G.projs.push({ id: A.G.nid++, x: h.x + 9.5, y: h.y, z: 1, sx: h.x, sy: h.y, w: W.rocket, team: 1, tgt: null, src: null, est: 0, home: false, tx: h.x, ty: h.y, tz: 0.5, delay: 0, kind: 'rocket' }); A.stepGame(); r += A.G.events.some(e => e.e === 'icpt') ? 1 : 0; A.G.events.length = 0; } return r; };
+  chk('intercept rolls use the seeded sim RNG (deterministic)', sameRun() === sameRun());
 }
 console.log(ok ? 'V62 OK' : 'V62 FAIL'); process.exit(ok ? 0 : 1);

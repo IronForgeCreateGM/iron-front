@@ -166,14 +166,15 @@ function handleEvents() {
       case 'ready': if (ev.team === ME && BT[ev.t].cat === 'def' && !UI.placing && !UI.mode) UI.placing = ev.t;
         if (ev.team === ME) { sfx('ready'); uiMsg(BT[ev.t].n + ' ready to place'); } break;
       case 'unit': if (ev.team === ME) { sfx('unit'); if (ev.u && FACTIONS[G.players[ME].fac].sp === ev.u.t) announce(UT[ev.u.t].n + ' ready for battle', 'spu', 5); } break;
-      case 'upgraded': if (ev.team === ME) { sfx('ready'); uiMsg(ev.b.upKind === 'def' ? 'Research complete: ' + DEF_RESEARCH.n : BT[ev.b.t].n + ' upgraded to level ' + ev.b.lvl); } flash(ev.b.x, ev.b.y, 1, 1.5, 0.6, 0.9, 1); break;
+      case 'upgraded': if (ev.team === ME) { sfx('ready'); uiMsg(ev.b.upKind === 'sm3' ? '🛡 SM-3 Interceptor Battery online at the ' + BT[ev.b.t].n : ev.b.upKind === 'def' ? 'Research complete: ' + DEF_RESEARCH.n : BT[ev.b.t].n + ' upgraded to level ' + ev.b.lvl); } flash(ev.b.x, ev.b.y, 1, 1.5, 0.6, 0.9, 1); break;
       case 'capture': if (ev.team === ME || ev.b.team === ME) { sfx('ready'); uiMsg('Structure captured!'); } disposeObj(ev.b.id); break;
       case 'derrick': if (typeof uiMsg === 'function') { const op = G.derricks.find(d => d.op && d.x === ev.x && d.y === ev.y); if (op && ev.team === ME) uiMsg('Outpost "' + op.name + '" captured! You can now BUILD within ' + OUTPOST_R + ' tiles — perfect spot for a Grand Cannon.'); else if (op && ev.prev === ME) uiMsg('We lost the outpost "' + op.name + '"!'); if (ev.team === ME) { if (!op) uiMsg('Oil derrick captured! +income'); announce('Derrick captured', 'dk', 3); } else if (ev.prev === ME) { uiMsg('We lost an oil derrick!'); UI.alerts.unshift({ txt: 'Derrick lost', x: ev.x, y: ev.y, t: 8 }); announce('Derrick lost', 'dkl', 3); } else if (foe(ev.team, ME)) uiMsg('Enemy captured an oil derrick'); } break;
       case 'launch': { const mine = ev.team === ME, ally = !foe(ev.team, ME); R3.misT = R3.misT || []; R3.misT.push({ ms: ev.ms, t0: R3.time });
         if (ev.big || !ally) { uiMsg(mine ? MIS[ev.k].n + ' launched!' : ally ? 'Allied ' + MIS[ev.k].n + ' launched' : '⚠ ENEMY ' + MIS[ev.k].n.toUpperCase() + ' LAUNCH DETECTED!'); if (!ally) { UI.alerts.unshift({ txt: 'Missile incoming', x: ev.x, y: ev.y, t: ev.T + 2 }); announce(ev.big ? 'Warning: warhead launch detected' : 'Missile launch detected', 'ml', 3); sfx('alert'); } }
         if (mine) sfx('ready'); if (inView(ev.ms.x0, ev.ms.y0)) { const z = heightAt(ev.ms.x0, ev.ms.y0); for (let i = 0; i < 14; i++) puff(ev.ms.x0 + rnd(0.6), ev.ms.y0 + rnd(0.6), z + 0.3, 0.5, 1.6, 0.6, 0.55, 0.5); flash(ev.ms.x0, ev.ms.y0, z + 0.6, 1.4, 1, 0.7, 0.3); } break; }
       case 'impact': { const z = heightAt(ev.x, ev.y); explosion3(ev.x, ev.y, z + 0.2, ev.big ? 3.2 : ev.k === 'cluster' ? 1.4 : 2); if (ev.big) { for (let i = 0; i < 10; i++) setTimeout(() => explosion3(ev.x + rnd(ev.r * 0.7), ev.y + rnd(ev.r * 0.7), z + 0.3, 1.6), i * 70); shake(1.2); } else shake(0.4); scorch3(ev.x, ev.y, ev.r * 1.6); sfx('boomBig', ev.x, ev.y); break; }
-      case 'intercept': flash(ev.x, ev.y, 6, 2, 1, 0.8, 0.4); if (ev.team === ME || ev.ms.team === ME) uiMsg(ev.team === ME ? 'Missile intercepted by Flak!' : 'Our missile was intercepted'); break;
+      case 'intercept': if (ev.sm3) sm3Streak(ev.bx, ev.by, ev.x, ev.y, 6, 2.4); else flash(ev.x, ev.y, 6, 2, 1, 0.8, 0.4); if (ev.team === ME || ev.ms.team === ME) uiMsg(ev.team === ME ? (ev.sm3 ? '🛡 SM-3 shot down an incoming ' + MIS[ev.ms.k].n + '!' : 'Missile intercepted by Flak!') : 'Our missile was intercepted'); break;
+      case 'icpt': if (inView(ev.x, ev.y) || inView(ev.bx, ev.by)) sm3Streak(ev.bx, ev.by, ev.x, ev.y, Math.max(0.8, ev.z || 1), ev.big ? 1.4 : 0.8); break;
       case 'misReady': if (ev.team === ME) { sfx('ready'); uiMsg(MIS[ev.k].n + ' ready to launch (select the Warhead Launcher)'); announce('Missile ready', 'mr', 4); } break;
       case 'attacked': if (ev.team === ME && typeof uiAlert === 'function') { uiAlert(ev); announce(ev.harv ? 'Harvester under attack' : 'Base under attack', 'atk' + !!ev.harv, 25); } else if (!foe(ev.team, ME) && ev.team !== ME) { announce('Ally under attack', 'ally', 30); UI.pings.push({ x: ev.x, y: ev.y, t: 3 }); } break;
       case 'placed': if (ev.b.t === 'cc') { if (ev.team === ME) announce('Expansion established', 'cc', 3); else if (!foe(ev.team, ME)) announce('Ally expanding', 'acc', 20); } else if (ev.team === ME && FACTIONS[G.players[ME].fac].sp === ev.b.t) announce(BT[ev.b.t].n + ' deployed', 'sp', 5); break;
@@ -185,6 +186,10 @@ function handleEvents() {
   G.events.length = 0;
 }
 function shake(a) { R3.shake = Math.max(R3.shake || 0, a); }
+// v6.2 SM-3 intercept: a bright interceptor streak climbs from the battery to the threat, then a white-blue burst
+function sm3Streak(bx, by, x, y, z, s) { const h0 = heightAt(bx, by) + 1.4, n = 12; for (let i = 1; i <= n; i++) { const f = i / n, px = bx + (x - bx) * f, py = by + (y - by) * f, pz = h0 + (z - h0) * f + Math.sin(f * Math.PI) * 1.2;
+    flash(px, py, pz, 0.22 + 0.1 * f, 0.7, 0.9, 1); if (i % 3 === 0) puff(px, py, pz, 0.35, 0.9, 0.85, 0.35, 0.15); }
+  flash(x, y, z, s, 0.8, 0.95, 1); flash(x, y, z, s * 0.5, 1, 1, 1); sparks(x, y, z, 10, 2.5); if (typeof sfx === 'function') sfx('flak', x, y); }
 function inView(x, y) { const v = R3.view; return x > v.x0 && x < v.x1 && y > v.y0 && y < v.y1; }
 // ---------- per-frame ----------
 function r3Render(dt) {

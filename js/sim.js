@@ -592,6 +592,7 @@ function stepMissiles() { if (!G.missiles || !G.missiles.length) return;
   G.missiles = G.missiles.filter(ms => { const m = MIS[ms.k], s = (G.time - ms.t0) / ms.T, gx = ms.x0 + (ms.x1 - ms.x0) * s, gy = ms.y0 + (ms.y1 - ms.y0) * s;
     if (m.icpt && s > 0.45 && G.tick % 10 === ms.id % 10) { // top-tier AA (level-3 Flak Battery) can intercept small missiles on the way down
       for (const e of G.ents) if (e.kind === 'b' && e.t === 'aagun' && (e.lvl || 1) >= 3 && foe(e.team, ms.team) && e.hp > 0 && !e.offline && dhypot(e.x - gx, e.y - gy) < 9 && !(ms.tried = ms.tried || []).includes(e.id)) { ms.tried.push(e.id); if (G.R() < 0.4) { G.events.push({ e: 'intercept', x: gx, y: gy, team: e.team, ms }); return false; } } }
+    if (s > 0.45 && G.sm3 && G.sm3.length) for (const b of G.sm3) if (foe(b.team, ms.team) && dhypot(b.x - gx, b.y - gy) < SM3.r + 2 && !(ms.tried = ms.tried || []).includes(b.id)) { ms.tried.push(b.id); if (G.R() < SM3.p) { G.events.push({ e: 'intercept', x: gx, y: gy, team: b.team, ms, sm3: 1, bx: b.x, by: b.y }); return false; } } // v6.2 SM-3
     if (s < 1) return true;
     for (let k = 0; k < m.sub; k++) { const a = k * 2.39996 + G.R() * 0.5, rr = m.sub > 1 ? (k ? m.spread * (0.4 + 0.6 * G.R()) : 0) : 0, cx = ms.x1 + dcos(a) * rr, cy = ms.y1 + dsin(a) * rr;
       for (const e of G.ents) { if (e.hp <= 0 || (e.kind === 'u' && isAir(e))) continue; const d = dhypot(e.x - cx, e.y - cy) - (e.kind === 'b' ? Math.min(e.w, e.h) / 2 : 0); if (d < m.r) damage(e, m.dmg * (1 - 0.55 * Math.max(0, d) / m.r), { type: 'warhead' }, ms.team, null); }
@@ -646,7 +647,7 @@ function stepBuilding(b) {
   if (b.sell >= 0) { if (G.time - b.sell > 1.2) { P.cr += Math.floor(d.cost * 0.5 * b.hp / b.mhp); b.hp = 0; b.sold = true; } return; }
   if (b.repair && b.hp < b.mhp) { const dh = b.mhp * 0.04 * DT, c = d.cost * 0.4 * dh / b.mhp; if (P.cr >= c) { P.cr -= c; b.hp = Math.min(b.mhp, b.hp + dh); } }
   if (b.repair && b.hp >= b.mhp) b.repair = false;
-  if (b.upT != null && G.time - b.upT >= b.upDur) { b.upT = null; if (b.upKind === 'def') { P.defUp = true; G.ents.forEach(e => { if (e.team === b.team && UPG[e.t]) { e.mhp = Math.round(BT[e.t].hp * DEF_RESEARCH.hp); e.hp = Math.min(e.mhp, e.hp * DEF_RESEARCH.hp); } }); } else b.lvl = (b.lvl || 1) + 1; G.events.push({ e: 'upgraded', b, team: b.team }); }
+  if (b.upT != null && G.time - b.upT >= b.upDur) { b.upT = null; if (b.upKind === 'sm3') b.sm3 = true; else if (b.upKind === 'def') { P.defUp = true; G.ents.forEach(e => { if (e.team === b.team && UPG[e.t]) { e.mhp = Math.round(BT[e.t].hp * DEF_RESEARCH.hp); e.hp = Math.min(e.mhp, e.hp * DEF_RESEARCH.hp); } }); } else b.lvl = (b.lvl || 1) + 1; G.events.push({ e: 'upgraded', b, team: b.team }); }
   if (b.t === 'extractor' && G.time - b.born > 1.5 && b.sell < 0) { const m = 1; P.gas += GAS_RATE * DT * m * (P.pow < 0 ? 0.5 : 1); b.gasT = (b.gasT || 0) + DT; }
   if (b.t === 'silo' && b.mq && G.time - b.born > 1.5 && P.pow >= 0) { b.mq.p += DT; if (b.mq.p >= MIS[b.mq.k].time) { b.mis = b.mq.k; b.mq = null; G.events.push({ e: 'misReady', team: b.team, k: b.mis }); } }
   if (!d.wpn || G.time - b.born < 1.5) return;
@@ -743,8 +744,11 @@ function fire(e, w, t) {
   G.events.push({ e: 'fire', src: e, w });
 }
 function stepProjs() {
+  G.sm3 = G.ents.filter(b => b.sm3 && b.kind === 'b' && b.hp > 0 && b.sell < 0); // v6.2 SM-3 batteries (few)
   for (const p of G.projs) {
     if (p.delay > 0) { p.delay -= DT; continue; }
+    if (G.sm3.length && !p.ic && SM3_KIND[p.w.type]) for (const b of G.sm3) if (foe(b.team, p.team) && dhypot(b.x - p.x, b.y - p.y) < SM3.r) { p.ic = 1; if (G.R() < SM3.p) { p.done = true; if (p.tgt) p.tgt.inc = Math.max(0, (p.tgt.inc || 0) - (p.est || 0)); G.events.push({ e: 'icpt', x: p.x, y: p.y, z: p.z, bx: b.x, by: b.y, team: b.team, big: !!p.w.big }); } break; }
+    if (p.done) continue;
     if (p.home && p.tgt && p.tgt.hp > 0) { p.tx = p.tgt.x; p.ty = p.tgt.y; p.tz = p.tgt.kind === 'u' ? p.tgt.z : 0.5; }
     const dx = p.tx - p.x, dy = p.ty - p.y, d = dhypot(dx, dy), st = p.w.spd * DT;
     if (d <= st) { p.x = p.tx; p.y = p.ty; p.done = true; impact(p); continue; }
@@ -1004,6 +1008,7 @@ function defW(b) { const d = BT[b.t], P = G.players[b.team], l = b.lvl || 1, k =
   if (!_defWC[k]) { const base = W[d.wpn]; _defWC[k] = Object.assign({}, base, { dmg: Math.round(base.dmg * UPG_DMG[l - 1] * (P.defUp ? DEF_RESEARCH.dmg : 1)), rng: base.rng + UPG_RNG[l - 1] + (P.defUp ? DEF_RESEARCH.rng : 0) }); }
   return _defWC[k]; }
 function upgradeInfo(b) {
+  if (b.t === 'hq' || b.t === 'cc') { if (b.sm3 || b.upT != null || !hasBuilt(b.team, 'tech')) return null; return { cost: SM3.cost, gas: SM3.gas, time: SM3.time, kind: 'sm3' }; }
   if (b.t === 'tech') { const P = G.players[b.team]; if (P.defUp || b.upT != null) return null; return { cost: DEF_RESEARCH.cost, gas: DEF_RESEARCH.gas, time: DEF_RESEARCH.time, kind: 'def' }; }
   const u = UPG[b.t]; if (!u) return null; const l = b.lvl || 1; if (l >= 3) return null; return { cost: u[l - 1][0], time: u[l - 1][1], gas: u[l - 1][2] || 0, kind: 'lvl', next: l + 1 };
 }
