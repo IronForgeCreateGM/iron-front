@@ -2,7 +2,7 @@
 // ===== AI opponent =====
 // Each think: power check, build order (rebuilds losses), placement, harvesters,
 // counter-composition army, base defense, waves, harass, scouting.
-const AI_ORDER = ['power', 'barracks', 'refinery', 'power', 'factory', 'extractor', 'turret', 'refinery', 'power', 'tech', 'aagun', 'power', 'turret', 'airpad', 'power', 'turret', 'aagun', 'refinery', 'power'];
+const AI_ORDER = ['power', 'barracks', 'refinery', 'power', 'factory', 'extractor', 'turret', 'refinery', 'power', 'tech', 'aagun', 'power', 'turret', 'airfield', 'power', 'turret', 'aagun', 'refinery', 'power'];
 const AI_ORDER_CHIEF = ['power', 'barracks', 'refinery', 'power', 'extractor', 'factory', 'refinery', 'power', 'turret', 'refinery', 'tech', 'power', 'aagun', 'turret', 'power', 'airfield', 'power', 'turret', 'extractor', 'gcannon', 'aagun', 'power', 'refinery', 'power'];
 const facDef = (P, b) => b === 'tesla' && P.fac === 'fra' ? 'gatling' : b; // v5.9 France builds the Gatling Bastion where others build Teslas
 const AI_ORDER_SI = ['power', 'barracks', 'refinery', 'power', 'extractor', 'factory', 'refinery', 'turret', 'power', 'tech', 'refinery', 'aagun', 'power', 'power', 'tesla', 'airfield', 'turret', 'power', 'extractor', 'gcannon', 'aagun', 'power', 'power'];
@@ -70,7 +70,7 @@ function aiStep(P) {
   // money stall breaker: no harvesters and broke -> sell non-essential structures
   const realH = me.filter(e => e.t === 'harv').length;
   if (realH === 0 && P.cr < UT.harv.cost && G.time > S.sellT) {
-    const sac = ['airpad', 'tech', 'aagun', 'turret', 'wall'].map(t => myBld().find(b => b.t === t)).find(Boolean) || (cnt.barracks > 1 && myBld().find(b => b.t === 'barracks'));
+    const sac = ['airfield', 'tech', 'aagun', 'turret', 'wall'].map(t => myBld().find(b => b.t === t)).find(Boolean) || (cnt.barracks > 1 && myBld().find(b => b.t === 'barracks'));
     if (sac) { sellB(sac); S.sellT = G.time + 15; }
   }
   // v5.6: no construction yard left -> power can't be rebuilt; sell dark power consumers (defenses first) until the grid is positive
@@ -93,9 +93,9 @@ function aiStep(P) {
   if (P.cr > 300) {
     const myInf = me.filter(e => e.kind === 'u' && UT[e.t].armor === 'inf').length;
     const pq = c => Math.max(2, Math.ceil(producers(P.team, c) * (doc ? 1.5 : 1)));
-    if (P.queues.inf.length < pq('inf')) { const t = pick([['rifle', 2 + ft.inf], ['rocketeer', 1 + ft.armor * 1.5 + ft.air], ['sniper', ft.inf > 3 ? 1 + ft.inf * 0.25 : 0.2], ['pyro', 0.8 + ft.inf * 0.25], ['kommando', P.gas > 200 ? 1.5 : 0], ['marine', 8 + ft.inf * 0.5 + ft.armor * 0.3 + ft.air * 0.5], ['medic', myInf > 6 && (cnt.medic || 0) < 2 + myInf / 10 ? 1.2 : 0]]); if (t) enqueue(P.team, t); }
+    if (P.queues.inf.length < pq('inf')) { const t = pick([['rifle', 2 + ft.inf], ['rocketeer', 1 + ft.armor * 1.5 + ft.air], ['sniper', ft.inf > 3 ? 1 + ft.inf * 0.25 : 0.2], ['kommando', P.gas > 200 ? 1.5 : 0], ['marine', 8 + ft.inf * 0.5 + ft.armor * 0.3 + ft.air * 0.5], ['engineer', myInf > 6 && (cnt.engineer || 0) < 1 + myInf / 12 ? 0.8 : 0]]); if (t) enqueue(P.team, t); }
     if (P.queues.veh.length < pq('veh') && harvs >= Math.min(2, refs * 2)) {
-      const t = pick([['light', 3], ['heavy', 2 + ft.armor], ['titan', P.gas > 300 ? 1.5 + ft.air * 0.3 + (P.gas > 1200 ? 4 : 0) : 0], ['tsar', P.gas > 350 ? 2 + (P.gas > 1200 ? 4 : 0) : 0], ['scout', 1 + ft.inf * 0.5], ['arty', 1 + ft.inf * 0.4 + (S.towerHeavy ? 5 : S.siege ? 3 : 0)], ['aa', ft.air * 2]]);
+      const t = pick([['heavy', 5 + ft.armor], ['titan', P.gas > 300 ? 1.5 + ft.air * 0.3 + (P.gas > 1200 ? 4 : 0) : 0], ['tsar', P.gas > 350 ? 2 + (P.gas > 1200 ? 4 : 0) : 0], ['scout', 1 + ft.inf * 0.5], ['arty', 1 + ft.inf * 0.4 + (S.towerHeavy ? 5 : S.siege ? 3 : 0)], ['aa', ft.air * 2]]);
       if (t) enqueue(P.team, t);
     }
     const airN = (cnt.gunship || 0) + (cnt.jet || 0) + (cnt.intercept || 0) + (cnt.bomber || 0);
@@ -124,7 +124,7 @@ function aiStep(P) {
   // 7) harass enemy harvesters with fast units / gunships
   if (D.harass && G.time > D.harassAfter && peaceOver(P) && G.R() < D.harass * 0.15) {
     const fh = foes.find(f => f.t === 'harv');
-    const raiders = home.filter(u => u.t === 'scout' || u.t === 'gunship' || u.t === 'light').slice(0, 4);
+    const raiders = home.filter(u => u.t === 'scout' || u.t === 'gunship').slice(0, 4);
     if (fh && raiders.length >= 2) { orderAttack(raiders, fh); raiders.forEach(u => S.attackers.add(u.id)); if (S.firstAttackT == null) S.firstAttackT = G.time; }
   }
   // 7b) air strikes: jets/bombers hit eco & production when armed
@@ -155,6 +155,7 @@ function aiStep(P) {
   // 8b) defense upgrades when rich
   if (P.cr > 2500 && G.R() < 0.1) { const t = myB.find(b => UPG[b.t] && (b.lvl || 1) < 3 && b.upT == null); if (t) upgradeB(t); }
   if (P.cr > 3200 && G.time > 420 && (cnt.tech || 0) && G.R() < 0.06) { const t = myB.find(b => (b.t === 'hq' || b.t === 'cc') && !b.sm3 && b.upT == null); if (t) upgradeB(t); } // v6.2 bots buy SM-3 too (same price)
+  if (P.cr > 1400 && (G.tick % 90) === 0) { const af = myB.find(b => b.t === 'airfield' && !b.pads && b.upT == null); if (af && G.ents.filter(e => e.team === P.team && e.kind === 'u' && UT[e.t].jet).length >= 3) upgradeB(af); } // v6.2 Air Command extra pads when the jet wing outgrows 4 slots
   keepBusy(P, S, D, me, cnt, hq, intruders);
   // 9) repair damaged buildings
   for (const b of myB) if (b.hp < b.mhp * 0.6 && P.cr > (G.time > END_T ? 1500 : 500)) b.repair = true; else if (G.time > END_T && P.cr < 800) b.repair = false;
@@ -213,7 +214,7 @@ function threatsNear(P, foes, x, y, r) { return foes.filter(f => (f.kind === 'u'
 // macro manager: spending discipline (no float), production scaling
 function macroMgr(P, S, D, cnt, me) {
   const Y = D.sys; if (!Y.float || P.cr < Y.float) return;
-  const order = [['veh', ['heavy', 'light', 'arty', 'aa', 'titan', 'tsar']], ['inf', ['rocketeer', 'rifle', 'sniper', 'pyro', 'kommando', 'marine', 'marine']], ['air', ['gunship', 'intercept', 'jet', 'stealth']]];
+  const order = [['veh', ['heavy', 'heavy', 'arty', 'aa', 'titan', 'tsar']], ['inf', ['rocketeer', 'rifle', 'sniper', 'kommando', 'marine', 'marine']], ['air', ['gunship', 'intercept', 'jet', 'stealth']]];
   for (const [cat, list] of order) {
     const cap = Math.min(queueCap(P.team, cat), producers(P.team, cat) * 2);
     for (let k = 0; k < 4 && P.queues[cat].length < cap && P.cr > Y.float * 0.5; k++) { const ok = list.filter(t => avail(P.team, t) && P.gas >= (UT[t].gas || 0)); if (!ok.length) break; if (!enqueue(P.team, ok[(G.tick + k) % ok.length])) break; }
@@ -233,7 +234,7 @@ function chokePoint(P, hq, ef) {
 function harassMgr(P, S, D, me, foes, knownB, home, hq) {
   if (!D.sys.hsq || G.time < Math.max(D.harassAfter, 300) || !peaceOver(P)) return;
   S.hsq = (S.hsq || []).filter(u => u.hp > 0 && !u.dead);
-  if (S.hsq.length < 3 && G.time > (S.hsqT || 0)) { const add = home.filter(u => (u.t === 'scout' || u.t === 'light' || u.t === 'gunship') && !S.hsq.includes(u)).slice(0, 4 - S.hsq.length); if (S.hsq.length + add.length >= 3) { add.forEach(u => { S.hsq.push(u); S.attackers.add(u.id); }); S.hsqT = G.time + 45; } }
+  if (S.hsq.length < 3 && G.time > (S.hsqT || 0)) { const add = home.filter(u => (u.t === 'scout' || u.t === 'gunship') && !S.hsq.includes(u)).slice(0, 4 - S.hsq.length); if (S.hsq.length + add.length >= 3) { add.forEach(u => { S.hsq.push(u); S.attackers.add(u.id); }); S.hsqT = G.time + 45; } }
   if (!S.hsq.length || G.time < (S.hsqGo || 0)) return; S.hsqGo = G.time + 3;
   const c = S.hsq[0], danger = threatsNear(P, foes, c.x, c.y, 8);
   if (danger.length && combatSim(S.hsq, danger) < 0.8) { orderMove(S.hsq, hq.x, hq.y, false); S.hsq.forEach(u => S.attackers.delete(u.id)); S.hsq = []; S.hsqT = G.time + 60; return; }
@@ -254,7 +255,7 @@ function dropMgr(P, S, D, me, foes, knownB, home, hq) {
     if (!tr || !want || G.time < (S.dropT || 0)) return;
     if (S.siege && D.si && !(S.grp || []).length && !SIOFF.siege) return; // time drops with the main push
     const pool = home.filter(u => !isAir(u) && u.t !== 'harv' && UT[u.t].wpn && dhypot(u.x - hq.x, u.y - hq.y) < 20 && !(S.grp || []).includes(u));
-    const veh = pool.filter(u => u.t === 'heavy' || u.t === 'light' || u.t === 'titan').slice(0, 1), inf = pool.filter(u => UT[u.t].armor === 'inf' && u.t !== 'medic' && u.t !== 'engineer').slice(0, veh.length ? 4 : 8);
+    const veh = pool.filter(u => u.t === 'heavy' || u.t === 'titan').slice(0, 1), inf = pool.filter(u => UT[u.t].armor === 'inf' && u.t !== 'engineer').slice(0, veh.length ? 4 : 8);
     const team = veh.concat(inf); if (team.length < 3) return;
     orderMove([tr], hq.x, hq.y, false); orderBoard(team, tr); team.forEach(u => S.attackers.add(u.id)); S.drop = { tr: tr.id, ph: 'load', t0: G.time }; return; }
   const dr = S.drop, tr = byId(dr.tr);
@@ -612,7 +613,7 @@ function keepBusy(P, S, D, me, cnt, hq, intruders) {
     const t = (cnt.factory || 0) < 3 ? 'factory' : (cnt.barracks || 0) < 2 ? 'barracks' : (cnt.refinery || 0) < 4 && G.ore.some(o => o > 200) ? 'refinery' : avail(P.team, 'silo') && !(cnt.silo) && G.time > 900 ? 'silo' : (cnt.airfield || 0) < 2 && avail(P.team, 'airfield') ? 'airfield' : null;
     if (t && avail(P.team, t) && (S.bad[t] || 0) < G.time && aiSpot(P, t, hq, [])) enqueue(P.team, t);
   }
-  if (P.pow >= 0 && P.cr > 600) { for (const [c, t] of [['inf', 'rifle'], ['veh', 'light']]) if (producers(P.team, c) && P.queues[c].length < Math.min(5, producers(P.team, c) * 2) && (rich || idleFor > 15)) { const opts = c === 'inf' ? ['rifle', 'rocketeer', 'rifle', 'pyro'] : ['heavy', 'light', 'arty', 'heavy', 'titan', 'tsar']; const pk = opts.filter(x => avail(P.team, x)); if (pk.length) enqueue(P.team, pk[(G.R() * pk.length) | 0]); } }
+  if (P.pow >= 0 && P.cr > 600) { for (const [c, t] of [['inf', 'rifle'], ['veh', 'heavy']]) if (producers(P.team, c) && P.queues[c].length < Math.min(5, producers(P.team, c) * 2) && (rich || idleFor > 15)) { const opts = c === 'inf' ? ['rifle', 'rocketeer', 'rifle', 'pyro'] : ['heavy', 'heavy', 'arty', 'heavy', 'titan', 'tsar']; const pk = opts.filter(x => avail(P.team, x)); if (pk.length) enqueue(P.team, pk[(G.R() * pk.length) | 0]); } }
   // idle watchdog
   if (idleFor > 20) { S.busyT = G.time - 10;
     if (!(cnt.refinery) && avail(P.team, 'refinery')) enqueue(P.team, 'refinery');

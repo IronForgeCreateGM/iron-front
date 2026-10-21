@@ -388,13 +388,6 @@ const BLD_MODELS = {
     B.cyl('body', 0.12, 0.9, COL.DARK, PBR.DARKM, -1.05, 1.4, -1.1); B.glow('body', 0.06, 0.06, 0.06, COL.RED, -1.05, 1.88, -1.1);
     B.piv.smoke = [-1.05, 1.9, -1.1];
   },
-  airpad(B) {
-    B.cyl('body', 0.98, 0.14, COL.CONCD, PBR.CONC, 0, 0.07, 0, { seg: 8 }); B.cyl('body', 0.85, 0.03, COL.DARK, PBR.DARKM, 0, 0.155, 0, { seg: 8 });
-    B.box('body', 0.08, 0.01, 0.6, COL.LIGHT, PBR.PAINT, -0.22, 0.175, 0, { bevel: 0 }); B.box('body', 0.08, 0.01, 0.6, COL.LIGHT, PBR.PAINT, 0.22, 0.175, 0, { bevel: 0 }); B.box('body', 0.44, 0.01, 0.08, COL.LIGHT, PBR.PAINT, 0, 0.175, 0, { bevel: 0 });
-    B.torus('body', 0.72, 0.015, 'TA', PBR.GLOW2, 0, 0.17, 0, { rx: Math.PI / 2, seg: 32 });
-    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; B.glow('body', 0.05, 0.05, 0.05, i % 2 ? COL.GRN : 'T', Math.cos(a) * 0.9, 0.18, Math.sin(a) * 0.9); }
-    B.box('body', 0.3, 0.6, 0.3, COL.LIGHT, PBR.PAINT, 0.8, 0.3, -0.8); B.box('body', 0.34, 0.12, 0.34, COL.GLASS, PBR.GLASS, 0.8, 0.66, -0.8, { bevel: 0 });
-  },
   tech(B) {
     foundation(B, 2, 2);
     B.box('body', 1.6, 0.45, 1.6, COL.LIGHT, PBR.PAINT, 0, 0.36, 0); B.box('body', 1.64, 0.06, 1.64, 'T', PBR.PAINT, 0, 0.6, 0);
@@ -464,14 +457,18 @@ const BLD_MODELS = {
     B.box('head', 0.05, 0.16, 0.2, COL.LIGHT, PBR.METAL, -0.2, 0.22, 0); B.glow('head', 0.04, 0.04, 0.04, COL.GRN, -0.2, 0.32, 0);
     B.piv.tip = 0.5;
   },
-  airfield(B) {
-    B.box('body', 2.94, 0.1, 2.94, 0x3a3b3a, PBR.CONC, 0, 0.05, 0, { bevel: 0.04 });
-    B.box('body', 2.6, 0.02, 0.9, 0x2c2d2d, PBR.CONC, 0, 0.11, 0.6, { bevel: 0 });
-    for (let i = 0; i < 6; i++) B.box('body', 0.22, 0.01, 0.05, COL.WHITE, PBR.PAINT, -1.1 + i * 0.44, 0.125, 0.6, { bevel: 0 });
-    for (let i = 0; i < 8; i++) { B.glow('body', 0.05, 0.03, 0.05, i % 2 ? 0xffd27a : 'TA', -1.25 + i * 0.36, 0.13, 1.1); B.glow('body', 0.05, 0.03, 0.05, i % 2 ? 0xffd27a : 'TA', -1.25 + i * 0.36, 0.13, 0.1); }
-    B.cyl('body', 0.55, 1.6, 'T', PBR.PAINT, -0.5, 0.1, -0.75, { rz: Math.PI / 2, seg: 14 }); B.box('body', 0.03, 0.45, 0.9, COL.DARK, PBR.DARKM, 0.31, 0.3, -0.75);
-    B.box('body', 0.4, 0.8, 0.4, COL.LIGHT, PBR.PAINT, 1.1, 0.45, -0.95); B.box('body', 0.5, 0.18, 0.5, COL.GLASS, PBR.GLASS, 1.1, 0.95, -0.95, { bevel: 0.02 }); B.cyl('body', 0.01, 0.4, COL.GUN, PBR.DARKM, 1.1, 1.25, -0.95, { seg: 4 });
-    B.piv.spin = [1.1, 1.06, -0.95]; B.box('spin', 0.4, 0.04, 0.05, COL.LIGHT, PBR.METAL, 0, 0, 0); B.glow('spin', 0.03, 0.03, 0.03, COL.RED, 0.2, 0.02, 0);
+  airfield(B) { // v6.2 Air Command (4x3): runway along the front, 4 helipads at the back (2 lit + 2 add-on), hangar + control tower
+    B.box('body', 3.94, 0.1, 2.94, 0x3a3b3a, PBR.CONC, 0, 0.05, 0, { bevel: 0.04 });
+    B.box('body', 3.7, 0.02, 0.9, 0x2c2d2d, PBR.CONC, 0, 0.11, 0.75, { bevel: 0 });
+    for (let i = 0; i < 8; i++) B.box('body', 0.22, 0.01, 0.05, COL.WHITE, PBR.PAINT, -1.55 + i * 0.44, 0.125, 0.75, { bevel: 0 });
+    for (let i = 0; i < 10; i++) for (const z of [1.25, 0.25]) B.glow('body', 0.05, 0.03, 0.05, i % 2 ? 0xffd27a : 'TA', -1.7 + i * 0.38, 0.13, z);
+    B.cyl('body', 0.5, 1.05, 'T', PBR.PAINT, -1.38, 0.1, -0.78, { rz: Math.PI / 2, seg: 14 }); B.box('body', 0.03, 0.4, 0.8, COL.DARK, PBR.DARKM, -0.84, 0.28, -0.78);
+    for (const [x, add] of [[-0.45, 1], [0.25, 0], [0.95, 0], [1.65, 1]]) {
+      B.cyl('body', 0.32, 0.06, COL.CONCD, PBR.CONC, x, 0.13, -0.75, { seg: 12 }); B.cyl('body', 0.27, 0.02, COL.DARK, PBR.DARKM, x, 0.17, -0.75, { seg: 12 });
+      B.box('body', 0.04, 0.01, 0.26, add ? 0xe0b020 : COL.LIGHT, PBR.PAINT, x - 0.08, 0.185, -0.75, { bevel: 0 }); B.box('body', 0.04, 0.01, 0.26, add ? 0xe0b020 : COL.LIGHT, PBR.PAINT, x + 0.08, 0.185, -0.75, { bevel: 0 }); B.box('body', 0.16, 0.01, 0.04, add ? 0xe0b020 : COL.LIGHT, PBR.PAINT, x, 0.185, -0.75, { bevel: 0 });
+      B.torus('body', 0.3, 0.012, add ? 0xe0b020 : 'TA', PBR.GLOW2, x, 0.17, -0.75, { rx: Math.PI / 2, seg: 24 }); }
+    B.box('body', 0.34, 0.85, 0.34, COL.LIGHT, PBR.PAINT, -1.75, 0.5, -0.2); B.box('body', 0.44, 0.18, 0.44, COL.GLASS, PBR.GLASS, -1.75, 1.0, -0.2, { bevel: 0.02 }); B.cyl('body', 0.01, 0.4, COL.GUN, PBR.DARKM, -1.75, 1.3, -0.2, { seg: 4 });
+    B.piv.spin = [-1.75, 1.11, -0.2]; B.box('spin', 0.4, 0.04, 0.05, COL.LIGHT, PBR.METAL, 0, 0, 0); B.glow('spin', 0.03, 0.03, 0.03, COL.RED, 0.2, 0.02, 0);
   },
   cc(B) { BLD_MODELS.hq(B); for (const [x, z] of [[-1.2, -1.2], [1.2, -1.2]]) { B.cyl('body', 0.03, 1.4, COL.STEEL, PBR.METAL, x, 1.2, z, { seg: 6 }); B.glow('body', 0.06, 0.06, 0.06, 'TA', x, 1.92, z); } },
   extractor(B) {

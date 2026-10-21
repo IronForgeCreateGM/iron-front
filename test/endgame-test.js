@@ -23,7 +23,7 @@ function play(g) {
       if (P.pow < 0 && P.cr >= BT.power.cost) { s.neg++; if (s.neg > s.negMax) { s.negMax = s.neg; s.negAt = t; } } else s.neg = 0;
       let k = 0; for (const c in P.queues) for (const it of P.queues[c]) k += (it.prog || 0) + 1; const prod = k !== s.k; s.k = k;
       const fight = A.G.ents.some(e => e.team === P.team && e.kind === 'u' && e.t !== 'harv' && UT[e.t].wpn && (e.tgt || e.order === 'move' || e.order === 'attack'));
-      const canAct = A.G.ents.some(e => e.team === P.team && e.kind === 'b' && e.hp > 0 && ['hq', 'cc', 'barracks', 'factory', 'airfield', 'airpad'].includes(e.t)) || A.G.ents.some(e => e.team === P.team && e.kind === 'u' && e.t !== 'harv' && UT[e.t].wpn);
+      const canAct = A.G.ents.some(e => e.team === P.team && e.kind === 'b' && e.hp > 0 && ['hq', 'cc', 'barracks', 'factory', 'airfield'].includes(e.t)) || A.G.ents.some(e => e.team === P.team && e.kind === 'u' && e.t !== 'harv' && UT[e.t].wpn);
       if (!prod && !fight && canAct && P.cr >= 100) { s.idle++; if (s.idle > s.idleMax) { s.idleMax = s.idle; s.idleAt = t; } } else s.idle = 0; }
   }
   return { g: `${g.map} seed ${g.seed} [${g.A.join(',')}] vs [${g.B.join(',')}]`, over: !!A.G.over, win: A.G.winAlly, min: +(A.G.time / 60).toFixed(1), st };

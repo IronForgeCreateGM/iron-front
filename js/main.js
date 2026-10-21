@@ -117,8 +117,8 @@ window.addEventListener('DOMContentLoaded', () => {
     for (const [t, x, y] of [['power', 4, 12], ['barracks', 11, 3], ['refinery', 11, 12], ['factory', 15, 6], ['tech', 3, 15]]) addB(t, 0, x, y, true).born = -10;
     const v = G.vents[0]; addB('extractor', 0, v[0], v[1], true).born = -10; addB('gcannon', 0, 16, 14, true).born = -10; const tu = addB('turret', 0, 19, 12, true); tu.born = -10; tu.lvl = 3;
     const mk = (t, tm, x, y) => addU(t, tm, x, y);
-    const a0 = [], a1 = []; ['titan', 'kommando', 'rifle', 'sniper', 'pyro', 'medic', 'rocketeer', 'rifle', 'heavy', 'rifle'].forEach((t, i) => a0.push(mk(t, 0, 19 + (i % 4) * 0.9, 19 + (i / 4 | 0) * 0.9)));
-    ['tsar', 'rifle', 'rifle', 'rocketeer', 'pyro', 'kommando', 'light', 'rifle', 'sniper'].forEach((t, i) => a1.push(mk(t, 1, 26 + (i % 3) * 0.9, 25 + (i / 3 | 0) * 0.9)));
+    const a0 = [], a1 = []; ['titan', 'kommando', 'rifle', 'sniper', 'rocketeer', 'engineer', 'rocketeer', 'rifle', 'heavy', 'rifle'].forEach((t, i) => a0.push(mk(t, 0, 19 + (i % 4) * 0.9, 19 + (i / 4 | 0) * 0.9)));
+    ['tsar', 'rifle', 'rifle', 'rocketeer', 'rifle', 'kommando', 'heavy', 'rifle', 'sniper'].forEach((t, i) => a1.push(mk(t, 1, 26 + (i % 3) * 0.9, 25 + (i / 3 | 0) * 0.9)));
     for (let i = 0; i < 30; i++) stepGame(); orderMove(a0, 24, 23, true); orderMove(a1, 21, 21, true);
     for (let i = 0; i < 30 * (+QS.get('v34') || 5); i++) stepGame(); G.events.length = 0;
     R3.cam.td = R3.cam.d = +(QS.get('zoom') || 16); jumpTo(+(QS.get('cx') || 22), +(QS.get('cy') || 21), true); paused = !!QS.get('freeze');
@@ -126,7 +126,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (QS.get('showcase')) { startGame('easy', { seed: 4242 }); const P = G.players[0]; P.cr = 99999;
     for (const [t, x, y] of [['power', 4, 12], ['power', 1, 9], ['power', 4, 2], ['barracks', 11, 3], ['refinery', 11, 12], ['factory', 15, 6], ['tech', 3, 15]]) addB(t, 0, x, y, true).born = -10;
     const t1 = addB('turret', 0, 16, 14, true), t2 = addB('turret', 0, 19, 11, true), t3 = addB('aagun', 0, 18, 15, true); t1.lvl = 3; t2.lvl = 2; [t1, t2, t3].forEach(b => b.born = -10);
-    const army = []; ['heavy', 'heavy', 'light', 'light', 'rifle', 'rifle', 'rocketeer', 'rocketeer', 'rifle', 'arty', 'aa', 'arty'].forEach((t, i) => army.push(addU(t, 0, 14 + (i % 4), 18 + (i / 4 | 0))));
+    const army = []; ['heavy', 'heavy', 'heavy', 'scout', 'rifle', 'rifle', 'rocketeer', 'rocketeer', 'rifle', 'arty', 'aa', 'arty'].forEach((t, i) => army.push(addU(t, 0, 14 + (i % 4), 18 + (i / 4 | 0))));
     for (let i = 0; i < 30; i++) stepGame(); orderFormation(army, 20, 20, Math.PI / 4); for (let i = 0; i < 30 * 12; i++) stepGame();
     G.events.length = 0; setSel([t1]); R3.cam.td = R3.cam.d = 19; jumpTo(17, 15.5, true); paused = false;
   } else
@@ -148,7 +148,7 @@ window.addEventListener('DOMContentLoaded', () => {
     for (let i = 0; i < 30 * (+QS.get('warhead') || 5); i++) stepGame();
     R3.cam.td = R3.cam.d = +(QS.get('zoom') || 30); jumpTo(+(QS.get('cx') || 25), +(QS.get('cy') || 25), true); paused = !!QS.get('freeze');
   } else
-  if (QS.get('battle')) { startGame('normal', { demo: 1, seed: 4242 }); G.opts.fog = false; const types = ['heavy', 'rifle', 'rocketeer', 'light', 'titan', 'arty', 'gunship', 'heavy', 'pyro', 'aa'];
+  if (QS.get('battle')) { startGame('normal', { demo: 1, seed: 4242 }); G.opts.fog = false; const types = ['heavy', 'rifle', 'rocketeer', 'scout', 'titan', 'arty', 'gunship', 'heavy', 'rifle', 'aa'];
     const A = [], B = []; for (let i = 0; i < 60; i++) { const tm = i % 2, t = types[(i >> 1) % types.length], p = nearFree(40 + (tm ? 7 : -7) + (i >> 1) % 4, 40 + ((i >> 3) % 8), 6); (tm ? B : A).push(addU(t, tm, p[0] + 0.5, p[1] + 0.5)); }
     orderMove(A, 48, 44, true); orderMove(B, 32, 44, true); for (let i = 0; i < 30 * (+QS.get('battle') || 4); i++) stepGame();
     R3.cam.td = R3.cam.d = 20; jumpTo(40, 40, true); paused = false;
@@ -158,7 +158,7 @@ window.addEventListener('DOMContentLoaded', () => {
     for (let i = 0; i < 30; i++) stepGame(); orderMove(ts, 31, 33, false); for (let i = 0; i < 30 * (+QS.get('titan') || 2.5); i++) stepGame();
     R3.cam.td = R3.cam.d = 15; jumpTo(ts[0].x + 1, ts[0].y, true); setSel(ts.slice(0, 2)); paused = false;
   } else
-  if (QS.get('stress')) { startGame('normal', { demo: 1, seed: 4242 }); const n = +QS.get('stress'), types = ['rifle', 'rocketeer', 'light', 'heavy', 'arty', 'aa', 'scout', 'gunship'];
+  if (QS.get('stress')) { startGame('normal', { demo: 1, seed: 4242 }); const n = +QS.get('stress'), types = ['rifle', 'rocketeer', 'scout', 'heavy', 'arty', 'aa', 'scout', 'gunship'];
     for (let i = 0; i < n; i++) { const tm = i % 2, t = types[i % types.length]; const p = nearFree(28 + (tm ? 6 : -6) + (i % 7), 30 + ((i / 7) | 0) % 10, 6); addU(t, tm, p[0] + 0.5, p[1] + 0.5); }
     G.opts.fog = false; R3.cam.td = R3.cam.d = 34; jumpTo(32, 32, true);
     const ts = []; let k = 0; const tick = () => { const t0 = performance.now(); stepGame(); uiFrame(1 / 60); r3Render(1 / 60); ts.push(performance.now() - t0); if (++k < 90) setTimeout(tick, 0); else { ts.sort((a, b) => a - b); document.title = 'STRESS units=' + G.ents.filter(e => e.kind === 'u').length + ' median ms=' + ts[45].toFixed(1) + ' draws=' + R3.renderer.info.render.calls; } };

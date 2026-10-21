@@ -18,7 +18,7 @@ if (on('marine')) {
   chk('...no re-acquire while the move is running (even with the enemy in range)', !reacq && arrived > 0, 'arrived after ' + (arrived / 30).toFixed(1) + 's');
   chk('arrives, then re-engages nearby enemies (short pull-back feel kept)', Math.hypot(m.x - 32.5, m.y - 44.5) < 2.6 && m.tgt === e1, `at ${m.x.toFixed(1)},${m.y.toFixed(1)} tgt=${m.tgt && m.tgt.t}`);
   // armor vs tanks / aircraft and splash
-  fresh('bra', 'rus'); const mk = () => A.addU('marine', 0, 40, 40), tank = A.addU('light', 1, 44, 40), jet = A.addU('jet', 1, 44, 44);
+  fresh('bra', 'rus'); const mk = () => A.addU('marine', 0, 40, 40), tank = A.addU('heavy', 1, 44, 40), jet = A.addU('jet', 1, 44, 44);
   const hit = (srcU, w) => { const t = mk(); t.nb = 0; const h = t.hp; A.damage(t, 100, w, 1, srcU); const d = h - t.hp; t.hp = 0; return d; };
   const rf = A.addU('rifle', 1, 46, 46); const dT = hit(tank, W.lcannon), dR = hit(rf, W.lcannon), dJ = hit(jet, W.jbomb);
   chk('marine takes 15% less from tanks than the same weapon from infantry*veh', Math.abs(dT / (dR * MAR.veh) - 0.85) < 0.01, `tank ${dT.toFixed(1)} vs ${(dR * MAR.veh).toFixed(1)}`);
@@ -67,5 +67,33 @@ if (on('sm3')) {
   chk('SM-3 shoots down ~50% of superweapon warheads/missiles too', mi / 200 > 0.38 && mi / 200 < 0.62, (mi / 2).toFixed(1) + '%');
   const sameRun = () => { fresh('usa', 'rus'); const h = A.G.ents.find(e => e.team === 0 && e.t === 'hq'); h.sm3 = true; let r = ''; for (let k = 0; k < 40; k++) { A.G.projs.push({ id: A.G.nid++, x: h.x + 9.5, y: h.y, z: 1, sx: h.x, sy: h.y, w: W.rocket, team: 1, tgt: null, src: null, est: 0, home: false, tx: h.x, ty: h.y, tz: 0.5, delay: 0, kind: 'rocket' }); A.stepGame(); r += A.G.events.some(e => e.e === 'icpt') ? 1 : 0; A.G.events.length = 0; } return r; };
   chk('intercept rolls use the seeded sim RNG (deterministic)', sameRun() === sameRun());
+}
+// ===== 5. Air Command =====
+if (on('air')) {
+  chk('Helipad removed, Airfield is now the 4x3 Air Command', !BT.airpad && BT.airfield.n === 'Air Command' && BT.airfield.w === 4 && BT.airfield.h === 3);
+  chk('one queue builds every aircraft', Object.keys(UT).filter(k => UT[k].air).every(k => UT[k].from === 'airfield'), Object.keys(UT).filter(k => UT[k].air).map(k => k + ':' + UT[k].from).join(' '));
+  fresh('usa', 'rus'); tech(0); const af = A.addB('airfield', 0, 60, 60, true); run(2);
+  const jets = []; for (let i = 0; i < 6; i++) { const j = A.addU('jet', 0, 50 + i, 50); j.ammo = 0; j.hp = 100; jets.push(j); } run(25);
+  const landed = () => jets.filter(j => j.js === 'landed').length; const l4 = landed();
+  chk('4 dock slots: 4 jets land, the rest wait', l4 === 4, 'landed ' + l4 + '/6');
+  chk('docked jets rearm + get repaired', jets.filter(j => j.js === 'landed' && j.ammo > 0 && j.hp > 300).length === 4, jets.map(j => j.js + '/' + j.ammo + '/' + Math.round(j.hp)).join(' '));
+  A.G.players[0].cr = 5000; chk('Extra Pads add-on purchasable', A.upgradeB(af)); run(BT.airfield && AIRPADS.time + 22);
+  chk('Extra Pads: 8 slots, all 6 jets docked', af.pads && landed() === 6, 'landed ' + landed());
+  const slots = new Set(jets.map(j => j.dockK)); chk('every jet has its own slot', slots.size === 6);
+}
+// ===== 6/7. MBT + infantry =====
+if (on('mbt')) {
+  chk('Lancer+Bastion merged into one MBT', !UT.light && UT.heavy && UT.heavy.cost === 1050 && UT.heavy.hp === 590 && UT.heavy.sp === 1.8, UT.heavy.n);
+  chk('Pyro and Field Medic removed', !UT.pyro && !UT.medic);
+  chk('faction tanks kept', ['titan', 'tsar'].every(k => UT[k]));
+  fresh('usa', 'rus'); const pw = A.G.ents.find(e => e.team === 0 && e.t === 'hq'); pw.hp = pw.mhp * 0.3; const en = A.addU('engineer', 0, pw.x + 3.5, pw.y + 2.5); run(40);
+  chk('engineer auto-repairs a damaged building and is not used up', pw.hp > pw.mhp * 0.85 && en.hp > 0 && A.G.ents.includes(en), Math.round(pw.hp) + '/' + pw.mhp);
+  pw.hp = pw.mhp; const tk = A.addU('heavy', 0, en.x + 1.5, en.y); tk.hp = 200; const h0 = tk.hp; run(5); const per = (tk.hp - h0) / 5;
+  chk('engineer heals nearby units (slower than buildings)', per > 3 && per < UT.engineer.rep, per.toFixed(1) + ' hp/s vs ' + UT.engineer.rep + ' hp/s on buildings');
+  // bots: build orders reference only existing types
+  const bad = []; for (const arr of [AI_ORDER, AI_ORDER_CHIEF, AI_ORDER_SI, AI_ORDER_AIR]) for (const b of arr) if (!BT[b]) bad.push(b); chk('bot build orders only use existing buildings', !bad.length, bad.join(','));
+  fresh('usa', 'rus', [0, 1], 5); for (let i = 0; i < 30 * 600; i++) { A.stepGame(); A.G.events.length = 0; }
+  const ty = {}; A.G.ents.forEach(e => { if (e.kind === 'u') ty[e.t] = (ty[e.t] || 0) + 1; }); const af = A.G.ents.filter(e => e.t === 'airfield').length;
+  chk('bots field MBTs and no removed units after 10 min', (ty.heavy || 0) > 0 && !ty.light && !ty.pyro && !ty.medic, JSON.stringify(ty) + ' aircmd=' + af);
 }
 console.log(ok ? 'V62 OK' : 'V62 FAIL'); process.exit(ok ? 0 : 1);

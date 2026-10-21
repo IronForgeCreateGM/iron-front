@@ -41,7 +41,7 @@ function newGame(opts) {
     addB('hq', t, x, y, true);
     addU('harv', t, sx + dx * 3, sy + dy * 3);
     for (let i = 0; i < 3; i++) addU('rifle', t, sx + dx * (3 + i * 0.6), sy + dy * 4.2);
-    addU('light', t, sx + dx * 4.5, sy + dy * 1.5);
+    addU('heavy', t, sx + dx * 4.5, sy + dy * 1.5);
   });
   // v5.0 capturable oil derricks (neutral map features): an Engineer captures one; owner gets a trickle of credits
   G.derricks = []; for (const [x, y] of G.dkPos ? [] : G.six ? [[25, 25], [40, 21], [24, 47]] : [[25, 25], [40, 21]]) for (const [a, b] of [[x, y], [MW - 1 - x, y], [x, MH - 1 - y], [MW - 1 - x, MH - 1 - y]]) { const f = nearFree(a, b, 6); if (!G.derricks.some(d => dhypot(d.x - f[0] - 0.5, d.y - f[1] - 0.5) < 3)) G.derricks.push({ id: G.derricks.length, x: f[0] + 0.5, y: f[1] + 0.5, owner: -1 }); }
@@ -410,7 +410,7 @@ function cancel(team, t) {
   return false;
 }
 // producers per queue category; unit queues hold 6 per producer and build in parallel (one item per producer)
-const CAT_SRC = { inf: ['barracks'], veh: ['factory'], air: ['airpad', 'airfield'] };
+const CAT_SRC = { inf: ['barracks'], veh: ['factory'], air: ['airfield'] };
 function producers(team, cat) { const src = CAT_SRC[cat]; if (!src) return 1; let n = 0; for (const e of G.ents) if (e.kind === 'b' && e.team === team && src.includes(e.t) && e.sell < 0 && G.time - e.born > 1.5) n++; return n; }
 function queueCap(team, cat) { return cat === 'bld' ? 1 : cat === 'def' ? 5 : 6 * Math.max(1, producers(team, cat)); }
 function stepProduction(P) {
@@ -628,7 +628,7 @@ function stepGame() {
   for (const P of G.players) if (P.ai && typeof aiStep === 'function') aiStep(P);
   if (G.tick % 6 === 0) updFog();
   if (G.tick % 15 === 0) {
-    const KEY = { hq: 1, cc: 1, barracks: 1, factory: 1, airfield: 1, airpad: 1, refinery: 1, tech: 1 };
+    const KEY = { hq: 1, cc: 1, barracks: 1, factory: 1, airfield: 1, refinery: 1, tech: 1 };
     for (const P of G.players) if (!P.out && !G.ents.some(e => e.team === P.team && e.kind === 'b' && KEY[e.t])) { P.out = true; G.events.push({ e: 'eliminated', team: P.team }); for (const e of G.ents) if (e.team === P.team && e.kind === 'b') e.hp = 0; }
     const live = new Set(G.players.filter(P => !P.out).map(P => P.ally)), me = G.players[ME] ? G.players[ME].ally : 0;
     if (live.size <= 1) { G.winAlly = [...live][0]; G.over = G.winAlly === me ? 'victory' : 'defeat'; }
@@ -647,7 +647,7 @@ function stepBuilding(b) {
   if (b.sell >= 0) { if (G.time - b.sell > 1.2) { P.cr += Math.floor(d.cost * 0.5 * b.hp / b.mhp); b.hp = 0; b.sold = true; } return; }
   if (b.repair && b.hp < b.mhp) { const dh = b.mhp * 0.04 * DT, c = d.cost * 0.4 * dh / b.mhp; if (P.cr >= c) { P.cr -= c; b.hp = Math.min(b.mhp, b.hp + dh); } }
   if (b.repair && b.hp >= b.mhp) b.repair = false;
-  if (b.upT != null && G.time - b.upT >= b.upDur) { b.upT = null; if (b.upKind === 'sm3') b.sm3 = true; else if (b.upKind === 'def') { P.defUp = true; G.ents.forEach(e => { if (e.team === b.team && UPG[e.t]) { e.mhp = Math.round(BT[e.t].hp * DEF_RESEARCH.hp); e.hp = Math.min(e.mhp, e.hp * DEF_RESEARCH.hp); } }); } else b.lvl = (b.lvl || 1) + 1; G.events.push({ e: 'upgraded', b, team: b.team }); }
+  if (b.upT != null && G.time - b.upT >= b.upDur) { b.upT = null; if (b.upKind === 'sm3') b.sm3 = true; else if (b.upKind === 'pads') b.pads = true; else if (b.upKind === 'def') { P.defUp = true; G.ents.forEach(e => { if (e.team === b.team && UPG[e.t]) { e.mhp = Math.round(BT[e.t].hp * DEF_RESEARCH.hp); e.hp = Math.min(e.mhp, e.hp * DEF_RESEARCH.hp); } }); } else b.lvl = (b.lvl || 1) + 1; G.events.push({ e: 'upgraded', b, team: b.team }); }
   if (b.t === 'extractor' && G.time - b.born > 1.5 && b.sell < 0) { const m = 1; P.gas += GAS_RATE * DT * m * (P.pow < 0 ? 0.5 : 1); b.gasT = (b.gasT || 0) + DT; }
   if (b.t === 'silo' && b.mq && G.time - b.born > 1.5 && P.pow >= 0) { b.mq.p += DT; if (b.mq.p >= MIS[b.mq.k].time) { b.mis = b.mq.k; b.mq = null; G.events.push({ e: 'misReady', team: b.team, k: b.mis }); } }
   if (!d.wpn || G.time - b.born < 1.5) return;
@@ -798,7 +798,7 @@ function stepUnit(u) {
   if (d.engineer && u.order === 'capture') {
     const t = u.tgt; if (!t || t.hp <= 0) { u.order = 'idle'; u.tgt = null; }
     else if (distTo(u, t) < 0.8) {
-      if (t.team === u.team) { t.hp = t.mhp; } else { G.events.push({ e: 'capture', b: t, team: u.team }); t.team = u.team; t.tgt = null; G.bver++; }
+      if (t.team === u.team) { u.order = 'idle'; u.tgt = null; u.healT = t; u.anchor = { x: u.x, y: u.y }; return; } else { G.events.push({ e: 'capture', b: t, team: u.team }); t.team = u.team; t.tgt = null; G.bver++; }
       u.hp = 0; u.sold = true; return;
     } else if (!u.path.length) setPath(u, t.x, t.y);
   }
@@ -809,6 +809,7 @@ function stepUnit(u) {
   if (d.heal) medic(u, d);
   if (d.marine && (G.tick + u.id) % 15 === 0) { let n = 0; for (const o of G.ents) if (o !== u && o.kind === 'u' && o.t === 'marine' && o.team === u.team && o.hp > 0 && dhypot(o.x - u.x, o.y - u.y) < MAR.rad && ++n >= MAR.cap) break; u.nb = n; }
   if (d.regen && u.hp < u.mhp) u.hp = Math.min(u.mhp, u.hp + d.regen * DT);
+  if (d.air && u.hp < u.mhp && (G.tick + u.id) % 15 === 0 && (u.js === 'landed' || !u.path.length)) { for (const b of G.ents) if (b.t === 'airfield' && b.team === u.team && b.kind === 'b' && b.sell < 0 && b.hp > 0 && Math.abs(b.x - u.x) < 2.6 && Math.abs(b.y - u.y) < 2.1) { u.hp = Math.min(u.mhp, u.hp + u.mhp * 0.04); if (!(G.tick % 30)) G.events.push({ e: 'heal', x: u.x, y: u.y, src: b, rep: 1 }); break; } } // v6.2 Air Command repairs docked aircraft (8%/s)
   if (d.jet && jetStep(u, d)) return;
   if (u.order === 'move' && !u.path.length && !(u.wq && u.wq.length) && !d.air) { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; } // v6.2: an unreachable plain move must not leave a unit inert (no acquire while 'move')
   let engaged = false;
@@ -849,14 +850,23 @@ function stepUnit(u) {
   if (d.jet) u.z += ((u.js === 'landed' ? 0.32 : 3.4) - u.z) * 0.05;
   else if (d.air) u.z = 2.6 + dsin(G.time * 2 + u.id) * 0.1;
 }
-function airBase(u) { let b = null, bd = 1e9; for (const e of G.ents) if (e.team === u.team && e.kind === 'b' && (e.t === 'airfield' || e.t === 'airpad') && e.sell < 0) { const d = dhypot(e.x - u.x, e.y - u.y) + (e.t === 'airfield' ? 0 : 6); if (d < bd) { bd = d; b = e; } } return b || G.ents.find(e => e.team === u.team && e.t === 'hq'); }
+function airSlots(b) { return b.pads ? 8 : 4; }
+function airBase(u) { // v6.2 Air Command: keep my dock slot; else nearest base with a free slot (else nearest, wait)
+  if (u.dockB != null) { const b = byId(u.dockB); if (b && b.hp > 0 && b.sell < 0 && b.team === u.team && b.t === 'airfield' && u.dockK < airSlots(b)) return b; u.dockB = null; }
+  let best = null, bd = 1e9, any = null, ad = 1e9;
+  for (const e of G.ents) if (e.team === u.team && e.kind === 'b' && e.t === 'airfield' && e.sell < 0 && e.hp > 0) { const d = dhypot(e.x - u.x, e.y - u.y); if (d < ad) { ad = d; any = e; }
+    if (d < bd && airFree(e, u) >= 0) { bd = d; best = e; } }
+  if (best) { u.dockB = best.id; u.dockK = airFree(best, u); return best; }
+  return any || G.ents.find(e => e.team === u.team && e.t === 'hq'); }
+function airFree(b, u) { const used = new Set(); for (const o of G.ents) if (o !== u && o.kind === 'u' && o.hp > 0 && o.dockB === b.id) used.add(o.dockK); for (let k = 0; k < airSlots(b); k++) if (!used.has(k)) return k; return -1; }
+function airPark(u, b) { if (b.t === 'airfield' && u.dockB === b.id) { const s = AIR_SLOTS[u.dockK] || [0, 0]; return { x: b.x + s[0], y: b.y + s[1] }; } if (b.t !== 'airfield') return { x: b.x + ((u.id % 3) - 1) * 0.8, y: b.y + 0.3 }; const a = u.id * 2.4; return { x: b.x + dcos(a) * 2.8, y: b.y + dsin(a) * 2.8, wait: 1 }; }
 function jetStep(u, d) {
   const w = W[d.wpn]; if (u.ammo == null) u.ammo = w.ammo;
   if (u.js === 'rtb' || (u.ammo <= 0 && u.js !== 'landed')) {
     const b = airBase(u); if (!b) return false;
-    const px = b.x + ((u.id % 3) - 1) * 0.8, py = b.y + 0.3;
+    const pk = airPark(u, b), px = pk.x, py = pk.y;
     if (u.js !== 'rtb') { u.js = 'rtb'; u.tgt = null; u.order = 'rtb'; u.wq = []; setPath(u, px, py); }
-    if (dhypot(u.x - px, u.y - py) < 0.4) { u.js = 'landed'; u.path = []; u.order = 'idle'; u.reloadT = 0; u.anchor = { x: u.x, y: u.y }; }
+    if (dhypot(u.x - px, u.y - py) < 0.4 && !pk.wait) { u.js = 'landed'; u.path = []; u.order = 'idle'; u.reloadT = 0; u.anchor = { x: u.x, y: u.y }; }
     else if (!u.path.length) setPath(u, px, py);
     return false;
   }
@@ -868,12 +878,17 @@ function jetStep(u, d) {
   if (u.order === 'idle' && !u.tgt && !u.path.length && (G.tick + u.id) % 60 === 0) { const b = airBase(u); if (b && dhypot(b.x - u.x, b.y - u.y) > 2.5) u.js = 'rtb'; else if (b) { u.js = 'rtb'; } }
   return false;
 }
-function medic(u, d) {
-  if ((G.tick + u.id) % 15 === 0) { let best = null, bs = 0; for (const o of G.ents) if (o.team === u.team && o.kind === 'u' && UT[o.t].armor === 'inf' && o.hp < o.mhp && o.hp > 0) { const dd = dhypot(o.x - u.x, o.y - u.y); if (dd < 7) { const sc = (1 - o.hp / o.mhp) * 10 - dd; if (!best || sc > bs) { bs = sc; best = o; } } } u.healT = best; }
-  const o = u.healT; if (!o || o.hp <= 0 || o.hp >= o.mhp) { u.healT = null; return; }
-  const dd = dhypot(o.x - u.x, o.y - u.y);
-  if (dd > 1.6) { if ((u.order === 'idle' || u.order === 'amove') && (!u.path.length || (G.tick + u.id) % 20 === 0)) setPath(u, o.x, o.y); }
-  else { if (u.order === 'idle') u.path = []; o.hp = Math.min(o.mhp, o.hp + d.heal * DT); if ((G.tick + u.id) % 15 === 0) G.events.push({ e: 'heal', x: o.x, y: o.y, src: u }); }
+function medic(u, d) { // v6.2 Engineer: auto-repair damaged buildings (fast) and heal nearby ground units (slower); never used up
+  if (u.order !== 'idle' && u.order !== 'amove') { u.healT = null; return; }
+  if ((G.tick + u.id) % 15 === 0) { let best = null, bs = -1e9;
+    for (const o of G.ents) { if (o.team !== u.team || o.hp <= 0 || o.hp >= o.mhp || o === u) continue;
+      if (o.kind === 'b') { if (!d.rep || o.sell >= 0 || o.upT != null && false) continue; const dd = dhypot(o.x - u.x, o.y - u.y) - Math.max(o.w, o.h) / 2; if (dd < 7) { const sc = (1 - o.hp / o.mhp) * 12 - dd + 4; if (sc > bs) { bs = sc; best = o; } } }
+      else if (!isAir(o)) { const dd = dhypot(o.x - u.x, o.y - u.y); if (dd < 6) { const sc = (1 - o.hp / o.mhp) * 10 - dd; if (sc > bs) { bs = sc; best = o; } } } }
+    u.healT = best; }
+  const o = u.healT; if (!o || o.hp <= 0 || o.hp >= o.mhp || o.dead) { u.healT = null; return; }
+  const reach = o.kind === 'b' ? Math.max(o.w, o.h) / 2 + 0.9 : 1.6, dd = dhypot(o.x - u.x, o.y - u.y);
+  if (dd > reach) { if (!u.path.length || (G.tick + u.id) % 20 === 0) { if (o.kind === 'b') { const a = datan2(u.y - o.y, u.x - o.x), r = Math.max(o.w, o.h) / 2 + 0.6; setPath(u, o.x + dcos(a) * r, o.y + dsin(a) * r); } else setPath(u, o.x, o.y); } }
+  else { if (u.order === 'idle') { u.path = []; u.anchor = { x: u.x, y: u.y }; } o.hp = Math.min(o.mhp, o.hp + (o.kind === 'b' ? Math.max(d.rep, o.mhp * 0.015) : d.heal) * DT); if ((G.tick + u.id) % 15 === 0) G.events.push({ e: 'heal', x: o.x, y: o.y, src: u, rep: o.kind === 'b' }); }
 }
 function separate(hash) {
   for (const a of G.ents) {
@@ -1009,6 +1024,7 @@ function defW(b) { const d = BT[b.t], P = G.players[b.team], l = b.lvl || 1, k =
   return _defWC[k]; }
 function upgradeInfo(b) {
   if (b.t === 'hq' || b.t === 'cc') { if (b.sm3 || b.upT != null || !hasBuilt(b.team, 'tech')) return null; return { cost: SM3.cost, gas: SM3.gas, time: SM3.time, kind: 'sm3' }; }
+  if (b.t === 'airfield') { if (b.pads || b.upT != null) return null; return { cost: AIRPADS.cost, gas: 0, time: AIRPADS.time, kind: 'pads' }; }
   if (b.t === 'tech') { const P = G.players[b.team]; if (P.defUp || b.upT != null) return null; return { cost: DEF_RESEARCH.cost, gas: DEF_RESEARCH.gas, time: DEF_RESEARCH.time, kind: 'def' }; }
   const u = UPG[b.t]; if (!u) return null; const l = b.lvl || 1; if (l >= 3) return null; return { cost: u[l - 1][0], time: u[l - 1][1], gas: u[l - 1][2] || 0, kind: 'lvl', next: l + 1 };
 }

@@ -15,7 +15,7 @@ function bot(c, team, R) { // random but valid human-like commands, issued only 
     const G = ev(c, 'G'), P = G.players[team], NET = ev(c, 'NET'), r = R();
     const hq = G.ents.find(e => e.team === team && (e.t === 'hq' || e.t === 'cc')); if (!hq || P.out) return;
     if (P.ready.bld) { const sv = G.R; G.R = R; const s = ev(c, 'aiSpot')(P, P.ready.bld, hq, []); G.R = sv; if (s) NET.issue({ c: 'place', cat: 'bld', x: s[0], y: s[1] }); else NET.issue({ c: 'cancel', t: P.ready.bld }); return; }
-    const opts = ['power', 'barracks', 'refinery', 'factory', 'rifle', 'rifle', 'light', 'rocketeer', 'harv', 'heavy'];
+    const opts = ['power', 'barracks', 'refinery', 'factory', 'rifle', 'rifle', 'scout', 'rocketeer', 'harv', 'heavy'];
     if (r < 0.5) { const t = opts[(R() * opts.length) | 0]; if (ev(c, 'avail')(team, t)) NET.issue({ c: 'enq', t, n: 1 + ((R() * 2) | 0) }); }
     const army = G.ents.filter(e => e.team === team && e.kind === 'u' && e.t !== 'harv').map(e => e.id);
     if (r > 0.85 && army.length) NET.issue({ c: 'move', u: army, x: 10 + R() * 76, y: 10 + R() * 76, am: true });

@@ -148,7 +148,7 @@ function mobTap(x, y) {
   const r = R3.renderer.domElement.getBoundingClientRect(), fake = b => ({ button: b, clientX: x + r.left, clientY: y + r.top, preventDefault() {}, altKey: false, shiftKey: false });
   if (G.spectate) { const now = performance.now(); if (now - MOB.T.lastTap < 400) { DIR.auto = true; DIR.userZoom = true; DIR.hold = 0; uiMsg('🎥 Following the action (drag to take over)'); } MOB.T.lastTap = now; return; }
   if (UI.placing) { UI.mouse.x = x; UI.mouse.y = y; MOB.ghostSet = true; return; } // tap moves the ghost there
-  if (MOB.mode === 'rally') { const w = screenToWorld(x, y); if (w) { MOB.rally = { x: w.x, y: w.y }; MOB.rallied = {}; const bs = G.ents.filter(e => e.team === ME && e.kind === 'b' && ['barracks', 'factory', 'airpad'].includes(e.t)); if (bs.length) NET.issue({ c: 'rally', b: ids(bs), x: w.x, y: w.y }); marker(w.x, w.y); uiMsg('🚩 Rally point set'); sfx('ack'); } MOB.mode = null; return; }
+  if (MOB.mode === 'rally') { const w = screenToWorld(x, y); if (w) { MOB.rally = { x: w.x, y: w.y }; MOB.rallied = {}; const bs = G.ents.filter(e => e.team === ME && e.kind === 'b' && ['barracks', 'factory', 'airfield'].includes(e.t)); if (bs.length) NET.issue({ c: 'rally', b: ids(bs), x: w.x, y: w.y }); marker(w.x, w.y); uiMsg('🚩 Rally point set'); sfx('ack'); } MOB.mode = null; return; }
   if (UI.mode) { UI.mouse.x = x; UI.mouse.y = y; onDown(fake(0)); return; } // sell / repair / nuke / unload / attack-move modes
   const t = pickAt(x, y), now = performance.now();
   if (t && t.team === ME) {
@@ -213,7 +213,7 @@ function mobAuto() {
     const want = Math.min(Math.max(MOB.harvPeak, ref), ref * 2); const queued = P.queues.veh.some(q => q.t === 'harv') || (P.queues.bld || []).some(q => q.t === 'harv');
     if (ref && hv < want && !queued && avail(ME, 'harv') && P.cr >= UT.harv.cost && canEnqueue(ME, 'harv')) NET.issue({ c: 'enq', t: 'harv', n: 1 }); }
   if (A.rally) { if (!MOB.rally) { const h = mobHome(); if (h) { const dx = MW / 2 - h.x, dy = MH / 2 - h.y, d = Math.hypot(dx, dy) || 1; MOB.rally = { x: h.x + dx / d * 7, y: h.y + dy / d * 7 }; } }
-    if (MOB.rally) { const need = mine.filter(e => e.kind === 'b' && ['barracks', 'factory', 'airpad'].includes(e.t) && e.sell < 0 && !(MOB.rallied[e.id] && MOB.rallied[e.id] === MOB.rally) && !(e.rally && Math.hypot(e.rally.x - MOB.rally.x, e.rally.y - MOB.rally.y) < 0.5));
+    if (MOB.rally) { const need = mine.filter(e => e.kind === 'b' && ['barracks', 'factory', 'airfield'].includes(e.t) && e.sell < 0 && !(MOB.rallied[e.id] && MOB.rallied[e.id] === MOB.rally) && !(e.rally && Math.hypot(e.rally.x - MOB.rally.x, e.rally.y - MOB.rally.y) < 0.5));
       if (need.length) { NET.issue({ c: 'rally', b: ids(need), x: MOB.rally.x, y: MOB.rally.y }); need.forEach(b => MOB.rallied[b.id] = MOB.rally); } } }
   for (const id of MOB.stopped) { const u = byId(id); if (!u || u.hp <= 0 || u.order !== 'idle' || u.path.length) MOB.stopped.delete(id); } // a new order clears the 'explicitly stopped' mark
   if (A.engage) { const idle = mine.filter(e => e.kind === 'u' && UT[e.t].wpn && e.t !== 'harv' && !UT[e.t].engineer && e.stance !== 'hold' && !MOB.stopped.has(e.id) && e.order === 'idle' && (e.idleT || 0) > 2.5 && !e.tgt && !(e.path && e.path.length) && G.time > (MOB.engT[e.id] || 0));

@@ -1,5 +1,5 @@
 // v5.8 Brazil Iron Marine balance: equal-cost fights. Marines should beat rifle / mixed infantry / light-tank mixes,
-// but lose to their counters (pyro+arty, heavy tanks, tesla) and not be a no-brainer vs everything.
+// but lose to their counters (sieged artillery, tesla) and not be a no-brainer vs everything.
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const src = ['data.js', 'sim.js', 'ai.js'].map(f => fs.readFileSync(path.join(__dirname, '../js', f), 'utf8')).join('\n');
 vm.runInThisContext(src + '\nglobalThis.__api={newGame,stepGame,addU,addB:typeof addB!=="undefined"?addB:null,setPath,get G(){return G}};');
@@ -22,10 +22,10 @@ const res = {};
 const T = (name, mix, expectWin, defs) => { const r = avg(mix, defs); res[name] = r; const win = r.m > r.o; chk(`${expectWin ? 'marines beat' : 'marines lose to'} ${name}`, win === expectWin, `marines left ${(r.m * 100) | 0}% vs ${(r.o * 100) | 0}%`); };
 T('Riflemen', ['rifle'], true);
 T('Rifle+Rocketeer mix', ['rifle', 'rifle', 'rocketeer'], true);
-T('Lancer tanks + rifles', ['light', 'rifle', 'rifle', 'rifle'], true);
-T('Pyro + Howler artillery', ['pyro', 'pyro', 'arty'], false);
-{ const r = avg(['heavy']); res['Bastion heavy tanks (info: v5.9 marine buffs make this marine-favoured)'] = r; console.log('INFO vs Bastion heavy tanks: marines left ' + ((r.m * 100) | 0) + '% vs ' + ((r.o * 100) | 0) + '%'); }
-{ const r = avg(['heavy', 'pyro', 'pyro']); res['Bastion + Pyros (info)'] = r; console.log('INFO vs Bastion + Pyros: marines left ' + ((r.m * 100) | 0) + '% vs ' + ((r.o * 100) | 0) + '%'); }
+T('Warhound MBT + rifles', ['heavy', 'rifle', 'rifle', 'rifle'], true);
+T('Rifles + sieged Howler artillery', ['rifle', 'rifle', 'arty'], false);
+{ const r = avg(['heavy']); res['Warhound MBTs (info)'] = r; console.log('INFO vs Warhound MBTs: marines left ' + ((r.m * 100) | 0) + '% vs ' + ((r.o * 100) | 0) + '%'); }
+{ const r = avg(['heavy', 'rocketeer', 'rocketeer']); res['MBT + rocketeers (info)'] = r; console.log('INFO vs MBT + rocketeers: marines left ' + ((r.m * 100) | 0) + '% vs ' + ((r.o * 100) | 0) + '%'); }
 T('Howler artillery mass', ['arty'], false);
 T('2 Tesla coils + riflemen (equal total cost)', ['rifle'], false, [['tesla', 49, 38], ['tesla', 49, 42]]);
 // not strictly better: marines should not be a blowout vs everything; the counter wins should be clear

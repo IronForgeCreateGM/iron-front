@@ -11,7 +11,7 @@ function scen(def, enemy, powered, lvl) {
   for (let i = 0; i < 30 * 8; i++) { e.x = 44.5; e.y = 41; e.path = []; A.stepGame(); }
   return { dmg: hp0 - e.hp, off: b.offline };
 }
-for (const [d, en, lvl] of [['turret', 'light'], ['turret', 'light', 3], ['aagun', 'gunship'], ['aagun', 'gunship', 3], ['gcannon', 'heavy']]) {
+for (const [d, en, lvl] of [['turret', 'heavy'], ['turret', 'heavy', 3], ['aagun', 'gunship'], ['aagun', 'gunship', 3], ['gcannon', 'heavy']]) {
   const p = scen(d, en, true, lvl), u = scen(d, en, false, lvl);
   chk(p.dmg > 0 && !p.off, `${d}${lvl ? ' lvl' + lvl : ''} powered fires at ${en} (dmg ${Math.round(p.dmg)})`);
   chk(u.dmg === 0 && u.off === true, `${d}${lvl ? ' lvl' + lvl : ''} low power -> offline, no fire`);

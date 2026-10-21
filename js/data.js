@@ -25,6 +25,7 @@ const W = {
   rocket: { dmg: 55, rng: 5.5, cd: 2.2, type: 'rocket', spd: 12, ground: 1, air: 1, snd: 'rocket' },
   lcannon:{ dmg: 40, rng: 5, cd: 1.6, type: 'cannon', spd: 25, ground: 1, air: 0, snd: 'cannon' },
   hcannon:{ dmg: 70, rng: 5.5, cd: 2.0, type: 'cannon', spd: 25, ground: 1, air: 0, snd: 'cannon', twin: 1 },
+  mbt:    { dmg: 45, rng: 5.25, cd: 1.8, type: 'cannon', spd: 25, ground: 1, air: 0, snd: 'cannon', twin: 1 }, // v6.2 Warhound: Lancer 40x1/1.6s, Bastion 70x2/2.0s -> 45x2/1.8s
   arty:   { dmg: 90, rng: 10, minRng: 3, cd: 3.5, type: 'shell', spd: 9, ground: 1, air: 0, splash: 1.4, arc: 1, snd: 'arty' },
   flak:   { dmg: 26, rng: 7, cd: 0.5, type: 'flak', spd: 30, ground: 0, air: 1, splash: 0.8, snd: 'flak' },
   mg:     { dmg: 9, rng: 4.5, cd: 0.4, type: 'bullet', spd: 40, ground: 1, air: 1, snd: 'rifle' },
@@ -53,11 +54,10 @@ const BT = {
   refinery:{ n: 'Ore Refinery', w: 3, h: 3, hp: 1000, cost: 1400, pow: -30, time: 9, cat: 'bld', req: ['power'] },
   barracks:{ n: 'Barracks', w: 2, h: 2, hp: 700, cost: 400, pow: -15, time: 5, cat: 'bld', req: ['power'] },
   factory: { n: 'War Factory', w: 3, h: 3, hp: 1400, cost: 1600, pow: -40, time: 10, cat: 'bld', req: ['refinery', 'barracks'] },
-  airpad:  { n: 'Helipad', w: 2, h: 2, hp: 800, cost: 1000, pow: -40, time: 8, cat: 'bld', req: ['factory', 'tech'] },
   tech:    { n: 'Research Lab', w: 2, h: 2, hp: 1000, cost: 1800, pow: -100, time: 12, cat: 'bld', req: ['factory'] },
   turret:  { n: 'Guard Turret', w: 1, h: 1, hp: 700, cost: 600, pow: -20, time: 5, cat: 'def', req: ['barracks'], wpn: 'tcannon', sight: 7 },
   aagun:   { n: 'Flak Battery', w: 1, h: 1, hp: 500, cost: 700, pow: -25, time: 5, cat: 'def', req: ['barracks'], wpn: 'flakB', sight: 8 },
-  airfield:{ n: 'Airfield', w: 3, h: 3, hp: 1200, cost: 1500, pow: -50, time: 12, cat: 'bld', req: ['factory', 'tech'] },
+  airfield:{ n: 'Air Command', w: 4, h: 3, hp: 1700, cost: 1800, pow: -60, time: 14, cat: 'bld', req: ['factory', 'tech'], desc: 'v6.2: runway + helipads in one building (replaces Helipad + Airfield). One queue builds every aircraft; docked aircraft rearm and get repaired. 4 dock slots; buy the Extra Pads add-on for 8.' },
   cc:      { n: 'Command Center', w: 3, h: 3, hp: 2200, cost: 2200, pow: 10, time: 25, cat: 'bld', req: ['refinery'] },
   extractor:{ n: 'Gas Extractor', w: 2, h: 2, hp: 900, cost: 800, pow: -20, time: 8, cat: 'bld', req: ['refinery'] },
   silo:    { n: 'Warhead Launcher', w: 2, h: 2, hp: 2400, cost: 3000, gas: 500, pow: -80, time: 30, cat: 'bld', req: ['tech'], sight: 8 },
@@ -71,16 +71,13 @@ const BT = {
 const UT = {
   rifle:  { n: 'Rifleman', hp: 110, sp: 1.6, armor: 'inf', wpn: 'rifle', cost: 100, time: 3, from: 'barracks', sight: 6, r: 0.22, req: [] },
   rocketeer:{ n: 'Rocketeer', hp: 100, sp: 1.4, armor: 'inf', wpn: 'rocket', cost: 300, time: 5, from: 'barracks', sight: 6.5, r: 0.22, req: [] },
-  engineer:{ n: 'Engineer', hp: 80, sp: 1.5, armor: 'inf', wpn: null, cost: 500, time: 6, from: 'barracks', sight: 5, r: 0.22, req: [], engineer: 1 },
+  engineer:{ n: 'Engineer', hp: 80, sp: 1.5, armor: 'inf', wpn: null, cost: 500, time: 6, from: 'barracks', sight: 5, r: 0.22, req: [], engineer: 1, heal: 9, rep: 32, desc: 'Auto-repairs damaged buildings (fast) and patches up nearby units (slower) without being used up. Right-click an enemy building to capture it, or an oil derrick to claim it (those use the engineer up).' },
   sniper: { n: 'Sniper', hp: 90, sp: 1.4, armor: 'inf', wpn: 'snipe', cost: 600, time: 7, from: 'barracks', sight: 10, r: 0.22, req: [] },
-  pyro:   { n: 'Pyro', hp: 170, sp: 1.6, armor: 'inf', wpn: 'flame', cost: 350, gas: 25, time: 5, from: 'barracks', sight: 5.5, r: 0.24, req: [] },
-  medic:  { n: 'Field Medic', hp: 120, sp: 1.7, armor: 'inf', wpn: null, cost: 400, time: 5, from: 'barracks', sight: 6, r: 0.22, req: [], heal: 14 },
   kommando:{ n: 'Jäger Kommando Squad', hp: 600, sp: 1.8, armor: 'inf', wpn: 'kmg', cost: 1500, gas: 150, time: 14, from: 'barracks', sight: 8, r: 0.4, req: ['tech'], squad: 3, fac: 'ger' },
   marine: { n: 'Fuzileiro Blindado (Iron Marine)', hp: 300, sp: 1.67, armor: 'inf', wpn: 'marine', cost: 400, time: 6, from: 'barracks', sight: 6.5, r: 0.26, req: [], fac: 'bra', marine: 1,
     desc: 'Brazil: heavily armored infantry, shoots ground and air. Attack-move (tap/A-click) engages anything it meets, then resumes; a plain move/retreat breaks off at once and it re-engages nearby enemies when it arrives. Vehicle guns/rockets do 35% less (not artillery), +15% armor vs tanks and aircraft, splash hurts it 45% less. Plating shrugs off 45% of small-arms fire (15–30% vs rockets/flak/marines). Strength in numbers: +5% damage and +3% armor per nearby marine (max 6). Countered by flame, Tesla, artillery/bombs and tank cannons (big target: x2.6).' },
   scout:  { n: 'Raider Buggy', hp: 200, sp: 3.6, armor: 'light', wpn: 'mg', cost: 500, time: 5, from: 'factory', sight: 9, r: 0.38, req: [] },
-  light:  { n: 'Lancer Tank', hp: 380, sp: 2.2, armor: 'heavy', wpn: 'lcannon', cost: 700, time: 7, from: 'factory', sight: 7, r: 0.45, req: [], turret: 1 },
-  heavy:  { n: 'Bastion Tank', hp: 800, sp: 1.4, armor: 'heavy', wpn: 'hcannon', cost: 1400, gas: 75, time: 12, from: 'factory', sight: 7, r: 0.58, req: ['tech'], turret: 1 },
+  heavy:  { n: 'Warhound Battle Tank', hp: 590, sp: 1.8, armor: 'heavy', wpn: 'mbt', cost: 1050, time: 9, from: 'factory', sight: 7, r: 0.52, req: [], turret: 1, desc: 'v6.2 main battle tank (replaces the Lancer and Bastion): HP, firepower and speed halfway between them. Twin 105mm cannon.' },
   arty:   { n: 'Howler Artillery', hp: 260, sp: 1.6, armor: 'light', wpn: 'arty', cost: 1000, time: 10, from: 'factory', sight: 6, r: 0.48, req: ['tech'], turret: 1 },
   aa:     { n: 'Skyguard', hp: 320, sp: 2.2, armor: 'light', wpn: 'flak', cost: 700, time: 7, from: 'factory', sight: 8, r: 0.45, req: [], turret: 1 },
   titan:  { n: 'Titan Walker', hp: 1500, sp: 1.3, armor: 'heavy', wpn: 'titan', cost: 2600, gas: 250, time: 18, from: 'factory', sight: 8, r: 0.75, req: ['tech'], turret: 1, mech: 1 },
@@ -90,11 +87,12 @@ const UT = {
   intercept:{ n: 'Talon Interceptor', hp: 360, sp: 7.5, armor: 'air', wpn: 'aam', cost: 1300, time: 10, from: 'airfield', sight: 10, r: 0.55, req: [], air: 1, jet: 1 },
   bomber: { n: 'Thunder Bomber', hp: 950, sp: 3.6, armor: 'air', wpn: 'cbomb', cost: 2800, gas: 250, time: 20, from: 'airfield', sight: 8, r: 0.9, req: [], air: 1, jet: 1 },
   stealth:{ n: 'Nightshade Stealth Fighter', hp: 380, sp: 7.5, armor: 'air', wpn: 'sbomb', cost: 2400, gas: 200, time: 16, from: 'airfield', sight: 8, r: 0.6, req: [], air: 1, jet: 1, stealthy: 1, fac: 'usa' },
-  hauler: { n: 'Hauler Transport', hp: 1000, sp: 3.0, armor: 'air', cost: 1100, time: 10, from: 'airpad', alt: ['airfield'], sight: 7, r: 0.7, req: ['tech'], air: 1, cap: 8, desc: 'Carries 8 slots (infantry 1, vehicles 4). Right-click it with ground units to board; D to unload anywhere. Weak to flak/AA.' },
-  gunship:{ n: 'Hornet Gunship', hp: 340, sp: 3.4, armor: 'air', wpn: 'gun', cost: 1200, time: 10, from: 'airpad', sight: 8, r: 0.5, req: [], air: 1 },
+  hauler: { n: 'Hauler Transport', hp: 1000, sp: 3.0, armor: 'air', cost: 1100, time: 10, from: 'airfield', sight: 7, r: 0.7, req: ['tech'], air: 1, cap: 8, desc: 'Carries 8 slots (infantry 1, vehicles 4). Right-click it with ground units to board; D to unload anywhere. Weak to flak/AA.' },
+  gunship:{ n: 'Hornet Gunship', hp: 340, sp: 3.4, armor: 'air', wpn: 'gun', cost: 1200, time: 10, from: 'airfield', sight: 8, r: 0.5, req: [], air: 1 },
 };
 const CATS = { bld: 'Structures', def: 'Defenses', inf: 'Infantry', veh: 'Vehicles', air: 'Aircraft' };
-const FROMCAT = { barracks: 'inf', factory: 'veh', airpad: 'air', airfield: 'air' };
+const FROMCAT = { barracks: 'inf', factory: 'veh', airfield: 'air' };
+const AIRPADS = { n: 'Extra Pads', cost: 600, time: 15 }, AIR_SLOTS = [[-1.45, 0.75], [-0.5, 0.75], [0.25, -0.75], [0.95, -0.75], [0.45, 0.75], [1.4, 0.75], [-0.45, -0.75], [1.65, -0.75]]; // v6.2 Air Command dock slots (4, add-on 8)
 const TEAMCOL = [0x3f7fd0, 0xd04a36, 0x2fc4d0, 0xf08a2a, 0xff7a1a, 0x9a4ae0, 0x2fd0c4, 0xe8eef4]; // accents only (re-assigned per game by alliance)
 const TEAMPAINT = [0x2e4a73, 0x7a2d25, 0x2a6a72, 0x8a5222, 0x8a4a1a, 0x4a2a6a, 0x1f6a6a, 0x8a8f96];
 const TEAM_COLORS = { orange: { n: 'Orange', paint: 0x8a4a1a, acc: 0xff7a1a, css: '#ff8c2a' }, purple: { n: 'Purple', paint: 0x4a2a6a, acc: 0x9a4ae0, css: '#b070ff' }, blue: { n: 'Blue', paint: 0x2e4a73, acc: 0x3f7fd0, css: '#5fb0ff' }, red: { n: 'Red', paint: 0x7a2d25, acc: 0xd04a36, css: '#ff5040' }, yellow: { n: 'Yellow', paint: 0xc4a12c, acc: 0xffd83a, css: '#ffd84a' }, green: { n: 'Green', paint: 0x3f7f37, acc: 0x5fd060, css: '#6fdc6a' }, teal: { n: 'Teal', paint: 0x1f6a6a, acc: 0x2fd0c4, css: '#4fe8dc' }, white: { n: 'White', paint: 0x8a8f96, acc: 0xe8eef4, css: '#eef3f8' } };
