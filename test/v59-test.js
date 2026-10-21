@@ -24,7 +24,7 @@ const c = t => BT[t].cost, h = t => BT[t].hp; chk('Gatling cost/HP between Tesla
   chk('France bot builds Gatling Bastions (no Teslas)', gt >= 1 && tz === 0, 'gatlings peak ' + gt + ', teslas ' + tz); }
 // --- Iron Marine auto-engage while moving, then resumes; hold stance = plain move; stop respected
 fresh('bra', 'usa'); const m = A.addU('marine', 0, 30, 40), e1 = A.addU('rifle', 1, 37, 41); e1.order = 'idle'; e1.stance = 'hold';
-A.orderMove([m], 50, 40, true); let stopped = false; // v6.2: auto-engage on the move is the attack-move (plain moves now break off — see v62-test) for (let i = 0; i < 30 * 30; i++) { A.stepGame(); A.G.events.length = 0; if (m.tgt === e1 && e1.hp > 0) stopped = true; }
+A.orderMove([m], 50, 40, true); let stopped = false; /* v6.2: auto-engage on the move is the attack-move (plain moves now break off, see v62-test) */ for (let i = 0; i < 30 * 30; i++) { A.stepGame(); A.G.events.length = 0; if (m.tgt === e1 && e1.hp > 0) stopped = true; }
 chk('marine on an attack-move engages an enemy it meets', stopped && e1.hp <= 0, 'enemy hp ' + Math.max(0, e1.hp | 0));
 chk('...then resumes and reaches its destination', Math.hypot(m.x - 50, m.y - 40) < 2, `at ${m.x.toFixed(1)},${m.y.toFixed(1)} order=${m.order}`);
 fresh('bra', 'usa'); const mh = A.addU('marine', 0, 30, 40), e2 = A.addU('rifle', 1, 37, 41); e2.order = 'idle'; e2.stance = 'hold'; mh.stance = 'hold';
@@ -32,8 +32,8 @@ A.orderMove([mh], 50, 40, false); run(14); chk('Hold-stance marine does a plain 
 fresh('bra', 'usa'); const ms = A.addU('marine', 0, 30, 40); A.orderMove([ms], 50, 40, false); run(1); ms.order = 'idle'; ms.path = []; ms.anchor = { x: ms.x, y: ms.y }; const sx = ms.x; run(4);
 chk('explicit stop is respected (no resume)', Math.abs(ms.x - sx) < 0.6, 'moved ' + (ms.x - sx).toFixed(2));
 // bots never command human marines
-fresh('bra', 'rus', [1]); tech(0); const hm = [0, 1, 2].map(i => A.addU('marine', 0, 20 + i, 20)); A.orderMove(hm, 24, 26, false); run(20);
-chk('human marines keep the human order under a bot game', hm.every(u => Math.hypot(u.x - 24, u.y - 26) < 3), hm.map(u => u.x.toFixed(1) + ',' + u.y.toFixed(1)).join(' '));
+fresh('bra', 'rus', [1]); tech(0); const hm = [0, 1, 2].map(i => A.addU('marine', 0, 30 + i, 40)); A.orderMove(hm, 34, 46, false); run(20); // v6.2: spawn on open ground (20,20 is a cliff on this seed)
+chk('human marines keep the human order under a bot game', hm.every(u => Math.hypot(u.x - 34, u.y - 46) < 3), hm.map(u => u.x.toFixed(1) + ',' + u.y.toFixed(1)).join(' '));
 // determinism with both new features
 const hash = () => { A.newGame({ seed: 21, diff: 'hard', aiTeams: [0, 1], fog: true, slots: [{ ai: 1, diff: 'hard', fac: 'fra', ally: 0 }, { ai: 1, diff: 'hard', fac: 'bra', ally: 1 }] }); run(420); return A.G.ents.reduce((a, e) => (a * 31 + Math.round(e.x * 1000 + e.hp * 7)) % 1000000007, 7) + '#' + A.G.ents.length; };
 const h1 = hash(), h2 = hash(); chk('France vs Brazil bot game deterministic', h1 === h2, h1 + ' / ' + h2);

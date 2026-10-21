@@ -806,6 +806,7 @@ function stepUnit(u) {
   if (d.marine && (G.tick + u.id) % 15 === 0) { let n = 0; for (const o of G.ents) if (o !== u && o.kind === 'u' && o.t === 'marine' && o.team === u.team && o.hp > 0 && dhypot(o.x - u.x, o.y - u.y) < MAR.rad && ++n >= MAR.cap) break; u.nb = n; }
   if (d.regen && u.hp < u.mhp) u.hp = Math.min(u.mhp, u.hp + d.regen * DT);
   if (d.jet && jetStep(u, d)) return;
+  if (u.order === 'move' && !u.path.length && !(u.wq && u.wq.length) && !d.air) { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; } // v6.2: an unreachable plain move must not leave a unit inert (no acquire while 'move')
   let engaged = false;
   if (d.wpn && !(d.jet && u.ammo <= 0)) engaged = combat(u, W[d.wpn], Math.max(d.sight, W[d.wpn].rng + 0.5), true);
   if (!engaged && u.order === 'attack') { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; }
