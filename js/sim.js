@@ -348,7 +348,7 @@ function teamEnts(team, t) { return G.ents.filter(e => e.team === team && (!t ||
 function hasBuilt(team, t) { return G.ents.some(e => e.kind === 'b' && e.team === team && e.t === t && e.hp > 0 && e.sell < 0); }
 function reqOk(team, d) { return d.req.every(r => hasBuilt(team, r)); }
 function avail(team, t) {
-  const dd = BT[t] || UT[t]; if (dd.fac && G.players[team].fac !== dd.fac) return false; if (dd.noFac && G.players[team].fac === dd.noFac) return false;
+  const dd = BT[t] || UT[t]; if (!dd) return false; if (dd.fac && G.players[team].fac !== dd.fac) return false; if (dd.noFac && G.players[team].fac === dd.noFac) return false;
   if (BT[t]) return (hasBuilt(team, 'hq') || hasBuilt(team, 'cc')) && reqOk(team, BT[t]);
   const d = UT[t]; return (hasBuilt(team, d.from) || (d.alt || []).some(a => hasBuilt(team, a))) && reqOk(team, d);
 }

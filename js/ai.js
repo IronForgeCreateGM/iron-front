@@ -625,7 +625,7 @@ function keepBusy(P, S, D, me, cnt, hq, intruders) {
     const t = (cnt.factory || 0) < 3 ? 'factory' : (cnt.barracks || 0) < 2 ? 'barracks' : (cnt.refinery || 0) < 4 && G.ore.some(o => o > 200) ? 'refinery' : avail(P.team, 'silo') && !(cnt.silo) && G.time > 900 ? 'silo' : (cnt.airfield || 0) < 2 && avail(P.team, 'airfield') ? 'airfield' : null;
     if (t && avail(P.team, t) && (S.bad[t] || 0) < G.time && aiSpot(P, t, hq, [])) enqueue(P.team, t);
   }
-  if (P.pow >= 0 && P.cr > 600) { for (const [c, t] of [['inf', 'rifle'], ['veh', 'heavy']]) if (producers(P.team, c) && P.queues[c].length < Math.min(5, producers(P.team, c) * 2) && (rich || idleFor > 15)) { const opts = c === 'inf' ? ['rifle', 'rocketeer', 'rifle', 'pyro'] : ['heavy', 'heavy', 'arty', 'heavy', 'titan', 'tsar']; const pk = opts.filter(x => avail(P.team, x)); if (pk.length) enqueue(P.team, pk[(G.R() * pk.length) | 0]); } }
+  if (P.pow >= 0 && P.cr > 600) { for (const [c, t] of [['inf', 'rifle'], ['veh', 'heavy']]) if (producers(P.team, c) && P.queues[c].length < Math.min(5, producers(P.team, c) * 2) && (rich || idleFor > 15)) { const opts = c === 'inf' ? ['rifle', 'rocketeer', 'rifle', 'sniper'] : ['heavy', 'heavy', 'arty', 'heavy', 'titan', 'tsar']; const pk = opts.filter(x => avail(P.team, x)); if (pk.length) enqueue(P.team, pk[(G.R() * pk.length) | 0]); } }
   // idle watchdog
   if (idleFor > 20) { S.busyT = G.time - 10;
     if (!(cnt.refinery) && avail(P.team, 'refinery')) enqueue(P.team, 'refinery');
