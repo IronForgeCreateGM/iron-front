@@ -181,7 +181,8 @@ function aiV62(P, S, cnt, myB) { // v6.2: Air Command pads, Howler siege, resear
 function aiSpot(P, t, hq, foes) {
   const d = BT[t];
   let ax = hq.x, ay = hq.y;
-  if (t === 'cc') { const site = aiSite(P, hq); if (!site) return null; for (const [ox, oy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [2, 0], [0, 2], [-2, 0], [0, -2]]) { const x = Math.round(site.x - 1.5) + ox, y = Math.round(site.y - 1.5) + oy; if (canPlace('cc', P.team, x, y)) return [x, y]; } return null; }
+  if (t === 'cc') { for (let tries = isV71(P) ? 3 : 1; tries > 0; tries--) { const site = aiSite(P, hq); if (!site) return null; for (const [ox, oy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [2, 0], [0, 2], [-2, 0], [0, -2]]) { const x = Math.round(site.x - 1.5) + ox, y = Math.round(site.y - 1.5) + oy; if (canPlace('cc', P.team, x, y)) return [x, y]; }
+    if (isV71(P) && P.aiS) { (P.aiS.siteBad = P.aiS.siteBad || {})[site.x + ',' + site.y] = G.time + 90; } } return null; } // v7.1: a blocked site no longer stalls expansion - try the next one
   if (t === 'extractor') { const vs = (G.vents || []).slice().sort((a, b) => dhypot(a[0] - hq.x, a[1] - hq.y) - dhypot(b[0] - hq.x, b[1] - hq.y));
     for (const [vx, vy] of vs) for (const [ox, oy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) if (canPlace(t, P.team, vx - ox, vy - oy)) return [vx - ox, vy - oy]; return null; }
   const kb = P.aiS ? [...P.aiS.known.values()] : []; const ef = kb.find(f => f.t === 'hq') || kb[0] || (st => ({ x: st[0], y: st[1] }))(G.starts[G.players[P.aiS && P.aiS.eTeam != null ? P.aiS.eTeam : (P.team ? 0 : 1)].start]);
@@ -194,7 +195,8 @@ function aiSpot(P, t, hq, foes) {
   } else if (d.cat === 'def' && ef && DIFF[P.diff].sys.choke && t !== 'wall' && chokePoint(P, hq, ef) && G.R() < 0.75) { const cp = P.aiS.choke; ax = cp.x + (G.R() - 0.5) * 3; ay = cp.y + (G.R() - 0.5) * 3;
   } else if (d.cat === 'def' && ef) { const a = datan2(ef.y - hq.y, ef.x - hq.x) + (G.R() - 0.5) * 1.6; ax = hq.x + dcos(a) * 7; ay = hq.y + dsin(a) * 7; }
   const cands = [];
-  for (let y = 1; y < MH - d.h; y++) for (let x = 1; x < MW - d.w; x++) { const dd = dhypot(x + d.w / 2 - ax, y + d.h / 2 - ay); if (dd < 14) cands.push([dd + G.R() * 1.5, x, y]); }
+  const y0 = Math.max(1, Math.floor(ay - d.h / 2 - 15)), y1 = Math.min(MH - d.h, Math.ceil(ay - d.h / 2 + 15)), x0 = Math.max(1, Math.floor(ax - d.w / 2 - 15)), x1 = Math.min(MW - d.w, Math.ceil(ax - d.w / 2 + 15)); // v7.1: same candidates, bounded scan
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const dd = dhypot(x + d.w / 2 - ax, y + d.h / 2 - ay); if (dd < 14) cands.push([dd + G.R() * 1.5, x, y]); }
   cands.sort((a, b) => a[0] - b[0]);
   const g = getBlock();
   for (const [, x, y] of cands) {
@@ -449,6 +451,7 @@ function siExtras(P, S, me, foes, knownB, hq, estart, intruders) {
 function aiSite(P, hq) {
   let best = null, bd = 1e9;
   for (const st of G.sites || []) {
+    if (P.aiS && P.aiS.siteBad && P.aiS.siteBad[st.x + ',' + st.y] > G.time) continue;
     if (G.ents.some(e => e.kind === 'b' && dhypot(e.x - st.x, e.y - st.y) < 7)) continue;
     if (G.ents.some(e => foe(e.team, P.team) && dhypot(e.x - st.x, e.y - st.y) < 12)) continue;
     let ore = 0; for (let dy = -9; dy <= 9; dy++) for (let dx = -9; dx <= 9; dx++) { const x = Math.floor(st.x) + dx, y = Math.floor(st.y) + dy; if (inb(x, y)) ore += G.ore[idx(x, y)]; }
@@ -736,7 +739,7 @@ function defend71(P, S, D, me, myB, home, intruders, hq) {
   let cx = 0, cy = 0; for (const f of mine) { cx += f.x; cy += f.y; } cx /= mine.length; cy /= mine.length;
   const thr = intruders.filter(f => dhypot(f.x - cx, f.y - cy) < 12 && UT[f.t].wpn), pool = home.filter(u => u.order !== 'attack' && u.t !== 'harv' && dhypot(u.x - cx, u.y - cy) < 30);
   const towers = myB.filter(b => BT[b.t].wpn && !b.offline && dhypot(b.x - cx, b.y - cy) < 9), r = sim71(pool.concat(towers), thr), core = dhypot(cx - hq.x, cy - hq.y) < 9;
-  if (r >= 0.7 || core || !thr.length) { if (pool.length) orderMove(pool, cx, cy, true); if (G.time > (S.dmfT || 0)) { S.dmfT = G.time + 1; const eng = pool.filter(u => dhypot(u.x - cx, u.y - cy) < 10); if (eng.length >= 3) micro71(P, S, eng); } }
+  if (r >= 0.7 || core || !thr.length) { if (pool.length && (G.time > (S.dmvT || 0) || !S.dmv || dhypot(S.dmv.x - cx, S.dmv.y - cy) > 4)) { S.dmvT = G.time + 2; S.dmv = { x: cx, y: cy }; orderMove(pool, cx, cy, true); } if (G.time > (S.dmfT || 0)) { S.dmfT = G.time + 1; const eng = pool.filter(u => dhypot(u.x - cx, u.y - cy) < 10); if (eng.length >= 3) micro71(P, S, eng); } }
   else if (G.time > (S.holdT || 0)) { S.holdT = G.time + 4; const tw = myB.filter(b => BT[b.t].wpn && !b.offline).sort((a, b) => dhypot(a.x - cx, a.y - cy) - dhypot(b.x - cx, b.y - cy))[0], hx = tw ? tw.x + (hq.x - tw.x) * 0.25 : hq.x, hy = tw ? tw.y + (hq.y - tw.y) * 0.25 : hq.y; orderMove(pool, hx, hy, true); }
 }
 
@@ -826,7 +829,7 @@ function prodTarget71(P, S, D, cnt, hq, foes) {
   const wf = Math.max(t < 200 ? 1 : 2, Math.min(7, Math.round(inc * (bra ? 0.5 : 0.7) / 95 + (P.cr > 2000 ? 1 : 0))));
   const wb = Math.max(1, Math.min(bra ? 7 : 5, Math.round(inc * (bra ? 0.5 : 0.3) / 55 + (P.cr > 2500 ? 1 : 0))));
   const wa = hasBuilt(P.team, 'tech') ? Math.max(t < 420 ? 0 : 1, Math.min(P.fac === 'usa' ? 4 : 3, Math.round(inc * (P.fac === 'usa' ? 0.25 : 0.12) / 130))) : 0;
-  if (t > 150 && (P.gas < 450 || (cnt.extractor || 0) < 2) && P.cr > 700 && (cnt.extractor || 0) < 2 + 2 * (cnt.cc || 0) && ok('extractor')) return 'extractor'; // gas = specials + tier-3 units; take every vent we can hold
+  if (t > 150 && ((P.gas < 450 && P.cr > 700) || ((cnt.extractor || 0) < 2 && P.cr > BT.extractor.cost + 50)) && (cnt.extractor || 0) < 2 + 2 * (cnt.cc || 0) && ok('extractor')) return 'extractor'; // gas = specials + tier-3 units; take every vent we can hold
   if (nf < wf && nf >= 1 && P.cr > 500 && ok('factory')) return 'factory';
   if (nb < wb && P.cr > 350 && ok('barracks')) return 'barracks';
   if (na < wa && P.cr > 900 && ok('airfield')) return 'airfield';
@@ -860,8 +863,8 @@ function army71(P, S, D, me, foes, knownB, idle, intruders, hq, estart) { // ret
   // create a plan: whole-team available army vs remembered enemy army + their static D at the target
   const allies = G.players.filter(Q => Q.ally === P.ally && !Q.out && Q.ai && isV71(Q)); let teamAv = 0;
   for (const Q of allies) teamAv += Q === P ? av : (Q.aiS.av71 || 0);
-  const eArmy = S.compTot || 0, need = Math.max(2800 + G.time * 3, eArmy * 1.15 + Math.max(S.eDef71 || 0, G.time * 4) * 0.6) * (allies.length > 1 ? 1 : 0.85);
-  const timing = G.time > 360 && av >= 3000 && G.time - S.lastAttack > 150 && av >= need * 0.7;
+  const eArmy = S.compTot || 0, need = Math.max(2800 + G.time * 3, eArmy * 1.15 + Math.max(S.eDef71 || 0, G.time * 4) * (SIOFF.x ? 0.6 : 0.95)) * (allies.length > 1 ? 1 : 0.85);
+  const timing = G.time > 360 && av >= 3000 && G.time - S.lastAttack > 150 && av >= need * (SIOFF.x ? 0.7 : 0.9);
   if (G.time < 300 && teamAv < need * 2) return false; // no blind early all-ins into unscouted towers
   if (!(teamAv >= need && av >= Math.min(need * 0.4, 6000)) && !(maxed && idle.length >= 10) && !timing) return false;
   // target: the enemy player whose known army+defence is weakest relative to distance
