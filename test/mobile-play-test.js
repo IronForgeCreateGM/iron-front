@@ -83,6 +83,53 @@ const ROOT = 'file://' + path.resolve(__dirname, '../index.html'), PART = proces
     await pg.screenshot({ path: 'shots/v6_1-mobile-hud.png' });
     const sc = await pg.evaluate(() => [scrollX, scrollY]); ok(sc[0] === 0 && sc[1] === 0, 'no page scroll');
   }
+  if (PART === 'play' || PART === 'tabs') { // v6.3.1 regression: build tabs vanished after upgrading a turret and closing its panel
+    await pg.goto(ROOT + '?slots=human:A:usa,easy:B&seed=7&peace=600'); await pg.waitForTimeout(3000);
+    const tabsOK = async l => { await pg.waitForTimeout(300); await pg.waitForFunction(() => !UI.sel.length && getComputedStyle(document.getElementById('mCtx')).display === 'none' && getComputedStyle(document.getElementById('tip')).display === 'none', null, { timeout: 2500 }).catch(() => {}); const r = await pg.evaluate(() => {
+      const tip = document.getElementById('tip'), tr = tip.style.display !== 'none' && getComputedStyle(tip).display !== 'none' ? tip.getBoundingClientRect() : null;
+      const tabs = [...document.querySelectorAll('#mTabs .mtab')].map(b => { const r = b.getBoundingClientRect(); let v = !!b.offsetParent && r.width > 20; for (let x = b; x && v; x = x.parentElement) { const cs = getComputedStyle(x); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) v = false; }
+        const cov = tr && !(tr.right <= r.left || tr.left >= r.right || tr.bottom <= r.top || tr.top >= r.bottom); return v && !cov; });
+      return { sel: UI.sel.length, tabs: tabs.filter(Boolean).length, cards: document.querySelectorAll('#mCards .item').length, ctx: getComputedStyle(document.getElementById('mCtx')).display, tip: !!tr }; });
+      ok(r.sel === 0 && r.tabs === 5 && r.cards > 0 && r.ctx === 'none' && !r.tip, 'build tabs restored ' + l + ' ' + JSON.stringify(r)); };
+    const ids = await pg.evaluate(() => { G.players[ME].cr = 50000; const hq = G.ents.find(e => e.team === ME && e.t === 'hq'), X = Math.floor(hq.x) + 5, Y = Math.floor(hq.y);
+      const a = addB('turret', ME, X, Y, true), b = addB('turret', ME, X, Y + 3, true), c = addB('turret', ME, X + 3, Y + 3, true), u = addU('rifle', ME, X - 1, Y + 6); jumpTo(X + 1, Y + 2, true); return [a.id, b.id, c.id, u.id]; });
+    await run(2); await pg.waitForTimeout(500);
+    const scr = id => pg.evaluate(id => { const e = byId(id), s = worldToScreen(e.x, e.y, heightAt(e.x, e.y) + (e.kind === 'b' ? 0.4 : 0.3)); return [s.x, s.y]; }, id);
+    const ground = await pg.evaluate(() => { for (let y = 120; y < 300; y += 9) for (let x = 330; x < 760; x += 9) if (!pickAt(x, y) && screenToWorld(x, y)) return [x, y]; return [500, 200]; });
+    const selTurret = async () => { const [x, y] = await scr(ids[0]); await tap(x, y); await pg.waitForTimeout(450); const s = await pg.evaluate(() => UI.sel.map(e => e.t).join()); if (s !== 'turret') await pg.evaluate(id => setSel([byId(id)]), ids[0]); await pg.waitForTimeout(350); };
+    const upg = async () => { await pg.tap('#upBtn', { timeout: 2500 }).catch(() => {}); await pg.waitForTimeout(350); };
+    // 1) tap turret -> Upgrade -> ✕ close
+    await selTurret(); ok(await pg.isVisible('#upBtn'), 'tapping a turret opens its upgrade panel'); await upg();
+    ok(await pg.evaluate(id => byId(id).upT != null || byId(id).lv > 1, ids[0]), 'Upgrade tap starts the upgrade'); await pg.tap('#mSel .x'); await tabsOK('after Upgrade + ✕ close');
+    // 2) Upgrade -> tap empty ground
+    await selTurret(); await pg.evaluate(id => { const b = byId(id); b.upT = null; }, ids[0]).catch(() => {}); if (await pg.isVisible('#upBtn')) await upg(); await tap(ground[0], ground[1]); await tabsOK('after Upgrade + tap empty ground');
+    // 3) Upgrade -> tap another unit, then ✕
+    await selTurret(); if (await pg.isVisible('#upBtn')) await upg(); { const [x, y] = await scr(ids[3]); await tap(x, y); await pg.waitForTimeout(400); }
+    const s3 = await pg.evaluate(() => ({ s: UI.sel.map(e => e.t).join(), tip: getComputedStyle(document.getElementById('tip')).display, tabs: [...document.querySelectorAll('#mTabs .mtab')].filter(b => b.offsetParent).length }));
+    ok(s3.tip === 'none' && s3.tabs === 5, 'tapping another unit after an upgrade drops the stale upgrade tooltip ' + JSON.stringify(s3));
+    await pg.evaluate(() => setSel([])); await tabsOK('after Upgrade + other unit + deselect');
+    // 4) double-tap turret (select all on screen) -> Upgrade all -> ✕ / ground
+    { const [x, y] = await scr(ids[1]); await tap(x, y); await pg.waitForTimeout(120); await tap(x, y); await pg.waitForTimeout(450); }
+    let n4 = await pg.evaluate(() => UI.sel.filter(e => e.t === 'turret').length); if (n4 < 2) { await pg.evaluate(ids => setSel(ids.slice(0, 3).map(byId)), ids); n4 = 3; }
+    ok(await pg.waitForSelector('#upAllBtn', { state: 'visible', timeout: 3000 }).then(() => true, () => false), 'multi-turret selection shows Upgrade all (' + n4 + ')'); await pg.tap('#upAllBtn'); await pg.waitForTimeout(400); await pg.tap('#mSel .x'); await tabsOK('after Upgrade all + ✕');
+    await pg.evaluate(ids => setSel(ids.slice(0, 3).map(byId)), ids); await pg.waitForSelector('#upAllBtn', { state: 'visible', timeout: 3000 }).catch(() => {}); await pg.tap('#upAllBtn', { timeout: 3000 }).catch(() => {}); await tap(ground[0], ground[1]); await tabsOK('after Upgrade all + tap ground');
+    // 5) upgrade completes while the panel is open, then close
+    await selTurret(); await run(30 * 30); await pg.waitForTimeout(400); await pg.tap('#mSel .x'); await tabsOK('after an upgrade finished with the panel open');
+    // safety net: a stale tooltip / hidden bar is repaired when nothing is selected
+    await pg.evaluate(() => { const t = document.getElementById('tip'); t.innerHTML = 'stale'; t.style.display = 'block'; tipOwn(document.createElement('div')); document.getElementById('mBar').style.display = 'none'; setSel([]); UI.sel = []; });
+    await tabsOK('safety net (forced hidden bar + stale tooltip)');
+    // tabs still work afterwards
+    await pg.tap('#mTabs .mtab[data-cat="def"]'); await pg.waitForTimeout(300);
+    ok(await pg.evaluate(() => MOB.tab === 'def' && document.querySelectorAll('#mCards .item[data-t="turret"]').length === 1), 'tabs still switch the build cards after all that');
+    // desktop path: hover + click Upgrade, then deselect -> tooltip gone, build tabs visible
+    await ctx.close(); const dc = await br.newContext({ viewport: { width: 1280, height: 760 } }), dp = await dc.newPage(); await dp.goto(ROOT + '?slots=human:A:usa,easy:B&seed=7&peace=600', { waitUntil: 'domcontentloaded', timeout: 60000 }); await dp.waitForTimeout(3500);
+    await dp.evaluate(() => { if (typeof mobSet === 'function' && MOB.on) mobSet(false, false); G.players[ME].cr = 50000; const hq = G.ents.find(e => e.team === ME && e.t === 'hq'); const a = addB('turret', ME, Math.floor(hq.x) + 5, Math.floor(hq.y), true); setSel([a]); }); await dp.waitForTimeout(500);
+    await dp.hover('#upBtn'); await dp.waitForTimeout(200); const dt0 = await dp.evaluate(() => getComputedStyle(document.getElementById('tip')).display); await dp.click('#upBtn'); await dp.waitForTimeout(500);
+    const dt1 = await dp.evaluate(() => getComputedStyle(document.getElementById('tip')).display); await dp.evaluate(() => setSel([])); await dp.waitForTimeout(300);
+    const dsk = await dp.evaluate(() => ({ tip: getComputedStyle(document.getElementById('tip')).display, tabs: [...document.querySelectorAll('#side .tab, #tabs .tab, .tabs .tab')].filter(b => b.offsetParent).length, items: [...document.querySelectorAll('.item')].filter(b => b.offsetParent).length }));
+    ok(dt0 === 'block' && dsk.tip === 'none' && dsk.tabs >= 2 && dsk.items > 0, 'desktop: upgrade tooltip clears when the panel re-renders / deselects, tabs visible ' + JSON.stringify({ dt0, dt1, ...dsk }));
+    await dc.close();
+  }
   if (PART === 'auto') { // helpers: auto-rally, auto-harvester, idle engage, power helper
     await pg.goto(ROOT + '?slots=human:A:usa,easy:B&seed=7&peace=600'); await pg.waitForTimeout(3500);
     const tick = n => pg.evaluate(n => { for (let i = 0; i < n; i++) NET.tick(); mobAuto(); }, n);

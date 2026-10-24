@@ -68,7 +68,7 @@ function wireItem(b, t, panel) {
   b.dataset.t = t;
   b.onmousedown = e => { e.preventDefault(); audioInit(); if (panel) UI.hotPanel = panel; clickItem(t, e.button === 2, e.shiftKey); };
   b.oncontextmenu = e => e.preventDefault();
-  b.onmouseenter = () => showTip(t, b); b.onmouseleave = () => { UI.tip.style.display = 'none'; };
+  b.onmouseenter = () => showTip(t, b); b.onmouseleave = hideTip;
 }
 function buildGrid() {
   const g = $('grid'); if (!g) return; g.innerHTML = '';
@@ -89,7 +89,14 @@ function counters(wpn) {
   const ok = a => (a === 'air' ? W[wpn].air : W[wpn].ground);
   return { good: Object.keys(m).filter(a => m[a] >= 1 && ok(a)).map(a => names[a]), bad: Object.keys(m).filter(a => (m[a] <= 0.35 || !ok(a))).map(a => names[a]) };
 }
-function showTip(t, el) {
+// v6.3.1: tooltips remember the element that opened them. A tooltip whose owner left the DOM (panel re-render,
+// deselect) or, on touch, that has been up for 2.5 s is hidden. Before this, tapping "Upgrade" on mobile opened the
+// upgrade tooltip via a compat mouseenter that never got its mouseleave, and the tooltip sat over the build tabs forever.
+function tipOwn(el) { UI.tipOwner = el || null; UI.tipT = performance.now(); }
+function hideTip() { if (UI.tip) UI.tip.style.display = 'none'; UI.tipOwner = null; }
+function tipGuard() { if (!UI.tip || UI.tip.style.display === 'none') return; const o = UI.tipOwner, touch = typeof MOB !== 'undefined' && MOB.on;
+  if ((o && !o.isConnected) || (o && o.offsetParent === null) || (touch && performance.now() - (UI.tipT || 0) > 2500 && !(o && o.classList && o.classList.contains('mcard')))) hideTip(); }
+function showTip(t, el) { tipOwn(el);
   const d = BT[t] || UT[t], u = UT[t], wpn = u ? u.wpn : BT[t].wpn, c = counters(wpn), i = UI.gridList.indexOf(t);
   let h = `<b>${d.n}</b> <span class="c">$${d.cost}</span>${d.gas ? ` <span class="gas">◆${d.gas}</span>` : ''} <span class="dim">· ${d.time}s</span>${i >= 0 && HOTKEYS[i] ? ` <kbd>${HOTKEYS[i].toUpperCase()}</kbd>` : ''}<br>`;
   if (d.desc) h += d.desc + '<br>'; else h += `<span class="dim">${BT[t] ? (d.cat === 'def' ? 'Static defense.' : 'Base structure.') : (u && u.air ? 'Aircraft.' : u && u.armor === 'inf' ? 'Infantry unit.' : 'Vehicle.') }</span><br>`;
@@ -133,6 +140,7 @@ function pickAt(sx, sy) {
 }
 const TABFOR = { barracks: 'inf', factory: 'veh', airfield: 'air', hq: 'bld' };
 function setSel(list) {
+  hideTip();
   G.ents.forEach(e => e.sel = false); UI.sel = list; list.forEach(e => e.sel = true);
   if (list.length === 1 && list[0].kind === 'b' && list[0].team === ME && TABFOR[list[0].t]) { const tf = TABFOR[list[0].t]; if (tf === 'bld' || tf === 'def') { if (UI.tab !== tf) { UI.tab = tf; UI.hotPanel = 'side'; buildGrid(); } } else if (UI.btab !== tf) { UI.btab = tf; UI.hotPanel = 'bot'; buildBotGrid(); } }
   UI.ctxKey = null;
@@ -279,7 +287,7 @@ function idleList(kind) {
 }
 function selectIdle(kind) { const l = idleList(kind); if (!l.length) return; setSel(kind === 'harv' ? [l[0]] : l); jumpTo(l[0].x, l[0].y); }
 function uiFrame(dt) {
-  annFrame(dt);
+  annFrame(dt); tipGuard();
   const P = G.players[ME], m = UI.mouse, el = R3.renderer.domElement, W_ = el.clientWidth, H_ = el.clientHeight;
   // smooth camera scroll (edge + arrows), speed setting
   // v5.4 WASD camera pan (works in play + spectate; A still arms attack-move on keydown)
@@ -363,7 +371,7 @@ function sidebar() {
     ctx.querySelectorAll('.rsb').forEach(bt => bt.onclick = () => doResearch(bt.dataset.k));
     ctx.querySelectorAll('.mis').forEach(bt => bt.onclick = () => { const b = UI.sel[0]; if (!b || b.t !== 'silo') return; const m = MIS[bt.dataset.k], P = G.players[ME]; if (b.mq || b.mis) { sfx('error'); uiMsg('Launcher busy: one missile at a time'); return; } if (P.cr < m.cost || P.gas < m.gas) { sfx('error'); uiMsg('Need $' + m.cost + ' and ◆' + m.gas); return; } NET.issue({ c: 'mbuild', b: b.id, k: bt.dataset.k }); sfx('click'); uiMsg('Building ' + m.n); });
     const nb = $('nukeBtn'); if (nb) nb.onclick = siloArm; const ua = $('upAllBtn'); if (ua) ua.onclick = upgradeAll;
-    const ub = $('upBtn'); if (ub) { ub.onclick = doUpgrade; ub.onmouseenter = () => { const b = UI.sel[0]; UI.tip.innerHTML = upgTip(b); UI.tip.style.display = 'block'; const r = ub.getBoundingClientRect(); UI.tip.style.top = Math.max(8, r.top - 90) + 'px'; UI.tip.style.right = (innerWidth - r.left + 8) + 'px'; }; ub.onmouseleave = () => { UI.tip.style.display = 'none'; }; }
+    const ub = $('upBtn'); if (ub) { ub.onclick = doUpgrade; ub.onmouseenter = () => { const b = UI.sel[0]; if (!b) return; UI.tip.innerHTML = upgTip(b); UI.tip.style.display = 'block'; UI.tip.style.left = 'auto'; tipOwn(ub); const r = ub.getBoundingClientRect(); UI.tip.style.top = Math.max(8, r.top - 90) + 'px'; UI.tip.style.right = (innerWidth - r.left + 8) + 'px'; }; ub.onmouseleave = hideTip; }
   }
   const sst = $('siloSt'); if (sst && UI.sel[0] && UI.sel[0].t === 'silo') { const b = UI.sel[0], cd = Math.max(0, (b.cdT || 0) - G.time); const t = b.mq ? `Building ${MIS[b.mq.k].n}: ${Math.floor(b.mq.p / MIS[b.mq.k].time * 100)}%` : b.mis ? (cd > 0 ? `${MIS[b.mis].n} ready · cooling down ${Math.ceil(cd)}s` : `<span class="g">${MIS[b.mis].n} READY</span> · range ${MIS[b.mis].rng}`) : cd > 0 ? `Cooling down ${Math.ceil(cd)}s` : 'Empty: build a missile'; if (sst.innerHTML !== t) sst.innerHTML = t; }
   const stb = $('stBtn'); if (stb) { const hold = myUnits().length && myUnits().every(u => u.stance === 'hold'); const t = hold ? '⚓ Stance: Hold <kbd>V</kbd>' : '⚔ Stance: Aggressive <kbd>V</kbd>'; if (stb.innerHTML !== t) stb.innerHTML = t; }

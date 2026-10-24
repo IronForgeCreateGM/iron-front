@@ -69,7 +69,7 @@ function mobWireCard(b, t) { // tap = build/queue; long-press = tooltip; horizon
   let lp = null, sx = 0, sy = 0, moved = false, long = false;
   b.addEventListener('pointerdown', e => { audioInit(); sx = e.clientX; sy = e.clientY; moved = false; long = false; clearTimeout(lp); lp = setTimeout(() => { long = true; showTip(t, b); mobTipPos(b); }, 450); });
   b.addEventListener('pointermove', e => { if (Math.hypot(e.clientX - sx, e.clientY - sy) > 12) { moved = true; clearTimeout(lp); } });
-  const up = e => { clearTimeout(lp); if (long) { const P = G.players[ME], c = catOf(t); if (P.queues[c].some(q => q.t === t) || (BT[t] && P.ready[c] === t)) { clickItem(t, true, false); uiMsg('Cancelled one ' + (BT[t] || UT[t]).n + ' (long-press cancels)'); } setTimeout(() => { UI.tip.style.display = 'none'; }, 1400); return; } if (moved || e.type === 'pointercancel') return; mobCardTap(t); };
+  const up = e => { clearTimeout(lp); if (long) { const P = G.players[ME], c = catOf(t); if (P.queues[c].some(q => q.t === t) || (BT[t] && P.ready[c] === t)) { clickItem(t, true, false); uiMsg('Cancelled one ' + (BT[t] || UT[t]).n + ' (long-press cancels)'); } setTimeout(hideTip, 1400); return; } if (moved || e.type === 'pointercancel') return; mobCardTap(t); };
   b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('contextmenu', e => e.preventDefault());
 }
 function mobTipPos(b) { const r = b.getBoundingClientRect(); UI.tip.style.right = 'auto'; UI.tip.style.left = Math.max(8, Math.min(innerWidth - 300, r.left)) + 'px'; UI.tip.style.top = Math.max(8, r.top - UI.tip.offsetHeight - 8) + 'px'; }
@@ -158,6 +158,8 @@ function mobTap(x, y) {
     else setSel([t]);
     MOB.T.lastTap = now; MOB.T.lastTapT = t.t; sfx('click'); return; }
   MOB.T.lastTap = now; MOB.T.lastTapT = null;
+  // v6.3.1: with only non-producing buildings (turrets etc.) selected, a ground tap closes the panel instead of doing nothing
+  const own = UI.sel.filter(s => s.team === ME && s.hp > 0); if (own.length && own.every(s => s.kind === 'b' && !PRODB.includes(s.t) && s.t !== 'hq')) { setSel([]); return; }
   if (UI.sel.some(s => s.team === ME)) { const kc = UI.keys.control; UI.keys.control = true; try { onDown(fake(2)); } finally { UI.keys.control = kc; } return; } // ground = attack-move, enemy = attack, derrick = capture
   setSel(t ? [t] : []);
 }
@@ -182,7 +184,20 @@ function mobFrame(dt) {
   document.getElementById('mPlace').style.display = placing ? 'flex' : 'none'; document.getElementById('mOk').style.display = UI.placing ? '' : 'none';
   if (!UI.placing && UI.mode !== 'wall' && UI.mouse.x >= 0 && !(MOB.T && MOB.T.mode === 'box')) UI.mouse.x = -1;
   if ((MOB.hudT = (MOB.hudT || 0) + dt) > 0.25) { MOB.hudT = 0; mobHud(); }
+  mobTabsGuard();
   if ((MOB.autoT += dt) > 1) { MOB.autoT = 0; try { mobAuto(); } catch (e) { console.error(e); } }
+}
+// v6.3.1 safety net: with nothing selected (and not placing), the build bar + tabs must be visible and populated,
+// the context panel closed, and no stale tooltip may sit on top of them.
+function mobTabsGuard() {
+  if (UI.sel.some(e => e.hp > 0) || UI.placing || UI.mode === 'wall') return; const $m = id => document.getElementById(id);
+  const bar = $m('mBar'), tabs = $m('mTabs'), cards = $m('mCards'), cx = $m('mCtx'); if (!bar || !tabs || !cards) return;
+  if (UI.sel.length) setSel([]); // only dead entities left selected
+  for (const el of [bar, tabs, cards]) { if (el.style.display === 'none') el.style.display = ''; el.classList.remove('hidden'); }
+  if (cx && cx.style.display !== 'none') cx.style.display = 'none';
+  if (UI.tip && UI.tip.style.display !== 'none' && !(UI.tipOwner && UI.tipOwner.isConnected && UI.tipOwner.classList.contains('mcard'))) hideTip();
+  if (!MTABS.some(([k]) => k === MOB.tab)) MOB.tab = 'bld';
+  if (!cards.children.length && listFor(MOB.tab).length) { MOB.tabsKey = null; mobCards(); }
 }
 function mobGameInit() {
   MOB.g = G; MOB.rally = null; MOB.rallied = {}; MOB.harvPeak = 0; MOB.wantPower = false; MOB.box = false; MOB.mode = null; MOB.placeFor = null; MOB.engT = {};
