@@ -1,4 +1,4 @@
-# Iron Front: browser RTS (v7.0)
+# Iron Front: browser RTS (v7.0.1)
 
 Original real-time strategy game in plain HTML5/WebGL (Three.js vendored). No build step.
 

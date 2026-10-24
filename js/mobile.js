@@ -80,15 +80,33 @@ function mobCardTap(t) {
   if (UI.mode === 'wall') { MOB.mode = 'wall'; uiMsg('Walls: drag on the ground to lay a chain · ✗ when done'); }
   if (UI.placing) mobStartPlace();
 }
-function mobStartPlace() { const el = R3.renderer.domElement; UI.mouse.x = el.clientWidth * 0.5; UI.mouse.y = el.clientHeight * 0.45; MOB.ghostW = null; MOB.placeFor = UI.placing; if (UI.placing) uiMsg('Drag the building into place, then tap ✓'); }
+// ---------- v7.0.1 touch placement: the ghost lives in WORLD space (MOB.pl), snapped with hysteresis and drawn with a smooth glide ----------
+function mobPlane(sx, sy) { // flat ground-plane hit: smooth, monotonic deltas for relative dragging (no terrain-march jitter)
+  const el = R3.renderer.domElement; R3.raycaster.setFromCamera(new THREE.Vector2(sx / el.clientWidth * 2 - 1, -(sy / el.clientHeight) * 2 + 1), R3.camera);
+  const p = new THREE.Vector3(); return R3.raycaster.ray.intersectPlane(R3.ground, p) ? { x: p.x, y: p.z } : null; }
+function mobBuzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+function mobPlSnap(force) { const L = MOB.pl, d = BT[L.t], cx = L.fx - d.w / 2, cy = L.fy - d.h / 2, nx = Math.round(cx), ny = Math.round(cy);
+  if (force || L.tx == null || (nx !== L.tx && Math.abs(cx - L.tx) > 0.62)) L.tx = nx; // hysteresis: no flicker on a tile edge
+  if (force || L.ty == null || (ny !== L.ty && Math.abs(cy - L.ty) > 0.62)) L.ty = ny;
+  L.tx = Math.max(0, Math.min(MW - d.w, L.tx)); L.ty = Math.max(0, Math.min(MH - d.h, L.ty));
+  const ok = canPlace(L.t, ME, L.tx, L.ty); if (L.ok !== undefined && ok !== L.ok && MOB.T && MOB.T.mode === 'ghost') mobBuzz(ok ? 8 : 4); L.ok = ok; }
+function mobPlSet(x, y) { const L = MOB.pl; if (!L) return; L.fx = Math.max(0, Math.min(MW, x)); L.fy = Math.max(0, Math.min(MH, y)); mobPlSnap(false); }
+function mobPlStart(t) {
+  const el = R3.renderer.domElement, d = BT[t], last = MOB.plLast;
+  let c = null; if (last) { const s = worldToScreen(last.x, last.y, heightAt(last.x, last.y)); if (!s.behind && s.x > 40 && s.x < el.clientWidth - 40 && s.y > 40 && s.y < el.clientHeight * 0.7) c = last; } // reuse the last spot if still in view
+  if (!c) c = screenToWorld(el.clientWidth * 0.5, el.clientHeight * 0.42) || { x: R3.cam.tx, y: R3.cam.ty };
+  MOB.pl = { t, fx: c.x, fy: c.y }; mobPlSnap(true);
+  if (!MOB.pl.ok) { const bx = MOB.pl.tx, by = MOB.pl.ty; outer: for (let r = 1; r <= 6; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; if (canPlace(t, ME, bx + dx, by + dy)) { MOB.pl.fx = bx + dx + d.w / 2; MOB.pl.fy = by + dy + d.h / 2; mobPlSnap(true); break outer; } } } // start on a green spot nearby
+  MOB.pl.vx = MOB.pl.tx; MOB.pl.vy = MOB.pl.ty; mobPlSync(); }
+function mobPlSync() { const L = MOB.pl, d = BT[L.t], cx = L.tx + d.w / 2, cy = L.ty + d.h / 2, s = worldToScreen(cx, cy, heightAt(cx, cy)); UI.mouse.x = L.mx = s.x; UI.mouse.y = L.my = s.y; }
+function mobStartPlace() { MOB.placeFor = UI.placing; if (UI.placing) { mobPlStart(UI.placing); uiMsg('Drag anywhere to move the building · tap ✓ to build'); } }
 function mobConfirm() {
   if (UI.mode === 'wall') { mobCancel(); return; }
-  if (!UI.placing) return; const w = screenToWorld(UI.mouse.x, UI.mouse.y); if (!w) return;
-  const d = BT[UI.placing], tx = Math.floor(w.x - d.w / 2 + 0.5), ty = Math.floor(w.y - d.h / 2 + 0.5), cat = d.cat;
-  const ok = NET.online ? canPlace(UI.placing, ME, tx, ty) && (NET.issue({ c: 'place', cat, x: tx, y: ty }), true) : NET.issue({ c: 'place', cat, x: tx, y: ty });
-  if (ok) { UI.placing = null; MOB.placeFor = null; sfx('ack'); } else { sfx('error'); uiMsg("Can't build there — drag the ghost to a green spot"); }
+  if (!UI.placing || !MOB.pl) return; const L = MOB.pl, cat = BT[UI.placing].cat; mobPlSnap(false);
+  const ok = L.ok && (NET.online ? (NET.issue({ c: 'place', cat, x: L.tx, y: L.ty }), true) : NET.issue({ c: 'place', cat, x: L.tx, y: L.ty }));
+  if (ok) { MOB.plLast = { x: L.fx, y: L.fy }; UI.placing = null; MOB.placeFor = null; MOB.pl = null; sfx('ack'); mobBuzz(15); } else { sfx('error'); mobBuzz([30, 40, 30]); uiMsg("Can't build there — drag the ghost to a green spot"); }
 }
-function mobCancel() { UI.placing = null; MOB.placeFor = null; UI.mode = null; UI.wallA = null; MOB.mode = null; MOB.box = false; UI.mouse.x = -1; }
+function mobCancel() { UI.placing = null; MOB.placeFor = null; MOB.pl = null; UI.mode = null; UI.wallA = null; MOB.mode = null; MOB.box = false; UI.mouse.x = -1; }
 function myArmy() { return G.ents.filter(e => e.team === ME && e.kind === 'u' && e.hp > 0 && UT[e.t].wpn && e.t !== 'harv'); }
 function selUnits() { return UI.sel.filter(s => s.kind === 'u' && s.team === ME); }
 function mobHome() { return G.ents.find(e => e.team === ME && e.t === 'hq') || G.ents.find(e => e.team === ME && e.t === 'cc') || G.ents.find(e => e.team === ME && e.kind === 'b'); }
@@ -121,7 +139,7 @@ function mobInitTouch() {
     for (const t of e.changedTouches) { const p = rel(t.clientX, t.clientY); T.pts.set(t.identifier, p); }
     MOB.vel.x = MOB.vel.y = 0; T.samples = [];
     if (T.pts.size === 1) { const p = [...T.pts.values()][0]; T.moved = false; T.t0 = performance.now(); T.sx = p.x; T.sy = p.y;
-      if (UI.placing && UI.mouse.x >= 0 && Math.hypot(p.x - UI.mouse.x, p.y - UI.mouse.y) < 90) { T.mode = 'ghost'; T.gx = UI.mouse.x - p.x; T.gy = UI.mouse.y - p.y; }
+      if (UI.placing && MOB.pl && !G.spectate) { T.mode = 'ghost'; T.gl = { x: p.x, y: p.y }; T.ga = mobPlane(p.x, p.y); T.gf = { x: MOB.pl.fx, y: MOB.pl.fy }; }
       else if (UI.mode === 'wall' && !G.spectate) { T.mode = 'wall'; UI.mouse.x = p.x; UI.mouse.y = p.y; const w = screenToWorld(p.x, p.y); UI.wallA = w ? [Math.floor(w.x), Math.floor(w.y)] : null; }
       else if (MOB.box && !G.spectate) { T.mode = 'box'; const m = UI.mouse; m.x = m.sx = p.x; m.y = m.sy = p.y; m.down = true; m.shift = false; }
       else T.mode = 'pan'; }
@@ -129,15 +147,16 @@ function mobInitTouch() {
   cv.addEventListener('touchmove', e => { if (!MOB.on) return; e.preventDefault();
     const prev = new Map(T.pts); for (const t of e.changedTouches) T.pts.set(t.identifier, rel(t.clientX, t.clientY));
     if (T.pts.size === 1) { const [id, p] = [...T.pts][0], q = prev.get(id); if (!q) return; if (Math.hypot(p.x - T.sx, p.y - T.sy) > 10) T.moved = true;
-      if (T.mode === 'ghost') { UI.mouse.x = p.x + T.gx; UI.mouse.y = p.y + T.gy; }
+      if (T.mode === 'ghost') { T.gl = { x: p.x, y: p.y }; if (T.moved) { const a = T.ga, b = mobPlane(p.x, p.y); if (a && b) mobPlSet(T.gf.x + b.x - a.x, T.gf.y + b.y - a.y); } }
       else if (T.mode === 'wall' || T.mode === 'box') { UI.mouse.x = p.x; UI.mouse.y = p.y; }
       else if (T.mode === 'pan' && T.moved) { const d = panBy(q, p); if (d) { const now = performance.now(); T.samples.push([now, d.dx, d.dy]); while (T.samples.length && now - T.samples[0][0] > 90) T.samples.shift(); } } }
     else if (T.pts.size >= 2 && T.d0) { const z = Math.max(6, Math.min(G.spectate || G.watch ? 110 : 64, T.z0 * T.d0 / Math.max(10, dist()))); R3.cam.td = z; if (typeof DIR !== 'undefined') DIR.userZoom = true; const m = mid(); panBy(T.m0, m); T.m0 = m; } }, { passive: false });
   const end = e => { if (!MOB.on) return; e.preventDefault(); const lifted = [...e.changedTouches].map(t => rel(t.clientX, t.clientY)); for (const t of e.changedTouches) T.pts.delete(t.identifier);
-    if (T.pts.size === 1 && T.mode === 'pinch') { T.mode = 'pan'; T.moved = true; T.d0 = 0; return; }
+    if (T.pts.size === 1 && T.mode === 'pinch') { T.mode = UI.placing ? 'hold' : 'pan'; T.moved = true; T.d0 = 0; return; }
     if (T.pts.size) return; const p = lifted[0] || { x: T.sx, y: T.sy };
     if (T.mode === 'wall') { if (UI.wallA) { UI.mouse.x = p.x; UI.mouse.y = p.y; const tl = wallTiles(); UI.wallA = null; const ok = tl.filter(([x, y]) => canPlace('wall', ME, x, y)); if (ok.length) { NET.issue({ c: 'walls', t: ok }); sfx('ack'); } else { sfx('error'); uiMsg("Can't build walls there"); } } }
     else if (T.mode === 'box') { UI.mouse.x = p.x; UI.mouse.y = p.y; onUp({ button: 0 }); MOB.box = false; }
+    else if (T.mode === 'ghost' && !T.moved && performance.now() - T.t0 < 450) { const w = screenToWorld(p.x, p.y); if (w) mobPlSet(w.x, w.y); } // tap = put the building here (it glides over)
     else if (T.mode === 'pan' && !T.moved && performance.now() - T.t0 < 450) mobTap(p.x, p.y);
     else if (T.mode === 'pan' && T.samples.length > 1) { const s = T.samples, dt = Math.max(16, s[s.length - 1][0] - s[0][0]) / 1000; let dx = 0, dy = 0; for (const q of s) { dx += q[1]; dy += q[2]; } MOB.vel.x = -dx / dt; MOB.vel.y = -dy / dt; const sp = Math.hypot(MOB.vel.x, MOB.vel.y), mx = R3.cam.d * 3; if (sp > mx) { MOB.vel.x *= mx / sp; MOB.vel.y *= mx / sp; } }
     T.mode = null; T.d0 = 0; };
@@ -149,7 +168,7 @@ function mobInitTouch() {
 function mobTap(x, y) {
   const r = R3.renderer.domElement.getBoundingClientRect(), fake = b => ({ button: b, clientX: x + r.left, clientY: y + r.top, preventDefault() {}, altKey: false, shiftKey: false });
   if (G.spectate) { const now = performance.now(); if (now - MOB.T.lastTap < 400) { DIR.auto = true; DIR.userZoom = true; DIR.hold = 0; uiMsg('🎥 Following the action (drag to take over)'); } MOB.T.lastTap = now; return; }
-  if (UI.placing) { UI.mouse.x = x; UI.mouse.y = y; MOB.ghostSet = true; return; } // tap moves the ghost there
+  if (UI.placing) { const w = screenToWorld(x, y); if (w && MOB.pl) mobPlSet(w.x, w.y); return; } // tap moves the ghost there
   if (MOB.mode === 'rally') { const w = screenToWorld(x, y); if (w) { MOB.rally = { x: w.x, y: w.y }; MOB.rallied = {}; const bs = G.ents.filter(e => e.team === ME && e.kind === 'b' && ['barracks', 'factory', 'airfield'].includes(e.t)); if (bs.length) NET.issue({ c: 'rally', b: ids(bs), x: w.x, y: w.y }); marker(w.x, w.y); uiMsg('🚩 Rally point set'); sfx('ack'); } MOB.mode = null; return; }
   if (UI.mode) { UI.mouse.x = x; UI.mouse.y = y; onDown(fake(0)); return; } // sell / repair / nuke / unload / attack-move modes
   const t = pickAt(x, y), now = performance.now();
@@ -176,12 +195,16 @@ function mobFrame(dt) {
   MOB.ft.push(dt * 1000); if (MOB.ft.length > 120) MOB.ft.shift();
   if (!on) return;
   { const P = G.players[ME], r = P.ready.bld; if (r && r !== MOB.lastReady && !UI.placing && !UI.mode && !(MOB.wantPower && r === 'power')) UI.placing = r; MOB.lastReady = r; } // structure done -> straight into placement
-  if (UI.placing && MOB.placeFor !== UI.placing) mobStartPlace(); // a Defense finished -> auto placement mode
-  if (UI.placing && UI.mouse.x >= 0) { // v6.2: the ghost stays on its ground spot while you pan/zoom
-    const drag = MOB.T && MOB.T.mode === 'ghost';
-    if (drag || MOB.ghostSet || !MOB.ghostW) { const w = screenToWorld(UI.mouse.x, UI.mouse.y); if (w) MOB.ghostW = w; MOB.ghostSet = false; }
-    else { const p = worldToScreen(MOB.ghostW.x, MOB.ghostW.y, heightAt(MOB.ghostW.x, MOB.ghostW.y)); UI.mouse.x = p.x; UI.mouse.y = p.y; } }
-  else if (!UI.placing) MOB.ghostW = null;
+  if (UI.placing && (MOB.placeFor !== UI.placing || !MOB.pl || MOB.pl.t !== UI.placing)) mobStartPlace(); // a Defense finished -> auto placement mode
+  if (UI.placing && MOB.pl) { const L = MOB.pl, T = MOB.T;
+    if (UI.mouse.x >= 0 && L.mx != null && Math.hypot(UI.mouse.x - L.mx, UI.mouse.y - L.my) > 1.5 && !(T && T.mode === 'ghost')) { const w = screenToWorld(UI.mouse.x, UI.mouse.y); if (w) mobPlSet(w.x, w.y); } // set from elsewhere (tests / helpers)
+    if (T && T.mode === 'ghost' && T.moved && T.gl) { // drag near a screen edge: the camera follows the ghost
+      const el = R3.renderer.domElement, W_ = el.clientWidth, bar = document.getElementById('mBar'), bt = bar && bar.offsetParent ? bar.getBoundingClientRect().top - el.getBoundingClientRect().top : el.clientHeight, E = 44;
+      const ex = T.gl.x < E ? -1 : T.gl.x > W_ - E ? 1 : 0, ey = T.gl.y < E ? -1 : T.gl.y > bt - E ? 1 : 0;
+      if (ex || ey) { const v = R3.cam.d * 0.9 * dt, dx = ex * v, dy = ey * v; R3.cam.tx += dx; R3.cam.ty += dy; R3.cam.x += dx; R3.cam.y += dy; T.gf.x += dx; T.gf.y += dy; mobPlSet(L.fx + dx, L.fy + dy); } }
+    mobPlSnap(false); const k = 1 - Math.exp(-dt * 22); L.vx += (L.tx - L.vx) * k; L.vy += (L.ty - L.vy) * k; if (Math.abs(L.tx - L.vx) < 0.01) L.vx = L.tx; if (Math.abs(L.ty - L.vy) < 0.01) L.vy = L.ty;
+    mobPlSync(); const ok = document.getElementById('mOk'); ok.classList.toggle('bad', !L.ok); }
+  else if (!UI.placing) MOB.pl = null;
   const placing = !!UI.placing || UI.mode === 'wall';
   document.getElementById('mPlace').style.display = placing ? 'flex' : 'none'; document.getElementById('mOk').style.display = UI.placing ? '' : 'none';
   if (!UI.placing && UI.mode !== 'wall' && UI.mouse.x >= 0 && !(MOB.T && MOB.T.mode === 'box')) UI.mouse.x = -1;

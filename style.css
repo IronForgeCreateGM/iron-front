@@ -251,3 +251,7 @@ body.mobile #xfBtn{min-height:44px}
 /* v7.0: on phones the wave HUD sits top-right beside the minimap, clear of the money bar */
 body.mobile.mplay #waveHud{left:auto;right:calc(max(6px,env(safe-area-inset-right)) + min(30vmin,124px) + 14px);top:max(4px,env(safe-area-inset-top));min-width:0;width:200px;padding:5px 9px 7px}
 body.mobile.mplay #waveHud .wvS{font-size:10px;margin-top:2px}body.mobile.mplay #waveHud .skipBtn{margin-top:5px}
+/* v7.0.1 touch placement: ✓ shows red/dim while the spot is blocked; buttons never steal the drag */
+#mPlace .ok{transition:background .15s,border-color .15s,opacity .15s}
+#mPlace .ok.bad{background:rgba(90,30,25,.85);border-color:#ff7a66;opacity:.75}
+#mPlace .big:active{transform:scale(.92)}

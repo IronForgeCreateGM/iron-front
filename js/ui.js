@@ -310,7 +310,8 @@ function uiFrame(dt) {
   if (!UI.mmDrag && !UI.pan) { R3.cam.tx += dx * sp; R3.cam.ty += dy * sp; }
   UI.sel = UI.sel.filter(s => s.hp > 0 && !s.dead && (s.team === ME || visibleTo0(s)));
   for (const u of G.ents) if (u.team === ME && u.kind === 'u') u.idleT = (u.path.length || u.tgt || (u.t === 'harv' && u.hst !== 'idle' && u.hst !== 'manual')) ? 0 : (u.idleT || 0) + dt;
-  if (UI.placing && m.x >= 0) { const w = screenToWorld(m.x, m.y); if (w) { const d = BT[UI.placing], tx = Math.floor(w.x - d.w / 2 + 0.5), ty = Math.floor(w.y - d.h / 2 + 0.5); ghost(UI.placing, tx, ty, canPlace(UI.placing, ME, tx, ty)); } }
+  if (UI.placing && typeof MOB !== 'undefined' && MOB.on && MOB.pl && MOB.pl.t === UI.placing && !G.spectate) { const L = MOB.pl, d = BT[L.t]; ghost(L.t, L.tx, L.ty, L.ok); if (R3.ghost) { const gx = L.vx + d.w / 2, gy = L.vy + d.h / 2; R3.ghost.position.set(gx, heightAt(L.tx + d.w / 2, L.ty + d.h / 2) + 0.02, gy); } } // v7.0.1 touch: world-space ghost, smooth glide
+  else if (UI.placing && m.x >= 0) { const w = screenToWorld(m.x, m.y); if (w) { const d = BT[UI.placing], tx = Math.floor(w.x - d.w / 2 + 0.5), ty = Math.floor(w.y - d.h / 2 + 0.5); ghost(UI.placing, tx, ty, canPlace(UI.placing, ME, tx, ty)); } }
   else ghost(null);
   wallPreview(UI.mode === 'wall' ? (UI.wallA ? wallTiles() : (() => { const w = m.x >= 0 && screenToWorld(m.x, m.y); return w ? [[Math.floor(w.x), Math.floor(w.y)]] : null; })()) : null);
   if (UI.placing && P.ready[BT[UI.placing].cat] !== UI.placing) UI.placing = null;
