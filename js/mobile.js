@@ -41,7 +41,7 @@ function mobBuildHud() {
     <button id="mPowerBtn" class="mb warn" style="display:none">⚡ +Power</button><button id="mAutoBtn" class="mb">🤖</button></div>
     <div id="mAlerts"></div><div id="mSel"></div><div id="mCtx"></div>
     <div id="mCmd">${MCMDS.map(([k, i, n]) => `<button class="mb mc" data-k="${k}"><span>${i}</span><small>${n}</small></button>`).join('')}</div>
-    <div id="mPlace"><button id="mNo" class="mb big no">✗</button><button id="mOk" class="mb big ok">✓</button></div>
+    <div id="mPlace"><div id="mPlHint"></div><button id="mNo" class="mb big no">✗</button><button id="mOk" class="mb big ok">✓</button></div>
     <div id="mBar"><div id="mTabs">${MTABS.map(([k, i]) => `<button class="tab mtab" data-cat="${k}">${i}<i></i></button>`).join('')}</div><div id="mCards"></div></div>
     <div id="mAuto"><b>🤖 Helpers</b>${MAUTO.map(([k, n]) => `<label><input type="checkbox" data-k="${k}"> ${n}</label>`).join('')}<label><input type="checkbox" id="mFps60"> 60 fps (smoother, more battery)</label><button id="mAutoClose" class="mb">Done</button></div>
     <div id="mRotate"><div>📱↻<br>Rotate your phone to landscape</div></div>`;
@@ -77,7 +77,7 @@ function mobCardTap(t) {
   const P = G.players[ME], cat = catOf(t);
   if (BT[t] && P.ready[cat] === t) { UI.placing = t; UI.mode = null; mobStartPlace(); sfx('click'); return; }
   clickItem(t, false, false);
-  if (UI.mode === 'wall') { MOB.mode = 'wall'; uiMsg('Walls: drag on the ground to lay a chain · ✗ when done'); }
+  if (UI.mode === 'wall') { MOB.mode = 'wall'; UI.msgT = 0; document.getElementById('msg').style.opacity = 0; } // the ✓/✗ hint explains touch walls
   if (UI.placing) mobStartPlace();
 }
 // ---------- v7.0.1 touch placement: the ghost lives in WORLD space (MOB.pl), snapped with hysteresis and drawn with a smooth glide ----------
@@ -86,20 +86,20 @@ function mobPlane(sx, sy) { // flat ground-plane hit: smooth, monotonic deltas f
   const p = new THREE.Vector3(); return R3.raycaster.ray.intersectPlane(R3.ground, p) ? { x: p.x, y: p.z } : null; }
 function mobBuzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
 function mobPlSnap(force) { const L = MOB.pl, d = BT[L.t], cx = L.fx - d.w / 2, cy = L.fy - d.h / 2, nx = Math.round(cx), ny = Math.round(cy);
-  if (force || L.tx == null || (nx !== L.tx && Math.abs(cx - L.tx) > 0.62)) L.tx = nx; // hysteresis: no flicker on a tile edge
-  if (force || L.ty == null || (ny !== L.ty && Math.abs(cy - L.ty) > 0.62)) L.ty = ny;
+  if (force || L.tx == null || (nx !== L.tx && Math.abs(cx - L.tx) > 0.75)) L.tx = nx; // hysteresis: no flicker on a tile edge
+  if (force || L.ty == null || (ny !== L.ty && Math.abs(cy - L.ty) > 0.75)) L.ty = ny;
   L.tx = Math.max(0, Math.min(MW - d.w, L.tx)); L.ty = Math.max(0, Math.min(MH - d.h, L.ty));
   const ok = canPlace(L.t, ME, L.tx, L.ty); if (L.ok !== undefined && ok !== L.ok && MOB.T && MOB.T.mode === 'ghost') mobBuzz(ok ? 8 : 4); L.ok = ok; }
 function mobPlSet(x, y) { const L = MOB.pl; if (!L) return; L.fx = Math.max(0, Math.min(MW, x)); L.fy = Math.max(0, Math.min(MH, y)); mobPlSnap(false); }
 function mobPlStart(t) {
   const el = R3.renderer.domElement, d = BT[t], last = MOB.plLast;
   let c = null; if (last) { const s = worldToScreen(last.x, last.y, heightAt(last.x, last.y)); if (!s.behind && s.x > 40 && s.x < el.clientWidth - 40 && s.y > 40 && s.y < el.clientHeight * 0.7) c = last; } // reuse the last spot if still in view
-  if (!c) c = screenToWorld(el.clientWidth * 0.5, el.clientHeight * 0.42) || { x: R3.cam.tx, y: R3.cam.ty };
+  if (!c) c = screenToWorld(el.clientWidth * 0.5, el.clientHeight * 0.38) || { x: R3.cam.tx, y: R3.cam.ty };
   MOB.pl = { t, fx: c.x, fy: c.y }; mobPlSnap(true);
   if (!MOB.pl.ok) { const bx = MOB.pl.tx, by = MOB.pl.ty; outer: for (let r = 1; r <= 6; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; if (canPlace(t, ME, bx + dx, by + dy)) { MOB.pl.fx = bx + dx + d.w / 2; MOB.pl.fy = by + dy + d.h / 2; mobPlSnap(true); break outer; } } } // start on a green spot nearby
   MOB.pl.vx = MOB.pl.tx; MOB.pl.vy = MOB.pl.ty; mobPlSync(); }
 function mobPlSync() { const L = MOB.pl, d = BT[L.t], cx = L.tx + d.w / 2, cy = L.ty + d.h / 2, s = worldToScreen(cx, cy, heightAt(cx, cy)); UI.mouse.x = L.mx = s.x; UI.mouse.y = L.my = s.y; }
-function mobStartPlace() { MOB.placeFor = UI.placing; if (UI.placing) { mobPlStart(UI.placing); uiMsg('Drag anywhere to move the building · tap ✓ to build'); } }
+function mobStartPlace() { MOB.placeFor = UI.placing; if (UI.placing) mobPlStart(UI.placing); }
 function mobConfirm() {
   if (UI.mode === 'wall') { mobCancel(); return; }
   if (!UI.placing || !MOB.pl) return; const L = MOB.pl, cat = BT[UI.placing].cat; mobPlSnap(false);
@@ -199,14 +199,16 @@ function mobFrame(dt) {
   if (UI.placing && MOB.pl) { const L = MOB.pl, T = MOB.T;
     if (UI.mouse.x >= 0 && L.mx != null && Math.hypot(UI.mouse.x - L.mx, UI.mouse.y - L.my) > 1.5 && !(T && T.mode === 'ghost')) { const w = screenToWorld(UI.mouse.x, UI.mouse.y); if (w) mobPlSet(w.x, w.y); } // set from elsewhere (tests / helpers)
     if (T && T.mode === 'ghost' && T.moved && T.gl) { // drag near a screen edge: the camera follows the ghost
-      const el = R3.renderer.domElement, W_ = el.clientWidth, bar = document.getElementById('mBar'), bt = bar && bar.offsetParent ? bar.getBoundingClientRect().top - el.getBoundingClientRect().top : el.clientHeight, E = 44;
+      const el = R3.renderer.domElement, W_ = el.clientWidth, bar = document.getElementById('mCards'), br = bar && bar.offsetParent ? bar.getBoundingClientRect() : null, bt = br && br.height > 20 ? br.top - el.getBoundingClientRect().top : el.clientHeight, E = 44;
       const ex = T.gl.x < E ? -1 : T.gl.x > W_ - E ? 1 : 0, ey = T.gl.y < E ? -1 : T.gl.y > bt - E ? 1 : 0;
       if (ex || ey) { const v = R3.cam.d * 0.9 * dt, dx = ex * v, dy = ey * v; R3.cam.tx += dx; R3.cam.ty += dy; R3.cam.x += dx; R3.cam.y += dy; T.gf.x += dx; T.gf.y += dy; mobPlSet(L.fx + dx, L.fy + dy); } }
     mobPlSnap(false); const k = 1 - Math.exp(-dt * 22); L.vx += (L.tx - L.vx) * k; L.vy += (L.ty - L.vy) * k; if (Math.abs(L.tx - L.vx) < 0.01) L.vx = L.tx; if (Math.abs(L.ty - L.vy) < 0.01) L.vy = L.ty;
     mobPlSync(); const ok = document.getElementById('mOk'); ok.classList.toggle('bad', !L.ok); }
   else if (!UI.placing) MOB.pl = null;
   const placing = !!UI.placing || UI.mode === 'wall';
-  document.getElementById('mPlace').style.display = placing ? 'flex' : 'none'; document.getElementById('mOk').style.display = UI.placing ? '' : 'none';
+  { const mp = document.getElementById('mPlace'), was = mp.style.display === 'flex'; mp.style.display = placing ? 'flex' : 'none';
+    if (placing && !was) { const c = document.getElementById('mCmd'), r = c && c.offsetParent ? c.getBoundingClientRect() : null; if (r && r.width > 20 && r.left > innerWidth * 0.55 && r.width < innerWidth * 0.4) { mp.style.left = 'auto'; mp.style.transform = 'none'; mp.style.right = Math.round(innerWidth - r.left + 12) + 'px'; } else { mp.style.left = mp.style.right = mp.style.transform = ''; } } } // ✓/✗ beside the command column, off the middle of the map
+  if (placing) { const h = document.getElementById('mPlHint'), tx = UI.mode === 'wall' ? 'Drag on the ground to lay walls · ✗ when done' : MOB.pl && !MOB.pl.ok ? 'Blocked here · drag anywhere to move it' : 'Drag anywhere to move · ✓ to build'; if (h.textContent !== tx) { h.textContent = tx; h.classList.toggle('bad', !!(MOB.pl && !MOB.pl.ok) && UI.mode !== 'wall'); } } document.getElementById('mOk').style.display = UI.placing ? '' : 'none';
   if (!UI.placing && UI.mode !== 'wall' && UI.mouse.x >= 0 && !(MOB.T && MOB.T.mode === 'box')) UI.mouse.x = -1;
   if ((MOB.hudT = (MOB.hudT || 0) + dt) > 0.25) { MOB.hudT = 0; mobHud(); }
   mobTabsGuard();
