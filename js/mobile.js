@@ -190,10 +190,10 @@ function mobFrame(dt) {
 // v6.3.1 safety net: with nothing selected (and not placing), the build bar + tabs must be visible and populated,
 // the context panel closed, and no stale tooltip may sit on top of them.
 function mobTabsGuard() {
-  if (UI.sel.some(e => e.hp > 0) || UI.placing || UI.mode === 'wall') return; const $m = id => document.getElementById(id);
-  const bar = $m('mBar'), tabs = $m('mTabs'), cards = $m('mCards'), cx = $m('mCtx'); if (!bar || !tabs || !cards) return;
+  const $m = id => document.getElementById(id), bar = $m('mBar'), tabs = $m('mTabs'), cards = $m('mCards'), cx = $m('mCtx'); if (!bar || !tabs || !cards) return;
+  for (const el of [bar, tabs, cards]) { if (el.style.display === 'none') el.style.display = ''; el.classList.remove('hidden'); } // nothing may hide the build bar
+  if (UI.sel.some(e => e.hp > 0) || UI.placing || UI.mode === 'wall') return;
   if (UI.sel.length) setSel([]); // only dead entities left selected
-  for (const el of [bar, tabs, cards]) { if (el.style.display === 'none') el.style.display = ''; el.classList.remove('hidden'); }
   if (cx && cx.style.display !== 'none') cx.style.display = 'none';
   if (UI.tip && UI.tip.style.display !== 'none' && !(UI.tipOwner && UI.tipOwner.isConnected && UI.tipOwner.classList.contains('mcard'))) hideTip();
   if (!MTABS.some(([k]) => k === MOB.tab)) MOB.tab = 'bld';

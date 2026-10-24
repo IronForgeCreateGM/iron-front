@@ -85,7 +85,7 @@ const ROOT = 'file://' + path.resolve(__dirname, '../index.html'), PART = proces
   }
   if (PART === 'play' || PART === 'tabs') { // v6.3.1 regression: build tabs vanished after upgrading a turret and closing its panel
     await pg.goto(ROOT + '?slots=human:A:usa,easy:B&seed=7&peace=600'); await pg.waitForTimeout(3000);
-    const tabsOK = async l => { await pg.waitForTimeout(300); await pg.waitForFunction(() => !UI.sel.length && getComputedStyle(document.getElementById('mCtx')).display === 'none' && getComputedStyle(document.getElementById('tip')).display === 'none', null, { timeout: 2500 }).catch(() => {}); const r = await pg.evaluate(() => {
+    const tabsOK = async l => { await pg.waitForTimeout(300); await pg.waitForFunction(() => !UI.sel.length && getComputedStyle(document.getElementById('mCtx')).display === 'none' && getComputedStyle(document.getElementById('tip')).display === 'none' && getComputedStyle(document.getElementById('mBar')).display !== 'none', null, { timeout: 3000 }).catch(() => {}); const r = await pg.evaluate(() => {
       const tip = document.getElementById('tip'), tr = tip.style.display !== 'none' && getComputedStyle(tip).display !== 'none' ? tip.getBoundingClientRect() : null;
       const tabs = [...document.querySelectorAll('#mTabs .mtab')].map(b => { const r = b.getBoundingClientRect(); let v = !!b.offsetParent && r.width > 20; for (let x = b; x && v; x = x.parentElement) { const cs = getComputedStyle(x); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) v = false; }
         const cov = tr && !(tr.right <= r.left || tr.left >= r.right || tr.bottom <= r.top || tr.top >= r.bottom); return v && !cov; });
