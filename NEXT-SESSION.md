@@ -126,3 +126,12 @@ Also earlier backlog: wall gate.
   - Quiet mode = simple shader + no FX. Gameplay is unchanged.
 - Shots: shots/v6_3-healer-beam.png, v6_3-healer-card.png, v6_3-cards-air.png, v6_3-lava.png, v6_3-lava-quiet.png.
 - Next: get Nicholas's go-ahead, then push. Still open from v6.2: game modes, maps, map editor.
+
+## v6.3.1 (2026-10-23, NOT pushed): mobile build-tab bug from Nicholas's brother
+- Cause: the turret Upgrade button's hover tooltip was opened by the touch-emulated mouseenter and never closed, because touch has no mouseleave. It covered the mobile build tabs from then on.
+- Fix:
+  - Tooltip owner tracking plus tipGuard (hide when the owner is gone or hidden, or after 2.5 s on touch).
+  - hideTip runs in setSel.
+  - mobTabsGuard safety net (nothing selected means bar and tabs are visible and populated, ctx closed).
+  - Ground tap with only turrets selected deselects.
+- Regression: mobile-play-test `tabs` part (also runs in the default `play` run).
