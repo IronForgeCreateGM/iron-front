@@ -5,7 +5,7 @@
 </head><body>
 <div id="app">
   <div id="view"><canvas id="ov"></canvas><div id="msg"></div><div id="fps"></div>
-    <div id="announce"></div>
+    <div id="announce"></div><div id="waveHud" style="display:none"></div>
 <div id="netWait"></div>
 <div id="watchTag">SPECTATING · CHIEF (olive) vs HARD AI (tan)</div><div id="hint">WASD/arrows pan · Wheel zoom · Drag select · Right-click move/attack · F attack-move · C stop · G formation · V stance · Z upgrade · B unload · N launch · Q/Tab build tabs · H base · Ctrl+1-9 groups · M quiet · ` fps</div></div>
   <button id="mobMenuBtn" title="Menu">☰</button>
@@ -27,18 +27,21 @@
 </div>
 <div id="tip"></div>
 <div id="menu" class="screen"><div class="panel">
-  <h1>IRON<span>FRONT</span></h1><p class="sub">Real-time strategy · v6.3.1 · NEW: Seraph Medevac healer transport, molten lava · mobile build-tab fix</p>
+  <h1>IRON<span>FRONT</span></h1><p class="sub">Real-time strategy · v7.0 · NEW: ♾ Endless mode · Iran · China · Japan</p>
   <div id="homeBtns">
     <button id="playBotsBtn" class="big">▶ Play vs Bots</button>
+    <button id="playEndlessBtn" class="big endl">♾ Endless</button>
     <button id="playOnlineBtn" class="big alt">🌐 Play Online</button>
     <button id="mobWatchBtn" class="big alt" style="display:none">👁 Watch 4v4 bots (Volcano XL)</button>
     <div id="mobHint" style="display:none">📱 Touch controls on (landscape recommended) — tap the build cards, drag to pan, pinch to zoom. Switch off below for mouse/keyboard.</div>
+    <div id="homeHS"></div>
     <div class="homeSmall"><button id="replayBtn">Replays</button> <button id="lastReplayBtn" style="display:none">▶ Watch last game</button> <button id="mobileBtn">📱 Mobile view: Off</button> <button id="homeSetBtn" onclick="openSettings(true)">Settings</button><input type="file" id="replayFile" accept=".json,application/json" style="display:none"></div>
   </div>
   <div id="setup" style="display:none">
-    <div class="setupTop"><button id="backBtn" class="back">← Back</button><span id="setupTitle">Game setup</span></div>
+    <div class="setupTop"><button id="backBtn" class="back">← Back</button><span id="setupTitle">Game setup</span><div id="modeTabs"><button data-m="skirmish" class="on">⚔ Skirmish</button><button data-m="endless">♾ Endless</button></div></div>
+    <div id="endInfo" style="display:none">Hold the western plateau against an endless Horde. Waves pour in from the east through <b>four mountain passes</b> — wall them, tower them, survive. Every <b>10th wave is a boss</b>: clear it fast and clean for a free elite unit. Solo or co-op with up to 4 (friends or ally bots).</div>
     <div class="setupRow"><div class="setupL">
-  <div class="lopts"><label>Map <select id="mapSel"><option value="classic">Iron Crossroads (4)</option><option value="frost">Frostline Pass (2v2)</option><option value="volcano">Volcano Crown (3v3)</option><option value="volcano8">Volcano Crown XL (4v4)</option><option value="hellgate">Hindu Kush Hellgate (2v6) 🔥</option></select></label> <label>Peace time <select id="peaceSel"><option value="0">Off</option><option value="180" selected>3 min</option><option value="300">5 min</option><option value="480">8 min</option></select></label> <span class="dim">Quick setup:</span> <span id="presets"></span></div>
+  <div class="lopts"><label class="mapRow">Map <select id="mapSel"><option value="classic">Iron Crossroads (4)</option><option value="frost">Frostline Pass (2v2)</option><option value="volcano">Volcano Crown (3v3)</option><option value="volcano8">Volcano Crown XL (4v4)</option><option value="hellgate">Hindu Kush Hellgate (2v6) 🔥</option><option value="endless" hidden>Hellgate Last Stand (Endless)</option></select></label> <label class="peaceRow">Peace time <select id="peaceSel"><option value="0">Off</option><option value="180" selected>3 min</option><option value="300">5 min</option><option value="480">8 min</option></select></label> <span class="dim mapRow">Quick setup:</span> <span id="presets"></span></div>
       <canvas id="mapPrev" width="200" height="200" title="Map preview: bases (numbers), ore (gold), gas (teal), water, cliffs, lava"></canvas><div id="mapPrevTxt" class="dim small"></div>
     </div><div class="setupR">
   <div id="onWrap" style="display:none">
@@ -47,6 +50,7 @@
   <div id="onPanel" style="display:none"><div id="onPeers"></div><div id="chatLog"></div><input id="chatIn" placeholder="Chat… (Enter)" maxlength="140"> <button id="readyBtn" style="display:none">Ready</button></div>
   </div>
   <div id="lobby"></div>
+  <div id="endHS" style="display:none"></div>
   <div class="fsel"><div class="flbl">Your faction</div><div id="facs"></div><div id="facDesc"></div></div>
   <label><input type="checkbox" id="fogChk" checked> Fog of war</label>
     </div></div>
@@ -73,12 +77,13 @@
   <label><input type="checkbox" id="setFps"> Show FPS / stats (`)</label>
   <button id="setClose" class="big">Done</button>
 </div></div>
-<div id="end" class="screen" style="display:none"><div class="panel"><h1 id="endTitle"></h1><p id="endStats"></p><button id="saveRepBtn">💾 Save replay</button> <button class="quitBtn big">Play again</button></div></div>
+<div id="end" class="screen" style="display:none"><div class="panel"><h1 id="endTitle"></h1><div id="endRun" style="display:none"></div><p id="endStats"></p><button id="saveRepBtn">💾 Save replay</button> <button class="quitBtn big">Play again</button></div></div>
 <pre id="err"></pre>
 <script src="vendor/three.min.js"></script>
 <script src="js/data.js"></script>
 <script src="js/sim.js"></script>
 <script src="js/ai.js"></script>
+<script src="js/endless.js"></script>
 <script src="js/net.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/gfx/models.js"></script>

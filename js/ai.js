@@ -9,7 +9,7 @@ const AI_ORDER_SI = ['power', 'barracks', 'refinery', 'power', 'extractor', 'fac
 const AI_ORDER_AIR = AI_ORDER.concat(['power', 'airfield', 'extractor', 'power', 'gcannon', 'power']);
 function aiInit(P) { P.aiS = { next: 0, wave: DIFF[P.diff].wave0, scoutT: DIFF[P.diff].scoutAfter, lastAttack: 0, attackers: new Set(), known: new Map(), sellT: 0 }; }
 // v5.0 peace window: no attacks on bases before G.opts.peace seconds (default 180; lobby Off/3/5/8 min)
-function peaceOver(P) { if (P && DIFF[P.diff].human) return true; const t0 = (G.opts.peace == null ? 180 : G.opts.peace) + ((P && P.stagger) || 0); if (G.time < t0) return false;
+function peaceOver(P) { if (G.end) return false; /* v7.0 Endless: defender bots never march out (the Horde has no base) */ if (P && DIFF[P.diff].human) return true; const t0 = (G.opts.peace == null ? 180 : G.opts.peace) + ((P && P.stagger) || 0); if (G.time < t0) return false;
   // v6.0 Hellgate warlords wake up one at a time, then raid in 3.5-min-on / 1.5-min-off cycles (offset per warlord) until the endgame
   if (P && P.stagger != null && G.time < END_T) return (G.time - t0) % 300 < 210; return true; }
 function aiStep(P) {
@@ -53,7 +53,7 @@ function aiStep(P) {
     S.saving = want && avail(P.team, want) && P.cr <= BT[want].cost * 0.3 && ['refinery', 'cc', 'factory', 'power', 'extractor', 'barracks'].includes(want) ? want : null;
     if (want && avail(P.team, want) && P.cr > BT[want].cost * 0.3) enqueue(P.team, want);
   }
-  { const nd = me.filter(e => e.kind === 'b' && BT[e.t].cat === 'def' && e.t !== 'wall' && e.t !== 'gate').length, nw = (cnt.wall || 0) + (cnt.gate || 0);
+  { const nd = me.filter(e => e.kind === 'b' && BT[e.t].cat === 'def' && e.t !== 'wall' && e.t !== 'gate' && e.t !== 'gtower').length, nw = (cnt.wall || 0) + (cnt.gate || 0) + (cnt.gtower || 0);
     S.defFull = nd >= 14 + 4 * (cnt.cc || 0) || (G.time > END_T && nd >= 8); S.wallFull = nw >= 36 || G.time > END_T; // v5.6: towers must not starve the army
     if (S.defFull && !S.underAttack) for (const it of P.queues.def.slice()) if (it.t !== 'wall' && it.prog < 0.3) cancel(P.team, it.t); }
   if (doc && !(S.defFull && !S.underAttack)) defenseMgr(P, S, D, me, cnt, hq);
@@ -62,6 +62,7 @@ function aiStep(P) {
   }
   // 2b) ally pings
   aiPing(P, S, me);
+  facAI(P, S, D, me, cnt, hq, foes);
   // 3) harvesters
   const refs = cnt.refinery || 0, harvs = cnt.harv || 0;
   const threat = D.chief && G.time < 240 ? armyVal(foes.filter(f => f.kind === 'u' && UT[f.t].wpn)) > armyVal(me.filter(u => u.kind === 'u' && UT[u.t].wpn)) * 1.3 : false;
@@ -95,7 +96,7 @@ function aiStep(P) {
     const pq = c => S.rsSave && P.cr < S.rsSave ? 0 : Math.max(2, Math.ceil(producers(P.team, c) * (doc ? 1.5 : 1)));
     if (P.queues.inf.length < pq('inf')) { const t = pick([['rifle', 2 + ft.inf], ['rocketeer', 1 + ft.armor * 1.5 + ft.air], ['sniper', ft.inf > 3 ? 1 + ft.inf * 0.25 : 0.2], ['kommando', P.gas > 200 ? 1.5 : 0], ['marine', 8 + ft.inf * 0.5 + ft.armor * 0.3 + ft.air * 0.5], ['engineer', myInf > 6 && (cnt.engineer || 0) < 1 + myInf / 12 ? 0.8 : 0]]); if (t) enqueue(P.team, t); }
     if (P.queues.veh.length < pq('veh') && harvs >= Math.min(2, refs * 2)) {
-      const t = pick([['heavy', 5 + ft.armor], ['titan', P.gas > 300 ? 1.5 + ft.air * 0.3 + (P.gas > 1200 ? 4 : 0) : 0], ['tsar', P.gas > 350 ? 2 + (P.gas > 1200 ? 4 : 0) : 0], ['scout', 1 + ft.inf * 0.5], ['arty', 1 + ft.inf * 0.4 + (S.towerHeavy ? 5 : S.siege ? 3 : 0)], ['aa', ft.air * 2]]);
+      const t = pick([['heavy', 5 + ft.armor], ['drone', 2.5 + ft.armor * 0.4 + ft.inf * 0.3 + (S.siege ? 1.5 : 0)], ['raijin', P.gas > 260 ? 2.5 + (S.siege ? 2 : 0) + (P.gas > 1200 ? 3 : 0) : 0], ['titan', P.gas > 300 ? 1.5 + ft.air * 0.3 + (P.gas > 1200 ? 4 : 0) : 0], ['tsar', P.gas > 350 ? 2 + (P.gas > 1200 ? 4 : 0) : 0], ['scout', 1 + ft.inf * 0.5], ['arty', 1 + ft.inf * 0.4 + (S.towerHeavy ? 5 : S.siege ? 3 : 0)], ['aa', ft.air * 2]]);
       if (t) enqueue(P.team, t);
     }
     const airN = (cnt.gunship || 0) + (cnt.jet || 0) + (cnt.intercept || 0) + (cnt.bomber || 0);
@@ -468,6 +469,39 @@ function aiFocus(P, knownB) {
   if (hum) { const arm = G.ents.filter(e => e.team === hum.team && e.kind === 'u' && e.t !== 'harv'); if (arm.length) { const cx = arm.reduce((a, e) => a + e.x, 0) / arm.length, cy = arm.reduce((a, e) => a + e.y, 0) / arm.length; tg.sort((a, b) => dhypot(a.x - cx, a.y - cy) - dhypot(b.x - cx, b.y - cy)); return tg; } }
   return tg;
 }
+// ===== v7.0 faction specials for bots (deterministic, no bonuses) =====
+function facAI(P, S, D, me, cnt, hq, foes) {
+  if (P.fac === 'irn') droneMgr(P, S, me, foes, hq);
+  else if (P.fac === 'chn') greatWallMgr(P, S, me, cnt, hq);
+  else if (P.fac === 'jpn') raijinMgr(P, S, me, foes);
+}
+// Iran: hold drones at home until a swarm of 6+ (3 in Endless / when defending), then throw it at the densest visible enemy blob (or a key building)
+function droneMgr(P, S, me, foes, hq) {
+  const dr = me.filter(u => u.t === 'drone' && u.hp > 0 && !u.tgt && u.order !== 'move'); if (!dr.length) return;
+  const need = G.end || S.underAttack ? 2 : 6; if (dr.length < need && G.time - (S.droneT || 0) < 90) return;
+  let best = null, bs = 0;
+  for (const f of foes) { if (f.hp <= 0 || isAir(f)) continue; let n = 0; if (f.kind === 'u') { if (!UT[f.t].wpn) continue; for (const q of foes) if (q.kind === 'u' && !isAir(q) && Math.abs(q.x - f.x) < 2 && Math.abs(q.y - f.y) < 2) n += UT[q.t].armor === 'inf' ? 1 : 2; }
+    else n = ({ factory: 5, refinery: 5, power: 4, tech: 4, airfield: 4, hq: 3, cc: 3, gcannon: 4, tesla: 4 })[f.t] || 0;
+    const sc = n - dhypot(f.x - hq.x, f.y - hq.y) * 0.02; if (n >= 3 && sc > bs) { bs = sc; best = f; } }
+  if (!best) { const kb = [...S.known.values()].filter(b => b.hp > 0 && ['refinery', 'power', 'factory', 'tech'].includes(b.t)); if (kb.length && dr.length >= 6 && peaceOver(P)) best = kb[(G.R() * kb.length) | 0]; }
+  if (!best) return; S.droneT = G.time; orderAttack(dr, best); dr.forEach(u => S.attackers.add(u.id));
+}
+// China: Great Wall lines across every entrance (each 5th piece rises as a guard tower) — always with a gate lane
+function greatWallMgr(P, S, me, cnt, hq) {
+  if (G.time < (S.gwT || 0) || G.time < (G.end ? 20 : 200) || !avail(P.team, 'wall')) return; S.gwT = G.time + (G.end ? 40 : 110);
+  const nw = (cnt.wall || 0) + (cnt.gtower || 0) + (cnt.gate || 0); if (nw >= (G.end ? 110 : 70) || P.cr < (G.end ? 600 : 900)) return;
+  const ents = baseEntrances(P, S, hq); if (!ents.length) return;
+  const en = ents[(S.gwI = ((S.gwI || 0) + 1)) % ents.length]; if (G.time < (en.gwT || 0)) return; en.gwT = G.time + 400;
+  aiWallEntrance(P, en, G.end ? 9 : 7, 2.2 + (en.gwN || 0) * 2); en.gwN = (en.gwN || 0) + 1;
+}
+// Japan: Raijin flies (jet) to far targets over walls and cliffs, lands (mech) to fight; idle jets land
+function raijinMgr(P, S, me, foes) {
+  for (const u of me) { if ((u.t !== 'raijin' && u.t !== 'raijinJ') || u.hp <= 0 || u.xfT != null || G.time < (u.xfCd || 0)) continue;
+    const jet = u.t === 'raijinJ', dst = u.tgt || (u.order !== 'idle' && u.anchor) || null, dd = dst ? dhypot(dst.x - u.x, dst.y - u.y) : 0;
+    let near = false; for (const f of foes) if (f.kind === 'u' && UT[f.t].wpn && !isAir(f) && Math.abs(f.x - u.x) < 6 && Math.abs(f.y - u.y) < 6) { near = true; break; }
+    if (!jet && dst && dd > 16 && !near) xform(u);
+    else if (jet && (!dst || u.order === 'idle' || dd < 6 || near) && !blk(u.x, u.y)) xform(u); }
+}
 function aiPing(P, S, me) {
   for (const pg of G.pings || []) if (!foe(pg.team, P.team) && pg.team !== P.team && pg.t > (S.pingT || -1)) {
     S.pingT = pg.t; const arm = me.filter(u => u.kind === 'u' && UT[u.t].wpn && u.t !== 'harv' && !UT[u.t].jet);
@@ -547,10 +581,10 @@ function aiExitFree(P, hq) {
   }
   G.curTeam = null; return ok;
 }
-function aiWallEntrance(P, en) {
+function aiWallEntrance(P, en, half, off) {
   // v5.4: always leave a gate lane, never seal the base; roll back if exit path dies
-  const a = datan2(en.y - en.b.y, en.x - en.b.x), cx = en.x + dcos(a) * 2.2, cy = en.y + dsin(a) * 2.2, px = -dsin(a), py = dcos(a), tiles = [], seen = new Set();
-  for (let k = -5; k <= 5; k += 0.5) { const x = Math.floor(cx + px * k), y = Math.floor(cy + py * k), i = idx(x, y); if (!inb(x, y) || seen.has(i)) continue; seen.add(i); tiles.push([x, y, Math.abs(k)]); }
+  const a = datan2(en.y - en.b.y, en.x - en.b.x), cx = en.x + dcos(a) * (off || 2.2), cy = en.y + dsin(a) * (off || 2.2), px = -dsin(a), py = dcos(a), tiles = [], seen = new Set();
+  for (let k = -(half || 5); k <= (half || 5); k += 0.5) { const x = Math.floor(cx + px * k), y = Math.floor(cy + py * k), i = idx(x, y); if (!inb(x, y) || seen.has(i)) continue; seen.add(i); tiles.push([x, y, Math.abs(k)]); }
   const placed = []; let n = 0, gates = 0;
   // place gate(s) first on the centre 3 tiles so a lane always exists
   for (const [x, y, k] of tiles) if (k < 1.1) { if (!avail(P.team, 'gate') || P.cr < BT.gate.cost + 200 || !canPlace('gate', P.team, x, y)) continue; P.cr -= BT.gate.cost; const b = addB('gate', P.team, x, y); placed.push(b); n++; gates++; }

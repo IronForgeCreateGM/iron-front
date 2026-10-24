@@ -13,12 +13,14 @@ function foe(a, b) { if (a === b) return false; if (a == null || b == null) retu
 function newGame(opts) {
   opts = Object.assign({ seed: (Math.random() * 1e9) | 0, diff: 'normal', aiTeams: [1], fog: true }, opts || {});
   const R = mkRng(opts.seed);
+  if ((opts.mode === 'endless' || opts.map === 'endless') && typeof endlessSlots === 'function') { opts.map = 'endless'; opts.mode = 'endless'; if (!(opts.slots || []).some(s => s.horde)) opts.slots = endlessSlots(opts.slots); } // v7.0 Endless: defenders (ally 0) + the Horde (ally 1)
   // slots: [{ ai, diff, ally, fac, start }]; default 1v1 from legacy opts
   const slots = opts.slots || [0, 1].map(t => ({ ai: opts.aiTeams.includes(t), diff: t === 0 && opts.p0diff ? opts.p0diff : opts.diff, ally: t, fac: (opts.facs || [])[t], start: t ? 3 : 0 }));
-  const HG = opts.map === 'hellgate'; MW = MH = HG ? 128 : (opts.map === 'volcano8' || slots.length > 6) ? 112 : 96; if (slots.length > 6 && !HG) opts.map = 'volcano8';
+  const HG = opts.map === 'hellgate', EN = opts.map === 'endless'; MW = MH = HG ? 128 : EN ? 96 : (opts.map === 'volcano8' || slots.length > 6) ? 112 : 96; if (slots.length > 6 && !HG) opts.map = 'volcano8';
   const NP = slots.length;
   // every player gets its own start corner (guards against duplicate/missing starts from any lobby path)
-  if (HG) { const pool = { 0: [0, 1, 2, 3, 4, 5, 6, 7], 1: [2, 3, 4, 5, 6, 7, 0, 1] }, taken = new Set(); slots.forEach(sl => { sl.start = (pool[sl.ally ? 1 : 0]).find(k => !taken.has(k)); taken.add(sl.start); }); } // v6.0: Team A takes the valley seats 1-2, Team B the six warlord bases
+  if (EN) { /* endlessSlots() already seated everyone */ }
+  else if (HG) { const pool = { 0: [0, 1, 2, 3, 4, 5, 6, 7], 1: [2, 3, 4, 5, 6, 7, 0, 1] }, taken = new Set(); slots.forEach(sl => { sl.start = (pool[sl.ally ? 1 : 0]).find(k => !taken.has(k)); taken.add(sl.start); }); } // v6.0: Team A takes the valley seats 1-2, Team B the six warlord bases
   else { const taken = new Set(); slots.forEach(sl => { if (sl.start == null || sl.start < 0 || sl.start > 7 || taken.has(sl.start)) sl.start = null; else taken.add(sl.start); });
     slots.forEach(sl => { if (sl.start == null) { sl.start = (slots.length > 6 ? (sl.ally ? [3, 1, 5, 7, 2, 0, 4, 6] : [0, 2, 4, 6, 1, 3, 5, 7]) : (sl.ally ? [3, 1, 5, 2, 0, 4] : [0, 2, 4, 1, 3, 5])).find(k => !taken.has(k)); taken.add(sl.start); } }); }
   G = { R, opts, tick: 0, time: 0, ents: [], projs: [], events: [], nid: 1, over: null, bver: 1, blockVer: 0, block: null,
@@ -35,8 +37,8 @@ function newGame(opts) {
     slots.forEach((sl, t) => { let c = sl.color; if (!c || !TEAM_COLORS[c]) { c = (def[sl.ally] || def[0]).find(k => !used.has(k)) || 'blue'; used.add(c); } sl.color = c; const C = TEAM_COLORS[c]; TEAMPAINT[t] = C.paint; TEAMCOL[t] = C.acc; MMCOL[t] = C.css; }); }
   if (typeof MODEL_CACHE !== 'undefined') for (const k in MODEL_CACHE) delete MODEL_CACHE[k];
   for (let t = 0; t < NP; t++) { const sl = slots[t]; G.players.push({ team: t, color: sl.color, name: sl.name || (sl.ai ? sl.diff : 'Player ' + (t + 1)), ally: sl.ally, start: sl.start, cr: 5000, pow: 0, gen: 0, use: 0, ai: !!sl.ai, diff: sl.diff || opts.diff,
-    gas: 150, fac: sl.fac || FAC_KEYS[(R() * FAC_KEYS.length) | 0], queues: { bld: [], def: [], inf: [], veh: [], air: [] }, ready: { bld: null, def: null }, stats: { kills: 0, lost: 0, mined: 0, built: 0 }, out: false }); }
-  G.players.forEach((P, t) => {
+    gas: 150, fac: sl.fac || FAC_KEYS[(R() * FAC_KEYS.length) | 0], queues: { bld: [], def: [], inf: [], veh: [], air: [] }, ready: { bld: null, def: null }, stats: { kills: 0, lost: 0, mined: 0, built: 0 }, out: false, horde: !!sl.horde }); }
+  G.players.forEach((P, t) => { if (P.horde) return;
     const [sx, sy] = G.starts[P.start], x = Math.round(sx - 1.5), y = Math.round(sy - 1.5), dx = sx < MW / 2 ? 1 : -1, dy = sy < MH / 2 ? 1 : -1;
     addB('hq', t, x, y, true);
     addU('harv', t, sx + dx * 3, sy + dy * 3);
@@ -47,7 +49,8 @@ function newGame(opts) {
   G.derricks = []; for (const [x, y] of G.dkPos ? [] : G.six ? [[25, 25], [40, 21], [24, 47]] : [[25, 25], [40, 21]]) for (const [a, b] of [[x, y], [MW - 1 - x, y], [x, MH - 1 - y], [MW - 1 - x, MH - 1 - y]]) { const f = nearFree(a, b, 6); if (!G.derricks.some(d => dhypot(d.x - f[0] - 0.5, d.y - f[1] - 0.5) < 3)) G.derricks.push({ id: G.derricks.length, x: f[0] + 0.5, y: f[1] + 0.5, owner: -1 }); }
   if (G.dkPos) for (const [x, y, op] of G.dkPos) { const f = nearFree(x, y, 6); if (!G.derricks.some(d => dhypot(d.x - f[0] - 0.5, d.y - f[1] - 0.5) < 3)) G.derricks.push(op ? { id: G.derricks.length, x: f[0] + 0.5, y: f[1] + 0.5, owner: -1, op: 1, name: op } : { id: G.derricks.length, x: f[0] + 0.5, y: f[1] + 0.5, owner: -1 }); }
   if (HG) { const tb = G.players.filter(P => P.ally === 1 && P.ai), n = tb.length; tb.forEach((P, k) => { P.stagger = Math.round((k * 7 % n) * 50); }); } // v6.0: 0..250 s staggered aggression for the six warlords
-  if (typeof aiInit === 'function') G.players.forEach(p => p.ai && aiInit(p));
+  if (typeof aiInit === 'function') G.players.forEach(p => p.ai && !p.horde && aiInit(p));
+  if (EN && typeof endlessInit === 'function') endlessInit();
   if (HG) G.players.forEach((P, k) => { if (P.aiS) P.aiS.next = k * 0.067; }); // v6.0: phase-shift bot think ticks so 6-8 bots never all re-plan (and re-path) on the same tick
   updFog();
   return G;
@@ -55,7 +58,7 @@ function newGame(opts) {
 // 96x96 four-fold mirrored map: mains in corners (cliff ring + 2 ramps), two naturals each,
 // contested mid bases with rich (gold) fields, central monument, river with 4 bridges, forests.
 function genMap(R) {
-  G.mapName = G.opts.map || 'classic'; G.v8 = G.mapName === 'volcano8'; if (G.v8) G.mapName = 'volcano'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R); if (G.mapName === 'hellgate') return genHellgate(R);
+  G.mapName = G.opts.map || 'classic'; G.v8 = G.mapName === 'volcano8'; if (G.v8) G.mapName = 'volcano'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R); if (G.mapName === 'hellgate') return genHellgate(R); if (G.mapName === 'endless') return genEndless(R);
   const N = MW * MH, Q = MW / 2, gs = 8, gw = MW / gs + 2;
   const mk = () => { const a = []; for (let i = 0; i < gw * gw; i++) a.push(R()); return a; };
   const g1 = mk(), g2 = mk(), g3 = mk();
@@ -325,10 +328,13 @@ function genHellgate(R) {
   G.six = true; G.oreMax = Float32Array.from(G.ore);
 }
 function addB(t, team, tx, ty, instant) {
+  const P0 = G.players[team], chn = t === 'wall' && P0 && P0.fac === 'chn'; // v7.0 China Great Wall: every 5th wall piece rises as a guard tower
+  if (chn) { P0.wallN = (P0.wallN || 0) + 1; if (P0.wallN % CHN_WALL.every === 0) t = 'gtower'; }
   const d = BT[t];
   const b = { id: G.nid++, kind: 'b', t, team, tx, ty, w: d.w, h: d.h, x: tx + d.w / 2, y: ty + d.h / 2, hp: d.hp, mhp: d.hp,
     born: instant ? -10 : G.time, tang: 0, rally: null, repair: false, sell: -1, cd: 0, ang: team ? Math.PI * 0.75 : -Math.PI / 4, tgt: null };
   { const l = d.wpn ? rsLvl(team, 'def') : 1; if (l > 1) b.hp = b.mhp = Math.round(d.hp * RES_M[l]); }
+  if (chn && t === 'wall') b.hp = b.mhp = Math.round(d.hp * CHN_WALL.hp);
   G.ents.push(b); G.bver++;
   // push units off footprint
   for (const u of G.ents) if (u.kind === 'u' && !isAir(u) && u.x >= tx - 0.3 && u.x <= tx + d.w + 0.3 && u.y >= ty - 0.3 && u.y <= ty + d.h + 0.3) { u.y = ty + d.h + 0.6; u.path = []; }
@@ -380,7 +386,7 @@ function canPlace(t, team, tx, ty) {
   if (t === 'cc') { const cx = tx + 1.5, cy = ty + 1.5; if (G.ents.some(e => e.kind === 'b' && foe(e.team, team) && dhypot(e.x - cx, e.y - cy) < 12)) return false; if (G.ents.some(e => e.kind === 'b' && (e.t === 'cc' || e.t === 'hq') && dhypot(e.x - cx, e.y - cy) < 9)) return false; return !!G.seenT[team][idx(Math.floor(cx), Math.floor(cy))] || G.ents.some(e => e.kind === 'b' && e.team === team && dhypot(e.x - cx, e.y - cy) < 26); }
   if (G.derricks && G.derricks.some(o => o.x > tx && o.x < tx + d.w && o.y > ty && o.y < ty + d.h)) return false; // v6.0: never build on top of a derrick/outpost post
   if (G.derricks && t !== 'extractor' && G.derricks.some(o => o.op && o.owner === team && tx < o.x + OUTPOST_R && tx + d.w > o.x - OUTPOST_R && ty < o.y + OUTPOST_R && ty + d.h > o.y - OUTPOST_R)) return true; // v6.0 captured outpost = forward build radius
-  return G.ents.some(e => { if (e.kind !== 'b' || e.team !== team || e.t === 'wall') return false; const R = e.t === 'hq' || e.t === 'cc' ? 10 : t === 'extractor' ? 12 : 5; return tx < e.tx + e.w + R && tx + d.w > e.tx - R && ty < e.ty + e.h + R && ty + d.h > e.ty - R; });
+  return G.ents.some(e => { if (e.kind !== 'b' || e.team !== team || e.t === 'wall' || e.t === 'gtower') return false; const R = e.t === 'hq' || e.t === 'cc' ? 10 : t === 'extractor' ? 12 : 5; return tx < e.tx + e.w + R && tx + d.w > e.tx - R && ty < e.ty + e.h + R && ty + d.h > e.ty - R; });
 }
 function placeReady(team, cat, tx, ty) {
   const P = G.players[team], t = P.ready[cat];
@@ -448,6 +454,7 @@ function buildWalls(team, tiles) {
   if (n) { G.bver = (G.bver || 0) + 1; G.events.push({ e: 'walls', team, n }); } return n;
 }
 function spawnUnit(team, t, b) {
+  if (UT[t].batch && !b._bat) { b._bat = 1; let u; for (let k = 0; k < UT[t].batch; k++) { u = spawnUnit(team, t, b); if (k) { u.x += (k - 1.5) * 0.7; u.y += 0.4 * k; } } b._bat = 0; return u; } // v7.0 batch units (Iran drones)
   let x = b.x, y = b.ty + b.h + 0.5;
   if (UT[t].air) y = b.y;
   else if (blk(x, y)) { const f = nearFree(Math.floor(x), Math.floor(y)); x = f[0] + 0.5; y = f[1] + 0.5; }
@@ -555,6 +562,7 @@ function orderAttack(units, tgt) {
     if (u.kind !== 'u') continue;
     const d = UT[u.t];
     if (d.engineer) { u.order = 'capture'; u.tgt = tgt; setPath(u, tgt.x, tgt.y); continue; }
+    if (d.kami) { if (tgt.hp > 0 && !isAir(tgt) && foe(tgt.team, u.team)) { u.order = 'attack'; u.tgt = tgt; u.path = [{ x: tgt.x, y: tgt.y }]; } else orderMove([u], tgt.x, tgt.y, true); continue; }
     if (!d.wpn || !canHit(W[d.wpn], tgt)) { orderMove([u], tgt.x, tgt.y, true); continue; }
     u.order = 'attack'; u.tgt = tgt; u.path = []; u.repathT = 0;
   }
@@ -626,11 +634,12 @@ function stepGame() {
   // removal
   for (const e of G.ents) if (e.hp <= 0 && !e.dead) { e.dead = true; onDeath(e); }
   if (G.ents.some(e => e.dead)) { G.ents = G.ents.filter(e => !e.dead); G.bver++; }
-  for (const P of G.players) if (P.ai && typeof aiStep === 'function') aiStep(P);
+  for (const P of G.players) if (P.ai && !P.horde && typeof aiStep === 'function') aiStep(P);
+  if (G.end && typeof endlessStep === 'function') endlessStep(); // v7.0 Endless wave director
   if (G.tick % 6 === 0) updFog();
   if (G.tick % 15 === 0) {
     const KEY = { hq: 1, cc: 1, barracks: 1, factory: 1, airfield: 1, refinery: 1, tech: 1 };
-    for (const P of G.players) if (!P.out && !G.ents.some(e => e.team === P.team && e.kind === 'b' && KEY[e.t])) { P.out = true; G.events.push({ e: 'eliminated', team: P.team }); for (const e of G.ents) if (e.team === P.team && e.kind === 'b') e.hp = 0; }
+    for (const P of G.players) if (!P.out && !P.horde && !G.ents.some(e => e.team === P.team && e.kind === 'b' && KEY[e.t])) { P.out = true; G.events.push({ e: 'eliminated', team: P.team }); for (const e of G.ents) if (e.team === P.team && e.kind === 'b') e.hp = 0; }
     const live = new Set(G.players.filter(P => !P.out).map(P => P.ally)), me = G.players[ME] ? G.players[ME].ally : 0;
     if (live.size <= 1) { G.winAlly = [...live][0]; G.over = G.winAlly === me ? 'victory' : 'defeat'; }
     else if (!live.has(me) && !(typeof NET !== 'undefined' && NET.online)) G.over = 'defeat'; // offline: stop once my side is out
@@ -642,6 +651,7 @@ function onDeath(e) {
   const P = G.players[e.team]; if (P) P.stats.lost++;
   if (e.cargo && e.cargo.length) { if (P) P.stats.lost += e.cargo.length; e.cargo = []; }
   if (e.lastHitBy != null && G.players[e.lastHitBy]) G.players[e.lastHitBy].stats.kills++;
+  if (G.end && typeof endlessDeath === 'function') endlessDeath(e);
 }
 function stepBuilding(b) {
   const d = BT[b.t], P = G.players[b.team];
@@ -775,6 +785,7 @@ function damage(t, amt, w, team, src, spl) {
     if (src && src.kind === 'u' && (UT[src.t].air || (UT[src.t].armor === 'heavy' && UT[src.t].turret))) amt *= MAR.vsTank; // v6.2 +15% armor vs tanks and aircraft/bombers
     if (spl) amt *= spl === 2 ? MAR.splash : MAR.splashDirect; // v6.2 marines were wiped by splash
     if (MAR.take[w.type]) amt *= MAR.take[w.type]; else if (MAR.plated[w.type]) amt *= 1 - MAR.plated[w.type] - MAR.drN * (t.nb || 0); }
+  if (src && src.dmgM) amt *= src.dmgM; if (t.armM) amt *= t.armM; // v7.0 Endless wave scaling / elite units
   t.hp -= amt * DMG[w.type][armorOf(t)];
   t.lastHitBy = team; t.hitT = G.time;
   const TP = G.players[t.team]; if (TP && G.time - (TP.alertT || -99) > 12) { TP.alertT = G.time; G.events.push({ e: 'attacked', team: t.team, x: t.x, y: t.y, harv: t.t === 'harv' }); }
@@ -791,7 +802,9 @@ function impact(p) {
 function turnTo(a, b, rate) { const d = angDiff(a, b); return Math.abs(d) <= rate ? b : a + Math.sign(d) * rate; }
 function angDiff(a, b) { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; }
 function stepUnit(u) {
+  if (u.xfT != null) { const d0 = UT[u.t]; u.z += ((d0.air ? 2.6 : 0) - u.z) * 0.08; if (G.time < u.xfT) return; u.xfT = null; if (!d0.air) u.z = 0; if (u.xfGo) { const g = u.xfGo; u.xfGo = null; orderMove([u], g.x, g.y, g.am); } } // resume the move order given before the transform // v7.0 Raijin transforming (immobile, no fire)
   const d = UT[u.t];
+  if (d.kami) { kamiStep(u, d); if (u.hp <= 0) return; }
   if (u.t === 'harv') harvest(u);
   if (d.engineer && u.order === 'derrick') { const dk = G.derricks[u.dk]; if (!dk || dk.owner === u.team) { u.order = 'idle'; }
     else if (dhypot(u.x - dk.x, u.y - dk.y) < 1.3) { const prev = dk.owner; dk.owner = u.team; G.events.push({ e: 'derrick', team: u.team, prev, x: dk.x, y: dk.y }); u.hp = 0; u.sold = true; return; }
@@ -815,7 +828,7 @@ function stepUnit(u) {
   if (d.jet && jetStep(u, d)) return;
   if (d.siege && u.sg) siegeStep(u);
   if (u.order === 'move' && !u.path.length && !u.sgPath && !(u.wq && u.wq.length) && !d.air) { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; } // v6.2: an unreachable plain move must not leave a unit inert (no acquire while 'move')
-  let engaged = false;
+  let engaged = !!(d.kami && u.tgt);
   if (d.wpn && !(d.jet && u.ammo <= 0) && !(u.sg === 1 || u.sg === 3)) { const w = uW(u); engaged = combat(u, w, Math.max(d.sight, w.rng + 0.5), !u.sg); }
   if (!engaged && u.order === 'attack') { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; }
   if (u.stance === 'hold' && u.guard && u.order === 'idle') u.anchor = u.guard;
@@ -851,7 +864,40 @@ function stepUnit(u) {
     }
   } else if (UT[u.t].turret && !u.tgt) u.tang = turnTo(u.tang, u.ang, 2 * DT);
   if (d.jet) u.z += ((u.js === 'landed' ? 0.32 : 3.4) - u.z) * 0.05;
+  else if (d.kami && u.dv != null) u.z = 0.3 + 2.3 * Math.min(1, u.dv / 3.5); // diving
   else if (d.air) u.z = 2.6 + dsin(G.time * 2 + u.id) * 0.1;
+}
+// ===== v7.0 Iran Shahed kamikaze drone =====
+function kamiStep(u, d) {
+  let t = u.tgt;
+  if (t && (t.hp <= 0 || t.dead || isAir(t) || !foe(t.team, u.team))) { t = u.tgt = null; u.dv = null; if (u.order === 'attack') { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; u.path = []; } }
+  if (!t && u.order !== 'move' && (G.tick + u.id) % 6 === 0) { // pick the densest cluster in sight (buildings second, walls last)
+    let best = null, bs = 1e9;
+    for (const o of G.ents) { if (o.hp <= 0 || !foe(o.team, u.team) || isAir(o)) continue; const dd = distTo(u, o); if (dd > d.sight || !visibleTo(u.team, o)) continue;
+      let n = 0; if (o.kind === 'u') for (const q of G.ents) if (q !== o && q.kind === 'u' && q.hp > 0 && !isAir(q) && foe(q.team, u.team) && Math.abs(q.x - o.x) < 1.8 && Math.abs(q.y - o.y) < 1.8) n++;
+      const sc = dd - 1.3 * Math.min(n, 8) + (o.kind === 'b' ? (o.t === 'wall' || o.t === 'gate' ? 7 : 1.5) : 0);
+      if (sc < bs) { bs = sc; best = o; } }
+    if (best) { u.tgt = t = best; u.order = 'attack'; }
+  }
+  if (!t) { u.dv = null; return; }
+  const dd = distTo(u, t); u.dv = dd;
+  if (dd < 0.5) { kamiBoom(u); return; }
+  if (!u.path.length || (G.tick + u.id) % 3 === 0) u.path = [{ x: t.x, y: t.y }];
+}
+function kamiBoom(u) {
+  const w = W.kami;
+  for (const o of G.ents) { if (o.hp <= 0 || !foe(o.team, u.team) || isAir(o)) continue; const dd = distTo(u, o); if (dd < w.splash) damage(o, w.dmg * (1 - 0.5 * dd / w.splash), w, u.team, u, o === u.tgt ? 1 : 2); }
+  G.events.push({ e: 'hit', x: u.x, y: u.y, z: 0.3, kind: 'mega' }, { e: 'kami', x: u.x, y: u.y, team: u.team });
+  u.hp = 0; u.boom = 1;
+}
+// ===== v7.0 Japan Raijin transform (mech <-> jet) =====
+function xform(u) {
+  const d = UT[u.t]; if (!d || !d.xform || u.hp <= 0 || u.xfT != null || G.time < (u.xfCd || 0)) return false;
+  const to = UT[d.xform];
+  if (!to.air && blk(u.x, u.y)) { const f = nearFree(Math.floor(u.x), Math.floor(u.y), 6); u.x = f[0] + 0.5; u.y = f[1] + 0.5; } // landing over a wall/cliff: touch down beside it
+  u.xfGo = (u.order === 'move' || u.order === 'amove') && u.anchor && dhypot(u.anchor.x - u.x, u.anchor.y - u.y) > 1.5 ? { x: u.anchor.x, y: u.anchor.y, am: u.order === 'amove' } : null;
+  u.t = d.xform; u.xfT = G.time + XFORM.t; u.xfCd = G.time + XFORM.t + XFORM.cd; u.path = []; u.tgt = null; u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; u.wq = null; u.cd = Math.max(u.cd || 0, 0.3);
+  G.events.push({ e: 'xform', u, air: !!to.air }); return true;
 }
 function airSlots(b) { return b.pads ? 8 : 4; }
 function airBase(u) { // v6.2 Air Command: keep my dock slot; else nearest base with a free slot (else nearest, wait)

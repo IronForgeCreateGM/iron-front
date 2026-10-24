@@ -364,8 +364,8 @@ function buildDesert() {
   W.box('k', 0.55, 0.5, 0.7, 0x4a3a2c, PBR.DARKM, 0.6, 0.38, 0, { bevel: 0.05 }); W.box('k', 1.0, 0.12, 0.72, 0x3a3028, PBR.DARKM, -0.25, 0.3, 0, { bevel: 0.02 });
   for (const [wx, wz] of [[0.65, 0.36], [0.65, -0.36], [-0.45, 0.36], [-0.45, -0.36]]) W.cyl('k', 0.16, 0.1, 0x161210, PBR.RUB, wx, 0.15, wz, { rx: Math.PI / 2, seg: 8 });
   const wg = W.build(), spots = [];
-  for (let n = 0; n < 400 && spots.length < 34; n++) { const x = 52 + R() * 72, y = 6 + R() * 116; const i = Math.floor(y) * MW + Math.floor(x); if (G.map[i] !== 0 || G.oreMax[i] > 0 || G.starts.some(s => Math.hypot(s[0] - x, s[1] - y) < 11) || spots.some(p => Math.hypot(p[0] - x, p[1] - y) < 3.5)) continue; spots.push([x, y]); }
-  for (const p of [[57, 61], [58, 68], [34, 62.5]]) spots.push(p);
+  for (let n = 0; n < 400 && spots.length < 34; n++) { const WR = (G.deco && G.deco.wr) || [52, 6, 72, 116], x = WR[0] + R() * WR[2], y = WR[1] + R() * WR[3]; const i = Math.floor(y) * MW + Math.floor(x); if (G.map[i] !== 0 || G.oreMax[i] > 0 || G.starts.some(s => Math.hypot(s[0] - x, s[1] - y) < 11) || spots.some(p => Math.hypot(p[0] - x, p[1] - y) < 3.5)) continue; spots.push([x, y]); }
+  for (const p of (G.deco && G.deco.fixed) || [[57, 61], [58, 68], [34, 62.5]]) spots.push(p);
   for (const key of ['t', 'k']) { const list = spots.filter((_, j) => (j % 3 === 2) === (key === 'k')); const im = new THREE.InstancedMesh(wg[key], pbrMaterial(), list.length);
     list.forEach(([x, y], k) => { e.set((R() - 0.5) * 0.12, R() * 6.28, (R() - 0.5) * 0.18); q.setFromEuler(e); const s = 0.9 + R() * 0.3; m4.compose(v.set(x, heightAt(x, y) - 0.08, y), q, sc.set(s, s, s)); im.setMatrixAt(k, m4); tag(x, y, im, k); });
     im.castShadow = im.receiveShadow = true; im.frustumCulled = false; S.add(im); R3.wrecks = (R3.wrecks || []).concat([im]); R3.wreckSpots = spots; }
@@ -373,14 +373,14 @@ function buildDesert() {
   const SB = new MB(0); SB.cyl('s', 0.13, 0.42, 0xffffff, PBR.CLOTH, 0, 0.12, 0, { rz: Math.PI / 2, seg: 7 }); const bags = [];
   const nest = (cx, cy, r, a0, a1, rows) => { for (let row = 0; row < rows; row++) for (let a = a0; a <= a1; a += 0.42 / r) bags.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r, a + Math.PI / 2, row]); };
   const cyW = (G.canyon && G.canyon.y) || 64;
-  nest(33.5, cyW - 4.6, 1.3, -0.2, 2.6, 2); nest(33.5, cyW + 4.6, 1.3, -2.6, 0.2, 2); nest(29.5, cyW, 1.6, -1.2, 1.2, 2);
-  nest(55.5, cyW - 5, 1.2, 1.2, 3.6, 2); nest(55.5, cyW + 5.5, 1.2, -3.6, -1.2, 2); nest(86, 52.5, 1.4, 0, 3.1, 2); nest(86, 75.5, 1.4, -3.1, 0, 2); nest(102, 64, 1.3, 1.6, 4.6, 2);
+  if (G.deco && G.deco.nests) for (const n of G.deco.nests) nest(...n); else { nest(33.5, cyW - 4.6, 1.3, -0.2, 2.6, 2); nest(33.5, cyW + 4.6, 1.3, -2.6, 0.2, 2); nest(29.5, cyW, 1.6, -1.2, 1.2, 2);
+  nest(55.5, cyW - 5, 1.2, 1.2, 3.6, 2); nest(55.5, cyW + 5.5, 1.2, -3.6, -1.2, 2); nest(86, 52.5, 1.4, 0, 3.1, 2); nest(86, 75.5, 1.4, -3.1, 0, 2); nest(102, 64, 1.3, 1.6, 4.6, 2); }
   const bm = new THREE.InstancedMesh(SB.build().s, pbrMaterial(), bags.length);
   bags.forEach(([x, y, a, row], k) => { e.set(0, -a, 0); q.setFromEuler(e); m4.compose(v.set(x, heightAt(x, y) + row * 0.2, y), q, sc.set(1, 1, 1)); bm.setMatrixAt(k, m4); cl.setRGB(0.62 + R() * 0.08, 0.52 + R() * 0.06, 0.34 + R() * 0.05); bm.setColorAt(k, cl); tag(x, y, bm, k); });
   bm.castShadow = bm.receiveShadow = true; bm.frustumCulled = false; S.add(bm);
   // ruined watchtowers on the ridge flanks of the Hellgate
   const T = new MB(0); T.box('m', 1.1, 2.2, 1.1, 0x8e6a46, PBR.CONC, 0, 1.1, 0, { bevel: 0.08 }); T.box('m', 1.3, 0.18, 1.3, 0x7a5a3a, PBR.CONC, 0, 2.25, 0, { bevel: 0.03 }); T.box('m', 0.3, 0.3, 0.06, 0x1a120c, PBR.RUB, 0, 1.6, 0.56, { bevel: 0 });
-  const tg = T.build().m; for (const [x, y] of [[41.5, cyW - 6.5], [47.5, cyW + 6.5], [44, cyW - 7.5]]) { const mesh = new THREE.Mesh(tg, pbrMaterial()); mesh.position.set(x, heightAt(x, y) - 0.4, y); mesh.castShadow = mesh.receiveShadow = true; S.add(mesh); }
+  const tg = T.build().m; for (const [x, y] of (G.deco && G.deco.towers) || [[41.5, cyW - 6.5], [47.5, cyW + 6.5], [44, cyW - 7.5]]) { const mesh = new THREE.Mesh(tg, pbrMaterial()); mesh.position.set(x, heightAt(x, y) - 0.4, y); mesh.castShadow = mesh.receiveShadow = true; S.add(mesh); }
 }
 // v6.0: drifting desert dust + the odd dust devil near the camera (render-only, Math.random is fine here)
 function desertFx(dt) {

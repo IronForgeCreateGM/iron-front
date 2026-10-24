@@ -31,7 +31,7 @@ function mobWatch4v4() { // all-bot 4v4 on Volcano Crown XL, spectated
   document.getElementById('startBtn').click();
 }
 // ---------- HUD ----------
-const MCMDS = [['army', '⚔', 'Army'], ['idle', '💤', 'Idle'], ['type', '👥', 'Type'], ['box', '⬚', 'Box'], ['stop', '✋', 'Stop'], ['hold', '⚓', 'Hold'], ['home', '🏠', 'Home'], ['rally', '🚩', 'Rally'], ['siege', '🎯', 'Siege']];
+const MCMDS = [['army', '⚔', 'Army'], ['idle', '💤', 'Idle'], ['type', '👥', 'Type'], ['box', '⬚', 'Box'], ['stop', '✋', 'Stop'], ['hold', '⚓', 'Hold'], ['home', '🏠', 'Home'], ['rally', '🚩', 'Rally'], ['siege', '🎯', 'Siege'], ['xform', '⚡', 'Transform']];
 const MTABS = [['bld', '🏗'], ['def', '🛡'], ['inf', '🪖'], ['veh', '🚙'], ['air', '✈']];
 const MAUTO = [['harv', '⛏ Auto-harvesters (rebuild lost ones)'], ['rally', '🚩 New units go to the rally point'], ['engage', '⚔ Idle units engage nearby enemies'], ['repair', '🔧 Auto-repair damaged buildings'], ['power', '⚡ Power helper (one tap builds + places Power)']];
 function mobBuildHud() {
@@ -98,6 +98,7 @@ function mobCmd(k) {
   else if (k === 'idle') { const l = idleList('army'); if (l.length) { setSel(l); jumpTo(l[0].x, l[0].y); uiMsg(`💤 ${l.length} idle units`); } else uiMsg('No idle units'); }
   else if (k === 'type') { const ts = new Set(us.map(u => u.t)); if (!ts.size) { uiMsg('Select a unit first (or double-tap one)'); return; } setSel(G.ents.filter(o => o.team === ME && o.kind === 'u' && ts.has(o.t) && inView(o.x, o.y))); }
   else if (k === 'box') { MOB.box = !MOB.box; if (MOB.box) uiMsg('⬚ Drag a box to select units'); }
+  else if (k === 'xform') { if (!doXform()) { sfx('error'); uiMsg('Select a Japanese Raijin Mech to transform (jet ⇄ mech)'); } }
   else if (k === 'siege') { if (!unloadAll() && !toggleSiege()) { sfx('error'); uiMsg('Select Howler artillery to deploy Siege Mode (or a Medevac to unload all)'); } }
   else if (k === 'stop') { if (us.length) { NET.issue({ c: 'stop', u: ids(us) }); us.forEach(u => MOB.stopped.add(u.id)); sfx('ack'); } }
   else if (k === 'hold') { if (us.length) { const st = us.every(u => u.stance === 'hold') ? 'aggr' : 'hold'; NET.issue({ c: 'stance', u: ids(us), s: st }); uiMsg(st === 'hold' ? '⚓ Hold position' : '⚔ Aggressive'); sfx('ack'); } }
@@ -167,6 +168,7 @@ function mobTap(x, y) {
 function mobFrame(dt) {
   if (G !== MOB.g) mobGameInit();
   const on = MOB.on && !G.spectate && !G.watch; document.body.classList.toggle('mplay', on);
+  { const xb = MOB.xb || (MOB.xb = document.querySelector('#mCmd [data-k=xform]')); if (xb) { const show = G.players[ME] && G.players[ME].fac === 'jpn' ? '' : 'none'; if (xb.style.display !== show) xb.style.display = show; } } // v7.0 only Japan needs the Transform command
   // inertia
   if (MOB.T && !MOB.T.pts.size && (Math.abs(MOB.vel.x) + Math.abs(MOB.vel.y)) > 0.05) { R3.cam.tx += MOB.vel.x * dt; R3.cam.ty += MOB.vel.y * dt; R3.cam.x = R3.cam.tx; R3.cam.y = R3.cam.ty; const k = Math.exp(-dt * 4.5); MOB.vel.x *= k; MOB.vel.y *= k; }
   R3.cam.tx = Math.max(-4, Math.min(MW + 4, R3.cam.tx)); R3.cam.ty = Math.max(-4, Math.min(MH + 10, R3.cam.ty));

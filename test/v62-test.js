@@ -71,7 +71,7 @@ if (on('sm3')) {
 // ===== 5. Air Command =====
 if (on('air')) {
   chk('Helipad removed, Airfield is now the 4x3 Air Command', !BT.airpad && BT.airfield.n === 'Air Command' && BT.airfield.w === 4 && BT.airfield.h === 3);
-  chk('one queue builds every aircraft', Object.keys(UT).filter(k => UT[k].air).every(k => UT[k].from === 'airfield'), Object.keys(UT).filter(k => UT[k].air).map(k => k + ':' + UT[k].from).join(' '));
+  chk('one queue builds every aircraft', Object.keys(UT).filter(k => UT[k].air && !UT[k].kami && !UT[k].hide).every(k => UT[k].from === 'airfield'), Object.keys(UT).filter(k => UT[k].air).map(k => k + ':' + UT[k].from).join(' ')); // v7.0: Iran's kamikaze drones come from the War Factory, the Raijin jet is a transform form
   fresh('usa', 'rus'); tech(0); const af = A.addB('airfield', 0, 60, 60, true); run(2);
   const jets = []; for (let i = 0; i < 6; i++) { const j = A.addU('jet', 0, 50 + i, 50); j.ammo = 0; j.hp = 100; jets.push(j); } run(25);
   const landed = () => jets.filter(j => j.js === 'landed').length; const l4 = landed();

@@ -3,7 +3,7 @@
 // Every player action is a command {c:'move',...}. Offline: executed immediately.
 // Online: tagged for tick (now + DELAY); the host collects every human's input for a tick,
 // broadcasts the merged "turn", and all peers execute it before stepping that tick.
-const NET_VERSION = 'v6.3.1';
+const NET_VERSION = 'v7.0';
 const own = (T, ids) => (ids || []).map(byId).filter(e => e && e.team === T && e.hp > 0);
 const CMD = {
   mbuild(T, c) { const b = byId(c.b); return !!(b && b.team === T && siloBuild(b, c.k)); },
@@ -30,12 +30,14 @@ const CMD = {
   ping(T, c) { (G.pings = G.pings || []).push({ team: T, x: c.x, y: c.y, t: G.time, kind: c.k }); G.events.push({ e: 'ping', team: T, x: c.x, y: c.y, k: c.k }); },
   drop(T, c) { const P = G.players[c.p]; if (!P || P.ai) return; P.ai = true; P.diff = c.diff || 'normal'; P.name += ' (AI)'; aiInit(P); G.events.push({ e: 'dropped', team: c.p }); },
   retake(T, c) { const P = G.players[c.p]; if (!P || !P.ai) return; P.ai = false; P.name = c.n || P.name.replace(/ \(AI\)$/, ''); G.events.push({ e: 'rejoined', team: c.p }); },
+  skipwave(T, c) { return typeof endlessVote === 'function' && endlessVote(T); }, // v7.0 Endless: vote to start the next wave early
+  xform(T, c) { let n = 0; for (const id of c.u || []) { const u = byId(id); if (u && u.team === T && xform(u)) n++; } return n; }, // v7.0 Raijin mech <-> jet
   surrender(T, c) { const P = G.players[T]; if (!P || P.out) return; for (const e of G.ents) if (e.team === T && e.kind === 'b') e.hp = 0; },
 };
 // v5.2 replay recorder: every executed command is logged with the tick it ran at (+ periodic state hashes for verification)
 const RPL = { on: false, data: null };
 function recStart() { RPL.on = !G.replay; RPL.data = RPL.on ? { v: 1, game: 'ironfront', ver: typeof NET_VERSION !== 'undefined' ? NET_VERSION : '', date: new Date().toISOString(), seed: G.opts.seed, map: G.opts.map || 'classic', peace: G.opts.peace, fog: G.opts.fog !== false, diff: G.opts.diff, me: typeof ME !== 'undefined' ? ME : 0,
-  slots: G.opts.slots.map(s => ({ ai: !!s.ai, diff: s.diff, ally: s.ally, fac: s.fac, color: s.color, start: s.start, name: s.name })), cmds: [], hash: [] } : null; }
+  slots: G.opts.slots.map(s => ({ ai: !!s.ai, diff: s.diff, ally: s.ally, fac: s.fac, color: s.color, start: s.start, name: s.name, horde: s.horde ? 1 : undefined })), mode: G.opts.mode, cmds: [], hash: [] } : null; }
 function recHash() { if (RPL.on && RPL.data && G.tick % 900 === 0 && typeof stateHash === 'function') { RPL.data.hash.push([G.tick, stateHash()]); if (G.tick % 1800 === 0 && typeof localStorage !== 'undefined') try { localStorage.setItem('ifLastReplay', replayFile()); } catch (e) {} } }
 function replayFeed() { const R = G.replay; while (R.i < R.cmds.length && R.cmds[R.i][0] <= G.tick) { const [, T, c] = R.cmds[R.i++]; execCmd(T, c); }
   if (G.tick % 900 === 0) { const h = R.hash.find(x => x[0] === G.tick); if (h && typeof stateHash === 'function') { const m = stateHash() === h[1]; R.checked++; if (!m && !R.bad) R.bad = G.tick; } } }

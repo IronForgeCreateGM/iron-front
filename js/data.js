@@ -16,7 +16,8 @@ const DMG = {
   aam:    { inf: 0, light: 0, heavy: 0, bldg: 0, air: 1.5 },
   cmdo:   { inf: 1.25, light: 0.5, heavy: 0.3, bldg: 1.6, air: 0.3 },
   gat:    { inf: 1.35, light: 0.8, heavy: 0.35, bldg: 0.3, air: 1.4 }, // v5.9 France Gatling Bastion
-  marine: { inf: 1.3, light: 0.65, heavy: 0.38, bldg: 0.35, air: 0.7 }, // v5.8 Brazil Iron Marine dual-purpose carbine
+  marine: { inf: 1.3, light: 0.65, heavy: 0.38, bldg: 0.35, air: 0.7 },
+  kami:   { inf: 1.2, light: 1.1, heavy: 0.9, bldg: 1.1, air: 0 }, // v7.0 Iran Shahed kamikaze drone warhead // v5.8 Brazil Iron Marine dual-purpose carbine
 };
 // weapons: dmg, rng(tiles), cd(sec), type, spd(proj tiles/s), ground/air capability
 const W = {
@@ -44,6 +45,12 @@ const W = {
   gatl:   { dmg: 20, rng: 7.5, cd: 0.18, type: 'gat', spd: 45, ground: 1, air: 1, snd: 'rifle' },
   marine: { dmg: 21, rng: 6.1, cd: 0.8, type: 'marine', spd: 40, ground: 1, air: 1, snd: 'rifle' },
   tcannon:{ dmg: 85, rng: 6.5, cd: 1.3, type: 'cannon', spd: 25, ground: 1, air: 0, snd: 'cannon' },
+  // v7.0 new factions + Endless boss
+  kami:   { dmg: 175, rng: 0.7, cd: 1, type: 'kami', spd: 99, ground: 1, air: 0, splash: 1.8, snd: 'arty' },            // Iran Shahed drone (explodes on contact)
+  raijin: { dmg: 150, rng: 6, cd: 2.1, type: 'zap', spd: 99, ground: 1, air: 0, chain: 2, snd: 'zap' },                // Japan Raijin mech: lightning cannon
+  rjet:   { dmg: 30, rng: 5, cd: 1.0, type: 'rocket', spd: 18, ground: 1, air: 1, snd: 'rocket' },                     // Japan Raijin jet mode: light rockets
+  gtow:   { dmg: 14, rng: 5.5, cd: 0.5, type: 'bullet', spd: 40, ground: 1, air: 1, snd: 'rifle' },                    // China Great Wall guard tower
+  colossus:{ dmg: 150, rng: 7.5, cd: 2.0, type: 'shell', spd: 14, ground: 1, air: 0, splash: 1.8, arc: 1, snd: 'gcan', big: 1 }, // Endless boss
 };
 // v5.0: static defense damage -25%
 for (const k of ['tcannon', 'flakB', 'gcan', 'tesla', 'gatl']) if (W[k]) W[k].dmg = Math.round(W[k].dmg * 0.75);
@@ -65,6 +72,7 @@ const BT = {
   tesla:   { n: 'Tesla Coil', w: 1, h: 1, hp: 900, cost: 1200, pow: -60, time: 8, cat: 'def', req: ['tech'], wpn: 'tesla', sight: 7, noFac: 'fra', desc: 'Chain lightning arcs to 3 more nearby enemies. Very power-hungry (-60): goes dark in low power.' },
   gatling: { n: 'Tourelle Gatling (Gatling Bastion)', w: 1, h: 1, hp: 1500, cost: 1800, pow: -50, time: 10, cat: 'def', req: ['tech'], wpn: 'gatl', sight: 8, fac: 'fra', desc: 'France (replaces the Tesla Coil): rotating six-barrel gatling that spins up and shreds infantry and aircraft. Hits ground AND air; weak vs heavy armor.' },
   gate:    { n: 'Wall Gate', w: 1, h: 1, hp: 900, cost: 150, pow: 0, time: 2, cat: 'def', req: ['barracks'], desc: 'Your and allied units pass through; blocks enemies. Place it in a wall line.' },
+  gtower:  { n: 'Great Wall Guard Tower', w: 1, h: 1, hp: 1100, cost: 50, pow: 0, time: 1, cat: 'def', req: ['__never'], wpn: 'gtow', sight: 7, fac: 'chn', hide: 1, desc: 'China: every 5th wall piece you build rises as a guard tower (twin MG, hits ground + air). No power needed.' },
   wall:    { n: 'Wall', w: 1, h: 1, hp: 600, cost: 50, pow: 0, time: 1, cat: 'def', req: ['barracks'] },
 };
 // Units. armor: inf|light|heavy|air. sp tiles/sec. r radius.
@@ -89,6 +97,14 @@ const UT = {
   stealth:{ n: 'Nightshade Stealth Fighter', hp: 380, sp: 7.5, armor: 'air', wpn: 'sbomb', cost: 2400, gas: 200, time: 16, from: 'airfield', sight: 8, r: 0.6, req: [], air: 1, jet: 1, stealthy: 1, fac: 'usa' },
   medevac:{ n: 'Seraph Medevac', hp: 560, sp: 3.0, armor: 'air', cost: 1100, time: 10, from: 'airfield', sight: 7, r: 0.7, req: ['tech'], air: 1, cap: 8, medevac: 1, desc: 'Flying medic + transport (replaces the Hauler Transport). Projects a green healing beam onto damaged friendly ground units within 2.5 tiles (12 HP/s each, up to 3 at once; healers do not stack). Carries 8 slots (infantry 1, vehicles 4): select units and right-click it to board; Unload all = button or Shift+B (B = unload at a spot). Fragile vs flak/AA.' },
   gunship:{ n: 'Hornet Gunship', hp: 340, sp: 3.4, armor: 'air', wpn: 'gun', cost: 1200, time: 10, from: 'airfield', sight: 8, r: 0.5, req: [], air: 1 },
+  // ---- v7.0 new faction specials ----
+  drone:  { n: 'Shahed Kamikaze Drone', hp: 90, sp: 4.2, armor: 'air', wpn: null, cost: 600, time: 8, from: 'factory', sight: 8, r: 0.3, req: [], air: 1, kami: 1, batch: 3, fac: 'irn',
+    desc: 'Iran: launched in batches of 3 ($600). Each drone dives into the densest enemy army or a building and detonates (175 dmg, 1.8-tile splash). Fragile: flak, rifles and any anti-air shoot it down. The blob counter.' },
+  raijin: { n: 'Raijin Mech', hp: 1400, sp: 1.6, armor: 'heavy', wpn: 'raijin', cost: 2200, gas: 250, time: 18, from: 'factory', sight: 8, r: 0.7, req: ['tech'], mech: 1, fac: 'jpn', xform: 'raijinJ',
+    desc: 'Japan: TRANSFORMS (T / ⚡ button, 1.5 s). Mech mode: heavy walker with a lightning cannon that arcs to 2 more targets. Jet mode: fast flyer (6 tiles/s) that crosses walls and cliffs with light rockets — but anti-air can hit it. Hit and run.' },
+  raijinJ:{ n: 'Raijin Mech (Jet)', hp: 1400, sp: 6.0, armor: 'air', wpn: 'rjet', cost: 2200, gas: 250, time: 18, from: 'factory', sight: 9, r: 0.6, req: ['__never'], air: 1, fac: 'jpn', xform: 'raijin', hide: 1 },
+  // ---- v7.0 Endless boss (never buildable) ----
+  colossus:{ n: 'Colossus', hp: 9000, sp: 0.9, armor: 'heavy', wpn: 'colossus', cost: 8000, time: 1, from: 'factory', sight: 9, r: 1.3, req: ['__never'], mech: 1, turret: 1, hide: 1, boss: 1, vs: 2.3 },
 };
 const CATS = { bld: 'Structures', def: 'Defenses', inf: 'Infantry', veh: 'Vehicles', air: 'Aircraft' };
 const FROMCAT = { barracks: 'inf', factory: 'veh', airfield: 'air' };
@@ -141,9 +157,14 @@ const FACTIONS = {
   fra: { n: 'France', flag: '🇫🇷', sp: 'gcannon', desc: 'Grand Cannon — fortress artillery with 15-tile range and 280 splash damage. Locks down a whole front. Also fields the Tourelle Gatling (Gatling Bastion) instead of the Tesla Coil.' },
   ger: { n: 'Germany', flag: '🇩🇪', sp: 'kommando', desc: 'Jäger Kommando Squad — three elite commandos in one unit: rapid long-range fire, demolition charges wreck buildings.' },
   bra: { n: 'Brazil', flag: '🇧🇷', sp: 'marine', desc: 'Fuzileiro Blindado (Iron Marine) — armored, mass-produced Barracks infantry that hits ground and air; nearby marines boost each other (strength in numbers).' },
+  irn: { n: 'Iran', flag: '🇮🇷', sp: 'drone', desc: 'Shahed Kamikaze Drones — cheap, built 3 at a time at the War Factory. They dive into enemy armies or buildings and explode with heavy splash. Anti-air shoots them down. Breaks up blobs.' },
+  chn: { n: 'China', flag: '🇨🇳', sp: 'gtower', desc: 'Great Wall — China walls have +60% HP and every 5th wall piece rises as a Guard Tower turret (twin MG, ground + air, no power). Long wall lines become a fortress.' },
+  jpn: { n: 'Japan', flag: '🇯🇵', sp: 'raijin', desc: 'Raijin Mech — transforms between a fast jet (flies over walls and cliffs) and a heavy walking mech with a chain-lightning cannon. Press T or tap ⚡ to switch. Hit and run.' },
 };
 
 const FAC_KEYS = Object.keys(FACTIONS);
+const CHN_WALL = { hp: 1.6, every: 5 }; // v7.0 China Great Wall
+const XFORM = { t: 1.5, cd: 3 };         // v7.0 Raijin transform time / cooldown (s)
 // ===== deterministic math (lockstep): only + - * / and sqrt (IEEE-exact) =====
 let ME = 0; // local player index (UI/render perspective)
 const D_PI = 3.141592653589793, D_2PI = 6.283185307179586, D_HPI = 1.5707963267948966;

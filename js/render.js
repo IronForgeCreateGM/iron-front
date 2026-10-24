@@ -181,6 +181,16 @@ function handleEvents() {
       case 'placed': if (ev.b.t === 'cc') { if (ev.team === ME) announce('Expansion established', 'cc', 3); else if (!foe(ev.team, ME)) announce('Ally expanding', 'acc', 20); } else if (ev.team === ME && FACTIONS[G.players[ME].fac].sp === ev.b.t) announce(BT[ev.b.t].n + ' deployed', 'sp', 5); break;
       case 'eliminated': announce(ev.team === ME ? 'You have been eliminated' : G.players[ev.team].name + (foe(ev.team, ME) ? ' (enemy)' : ' (ally)') + ' eliminated', 'el' + ev.team, 1); break;
       case 'popcap': if (ev.team === ME) uiMsg('Unit cap reached (' + POP_CAP + ')'); break;
+      // v7.0 Endless + new faction specials
+      case 'wave': announce(ev.boss ? `☠ WAVE ${ev.n} — BOSS INCOMING` : `Wave ${ev.n} — ${ev.count} hostiles`, 'wave', 0.5); sfx('alert'); if (ev.boss) shake(0.35); break;
+      case 'boss': { const u = ev.u; UI.pings.push({ x: u.x, y: u.y, t: 3 }); UI.alerts.unshift({ txt: 'Colossus sighted', x: u.x, y: u.y, t: 10 }); UI.alerts.length = Math.min(UI.alerts.length, 2); uiMsg('☠ A Horde COLOSSUS is marching on the passes!'); break; }
+      case 'bossDown': announce('Colossus destroyed!', 'bd', 1); shake(0.6); explosion3(ev.x, ev.y, heightAt(ev.x, ev.y) + 0.5, 3); break;
+      case 'waveClear': { const r = ev.reward; announce(r ? (r.kind === 'elite' ? `Boss wave ${ev.n} cleared clean — ELITE unit earned!` : `Boss wave ${ev.n} cleared — +$${r.cr} bonus`) : `Wave ${ev.n} cleared  +$${ev.pay}`, 'wc', 0.5); sfx('ready'); break; }
+      case 'elite': if (ev.team === ME) uiMsg('★ Elite ' + UT[ev.u.t].n + ' has joined your base'); break;
+      case 'skip': announce(ev.bonus ? `Break skipped  +$${ev.bonus}` : 'Break skipped', 'sk', 0.5); break;
+      case 'kami': if (inView(ev.x, ev.y)) { const z = heightAt(ev.x, ev.y); flash(ev.x, ev.y, z + 0.6, 1.6, 1, 0.55, 0.2); for (let i = 0; i < 6 * FX.mul; i++) puff(ev.x + rnd(1), ev.y + rnd(1), z + 0.3, 0.4, 1.8, 0.25, 0.2, 0.18); sfx('boomBig', ev.x, ev.y); shake(0.15); } break;
+      case 'xform': { const u = ev.u; if (inView(u.x, u.y) && (!G.opts.fog || visibleTo0(u))) { const z = heightAt(u.x, u.y) + (ev.air ? 0.5 : 1.2); flash(u.x, u.y, z, 1.4, 0.55, 0.75, 1); sparks(u.x, u.y, z, 14, 3); for (let i = 0; i < 6; i++) puff(u.x + rnd(0.6), u.y + rnd(0.6), z - 0.4, 0.3, 1.1, 0.7, 0.75, 0.8); }
+        if (u.team === ME) sfx('ready', u.x, u.y); break; }
       case 'allyAck': if (foe(ev.team, ME) || ev.team === ME) break; announce(G.players[ev.team].name + ': on my way', 'ack', 4); UI.pings.push({ x: ev.x, y: ev.y, t: 3 }); break;
     }
   }
@@ -263,7 +273,7 @@ function r3Render(dt) {
     const moving = e.path.length > 0, bob = 0;
     rs.bank = (rs.bank || 0) * 0.9 + angDiff(rs.pang == null ? rs.ang : rs.pang, rs.ang) * (d.jet ? 9 : 0); rs.pang = rs.ang;
     T.e.set(d.jet ? -Math.max(-0.7, Math.min(0.7, rs.bank)) : 0, -(d.armor === 'inf' ? rs.tang : rs.ang), air && !d.jet ? (moving ? -0.18 : 0) : 0, 'YXZ'); T.q.setFromEuler(T.e);
-    const vs = d.armor === 'inf' ? 1 : d.mech ? 0.85 : d.jet ? 1.1 : air ? 0.9 : e.t === 'harv' ? 0.62 : 0.8; // v6.2 smaller Ore Hauler
+    const vs = (d.vs || 1) * (e.elite ? 1.18 : 1) * (d.vs ? 1 : (d.armor === 'inf' ? 1 : d.mech ? 0.85 : d.jet ? 1.1 : air ? 0.9 : e.t === 'harv' ? 0.62 : 0.8)); // v7.0 d.vs (boss) + elite scale; v6.2 smaller Ore Hauler
     if (pv.legs) {
       animGait(rs, e, d, dt, pv.legs);
       const sq = pv.squad || 1;
@@ -376,17 +386,18 @@ function makePortraits() {
   const oldSize = new THREE.Vector2(); r.getSize(oldSize); const oldPR = r.getPixelRatio();
   FOW.uFowOn.value = 0; r.setRenderTarget(null); r.setPixelRatio(1); r.setSize(192, 128, false); r.toneMapping = THREE.ACESFilmicToneMapping; r.outputEncoding = THREE.sRGBEncoding; r.setClearColor(0x000000, 0);
   const out = {};
-  const shoot = (kind, t) => {
-    const model = getModel(kind, t, 0), g = new THREE.Group(), mat = pbrMaterial(); g.add(new THREE.Mesh(model.body, mat));
+  const shoot = (kind, t, mdl, key) => {
+    const model = mdl || getModel(kind, t, 0), g = new THREE.Group(), mat = pbrMaterial(); g.add(new THREE.Mesh(model.body, mat));
     if (model.piv.legs) { // v6.2: rigged infantry/mechs are posed exactly like in game (one clean figure, legs attached)
       g.clear(); const U = { parts: {} }; for (const k in model) if (k !== 'piv') { const im = new THREE.InstancedMesh(model[k], mat, 1); U.parts[k] = im; g.add(im); }
       poseRig(U, 0, new THREE.Matrix4(), { spd: 0, ph: 0, aim: 0.6 }, model.piv.legs, 0, 0); for (const k in U.parts) U.parts[k].instanceMatrix.needsUpdate = true;
     } else for (const k in model) if (k !== 'piv' && k !== 'body' && k !== 'spade') { const m = new THREE.Mesh(model[k], mat), pv = model.piv[k] || [0, 0, 0]; m.position.set(...pv); if (k === 'load') m.scale.y = 0.7; g.add(m); }
     S.add(g); const box = new THREE.Box3().setFromObject(g), c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3()).length();
     g.rotation.y = kind === 'u' ? -0.6 : 0.5;
-    cam.position.set(c.x + sz * 0.95, c.y + sz * 0.75, c.z + sz * 1.25); cam.lookAt(c); r.clear(); r.render(S, cam); out[t] = r.domElement.toDataURL(); S.remove(g);
+    cam.position.set(c.x + sz * 0.95, c.y + sz * 0.75, c.z + sz * 1.25); cam.lookAt(c); r.clear(); r.render(S, cam); out[key || t] = r.domElement.toDataURL(); S.remove(g);
   };
   for (const t in UT) shoot('u', t); for (const t in BT) shoot('b', t);
+  { const B = new MB(0); B.bld = true; B.chn = 1; BLD_MODELS.wall(B); shoot('b', 'wall', B.build(), 'wallChn'); } // v7.0 China Great Wall card
   FOW.uFowOn.value = 1; r.toneMapping = THREE.NoToneMapping; r.outputEncoding = THREE.LinearEncoding; r.setClearColor(0x000000, 1); r.setPixelRatio(oldPR); r.setSize(oldSize.x, oldSize.y);
   R3.portraits = out;
 }
@@ -456,16 +467,22 @@ function wallsUpdate() {
     const C = new MB(0); C.box('c', 1, 0.06, 0.36, 0xffffff, PBR.PAINT, 0.5, 0.55, 0, { bevel: 0.01 });
     const cm = pbrMaterial().clone(); cm.onBeforeCompile = pbrMaterial().onBeforeCompile; cm.customProgramCacheKey = () => 'pbrv2ic';
     R3.wallCap = mk(C.build().c, cm, 1200); R3.wallCap.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(3600).fill(1), 3);
+    // v7.0 China Great Wall segment: taller weathered stone with merlons along the top
+    const D = new MB(0); D.box('s', 1, 0.62, 0.4, 0x9a8f7c, PBR.CONC, 0.5, 0.31, 0, { bevel: 0.03 }); D.box('s', 1, 0.05, 0.44, 0x7a705f, PBR.CONC, 0.5, 0.64, 0, { bevel: 0 });
+    for (let k = 0; k < 3; k++) for (const z of [-0.16, 0.16]) D.box('s', 0.16, 0.14, 0.08, 0x7a705f, PBR.CONC, 0.17 + k * 0.33, 0.73, z, { bevel: 0.01 });
+    R3.wallChn = mk(D.build().s, pbrMaterial(), 800);
   }
-  const at = new Map(); for (const e of G.ents) if (e.t === 'wall' && e.hp > 0 && (e.team === ME || seen0(idx(e.tx, e.ty)))) at.set(e.ty * MW + e.tx, e);
-  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), col = new THREE.Color(); let n = 0;
+  const at = new Map(); for (const e of G.ents) if ((e.t === 'wall' || e.t === 'gtower') && e.hp > 0 && (e.team === ME || seen0(idx(e.tx, e.ty)))) at.set(e.ty * MW + e.tx, e);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), col = new THREE.Color(); let n = 0, nc = 0;
   for (const [k, e] of at) for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [-1, 1]]) {
     const o = at.get((e.ty + dy) * MW + e.tx + dx); if (!o || o.team !== e.team || n >= 1200) continue;
     if (dx && dy && at.has(e.ty * MW + e.tx + dx) && at.has((e.ty + dy) * MW + e.tx)) continue; // corner already closed orthogonally
     const len = Math.hypot(dx, dy), a = Math.atan2(dy, dx), h = heightAt(e.x, e.y);
     q.setFromAxisAngle(up, -a); m4.compose(new THREE.Vector3(e.x, h, e.y), q, new THREE.Vector3(len, 1, 1));
+    if (G.players[e.team] && G.players[e.team].fac === 'chn') { if (nc < 800) R3.wallChn.setMatrixAt(nc++, m4); continue; }
     R3.wallSeg.setMatrixAt(n, m4); R3.wallCap.setMatrixAt(n, m4); col.setHex(TEAMPAINT[e.team]); R3.wallCap.setColorAt(n, col); n++;
   }
+  R3.wallChn.count = nc; R3.wallChn.instanceMatrix.needsUpdate = true;
   R3.wallSeg.count = R3.wallCap.count = n; R3.wallSeg.instanceMatrix.needsUpdate = R3.wallCap.instanceMatrix.needsUpdate = true; R3.wallCap.instanceColor.needsUpdate = true;
 }
 function wallPreview(tiles) {

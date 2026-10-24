@@ -268,6 +268,66 @@ const UNIT_MODELS = {
     B.cyl('rotor', 0.05, 0.05, COL.DARK, PBR.DARKM, 0, 0, 0); B.box('rotor', 1.9, 0.015, 0.09, COL.GUN, PBR.DARKM, 0, 0.02, 0, { bevel: 0 }); B.box('rotor', 0.09, 0.015, 1.9, COL.GUN, PBR.DARKM, 0, 0.02, 0, { bevel: 0 });
     B.piv.tip = 0.5;
   },
+  drone(B) { // v7.0 Iran Shahed-style loitering munition: slim fuselage, clipped delta wing, tip fins, pusher prop, red warhead
+    B.cyl('body', 0.05, 0.62, 'T', PBR.PAINT, -0.02, 0, 0, { rz: -Math.PI / 2, rt: 0.045, seg: 10 }); B.cone('body', 0.05, 0.14, COL.RED, PBR.PAINT, 0.36, 0, 0, { rz: -Math.PI / 2, seg: 10 });
+    const w = new THREE.Shape(); w.moveTo(0.18, 0); w.lineTo(-0.22, 0.4); w.lineTo(-0.3, 0.4); w.lineTo(-0.26, 0); w.lineTo(-0.3, -0.4); w.lineTo(-0.22, -0.4); w.lineTo(0.18, 0);
+    const wg = new THREE.ExtrudeGeometry(w, { depth: 0.02, bevelEnabled: false }); wg.rotateX(Math.PI / 2); B.add('body', wg, 'TD', PBR.PAINT, 0, 0.01, 0);
+    for (const z of [0.4, -0.4]) B.box('body', 0.1, 0.12, 0.012, 'T', PBR.PAINT, -0.25, 0.05, z, { bevel: 0 });
+    B.cyl('body', 0.02, 0.05, COL.DARK, PBR.DARKM, -0.35, 0, 0, { rz: Math.PI / 2, seg: 8 }); B.cyl('body', 0.11, 0.008, 0x333333, PBR.DARKM, -0.38, 0, 0, { rz: Math.PI / 2, seg: 14 });
+    B.glow('body', 0.03, 0.02, 0.02, COL.RED, 0.2, 0.05, 0); B.glow('body', 0.06, 0.012, 0.04, 'TA', -0.1, 0.035, 0.18); B.glow('body', 0.06, 0.012, 0.04, 'TA', -0.1, 0.035, -0.18);
+    B.piv.tip = 0.3;
+  },
+  raijin(B) { // v7.0 Japan Raijin Mech: white/team armour, V-fin head, shoulder blocks, arm-mounted lightning cannon, folded jet nacelles on the back
+    const WH = 0xe6e6e0, YE = 0xf0c020, BL = 0x66ccff;
+    for (const [side] of [['L'], ['R']]) {
+      B.box('th' + side, 0.2, 0.5, 0.22, WH, PBR.PAINT, 0, -0.25, 0); B.box('th' + side, 0.22, 0.14, 0.24, 'T', PBR.PAINT, 0.02, -0.08, 0); B.cyl('th' + side, 0.12, 0.26, COL.DARK, PBR.DARKM, 0, 0, 0, { rx: Math.PI / 2, seg: 10 });
+      B.box('sh' + side, 0.18, 0.5, 0.2, WH, PBR.PAINT, 0.02, -0.25, 0); B.box('sh' + side, 0.1, 0.24, 0.22, 'T', PBR.PAINT, 0.08, -0.2, 0); B.box('sh' + side, 0.44, 0.09, 0.26, COL.DARK, PBR.DARKM, 0.07, -0.52, 0);
+      B.cyl('sh' + side, 0.1, 0.24, COL.DARK, PBR.DARKM, 0, 0, 0, { rx: Math.PI / 2, seg: 10 }); B.glow('sh' + side, 0.02, 0.06, 0.12, BL, 0.17, -0.36, 0);
+    }
+    B.box('body', 0.4, 0.2, 0.5, COL.DARK, PBR.DARKM, 0, 1.0, 0);                                   // pelvis
+    B.box('body', 0.5, 0.44, 0.58, WH, PBR.PAINT, 0.02, 1.33, 0); B.box('body', 0.18, 0.3, 0.42, 'T', PBR.PAINT, 0.24, 1.32, 0, { rz: -0.2 }); // torso + team chest plate
+    B.glow('body', 0.02, 0.1, 0.1, BL, 0.34, 1.35, 0);                                            // chest reactor
+    B.box('body', 0.14, 0.05, 0.4, YE, PBR.PAINT, 0.22, 1.12, 0, { bevel: 0 });                    // yellow waist band
+    // head with the iconic V-fin
+    B.box('body', 0.18, 0.16, 0.18, WH, PBR.PAINT, 0.05, 1.64, 0); B.box('body', 0.03, 0.04, 0.14, BL, PBR.GLOW, 0.14, 1.65, 0, { bevel: 0 });
+    for (const z of [0.07, -0.07]) B.box('body', 0.03, 0.2, 0.025, YE, PBR.PAINT, 0.12, 1.78, z * 1.6, { rx: z > 0 ? -0.6 : 0.6, bevel: 0 });
+    B.box('body', 0.06, 0.05, 0.05, COL.RED, PBR.PAINT, 0.14, 1.72, 0, { bevel: 0 });
+    // shoulders
+    for (const z of [0.37, -0.37]) { B.box('body', 0.3, 0.24, 0.2, 'T', PBR.PAINT, 0.02, 1.48, z); B.box('body', 0.32, 0.05, 0.22, WH, PBR.PAINT, 0.02, 1.62, z, { bevel: 0.01 }); }
+    // left arm + fist, right arm = lightning cannon (long barrel with 3 glowing coil rings)
+    B.box('body', 0.16, 0.36, 0.14, WH, PBR.PAINT, 0.08, 1.2, 0.4); B.box('body', 0.14, 0.12, 0.14, COL.DARK, PBR.DARKM, 0.12, 0.98, 0.4);
+    B.box('body', 0.34, 0.18, 0.18, COL.STEEL, PBR.METAL, 0.2, 1.3, -0.42); B.cyl('body', 0.055, 0.7, COL.GUN, PBR.DARKM, 0.68, 1.3, -0.42, { rz: -Math.PI / 2, seg: 10 });
+    for (let k = 0; k < 3; k++) B.torus('body', 0.08, 0.018, BL, PBR.GLOW, 0.48 + k * 0.17, 1.3, -0.42, { ry: Math.PI / 2, seg: 14 });
+    B.sph('body', 0.06, BL, PBR.GLOW, 1.04, 1.3, -0.42, { seg: 10 });
+    // backpack: two folded jet nacelles + fin
+    for (const z of [0.18, -0.18]) { B.cyl('body', 0.09, 0.5, COL.STEEL, PBR.METAL, -0.32, 1.42, z, { rz: 0.15, seg: 10 }); B.glow('body', 0.06, 0.04, 0.06, 0xff8a3a, -0.36, 1.15, z); }
+    B.box('body', 0.3, 0.06, 0.62, 'TD', PBR.PAINT, -0.34, 1.62, 0, { rz: 0.4 });
+    B.piv.legs = { hip: 1.0, hz: 0.24, tl: 0.5, stride: 1.4, mech: 1 }; B.piv.tip = 1.1;
+  },
+  raijinJ(B) { // v7.0 Raijin jet mode: same white/team/yellow scheme, forward-canard fighter with twin blue-hot engines
+    const WH = 0xe6e6e0, YE = 0xf0c020, BL = 0x66ccff;
+    B.cyl('body', 0.1, 1.2, WH, PBR.PAINT, 0, 0, 0, { rz: -Math.PI / 2, rt: 0.03, seg: 12 }); B.sph('body', 0.085, COL.GLASS, PBR.GLASS, 0.25, 0.08, 0, { sx: 2.2, sy: 0.8, sz: 0.8, seg: 10 });
+    const w = new THREE.Shape(); w.moveTo(0.05, 0); w.lineTo(-0.3, 0.68); w.lineTo(-0.48, 0.66); w.lineTo(-0.42, 0); w.lineTo(-0.48, -0.66); w.lineTo(-0.3, -0.68); w.lineTo(0.05, 0);
+    const wg = new THREE.ExtrudeGeometry(w, { depth: 0.03, bevelEnabled: false }); wg.rotateX(Math.PI / 2); B.add('body', wg, 'T', PBR.PAINT, 0, 0, 0);
+    for (const z of [0.18, -0.18]) B.box('body', 0.14, 0.015, 0.16, YE, PBR.PAINT, 0.35, 0.02, z, { bevel: 0 });  // canards
+    for (const z of [0.14, -0.14]) { B.cyl('body', 0.08, 0.5, COL.STEEL, PBR.METAL, -0.4, -0.02, z, { rz: -Math.PI / 2, seg: 10 }); B.glow('body', 0.03, 0.11, 0.11, BL, -0.66, -0.02, z); B.box('body', 0.22, 0.26, 0.02, 'TD', PBR.PAINT, -0.55, 0.15, z * 1.1, { rx: z > 0 ? -0.3 : 0.3, bevel: 0 }); }
+    B.box('body', 0.3, 0.02, 0.05, YE, PBR.PAINT, 0.05, 0.1, 0, { bevel: 0 }); B.box('body', 0.12, 0.05, 0.05, BL, PBR.GLOW, 0.62, 0, 0, { bevel: 0 });
+    B.glow('body', 0.03, 0.02, 0.03, COL.RED, -0.4, 0.02, 0.67); B.glow('body', 0.03, 0.02, 0.03, COL.GRN, -0.4, 0.02, -0.67);
+    B.piv.tip = 0.6;
+  },
+  colossus(B) { // v7.0 Endless boss: four-legged siege walker, armoured carapace, twin heavy cannons, red sensor eyes (rendered at 2.3x)
+    tracks(B, 1.5, 1.2, 0.3, 6);
+    B.box('body', 1.3, 0.36, 1.0, COL.DARK, PBR.DARKM, 0, 0.5, 0);
+    for (const [x, z] of [[0.55, 0.55], [0.55, -0.55], [-0.55, 0.55], [-0.55, -0.55]]) { B.box('body', 0.22, 0.6, 0.22, COL.STEEL, PBR.METAL, x * 1.1, 0.35, z * 1.15, { rz: x > 0 ? -0.25 : 0.25 }); B.box('body', 0.3, 0.12, 0.3, COL.DARK, PBR.DARKM, x * 1.25, 0.06, z * 1.25); }
+    B.box('body', 1.1, 0.12, 0.9, 'T', PBR.PAINT, 0, 0.74, 0);
+    B.piv.turret = [0, 0.82, 0];
+    B.sph('turret', 0.6, 'T', PBR.PAINT, 0, 0.1, 0, { sx: 1.25, sy: 0.6, sz: 1.0, half: true, seg: 18 }); B.box('turret', 0.6, 0.3, 0.75, COL.DARK, PBR.DARKM, -0.45, 0.15, 0);
+    for (const z of [0.24, -0.24]) { B.cyl('turret', 0.09, 1.25, COL.STEEL, PBR.METAL, 0.95, 0.22, z, { rz: -Math.PI / 2, seg: 12 }); B.cyl('turret', 0.13, 0.22, COL.DARK, PBR.DARKM, 1.55, 0.22, z, { rz: -Math.PI / 2, seg: 12 }); }
+    for (const z of [0.12, -0.12]) B.glow('turret', 0.05, 0.05, 0.07, COL.RED, 0.66, 0.32, z);
+    for (let k = 0; k < 5; k++) B.box('turret', 0.08, 0.12, 0.7, COL.STEEL, PBR.METAL, -0.15 - k * 0.12, 0.38, 0, { bevel: 0.01 });
+    B.glow('turret', 0.04, 0.05, 0.8, 'TL', -0.76, 0.18, 0);
+    B.piv.tip = 1.65;
+  },
 };
 // jointed legs: parts thL/shL/thR/shR built around their joint origins (hip, knee); piv.legs drives animation
 function legRig(B, s, hip, tl, sl, hz, pc, bc, w) {
@@ -516,7 +576,20 @@ const BLD_MODELS = {
     { const [x, y] = ax(2.9); for (const sd of [1, -1]) B.box('gun', 0.08, 0.13, 0.08, COL.GUN, PBR.DARKM, x, y, sd * 0.17, { bevel: 0.01 }); const [x2, y2] = ax(2.8); for (const sd of [1, -1]) B.box('gun', 0.08, 0.13, 0.08, COL.GUN, PBR.DARKM, x2, y2, sd * 0.17, { bevel: 0.01 }); }
     { const [x, y] = ax(3.1); B.piv.tip = 3.1 + 0.62; B.piv.tipZ = 0.66 + y; }
   },
-  wall(B) { B.box('body', 0.42, 0.72, 0.42, COL.CONC, PBR.CONC, 0, 0.36, 0, { bevel: 0.05 }); B.box('body', 0.48, 0.08, 0.48, 'TD', PBR.PAINT, 0, 0.74, 0, { bevel: 0.02 }); B.box('body', 0.5, 0.1, 0.5, 0x55595e, PBR.METAL, 0, 0.05, 0, { bevel: 0.02 }); },
+  gtower(B) { // v7.0 China Great Wall guard tower: stone keep, red lacquer pillars, upturned pagoda roof, repeating gun
+    const ST = 0x9a8f7c, STD = 0x7a705f, RED = 0xa8231c, GOLD = 0xd8a830, TILE = 0x2e3a36;
+    B.box('body', 0.92, 0.7, 0.92, ST, PBR.CONC, 0, 0.35, 0, { bevel: 0.05 }); B.box('body', 0.98, 0.08, 0.98, STD, PBR.CONC, 0, 0.72, 0, { bevel: 0.02 });
+    for (let k = 0; k < 4; k++) for (const o of [-0.32, 0, 0.32]) { const a = k * Math.PI / 2; B.box('body', 0.16, 0.14, 0.12, STD, PBR.CONC, Math.cos(a) * 0.43 - Math.sin(a) * o, 0.83, Math.sin(a) * 0.43 + Math.cos(a) * o, { ry: -a, bevel: 0.01 }); }
+    for (const [x, z] of [[0.28, 0.28], [0.28, -0.28], [-0.28, 0.28], [-0.28, -0.28]]) B.cyl('body', 0.04, 0.42, RED, PBR.PAINT, x, 0.97, z, { seg: 8 });
+    B.cyl('body', 0.62, 0.16, TILE, PBR.DARKM, 0, 1.24, 0, { rt: 0.25, seg: 4, ry: Math.PI / 4 }); B.cyl('body', 0.36, 0.14, TILE, PBR.DARKM, 0, 1.4, 0, { rt: 0.08, seg: 4, ry: Math.PI / 4 });
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + Math.PI / 4; B.cone('body', 0.04, 0.16, GOLD, PBR.METAL, Math.cos(a) * 0.62, 1.22, Math.sin(a) * 0.62, { rx: Math.sin(a) * 0.9, rz: -Math.cos(a) * 0.9, seg: 6 }); }
+    B.sph('body', 0.06, GOLD, PBR.METAL, 0, 1.52, 0, { seg: 8 }); B.box('body', 0.5, 0.06, 0.5, 'T', PBR.PAINT, 0, 0.79, 0, { bevel: 0.01 });
+    B.piv.head = [0, 0.95, 0];
+    B.box('head', 0.2, 0.12, 0.16, COL.DARK, PBR.DARKM, 0.05, 0, 0); B.barrel('head', 0.42, 0.03, 0.15, 0, 0.04, 0); B.barrel('head', 0.42, 0.03, 0.15, 0, -0.04, 0); B.glow('head', 0.03, 0.03, 0.08, COL.RED, 0.12, 0.08, 0);
+    B.piv.tip = 0.57;
+  },
+  wall(B) { if (B.chn || (typeof G !== 'undefined' && G.players && G.players[B.team] && G.players[B.team].fac === 'chn')) { B.box('body', 0.5, 0.78, 0.5, 0x9a8f7c, PBR.CONC, 0, 0.39, 0, { bevel: 0.04 }); for (const [x, z] of [[0.17, 0.17], [0.17, -0.17], [-0.17, 0.17], [-0.17, -0.17]]) B.box('body', 0.14, 0.14, 0.14, 0x7a705f, PBR.CONC, x, 0.85, z, { bevel: 0.01 }); B.box('body', 0.52, 0.05, 0.52, 'T', PBR.PAINT, 0, 0.6, 0, { bevel: 0 }); return; }
+    B.box('body', 0.42, 0.72, 0.42, COL.CONC, PBR.CONC, 0, 0.36, 0, { bevel: 0.05 }); B.box('body', 0.48, 0.08, 0.48, 'TD', PBR.PAINT, 0, 0.74, 0, { bevel: 0.02 }); B.box('body', 0.5, 0.1, 0.5, 0x55595e, PBR.METAL, 0, 0.05, 0, { bevel: 0.02 }); },
 };
 const MODEL_CACHE = {};
 function getModel(kind, t, team) {

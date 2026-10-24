@@ -6,7 +6,8 @@ const UI = { sel: [], tab: 'bld', placing: null, mode: null, mouse: { x: -1, y: 
 const $ = id => document.getElementById(id);
 function saveSet() { localStorage.setItem('if_settings', JSON.stringify(UI.set)); localStorage.setItem('if_quality', UI.set.quality); }
 function uiMsg(s) { const m = $('msg'); if (!m) return; m.textContent = s; m.style.opacity = 1; UI.msgT = 3; }
-function icon(t) { return (R3.portraits && R3.portraits[t]) || ''; }
+function icon(t) { const P = typeof G !== 'undefined' && G.players && G.players[ME]; if (t === 'wall' && P && P.fac === 'chn' && R3.portraits && R3.portraits.wallChn) return R3.portraits.wallChn; return (R3.portraits && R3.portraits[t]) || ''; }
+function nameOf(t) { const d = BT[t] || UT[t], P = typeof G !== 'undefined' && G.players && G.players[ME]; return t === 'wall' && P && P.fac === 'chn' ? 'Great Wall' : d.n; }
 const ANN = { last: {}, q: [], t: 0 };
 function announce(txt, key, gap) { if (G.time - (ANN.last[key] ?? -999) < (gap || 10)) return; ANN.last[key] = G.time; ANN.q.push(txt); if (ANN.q.length > 3) ANN.q.shift(); }
 function annFrame(dt) { const el = document.getElementById('announce'); if (!el) return; ANN.t -= dt; if (ANN.t <= 0 && ANN.q.length) { el.textContent = ANN.q.shift(); el.classList.add('on'); ANN.t = 2.6; } else if (ANN.t <= 0.4) el.classList.remove('on'); }
@@ -62,8 +63,8 @@ function uiSetup() {
 }
 function openSettings(on) { $('settings').style.display = on ? 'flex' : 'none'; }
 function jumpTo(x, y, instant) { R3.cam.tx = x; R3.cam.ty = y + R3.cam.d * 0.18; if (instant) { R3.cam.x = R3.cam.tx; R3.cam.y = R3.cam.ty; } }
-function listFor(cat) { const f = G.players[ME].fac, ok = t => { const d = BT[t] || UT[t]; return (!d.fac || d.fac === f) && d.noFac !== f; }; return [...Object.keys(BT).filter(t => t !== 'hq' && BT[t].cat === cat && ok(t)), ...Object.keys(UT).filter(t => FROMCAT[UT[t].from] === cat && ok(t))]; }
-function itemHTML(t, hk) { const d = BT[t] || UT[t]; return `<img src="${icon(t)}"><div class="nm">${d.n}</div><div class="cost">$${d.cost}${d.gas ? `<i class="gas"> ◆${d.gas}</i>` : ""}</div>${hk ? `<div class="hk">${hk.toUpperCase()}</div>` : ''}<div class="prog"></div><div class="cnt"></div><div class="rdy">READY</div><div class="lock">🔒</div>`; }
+function listFor(cat) { const f = G.players[ME].fac, ok = t => { const d = BT[t] || UT[t]; return !d.hide && (!d.fac || d.fac === f) && d.noFac !== f; }; return [...Object.keys(BT).filter(t => t !== 'hq' && BT[t].cat === cat && ok(t)), ...Object.keys(UT).filter(t => FROMCAT[UT[t].from] === cat && ok(t))]; }
+function itemHTML(t, hk) { const d = BT[t] || UT[t]; return `<img src="${icon(t)}"><div class="nm">${nameOf(t)}</div>${d.batch ? `<div class="bx">×${d.batch}</div>` : ""}<div class="cost">$${d.cost}${d.gas ? `<i class="gas"> ◆${d.gas}</i>` : ""}</div>${hk ? `<div class="hk">${hk.toUpperCase()}</div>` : ''}<div class="prog"></div><div class="cnt"></div><div class="rdy">READY</div><div class="lock">🔒</div>`; }
 function wireItem(b, t, panel) {
   b.dataset.t = t;
   b.onmousedown = e => { e.preventDefault(); audioInit(); if (panel) UI.hotPanel = panel; clickItem(t, e.button === 2, e.shiftKey); };
@@ -98,7 +99,8 @@ function tipGuard() { if (!UI.tip || UI.tip.style.display === 'none') return; co
   if ((o && !o.isConnected) || (o && o.offsetParent === null) || (touch && performance.now() - (UI.tipT || 0) > 2500 && !(o && o.classList && o.classList.contains('mcard')))) hideTip(); }
 function showTip(t, el) { tipOwn(el);
   const d = BT[t] || UT[t], u = UT[t], wpn = u ? u.wpn : BT[t].wpn, c = counters(wpn), i = UI.gridList.indexOf(t);
-  let h = `<b>${d.n}</b> <span class="c">$${d.cost}</span>${d.gas ? ` <span class="gas">◆${d.gas}</span>` : ''} <span class="dim">· ${d.time}s</span>${i >= 0 && HOTKEYS[i] ? ` <kbd>${HOTKEYS[i].toUpperCase()}</kbd>` : ''}<br>`;
+  let h = `<b>${nameOf(t)}</b> <span class="c">$${d.cost}</span>${d.gas ? ` <span class="gas">◆${d.gas}</span>` : ''} <span class="dim">· ${d.time}s</span>${i >= 0 && HOTKEYS[i] ? ` <kbd>${HOTKEYS[i].toUpperCase()}</kbd>` : ''}<br>`;
+  if (t === 'wall' && G.players[ME].fac === 'chn') h += `<span class="g">🇨🇳 Great Wall:</span> +${Math.round((CHN_WALL.hp - 1) * 100)}% HP, and every ${CHN_WALL.every}th piece rises as a Guard Tower (twin MG, ground + air, no power).<br>`;
   if (d.desc) h += d.desc + '<br>'; else h += `<span class="dim">${BT[t] ? (d.cat === 'def' ? 'Static defense.' : 'Base structure.') : (u && u.air ? 'Aircraft.' : u && u.armor === 'inf' ? 'Infantry unit.' : 'Vehicle.') }</span><br>`;
   h += `HP ${d.hp}` + (u ? ` · ${u.armor} armor · speed ${u.sp}` : ` · power ${d.pow > 0 ? '+' : ''}${d.pow}`) + '<br>';
   if (wpn) h += `Weapon: ${W[wpn].type}, ${W[wpn].dmg} dmg, range ${W[wpn].rng}${W[wpn].splash ? ', splash' : ''}<br>`;
@@ -222,6 +224,7 @@ function onKey(e) {
   if (G.watch && k === 'c') { DIR.auto = !DIR.auto; DIR.tagT = -9; return; }
   if (G.watch && 'wasd'.includes(k) && k.length === 1) return;
   if (paused) return;
+  if (k === 't' && !e.ctrlKey && !e.metaKey && UI.sel.some(u => u.team === ME && u.kind === 'u' && UT[u.t].xform)) { doXform(); return; } // v7.0: T transforms Raijin (beats the T build hotkey while one is selected)
   if (/^[1-9]$/.test(k)) {
     e.preventDefault();
     if (e.ctrlKey || e.metaKey) { UI.groups[k] = UI.sel.filter(s => s.team === ME).map(s => s.id); uiMsg('Group ' + k + ' set'); return; }
@@ -249,6 +252,10 @@ function onKey(e) {
   if (k === '`') { UI.set.fps = !UI.set.fps; $('setFps').checked = UI.set.fps; saveSet(); }
   if (k === '.') selectIdle('harv'); if (k === ',') selectIdle('army');
 }
+function doXform() { // v7.0 Japan Raijin mech <-> jet (T / ⚡ button / mobile command). Mixed selection: any mechs take off, else the jets land
+  const a = UI.sel.filter(u => u.team === ME && u.kind === 'u' && UT[u.t].xform && u.hp > 0 && u.xfT == null && G.time >= (u.xfCd || 0)); if (!a.length) return !!UI.sel.some(u => u.team === ME && UT[u.t] && UT[u.t].xform);
+  const mechs = a.filter(u => !UT[u.t].air), list = mechs.length ? mechs : a;
+  NET.issue({ c: 'xform', u: ids(list) }); sfx('ack'); uiMsg(mechs.length ? `⚡ ${list.length} Raijin taking off — JET mode: fast, flies over walls` : `⚡ ${list.length} Raijin landing — MECH mode: lightning cannon`); UI.ctxKey = null; return true; }
 function toggleSiege() { // v6.2 Howler Siege Mode (B / button / mobile command)
   const a = UI.sel.filter(u => u.team === ME && u.kind === 'u' && UT[u.t].siege && u.hp > 0); if (!a.length) return false; const on = !a.every(u => u.sg === 1 || u.sg === 2);
   NET.issue({ c: 'siege', u: ids(a), on: on ? 1 : 0 }); sfx('ack'); uiMsg(on ? `🎯 ${a.length} Howler${a.length > 1 ? 's' : ''} deploying (${SIEGE.dep}s): range ${SIEGE.rng}, wider splash` : `Howlers packing up (${SIEGE.pack}s)`); UI.ctxKey = null; return true; }
@@ -287,7 +294,7 @@ function idleList(kind) {
 }
 function selectIdle(kind) { const l = idleList(kind); if (!l.length) return; setSel(kind === 'harv' ? [l[0]] : l); jumpTo(l[0].x, l[0].y); }
 function uiFrame(dt) {
-  annFrame(dt); tipGuard();
+  annFrame(dt); tipGuard(); endlessHud();
   const P = G.players[ME], m = UI.mouse, el = R3.renderer.domElement, W_ = el.clientWidth, H_ = el.clientHeight;
   // smooth camera scroll (edge + arrows), speed setting
   // v5.4 WASD camera pan (works in play + spectate; A still arms attack-move on keydown)
@@ -351,11 +358,13 @@ function sidebar() {
       if (e.kind === 'b' && e.team === ME && e.t === 'tech') h += `<div class="rsp"><div class="rsh">🔬 Research tracks <span class="dim small">L2 +15% · L3 +30% damage & HP (existing units too)</span></div>${RES.cats.map(c => `<button class="act rsb" data-k="${c}"></button>`).join('')}<div id="rsSt" class="dim small"></div></div>`;
       if (e.kind === 'b' && e.team === ME && e.t === 'silo') h += `<div class="acts">${Object.keys(MIS).map(k => `<button class="act mis" data-k="${k}" title="Range ${MIS[k].rng} · ${MIS[k].sub > 1 ? MIS[k].sub + '× ' : ''}${MIS[k].dmg} dmg · build ${MIS[k].time}s · cooldown ${MIS[k].cd}s${MIS[k].icpt ? ' · can be intercepted by Lv3 Flak' : ''}">🚀 ${MIS[k].n} <span class="c">$${MIS[k].cost}</span> <span class="gas">◆${MIS[k].gas}</span></button>`).join('')}<button id="nukeBtn" class="act">🎯 Launch <kbd>N</kbd></button></div><div id="siloSt" class="dim small"></div>`;
       if (e.kind === 'u' && e.team === ME && UT[e.t].wpn) h += `<div class="acts"><button id="fmBtn" class="act">⛨ Defensive Formation <kbd>G</kbd></button><button id="stBtn" class="act"></button></div>`;
+      if (e.kind === 'u' && e.team === ME && UT[e.t].xform) h += `<div class="acts"><button id="xfBtn" class="act xf" title="Raijin: switch between JET (fast, flies over walls and cliffs, rockets) and MECH (heavy armor, chain-lightning cannon). ${XFORM.t}s transform, ${XFORM.cd}s cooldown."></button></div>`;
       if (e.kind === 'u' && e.team === ME && UT[e.t].siege) h += `<div class="acts"><button id="sgBtn" class="act" title="${SIEGE.dep}s to deploy: stationary, range ${SIEGE.rng} (mobile ${W.arty.rng}), wider splash. ${SIEGE.pack}s to pack; a move order packs automatically."></button></div>`;
       if (s.some(u => u.kind === 'u' && u.team === ME && u.cargo)) h += `<div class="acts"><button id="ulBtn" class="act" title="Drop every passenger right where the craft is">⏬ Unload all <kbd>Shift+B</kbd></button><button id="ulAtBtn" class="act" title="Fly to a spot and unload there">📍 Unload at… <kbd>B</kbd></button></div>`;
       if (e.kind === 'b' && e.team === ME) { const opts = Object.keys(UT).filter(t => UT[t].from === e.t || (UT[t].alt || []).includes(e.t)); if (opts.length) h += `<div class="cgrid">${opts.map(t => `<div class="item sm">${itemHTML(t)}</div>`).join('')}</div><div class="dim small">Right-click ground to set rally point</div>`; }
     } else if (s.length > 1) { const c = {}; s.forEach(e => c[e.t] = (c[e.t] || 0) + 1); h = '<div class="chips">' + Object.entries(c).map(([t, n]) => `<span class="chip" data-t="${t}"><img src="${icon(t)}">${n}</span>`).join('') + '</div>';
       if (s.some(u => u.kind === 'u' && u.team === ME && UT[u.t].siege)) h += `<div class="acts"><button id="sgBtn" class="act"></button></div>`;
+      if (s.some(u => u.kind === 'u' && u.team === ME && UT[u.t].xform)) h += `<div class="acts"><button id="xfBtn" class="act xf"></button></div>`;
       if (myUnits().length) h += `<div class="acts"><button id="fmBtn" class="act">⛨ Defensive Formation <kbd>G</kbd></button><button id="stBtn" class="act"></button></div>`;
       if (s.some(u => u.kind === 'u' && u.team === ME && u.cargo)) h += `<div class="acts"><button id="ulBtn" class="act" title="Drop every passenger right where the craft is">⏬ Unload all <kbd>Shift+B</kbd></button><button id="ulAtBtn" class="act" title="Fly to a spot and unload there">📍 Unload at… <kbd>B</kbd></button></div>`;
       const mb = s.filter(e => e.kind === 'b' && e.team === ME);
@@ -367,7 +376,7 @@ function sidebar() {
     ctx.querySelectorAll('.chip').forEach(c => c.onclick = () => setSel(UI.sel.filter(e => e.t === c.dataset.t)));
     const fm = $('fmBtn'); if (fm) { fm.onclick = e => doFormation(e.shiftKey); fm.title = 'Arrange selected units in battle formation facing the nearest enemy and hold. Shift: at base entrance.'; }
     const ul = $('ulBtn'); if (ul) ul.onclick = unloadAll; const ula = $('ulAtBtn'); if (ula) ula.onclick = () => { UI.mode = 'unload'; uiMsg('Unload: click where to drop the passengers'); };
-    const st = $('stBtn'); if (st) st.onclick = toggleStance; const sgb = $('sgBtn'); if (sgb) sgb.onclick = toggleSiege;
+    const st = $('stBtn'); if (st) st.onclick = toggleStance; const sgb = $('sgBtn'); if (sgb) sgb.onclick = toggleSiege; const xfb = $('xfBtn'); if (xfb) xfb.onclick = doXform;
     ctx.querySelectorAll('.rsb').forEach(bt => bt.onclick = () => doResearch(bt.dataset.k));
     ctx.querySelectorAll('.mis').forEach(bt => bt.onclick = () => { const b = UI.sel[0]; if (!b || b.t !== 'silo') return; const m = MIS[bt.dataset.k], P = G.players[ME]; if (b.mq || b.mis) { sfx('error'); uiMsg('Launcher busy: one missile at a time'); return; } if (P.cr < m.cost || P.gas < m.gas) { sfx('error'); uiMsg('Need $' + m.cost + ' and ◆' + m.gas); return; } NET.issue({ c: 'mbuild', b: b.id, k: bt.dataset.k }); sfx('click'); uiMsg('Building ' + m.n); });
     const nb = $('nukeBtn'); if (nb) nb.onclick = siloArm; const ua = $('upAllBtn'); if (ua) ua.onclick = upgradeAll;
@@ -375,6 +384,8 @@ function sidebar() {
   }
   const sst = $('siloSt'); if (sst && UI.sel[0] && UI.sel[0].t === 'silo') { const b = UI.sel[0], cd = Math.max(0, (b.cdT || 0) - G.time); const t = b.mq ? `Building ${MIS[b.mq.k].n}: ${Math.floor(b.mq.p / MIS[b.mq.k].time * 100)}%` : b.mis ? (cd > 0 ? `${MIS[b.mis].n} ready · cooling down ${Math.ceil(cd)}s` : `<span class="g">${MIS[b.mis].n} READY</span> · range ${MIS[b.mis].rng}`) : cd > 0 ? `Cooling down ${Math.ceil(cd)}s` : 'Empty: build a missile'; if (sst.innerHTML !== t) sst.innerHTML = t; }
   const stb = $('stBtn'); if (stb) { const hold = myUnits().length && myUnits().every(u => u.stance === 'hold'); const t = hold ? '⚓ Stance: Hold <kbd>V</kbd>' : '⚔ Stance: Aggressive <kbd>V</kbd>'; if (stb.innerHTML !== t) stb.innerHTML = t; }
+  const xfb = $('xfBtn'); if (xfb) { const a = s.filter(u => u.kind === 'u' && u.team === ME && UT[u.t].xform), busy = a.length && a.every(u => u.xfT != null || G.time < (u.xfCd || 0)), jet = a.length && a.every(u => UT[u.t].air);
+    const t = busy ? (a.some(u => u.xfT != null) ? '⚡ Transforming…' : '⚡ Recharging…') : jet ? '⚡ Land → MECH <kbd>T</kbd>' : '⚡ Take off → JET <kbd>T</kbd>'; if (xfb.innerHTML !== t) xfb.innerHTML = t; xfb.classList.toggle('on', !!jet); xfb.disabled = !!busy; }
   const sgb = $('sgBtn'); if (sgb) { const a = s.filter(u => u.kind === 'u' && UT[u.t].siege), on = a.length && a.every(u => u.sg === 2), mv = a.some(u => u.sg === 1 || u.sg === 3); const t = mv ? '⏳ Deploying / packing…' : on ? '🎯 Siege Mode ON (range 10) · pack up <kbd>B</kbd>' : '🎯 Siege Mode <kbd>B</kbd>'; if (sgb.innerHTML !== t) sgb.innerHTML = t; sgb.classList.toggle('on', !!on); }
   if (s.length === 1 && s[0].t === 'tech' && s[0].team === ME) researchPanel(s[0]);
   const upb = $('upBtn'); if (upb && s[0]) { const b = s[0], inf = upgradeInfo(b); let t;
@@ -448,3 +459,4 @@ function toggleQuiet(on) {
 }
 
 function siloArm() { const b = UI.sel.find(s => s.t === 'silo' && s.team === ME); if (!b) return; if (!b.mis) { sfx('error'); uiMsg('No missile loaded'); return; } if (G.time < (b.cdT || 0)) { sfx('error'); uiMsg('Launcher cooling down'); return; } UI.mode = 'nuke'; UI.placing = null; sfx('click'); uiMsg('Select missile target (range ' + MIS[b.mis].rng + ')'); }
+

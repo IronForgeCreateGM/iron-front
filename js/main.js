@@ -33,10 +33,10 @@ function startGame(diff, opts) {
   }
   if (QS.get('fac')) slots[0].fac = QS.get('fac'); if (QS.get('aifac') && slots[1]) slots[1].fac = QS.get('aifac');
   ME = opts.me != null ? opts.me : Math.max(0, slots.findIndex(s => s.local));
-  newGame({ diff, fog: opts.fog !== false, seed: opts.seed, slots, map: opts.map || QS.get('map') || 'classic', peace: opts.peace != null ? opts.peace : QS.get('peace') != null ? +QS.get('peace') : 180 });
+  newGame({ diff, fog: opts.fog !== false, seed: opts.seed, slots, mode: opts.mode || QS.get('mode') || undefined, map: opts.map || QS.get('map') || 'classic', peace: opts.peace != null ? opts.peace : QS.get('peace') != null ? +QS.get('peace') : 180 });
   if (QS.get('dbg')) setTimeout(() => document.title = 'DBG map=' + G.mapName + ' np=' + G.players.length + ' t=' + (G.time | 0) + ' starts=' + G.players.map(P => P.start).join(''), 500);
   G.vis = G.visT[ME]; G.seen = G.seenT[ME];
-  G.players.forEach((P, i) => P.name = slots[i].name || (P.ai ? DIFF_NAME(P.diff) : 'You'));
+  G.players.forEach((P, i) => P.name = (G.opts.slots[i] || {}).name || (P.ai ? DIFF_NAME(P.diff) : 'You'));
   if (opts.replay) { G.replay = { cmds: opts.replay.cmds || [], hash: opts.replay.hash || [], i: 0, checked: 0, bad: 0 }; G.spectate = true; G.watch = true; G.opts.fog = false; document.body.classList.add('watching'); RPL.on = false; RPL.data = null; G.players.forEach((P, i) => P.name = (opts.replay.slots[i] || {}).name || P.name); }
   else recStart();
   if (opts.online) NET.begin(opts.online.tr, opts.online);
@@ -82,9 +82,10 @@ function frame(t, once) {
   try { uiFrame(dt); r3Render(dt); } catch (e) { console.error(e); if (QS.get('stk')) document.title = 'STK ' + e.stack; throw e; }
   if (G.over && !UI.endShown) { UI.endShown = true; const P = G.players[ME];
     document.getElementById('end').style.display = 'flex';
-    document.getElementById('endTitle').textContent = G.watch ? (G.over === 'victory' ? 'BLUE TEAM WINS' : 'RED TEAM WINS') + ` · ${(G.time / 60).toFixed(1)} min` : G.over === 'victory' ? 'VICTORY' : 'DEFEAT';
-    document.getElementById('endTitle').className = G.over;
+    document.getElementById('endTitle').textContent = G.end && !G.watch ? `GAME OVER — WAVE ${G.end.wave}` : G.watch ? (G.over === 'victory' ? 'BLUE TEAM WINS' : 'RED TEAM WINS') + ` · ${(G.time / 60).toFixed(1)} min` : G.over === 'victory' ? 'VICTORY' : 'DEFEAT';
+    document.getElementById('endTitle').className = G.over + (G.end && !G.watch ? ' endl' : '');
     try { const rs = replayFile(); if (rs) localStorage.setItem('ifLastReplay', rs); } catch (e) {}
+    endlessEndScreen();
     document.getElementById('endStats').innerHTML = endStatsHTML(); drawEndGraph(); sfx(G.over === 'victory' ? 'ready' : 'alert'); }
   if (!once) requestAnimationFrame(frame);
 }
@@ -256,6 +257,25 @@ function hellgateSetup() {
   lobbySet(rows); if (on) { ONL.meRow = me; if (typeof lobbyChanged === 'function') lobbyChanged(); }
 }
 function lobbySet(list) { const rows = document.querySelectorAll('#lobby .lrow:not(.lh)'); rows.forEach((r, i) => { const s = list[i] || ['off', i % 2 ? 'B' : 'A']; r.querySelector('.lt').value = s[0]; r.querySelector('.la').value = s[1]; r.querySelector('.lf').value = s[2] || (i === 0 && s[0] === 'human' ? MENU.fac : 'rand'); r.querySelector('.lc').value = s[3] || 'auto'; }); }
+// v7.0 lobby mode: Skirmish (any map, two teams) or Endless (up to 4 defenders on Hellgate Last Stand vs the Horde)
+function setMode(m) {
+  MENU.mode = m; const su = document.getElementById('setup'); if (!su) return; su.classList.toggle('endless', m === 'endless');
+  document.querySelectorAll('#modeTabs button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+  const ms = document.getElementById('mapSel'), ei = document.getElementById('endInfo'), hs = document.getElementById('endHS');
+  if (ei) ei.style.display = m === 'endless' ? '' : 'none'; if (hs) { hs.style.display = m === 'endless' ? '' : 'none'; if (m === 'endless') hs.innerHTML = '<div class="flbl">🏆 Endless high scores</div>' + endlessHSHTML(); }
+  if (m === 'endless') { if (ms && ms.value !== 'endless') { MENU.prevMap = ms.value; ms.value = 'endless'; }
+    const cur = lobbyRead(), on = typeof ONL !== 'undefined' && ONL.room; let me = cur.findIndex(r => r[0] === 'human'); if (me < 0 || me > 3) me = 0;
+    const rows = cur.map((r, i) => i > 3 ? ['off', 'A'] : [i === me ? 'human' : r[0] === 'remote' ? 'remote' : 'off', 'A', i === me ? (r[2] !== 'rand' ? r[2] : MENU.fac) : r[2], r[3]]);
+    lobbySet(rows); }
+  else if (ms && ms.value === 'endless') { ms.value = MENU.prevMap || 'classic'; lobbySet(PRESETS.duel.slots); }
+  const t = document.getElementById('setupTitle'); if (t && m === 'endless') t.textContent = 'Endless — Hellgate Last Stand';
+  if (typeof lobbyChanged === 'function') lobbyChanged(); mapPreview();
+}
+function endlessEndScreen() { const box = document.getElementById('endRun'); if (!box) return; if (!G.end || G.watch) { box.style.display = 'none'; return; }
+  const rec = endlessRecord(), E = G.end, k = E.hsKind || endlessKind();
+  box.style.display = ''; box.innerHTML = `<div class="runStats"><div><b>${E.wave}</b><span>waves</span></div><div><b>${E.score.toLocaleString()}</b><span>score</span></div><div><b>${E.kills}</b><span>kills</span></div><div><b>${(G.time / 60).toFixed(1)}</b><span>minutes</span></div></div>` +
+    (E.rank === 1 ? '<div class="newBest">★ NEW ' + (k === 'solo' ? 'SOLO' : 'CO-OP') + ' HIGH SCORE ★</div>' : E.rank ? `<div class="rankTxt">#${E.rank} on the ${k === 'solo' ? 'solo' : 'co-op'} board</div>` : '') + endlessHSHTML(k, E.rank);
+}
 function lobbyOpts() { const m = document.getElementById('mapSel'), p = document.getElementById('peaceSel'), f = document.getElementById('fogChk'); return { map: m ? m.value : 'classic', peace: p ? +p.value : 180, fog: f ? !!f.checked : true }; }
 function lobbyRead() { return [...document.querySelectorAll('#lobby .lrow:not(.lh)')].map(r => [r.querySelector('.lt').value, r.querySelector('.la').value, r.querySelector('.lf').value, r.querySelector('.lc').value]); }
 
@@ -317,6 +337,8 @@ function netOverlay(stall, dt) {
 
 function uiMsgMenu(t) { const e = document.getElementById('onStatus'); if (e) e.textContent = t; }
 // ===== v5.5 home screen + map preview =====
+function homeRecords() { const el = document.getElementById('homeHS'); if (!el || typeof endlessHS !== 'function') return; const h = endlessHS(), f = r => r ? `wave <b>${r.wave}</b> · ${r.score.toLocaleString()}` : '—';
+  el.innerHTML = h.solo.length || h.coop.length ? `🏆 Endless best — Solo: ${f(h.solo[0])} &nbsp;|&nbsp; Co-op: ${f(h.coop[0])}` : '♾ New: <b>Endless mode</b> — hold four passes against infinite waves'; }
 function homeShow(mode) { // mode: null = home, 'bots', 'online'
   const hb = document.getElementById('homeBtns'), su = document.getElementById('setup'), ow = document.getElementById('onWrap'); if (!hb || !su) return;
   hb.style.display = mode ? 'none' : ''; su.style.display = mode ? '' : 'none'; if (ow) ow.style.display = mode === 'online' ? '' : 'none';
@@ -331,24 +353,28 @@ function mapPreview() {
   try { newGame({ seed: 1, map, slots }); } catch (e) { return; }
   const x = cv.getContext('2d'), W = cv.width, s = W / MW, img = x.createImageData(W, W), d = img.data;
   for (let py = 0; py < W; py++) for (let px = 0; px < W; px++) { const tx = Math.floor(px / s), ty = Math.floor(py / s), i = ty * MW + tx, t = G.map[i], l = G.lvl[i];
-    let r, g, b; if (t === 1) { r = G.mud && G.mud[i] ? 150 : G.desert ? 112 : 88; g = G.mud && G.mud[i] ? 106 : G.desert ? 88 : 82; b = G.mud && G.mud[i] ? 68 : G.desert ? 66 : 74; } else if (t === 2) { r = 28; g = 80; b = 120; } else if (G.lava[i]) { r = 230; g = 90; b = 30; } else if (G.ore[i] > 0) { r = 230; g = 190; b = 60; } else if (G.ice[i]) { r = 170; g = 210; b = 230; } else { const base = map === 'frost' ? [190, 205, 215] : map.startsWith('volcano') ? [70, 62, 58] : map === 'hellgate' ? (G.wadi[i] ? [205, 180, 130] : [172, 138, 92]) : [70, 110, 60]; r = base[0] + l * 22; g = base[1] + l * 22; b = base[2] + l * 18; if (G.forest[i]) { r *= 0.7; g *= 0.85; b *= 0.7; } }
+    let r, g, b; if (t === 1) { r = G.mud && G.mud[i] ? 150 : G.desert ? 112 : 88; g = G.mud && G.mud[i] ? 106 : G.desert ? 88 : 82; b = G.mud && G.mud[i] ? 68 : G.desert ? 66 : 74; } else if (t === 2) { r = 28; g = 80; b = 120; } else if (G.lava[i]) { r = 230; g = 90; b = 30; } else if (G.ore[i] > 0) { r = 230; g = 190; b = 60; } else if (G.ice[i]) { r = 170; g = 210; b = 230; } else { const base = map === 'frost' ? [190, 205, 215] : map.startsWith('volcano') ? [70, 62, 58] : (map === 'hellgate' || map === 'endless') ? (G.wadi && G.wadi[i] ? [205, 180, 130] : [172, 138, 92]) : [70, 110, 60]; r = base[0] + l * 22; g = base[1] + l * 22; b = base[2] + l * 18; if (G.forest[i]) { r *= 0.7; g *= 0.85; b *= 0.7; } }
     const o = (py * W + px) * 4; d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255; }
   x.putImageData(img, 0, 0);
   x.fillStyle = '#4fe8dc'; for (const [vx, vy] of G.vents || []) { x.beginPath(); x.arc((vx + 0.5) * s, (vy + 0.5) * s, 2.6, 0, 7); x.fill(); }
   x.font = 'bold 12px system-ui'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  G.starts.forEach(([sx, sy], k) => { x.fillStyle = (map === 'hellgate' ? k >= 2 : k % 2) ? '#ff5040' : '#5fb0ff'; x.beginPath(); x.arc(sx * s, sy * s, 8, 0, 7); x.fill(); x.fillStyle = '#fff'; x.fillText(String(k + 1), sx * s, sy * s + 0.5); });
+  G.starts.forEach(([sx, sy], k) => { if (map === 'endless' && k === 4) return; x.fillStyle = (map === 'hellgate' ? k >= 2 : map === 'endless' ? k === 5 : k % 2) ? '#ff5040' : '#5fb0ff'; x.beginPath(); x.arc(sx * s, sy * s, 8, 0, 7); x.fill(); x.fillStyle = '#fff'; x.fillText(String(k + 1), sx * s, sy * s + 0.5); });
   if (G.derricks) { x.fillStyle = '#ffffff'; x.strokeStyle = '#000'; for (const d of G.derricks) { if (d.op) { x.save(); x.fillStyle = '#ffd060'; x.beginPath(); x.moveTo(d.x * s, d.y * s - 6); x.lineTo(d.x * s + 6, d.y * s); x.lineTo(d.x * s, d.y * s + 6); x.lineTo(d.x * s - 6, d.y * s); x.closePath(); x.fill(); x.stroke(); x.restore(); continue; } x.fillRect(d.x * s - 2, d.y * s - 2, 4, 4); x.strokeRect(d.x * s - 2, d.y * s - 2, 4, 4); } }
-  const txt = `${MW}×${MH} · ${G.starts.length} bases · ${(G.vents || []).length} gas vents · ${(G.derricks || []).length} derricks` + (map === 'hellgate' ? ` · ${G.derricks.filter(d => d.op).length} outposts (◆ capture = build radius) · Team A (1-2) vs 6 warlords — one canyon in` : '');
+  const txt = `${MW}×${MH} · ${G.starts.length} bases · ${(G.vents || []).length} gas vents · ${(G.derricks || []).length} derricks` + (map === 'endless' ? ' · 4 mountain passes · Horde spawns east (red) · bases 1-4 west' : '')+(map === 'hellgate' ? ` · ${G.derricks.filter(d => d.op).length} outposts (◆ capture = build radius) · Team A (1-2) vs 6 warlords — one canyon in` : '');
   MP_CACHE[key] = { img: x.getImageData(0, 0, W, W), txt }; document.getElementById('mapPrevTxt').textContent = txt;
   G = G0; MW = MW0; MH = MH0;
 }
 const MP_CACHE = {};
 window.addEventListener('load', () => {
   const $$ = id => document.getElementById(id);
-  if ($$('playBotsBtn')) $$('playBotsBtn').onclick = () => { audioInit && audioInit(); homeShow('bots'); };
+  if ($$('playBotsBtn')) $$('playBotsBtn').onclick = () => { audioInit && audioInit(); homeShow('bots'); setMode('skirmish'); };
+  if ($$('playEndlessBtn')) $$('playEndlessBtn').onclick = () => { audioInit && audioInit(); homeShow('bots'); setMode('endless'); };
+  document.querySelectorAll('#modeTabs button').forEach(b => b.onclick = () => setMode(b.dataset.m));
+  homeRecords();
   if ($$('playOnlineBtn')) $$('playOnlineBtn').onclick = () => { audioInit && audioInit(); homeShow('online'); };
   if ($$('backBtn')) $$('backBtn').onclick = () => homeShow(null);
   if ($$('mapSel')) $$('mapSel').addEventListener('change', () => { if ($$('mapSel').value === 'hellgate') hellgateSetup(); mapPreview(); });
   if (new URLSearchParams(location.search).get('room')) homeShow('online');
   if (QS.get('lobbytest') || QS.get('home')) homeShow(QS.get('home') === 'online' ? 'online' : 'bots');
+  if (QS.get('home') === 'endless') setMode('endless');
 });
