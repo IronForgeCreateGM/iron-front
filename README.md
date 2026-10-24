@@ -2,14 +2,20 @@
 
 Original real-time strategy game in plain HTML5/WebGL (Three.js vendored). No build step.
 
-## New in v7.0.2: Great Wall squad towers and a smarter Medevac
+## New in v7.0.2: Great Wall squad towers, Ballista Towers and a smarter Medevac
 
 - **China Great Wall guard towers** (every 5th wall piece) now fight like a garrisoned squad: rifleman, sniper, rocketeer and Iron Marine, each firing its own real weapon with +1.5 range from the height.
   - Rifle 14 dmg / 0.9 s / 6 tiles; Sniper 125 / 3.2 s / 10.5 (ground, anti-infantry); Rocket 55 / 2.2 s / 7 (ground + air); Iron Marine 21 / 0.8 s / 7.6 (ground + air). Weapon upgrades and research apply.
   - Was: one 14 dmg / 0.5 s gun at 5.5 tiles. HP 1100, cost and spacing unchanged; sight 7 → 11.
   - Shreds infantry, but tanks, artillery and air still take towers down (4 heavy tanks kill one in about 10 s).
+- **Ballista Tower upgrade (China).** Select a Great Wall guard tower and press **🏹 Ballista Tower** in its panel (or `Z`): $1400 + 150 gas, 20 s, needs a Research Lab, uses 40 power. HP rises 1100 → 1800.
+  - Fires one fast giant arrow every 3 s: 380 base damage, ×1.3 vs heavy armour (494, so two bolts kill a Warhound), 380 vs light, 190 vs infantry and buildings. Range 14 (12.5 + 1.5 height), minimum range 1.5. No splash: it hits exactly one target. Ground only.
+  - The sniper and rocketeer crew the ballista; the rifleman and Iron Marine stay as close guard. The Marine gives weak anti-air, so one gunship can't freely farm it.
+  - Compared with France's Grand Cannon ($2500 + 300 gas, 390 dmg shell, ×0.6 vs heavy, 2.4 splash, range 15, 2200 HP): the Ballista hits a single tank much harder and holds better against Titans and the Tsar. The Grand Cannon is far better against infantry blobs (splash) and has more HP and range. Both die to 6+ heavy tanks.
+  - The bolt flies as a visible arrow with streak sparks, then lands with a heavy thunk, sparks and a dust ring. The tower gets its own model, a bow on a turntable that turns to aim and recoils when it fires.
+  - China bots set aside a slice of their income and convert 1-2 towers nearest the enemy (3 late game, 4 in Endless). Selling refunds half of the tower plus the upgrade.
 - **Seraph Medevac hangs back.** Ordered along with combat units, it trails 3-5 tiles behind the army centre at the army's pace, never leads, moves in behind damaged units to heal them while keeping out of enemy range, and backs off when shot at. Ordered alone, it flies straight to the spot. Bot Medevacs use the same logic. (`MEDEVAC.escort` in js/data.js.)
-- Tests: `node test/factions7-test.js`, `node test/medevac702-test.js`, `node test/v702-shot.js [china|medevac]` (shots/v7_0_2-*.png).
+- Tests: `node test/factions7-test.js`, `node test/medevac702-test.js`, `node test/v702-shot.js [china|medevac|ballista]` (shots/v7_0_2-*.png; the ballista mode also checks the desktop click, hover tooltip and mobile tap).
 
 ## New in v7.0.1: smooth touch building placement
 - Tap a build card and a green ghost appears on a free spot near the middle of the screen, or where you last built.

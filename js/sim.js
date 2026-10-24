@@ -615,7 +615,7 @@ function stepGame() {
   G.tick++; G.time += DT;
   if (G.tick % 15 === 1) for (const P of G.players) {
     let gen = 0, use = 0;
-    for (const e of G.ents) if (e.kind === 'b' && e.team === P.team && e.sell < 0 && G.time - e.born > 1.5) { const p = BT[e.t].pow; if (p > 0) gen += p * (0.5 + 0.5 * e.hp / e.mhp); else use -= p; }
+    for (const e of G.ents) if (e.kind === 'b' && e.team === P.team && e.sell < 0 && G.time - e.born > 1.5) { const p = e.bal ? BALLISTA.pow : BT[e.t].pow; if (p > 0) gen += p * (0.5 + 0.5 * e.hp / e.mhp); else use -= p; }
     P.gen = Math.round(gen); P.use = use; P.pow = P.gen - use;
   }
   stepMissiles();
@@ -657,14 +657,14 @@ function onDeath(e) {
 }
 function stepBuilding(b) {
   const d = BT[b.t], P = G.players[b.team];
-  if (b.sell >= 0) { if (G.time - b.sell > 1.2) { P.cr += Math.floor(d.cost * 0.5 * b.hp / b.mhp); b.hp = 0; b.sold = true; } return; }
+  if (b.sell >= 0) { if (G.time - b.sell > 1.2) { P.cr += Math.floor((d.cost + (b.bal ? BALLISTA.cost : 0)) * 0.5 * b.hp / b.mhp); b.hp = 0; b.sold = true; } return; }
   if (b.repair && b.hp < b.mhp) { const dh = b.mhp * 0.04 * DT, c = d.cost * 0.4 * dh / b.mhp; if (P.cr >= c) { P.cr -= c; b.hp = Math.min(b.mhp, b.hp + dh); } }
   if (b.repair && b.hp >= b.mhp) b.repair = false;
-  if (b.upT != null && G.time - b.upT >= b.upDur) { b.upT = null; if (b.upKind === 'sm3') b.sm3 = true; else if (b.upKind === 'pads') b.pads = true; else if (b.upKind === 'rs') resDone(b.team, b.upCat); else if (b.upKind === 'def') { P.defUp = true; G.ents.forEach(e => { if (e.team === b.team && UPG[e.t]) { e.mhp = Math.round(BT[e.t].hp * DEF_RESEARCH.hp); e.hp = Math.min(e.mhp, e.hp * DEF_RESEARCH.hp); } }); } else b.lvl = (b.lvl || 1) + 1; G.events.push({ e: 'upgraded', b, team: b.team }); }
+  if (b.upT != null && G.time - b.upT >= b.upDur) { b.upT = null; if (b.upKind === 'sm3') b.sm3 = true; else if (b.upKind === 'pads') b.pads = true; else if (b.upKind === 'rs') resDone(b.team, b.upCat); else if (b.upKind === 'bal') { const rl = rsLvl(b.team, 'def'), m = Math.round(BALLISTA.hp * (rl > 1 ? RES_M[rl] : 1)); b.bal = true; b.hp = Math.min(m, b.hp + m - b.mhp); b.mhp = m; b.sq = null; } else if (b.upKind === 'def') { P.defUp = true; G.ents.forEach(e => { if (e.team === b.team && UPG[e.t]) { e.mhp = Math.round(BT[e.t].hp * DEF_RESEARCH.hp); e.hp = Math.min(e.mhp, e.hp * DEF_RESEARCH.hp); } }); } else b.lvl = (b.lvl || 1) + 1; G.events.push({ e: 'upgraded', b, team: b.team }); }
   if (b.t === 'extractor' && G.time - b.born > 1.5 && b.sell < 0) { const m = 1; P.gas += GAS_RATE * DT * m * (P.pow < 0 ? 0.5 : 1); b.gasT = (b.gasT || 0) + DT; }
   if (b.t === 'silo' && b.mq && G.time - b.born > 1.5 && P.pow >= 0) { b.mq.p += DT; if (b.mq.p >= MIS[b.mq.k].time) { b.mis = b.mq.k; b.mq = null; G.events.push({ e: 'misReady', team: b.team, k: b.mis }); } }
   if (!d.wpn || G.time - b.born < 1.5) return;
-  if (P.pow < 0 && d.pow < 0) { b.offline = true; return; } // offline (low power)
+  if (P.pow < 0 && (b.bal ? BALLISTA.pow : d.pow) < 0) { b.offline = true; return; } // offline (low power)
   b.offline = false;
   if (d.squad) { stepSquad(b); return; }
   const w = defW(b); combat(b, w, d.sight + (w.rng - W[d.wpn].rng), false);
@@ -673,13 +673,16 @@ function stepBuilding(b) {
 const _sqWC = {};
 function sqW(b, k) { const l = b.lvl || 1, rl = rsLvl(b.team, 'def'), key = k + l + 'r' + rl;
   if (!_sqWC[key]) { const base = W[k]; _sqWC[key] = Object.assign({}, base, { dmg: Math.round(base.dmg * UPG_DMG[l - 1] * RES_M[rl]), rng: base.rng + GT_SQUAD.rng + UPG_RNG[l - 1] + (rl >= 3 ? 0.5 : 0) }); } return _sqWC[key]; }
+const sqList = b => b.bal ? BALLISTA.w : GT_SQUAD.w; // v7.0.2 Ballista Tower: bolt + rifle + marine
 function stepSquad(b) {
-  if (!b.sq) b.sq = GT_SQUAD.w.map(() => ({ cd: 0, tgt: null }));
-  for (let i = 0; i < GT_SQUAD.w.length; i++) { const s = b.sq[i], w = sqW(b, GT_SQUAD.w[i]);
+  const L = sqList(b); if (!b.sq || b.sq.length !== L.length) b.sq = L.map(() => ({ cd: 0, tgt: null }));
+  for (let i = 0; i < L.length; i++) { const s = b.sq[i], w = sqW(b, L[i]);
     if (s.cd > 0) s.cd -= DT;
-    const t0 = s.tgt; if (t0 && (t0.hp <= 0 || t0.dead || !foe(t0.team, b.team) || distTo(b, t0) > w.rng + (t0.kind === 'u' ? UT[t0.t].r : 0))) s.tgt = null;
-    if (!s.tgt && (G.tick + b.id + i * 2) % 8 === 0) s.tgt = acquire(b, w, w.rng);
-    const t = s.tgt; if (t && s.cd <= 0) { b.tang = datan2(t.y - b.y, t.x - b.x); fire(b, w, t); s.cd = b.cd; b.cd = 0; } }
+    const t0 = s.tgt; if (t0 && (t0.hp <= 0 || t0.dead || !foe(t0.team, b.team) || distTo(b, t0) > w.rng + (t0.kind === 'u' ? UT[t0.t].r : 0) || (w.minRng && distTo(b, t0) < w.minRng))) s.tgt = null;
+    if (!s.tgt && (G.tick + b.id + i * 2) % 8 === 0) { const t = acquire(b, w, w.rng); s.tgt = t && !(w.minRng && distTo(b, t) < w.minRng) ? t : null; }
+    const t = s.tgt; if (!t) continue; const a = datan2(t.y - b.y, t.x - b.x);
+    if (b.bal && i === 0) b.tang = turnTo(b.tang, a, 4 * DT); // the ballista arm tracks its target; the bolt flies once it's lined up
+    if (s.cd <= 0 && (!b.bal || i > 0 || Math.abs(angDiff(b.tang, a)) < 0.2)) { if (!b.bal) b.tang = a; fire(b, w, t); s.cd = b.cd; b.cd = 0; } }
   const a = b.sq.find(s => s.tgt); b.tgt = a ? a.tgt : null;
 }
 function tscore(e, w, o, d) {
@@ -956,7 +959,7 @@ function escortGroup(units, x, y, am, queue) {
 function airThreats(u, R) { const r = [];
   for (const o of G.ents) { if (o.hp <= 0 || o.dead || !foe(o.team, u.team)) continue; let rng = 0;
     if (o.kind === 'u') { const dd = UT[o.t]; if (!dd.wpn || o.cargoOf) continue; const w = W[dd.wpn]; if (!w.air) continue; rng = w.rng + 0.6; }
-    else { const bd = BT[o.t]; if (!bd || !bd.wpn || o.offline) continue; if (bd.squad) { for (const k of GT_SQUAD.w) if (W[k].air) rng = Math.max(rng, sqW(o, k).rng); } else { const w = defW(o); if (!w.air) continue; rng = w.rng; } rng += 0.5; }
+    else { const bd = BT[o.t]; if (!bd || !bd.wpn || o.offline) continue; if (bd.squad) { for (const k of sqList(o)) if (W[k].air) rng = Math.max(rng, sqW(o, k).rng); } else { const w = defW(o); if (!w.air) continue; rng = w.rng; } rng += 0.5; }
     if (!rng || dhypot(o.x - u.x, o.y - u.y) > rng + R) continue; if (G.visT && o.kind === 'u' && !visibleTo(u.team, o)) continue; r.push({ x: o.x, y: o.y, r: rng, o }); }
   return r; }
 const escDanger = (th, x, y) => { let s = 0; for (const t of th) { const k = t.r + 1.2 - dhypot(x - t.x, y - t.y); if (k > 0) s += k; } return s; };
@@ -1149,7 +1152,7 @@ function researchB(b, c) {
   if (!b || b.t !== 'tech' || b.upT != null || b.sell >= 0 || b.hp <= 0 || G.time - b.born < 1.5 || !RES.nm[c]) return false; const P = G.players[b.team], i = researchInfo(b.team, c);
   if (!i || i.busy || i.lock || P.cr < i.cost || P.gas < i.gas) return false; P.cr -= i.cost; P.gas -= i.gas; b.upT = G.time; b.upDur = i.time; b.upKind = 'rs'; b.upCat = c; return true; }
 function resDone(team, c) { const P = G.players[team]; P.rs = P.rs || {}; const o = RES_M[P.rs[c] || 1]; P.rs[c] = (P.rs[c] || 1) + 1; const m = RES_M[P.rs[c]];
-  for (const e of G.ents) if (e.team === team && e.hp > 0 && resCat(e) === c) { const base = e.kind === 'b' ? BT[e.t].hp : UT[e.t].hp; e.mhp = Math.round(base * m); e.hp = Math.min(e.mhp, e.hp * m / o); } }
+  for (const e of G.ents) if (e.team === team && e.hp > 0 && resCat(e) === c) { const base = e.kind === 'b' ? (e.bal ? BALLISTA.hp : BT[e.t].hp) : UT[e.t].hp; e.mhp = Math.round(base * m); e.hp = Math.min(e.mhp, e.hp * m / o); } }
 const _uWC = {};
 function uW(u) { const d = UT[u.t]; if (!d.wpn) return null; const l = rsLvl(u.team, resCat(u)), sg = u.sg === 2 ? 1 : 0; if (l === 1 && !sg) return W[d.wpn]; const k = d.wpn + l + sg;
   if (!_uWC[k]) { const b = W[d.wpn]; _uWC[k] = Object.assign({}, b, { dmg: Math.round(b.dmg * RES_M[l]) }, sg ? { rng: SIEGE.rng, splash: SIEGE.splash } : {}); } return _uWC[k]; }
@@ -1161,12 +1164,13 @@ function siegeStep(u) { // 0 mobile, 1 deploying, 2 sieged, 3 packing. Movement 
 function siegeToggle(u, want) { if (!u || !UT[u.t].siege || u.hp <= 0) return false; const on = want == null ? !(u.sg === 1 || u.sg === 2) : !!want;
   if (on && !u.sg) { u.sg = 1; u.sgT = G.time; u.path = []; u.sgPath = null; u.wq = []; if (u.order === 'move' || u.order === 'amove') u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; return true; }
   if (!on && (u.sg === 1 || u.sg === 2)) { u.sgHold = false; u.sg = 3; u.sgT = G.time; u.sgPath = null; return true; } return false; }
-function defW(b) { const d = BT[b.t], P = G.players[b.team], l = b.lvl || 1, rl = rsLvl(b.team, 'def'), k = d.wpn + l + 'r' + rl;
+function defW(b) { if (b.bal) return sqW(b, 'balS'); const d = BT[b.t], P = G.players[b.team], l = b.lvl || 1, rl = rsLvl(b.team, 'def'), k = d.wpn + l + 'r' + rl;
   if (!_defWC[k]) { const base = W[d.wpn]; _defWC[k] = Object.assign({}, base, { dmg: Math.round(base.dmg * UPG_DMG[l - 1] * RES_M[rl]), rng: base.rng + UPG_RNG[l - 1] + (rl >= 3 ? 0.5 : 0) }); }
   return _defWC[k]; }
 function upgradeInfo(b) {
   if (b.t === 'hq' || b.t === 'cc') { if (b.sm3 || b.upT != null || !hasBuilt(b.team, 'tech')) return null; return { cost: SM3.cost, gas: SM3.gas, time: SM3.time, kind: 'sm3' }; }
   if (b.t === 'airfield') { if (b.pads || b.upT != null) return null; return { cost: AIRPADS.cost, gas: 0, time: AIRPADS.time, kind: 'pads' }; }
+  if (b.t === 'gtower') { if (b.bal || b.upT != null || !hasBuilt(b.team, BALLISTA.req)) return null; return { cost: BALLISTA.cost, gas: BALLISTA.gas, time: BALLISTA.time, kind: 'bal' }; } // v7.0.2 China Ballista Tower
   const u = UPG[b.t]; if (!u) return null; const l = b.lvl || 1; if (l >= 3) return null; return { cost: u[l - 1][0], time: u[l - 1][1], gas: u[l - 1][2] || 0, kind: 'lvl', next: l + 1 };
 }
 function upgradeB(b) {

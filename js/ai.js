@@ -475,7 +475,7 @@ function aiFocus(P, knownB) {
 // ===== v7.0 faction specials for bots (deterministic, no bonuses) =====
 function facAI(P, S, D, me, cnt, hq, foes) {
   if (P.fac === 'irn') droneMgr(P, S, me, foes, hq);
-  else if (P.fac === 'chn') greatWallMgr(P, S, me, cnt, hq);
+  else if (P.fac === 'chn') { greatWallMgr(P, S, me, cnt, hq); ballistaMgr(P, S, me); }
   else if (P.fac === 'jpn') raijinMgr(P, S, me, foes);
 }
 // Iran: hold drones at home until a swarm of 6+ (3 in Endless / when defending), then throw it at the densest visible enemy blob (or a key building)
@@ -489,6 +489,19 @@ function droneMgr(P, S, me, foes, hq) {
   if (!best) { const kb = [...S.known.values()].filter(b => b.hp > 0 && ['refinery', 'power', 'factory', 'tech'].includes(b.t)); if (kb.length && dr.length >= 6 && peaceOver(P)) best = kb[(G.R() * kb.length) | 0]; }
   if (!best) return; S.droneT = G.time; orderAttack(dr, best); dr.forEach(u => S.attackers.add(u.id));
 }
+// v7.0.2 China: once teched and rich, convert a FEW key guard towers (closest to the enemy's approach) into Ballista Towers — 2 early, 3 later (4 in Endless)
+function ballistaMgr(P, S, me) {
+  if (G.time < (S.balT || 0)) return; S.balT = G.time + 5;
+  const gt = me.filter(e => e.kind === 'b' && e.t === 'gtower' && e.hp > 0 && e.sell < 0); const nb = gt.filter(e => e.bal || e.upKind === 'bal').length;
+  const ok = gt.length && nb < (G.end ? 4 : G.time < 900 ? 2 : 3) && nb < gt.length && hasBuilt(P.team, BALLISTA.req);
+  // bots earmark a slice of income into a Ballista fund (the AI otherwise spends every credit on queues); the fund is released if there is nothing left to convert
+  if (!ok) { if (S.balFund) { P.cr += S.balFund; S.balFund = 0; } return; }
+  if ((S.balFund || 0) < BALLISTA.cost) { const take = Math.min(P.cr, G.end ? 140 : 90, BALLISTA.cost - (S.balFund || 0)); P.cr -= take; S.balFund = (S.balFund || 0) + take; return; }
+  if ((P.gas || 0) < BALLISTA.gas + 50 || P.pow + BALLISTA.pow < 0) return;
+  const fs = G.players.filter(Q => foe(Q.team, P.team) && !Q.out).map(Q => G.starts[Q.start]).filter(Boolean); if (!fs.length && !G.end) return;
+  const sc = e => fs.length ? Math.min(...fs.map(st => dhypot(st[0] - e.x, st[1] - e.y))) : -e.hp; let best = null;
+  for (const e of gt) if (!e.bal && e.upT == null && (!best || sc(e) < sc(best))) best = e;
+  if (!best) return; P.cr += S.balFund; S.balFund = 0; upgradeB(best); }
 // China: Great Wall lines across every entrance (each 5th piece rises as a guard tower) — always with a gate lane
 function greatWallMgr(P, S, me, cnt, hq) {
   if (G.time < (S.gwT || 0) || G.time < (G.end ? 20 : 200) || !avail(P.team, 'wall')) return; S.gwT = G.time + (G.end ? 40 : 110);

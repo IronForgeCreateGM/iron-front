@@ -1,6 +1,6 @@
 // v7.0.2 China guard-tower squad shot -> shots/v7_0_2-china-tower.png (based on v70-shot.js)
 // v7.0 screenshots -> shots/v7_0-*.png : Endless (mid-wave, boss, high scores), Iran drones, China towers, Raijin mech/jet,
-// title, lobby, iPhone. NODE_PATH=/tmp/tb/node_modules node test/v702-shot.js [china|medevac]
+// title, lobby, iPhone. NODE_PATH=/tmp/tb/node_modules node test/v702-shot.js [china|medevac|ballista]
 const { chromium } = require('playwright-core'), path = require('path');
 const URL0 = 'file://' + path.resolve(__dirname, '../index.html'), OUT = n => path.resolve(__dirname, '../shots/v7_0_2-' + n + '.png');
 const only = process.argv[2] || 'all', want = k => only === 'all' || only === k;
@@ -70,6 +70,44 @@ const only = process.argv[2] || 'all', want = k => only === 'all' || only === k;
     await cam(pg, cx, cy + 2.5, 17); await pg.waitForTimeout(2600); await pg.screenshot({ path: OUT('china-tower') });
     const info = await pg.evaluate(() => (document.getElementById('ctxinfo') || {}).textContent || ''); ok(/Garrison: Rifle .*Sniper .*Rocket .*Marine/.test(info), 'tower info shows garrison: ' + info.slice(0, 120));
     ok(!pg.errs.length, 'china: no page errors ' + pg.errs.slice(0, 3).join(' | ')); await pg.close();
+  }
+  if (want('ballista')) { // v7.0.2 Ballista Tower: convert a guard tower from its panel, then fire a giant bolt at a tank column
+    const pg = await start('China'); const [cx, cy] = await flatSpot(pg);
+    const tid = await pg.evaluate(([cx, cy]) => { G.players[ME].cr = 20000; G.players[ME].gas = 2000; for (let i = 0; i < 6; i++) addB('power', ME, 6 + i * 2, 6, true);
+      let tw = null; for (let i = -7; i <= 7; i++) { const b = addB('wall', ME, cx + i, cy, true); if (b.t === 'gtower' && !tw && i >= -2) tw = b; } window.__tw = tw; setSel([tw]); return tw.id; }, [cx, cy]);
+    await pg.waitForSelector('#upBtn', { timeout: 8000 }).catch(() => {}); await pg.waitForTimeout(400);
+    const b0 = await pg.evaluate(() => { const b = document.getElementById('upBtn'); return b && { t: b.textContent, d: b.disabled }; });
+    ok(b0 && /needs a Research Lab/.test(b0.t) && b0.d, 'without a Research Lab the button explains the requirement: ' + (b0 && b0.t));
+    await pg.evaluate(([cx, cy]) => { addB('tech', ME, cx - 4, cy - 7, true); }, [cx, cy]); await pg.waitForFunction(() => /\$1400/.test((document.getElementById('upBtn') || {}).textContent || ''), null, { timeout: 8000 }).catch(() => {});
+    const b1 = await pg.evaluate(() => { const b = document.getElementById('upBtn'); return b && { t: b.textContent, d: b.disabled }; });
+    ok(b1 && /Ballista Tower \$1400/.test(b1.t) && !b1.d, 'tower panel offers the Ballista conversion: ' + (b1 && b1.t));
+    await pg.hover('#upBtn'); await pg.waitForTimeout(300);
+    const tip = await pg.evaluate(() => UI.tip.style.display !== 'none' && UI.tip.textContent); ok(/no splash/i.test(tip || '') && /Research Lab|HP/.test(tip || ''), 'hover tooltip explains the Ballista: ' + (tip || '').slice(0, 90));
+    const cr0 = await pg.evaluate(() => G.players[ME].cr); await pg.click('#upBtn'); await pg.mouse.move(300, 300); await pg.waitForTimeout(500);
+    const st = await pg.evaluate(c0 => ({ paid: c0 - G.players[ME].cr, up: window.__tw.upKind, tip: UI.tip.style.display }), cr0);
+    ok(st.up === 'bal' && st.paid >= 1399 && st.tip === 'none', 'click converts (paid ' + Math.round(st.paid) + ', tooltip ' + st.tip + ')');
+    await fast(pg, 21); const bal = await pg.evaluate(() => ({ bal: window.__tw.bal, hp: window.__tw.mhp })); ok(bal.bal && bal.hp >= 1800, 'tower is now a Ballista ' + JSON.stringify(bal));
+    await pg.evaluate(([cx, cy]) => { const tw = window.__tw, foeT = G.players.find(Q => Q.team !== ME).team; window.__tk = []; for (let i = 0; i < 4; i++) { const u = addU('heavy', foeT, tw.x + 1 + (i % 2) * 1.6, tw.y + 6.5 + (i >> 1) * 1.4); u.stance = 'hold'; window.__tk.push(u); } setSel([tw]); }, [cx, cy]);
+    const fl = await pg.evaluate(() => { for (let i = 0; i < 30 * 8; i++) { stepGame(); const p = G.projs.find(p => p.w && p.w.type === 'bolt'); if (p && Math.hypot(p.x - p.sx, p.y - p.sy) > 2.6) return { x: p.x, y: p.y }; } return null; });
+    ok(!!fl, 'giant bolt in flight ' + JSON.stringify(fl));
+    const tw = await pg.evaluate(() => [window.__tw.x, window.__tw.y]); await cam(pg, tw[0] + 1, tw[1] + 2.6, 15);
+    await pg.evaluate(() => { paused = true; ANN.q = []; ANN.t = 0; }); await pg.hover('#upBtn'); await pg.waitForTimeout(2200); await pg.screenshot({ path: OUT('ballista') });
+    await pg.evaluate(() => { paused = false; }); await pg.mouse.move(300, 300);
+    const hit = await pg.evaluate(() => { for (let i = 0; i < 30 * 12; i++) stepGame(); return window.__tk.map(u => Math.max(0, Math.round(u.hp))); }); ok(hit.some(h => h <= 0), 'bolts kill tanks one at a time: ' + hit.join(','));
+    const info = await pg.evaluate(() => (document.getElementById('ctxinfo') || {}).textContent || ''); ok(/Ballista/.test(info), 'garrison shows the ballista crew: ' + info.slice(0, 120));
+    ok(!pg.errs.length, 'ballista: no page errors ' + pg.errs.slice(0, 3).join(' | ')); await pg.close();
+    // mobile: tap the button, tooltip must not stick
+    const ph = await page({ width: 844, height: 390 }, true); await ph.goto(URL0 + '?q=low'); await ph.evaluate(() => mobSet(true)); await ph.waitForTimeout(2000);
+    const tp = await ph.$('#titleScreen'); if (tp && await tp.isVisible()) { await ph.tap('#tsGo'); await ph.waitForTimeout(800); }
+    await ph.click('#playBotsBtn'); await ph.waitForTimeout(600); await ph.evaluate(() => { const c = [...document.querySelectorAll('.fcard')].find(c => c.textContent.includes('China')); if (c) c.click(); document.getElementById('startBtn').click(); }); await ph.waitForTimeout(4500);
+    await ph.evaluate(() => { G.players.forEach(Q => { if (Q.team !== ME) Q.aiS && (Q.aiS.next = 1e9); }); });
+    const [mx, my] = await flatSpot(ph);
+    await ph.evaluate(([cx, cy]) => { G.players[ME].cr = 20000; G.players[ME].gas = 2000; for (let i = 0; i < 6; i++) addB('power', ME, 6 + i * 2, 6, true); addB('tech', ME, cx - 4, cy - 7, true); let tw = null; for (let i = -7; i <= 7; i++) { const b = addB('wall', ME, cx + i, cy, true); if (b.t === 'gtower' && !tw) tw = b; } window.__tw = tw; setSel([tw]); }, [mx, my]);
+    await ph.waitForSelector('#upBtn', { state: 'visible', timeout: 8000 }).catch(() => {}); const vis = await ph.isVisible('#upBtn');
+    if (!vis) console.log('mobile dbg', JSON.stringify(await ph.evaluate(() => ({ sel: UI.sel.map(e => e.t), mctx: getComputedStyle(document.getElementById('mCtx')).display, has: !!document.getElementById('upBtn'), ctx: (document.getElementById('ctx') || {}).innerHTML?.slice(0, 200), mob: MOB.on, started: typeof started !== 'undefined' && started })))); ok(vis, 'mobile: Ballista button visible in the tower panel');
+    if (vis) { const bb = await ph.$eval('#upBtn', b => { const r = b.getBoundingClientRect(); return { h: r.height, w: r.width }; }); ok(bb.h >= 30, 'mobile: button is touch-sized ' + JSON.stringify(bb));
+      await ph.tap('#upBtn'); await ph.waitForTimeout(1500); const ms = await ph.evaluate(() => ({ up: window.__tw.upKind, tip: UI.tip.style.display })); ok(ms.up === 'bal' && ms.tip === 'none', 'mobile tap converts, no stuck tooltip ' + JSON.stringify(ms)); }
+    ok(!ph.errs.length, 'ballista mobile: no page errors ' + ph.errs.slice(0, 3).join(' | ')); await ph.close();
   }
   if (want('medevac')) { // v7.0.2 Medevac hangs back behind the army
     const pg = await start('USA'); const [cx, cy] = await flatSpot(pg);

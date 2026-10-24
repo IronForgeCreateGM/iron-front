@@ -38,6 +38,29 @@ chk('tower range is beyond the sniper (old 5.5)', W.snipe.rng + GT_SQUAD.rng > W
   chk('rockets hurt a tank', tank.hp < h[1], `tank ${h[1]}->${tank.hp | 0}`); }
 { fresh('chn', 'usa'); G = A.G; let tw; for (let i = 0; i < 5; i++) tw = A.addB('wall', 0, 20 + i, 50, true); const ts = [0, 1, 2, 3].map(i => A.addU('heavy', 1, 20 + i, 60)); A.orderAttack(ts, tw); run(40);
   chk('still beatable: 4 tanks take a guard tower down', tw.hp <= 0 || !G.ents.includes(tw), 'tower hp ' + (tw.hp | 0)); }
+// ===== v7.0.2 Ballista Tower (guard tower upgrade)
+{ fresh('chn', 'usa'); G = A.G; let tw; for (let i = 0; i < 5; i++) tw = A.addB('wall', 0, 20 + i, 50, true); tw.born = -10; const P = G.players[0]; P.cr = 5000; P.gas = 500; for (const y of [30, 33, 36]) A.addB('power', 0, 30, y, true);
+  chk('Ballista needs a Research Lab', !A.execCmd(0, { c: 'upg', b: tw.id }) && tw.upT == null);
+  A.addB('tech', 0, 34, 30, true); run(0.6); const cr0 = P.cr, g0 = P.gas;
+  chk('enemy cannot convert my tower', !A.execCmd(1, { c: 'upg', b: tw.id }));
+  chk('upgrade command converts (costs $' + BALLISTA.cost + ' + ' + BALLISTA.gas + ' gas, takes ' + BALLISTA.time + 's)', A.execCmd(0, { c: 'upg', b: tw.id }) && P.cr === cr0 - BALLISTA.cost && P.gas === g0 - BALLISTA.gas && !tw.bal, `$${cr0}->${P.cr}`);
+  chk('cannot pay twice while converting', !A.execCmd(0, { c: 'upg', b: tw.id }));
+  run(BALLISTA.time - 1); chk('not done before the build time', !tw.bal); run(1.5);
+  chk('after build time: Ballista Tower with more HP', tw.bal && tw.t === 'gtower' && tw.mhp === BALLISTA.hp && tw.mhp > BT.gtower.hp, 'hp ' + tw.mhp);
+  chk('Ballista is ground-only giant arrow, no splash, no static-defence nerf', W.bolt.dmg >= 350 && W.bolt.dmg * DMG.bolt.heavy > W.gcan.dmg * 0.75 && !W.bolt.splash && !W.bolt.air && W.bolt.ground && DMG.bolt.heavy > 1 && DMG.bolt.inf < 1, `dmg ${W.bolt.dmg} x${DMG.bolt.heavy} heavy`);
+  chk('keeps the rifleman + Iron Marine (light AA), crew moves to the ballista', JSON.stringify(BALLISTA.w) === '["bolt","rifle","marine"]');
+  chk('range ~14 (12.5 + 1.5 height)', Math.abs(W.bolt.rng + GT_SQUAD.rng - 14) < 0.01 && BT.gtower.sight >= 11);
+  chk('uses a little power', BALLISTA.pow < 0 && BALLISTA.pow >= -60);
+  // tanks: two heavies side by side - one bolt nearly/fully kills one, the neighbour takes nothing from the bolt (no splash)
+  const t1 = A.addU('heavy', 1, 22.5, 61.5), t2 = A.addU('heavy', 1, 23.3, 61.5); [t1, t2].forEach(u => u.stance = 'hold'); const hits = []; let fired = 0;
+  for (let i = 0; i < 30 * 8 && hits.length < 2; i++) { A.stepGame(); for (const e of G.events) { if (e.e === 'fire' && e.src === tw && e.w.type === 'bolt') fired++; if (e.e === 'hit' && e.kind === 'bolt') hits.push(e); } G.events.length = 0; }
+  const lost = [t1, t2].map(u => G.ents.includes(u) ? u.mhp - u.hp : u.mhp);
+  chk('bolts fly and hit a tank 11 tiles out', fired >= 2 && hits.length === 2, `fired ${fired}`);
+  chk('massive single-target damage (one bolt = ' + Math.round(W.bolt.dmg * DMG.bolt.heavy) + ' vs heavy; two bolts kill a Warhound)', Math.max(...lost) >= UT.heavy.hp && W.bolt.dmg * DMG.bolt.heavy >= 0.8 * UT.heavy.hp, JSON.stringify(lost));
+  chk('NO splash: the tank right next to it is untouched by the bolts', Math.min(...lost) < 60, JSON.stringify(lost));
+  const j = A.addU('jet', 1, 26, 47); j.stance = 'hold'; let boltAir = 0; for (let i = 0; i < 90; i++) { A.stepGame(); for (const e of G.events) if (e.e === 'fire' && e.src === tw && e.w.type === 'bolt' && e.tgt === j) boltAir++; G.events.length = 0; }
+  chk('bolt never targets aircraft (Marine still does)', boltAir === 0);
+  { const ref = P.cr, exp = Math.floor((BT.gtower.cost + BALLISTA.cost) * 0.5 * tw.hp / tw.mhp); A.execCmd(0, { c: 'sell', b: tw.id }); run(1.6); chk('selling refunds half the Ballista price too', P.cr - ref >= exp * 0.85, `+$${P.cr - ref} (~${exp})`); } }
 // ===== Japan
 fresh('jpn', 'usa'); G = A.G; const rj = A.addU('raijin', 0, 20, 40);
 chk('Raijin Mech: Japan-only, needs Tech Center', A.avail(0, 'raijin') === false && UT.raijin.req.includes('tech') && UT.raijin.fac === 'jpn');
@@ -54,10 +77,11 @@ A.orderMove([rj], 25.5, 40.5); run(3); A.xform(rj); run(2); chk('landing on a wa
 { fresh('jpn', 'usa'); G = A.G; const m = A.addU('raijin', 0, 20, 40); A.orderMove([m], 40, 40); run(0.5); A.xform(m); run(4); chk('a move order continues after transforming', m.x > 28, 'x ' + m.x.toFixed(1)); }
 { fresh('jpn', 'usa'); G = A.G; const m = A.addU('raijin', 0, 20, 40), t = A.addU('heavy', 1, 24, 40); t.stance = 'hold'; const h = t.hp; run(3); chk('mech lightning cannon hurts tanks', t.hp < h, `${h}->${t.hp | 0}`); }
 // ===== bots use the specials (hard bots, 16 min, no bonuses)
-const botGame = (fa, fb, seed, mins) => { A.newGame({ seed, fog: true, slots: [{ ai: true, diff: 'hard', ally: 0, fac: fa }, { ai: true, diff: 'hard', ally: 1, fac: fb }] }); const st = { kami: 0, xform: 0, max: {} };
+const botGame = (fa, fb, seed, mins) => { A.newGame({ seed, fog: true, slots: [{ ai: true, diff: 'hard', ally: 0, fac: fa }, { ai: true, diff: 'hard', ally: 1, fac: fb }] }); const st = { kami: 0, xform: 0, max: {}, bal: 0 };
   for (let i = 0; i < 30 * 60 * mins && !A.G.over; i++) { A.stepGame(); for (const e of A.G.events) { if (e.e === 'kami') st.kami++; if (e.e === 'xform') st.xform++; } A.G.events.length = 0;
-    if (i % 300 === 0) for (const t of ['drone', 'raijin', 'raijinJ', 'gtower', 'wall']) { const n = A.G.ents.filter(e => e.t === t && e.team === 0 && e.hp > 0).length; st.max[t] = Math.max(st.max[t] || 0, n); } } return st; };
+    if (i % 300 === 0) for (const t of ['drone', 'raijin', 'raijinJ', 'gtower', 'wall']) { const n = A.G.ents.filter(e => e.t === t && e.team === 0 && e.hp > 0).length; st.max[t] = Math.max(st.max[t] || 0, n); } if (i % 300 === 0) st.bal = Math.max(st.bal, A.G.ents.filter(e => e.bal && e.team === 0 && e.hp > 0).length); } return st; };
 let s = botGame('irn', 'chn', 3, 16); chk('Iran bot builds drone batches and uses them', s.max.drone >= 3 && s.kami >= 5, JSON.stringify(s));
 s = botGame('chn', 'irn', 3, 16); chk('China bot builds wall lines with guard towers', s.max.gtower >= 2 && s.max.wall >= 8, JSON.stringify(s.max));
+chk('v7.0.2 China bot converts a few key towers into Ballistas (not the whole wall)', s.bal >= 1 && s.bal <= 3, 'ballistas ' + s.bal + ' of ' + s.max.gtower + ' towers');
 s = botGame('jpn', 'bra', 4, 16); chk('Japan bot builds Raijins and transforms them', (s.max.raijin || 0) + (s.max.raijinJ || 0) >= 1 && s.xform >= 2, JSON.stringify(s));
 console.log(ok ? 'ALL PASS' : 'SOME FAILED'); process.exit(ok ? 0 : 1);

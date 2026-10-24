@@ -85,8 +85,11 @@ function buildFx3() {
   // projectiles (instanced)
   const PB = new MB(0); PB.cyl('rocket', 0.035, 0.28, COL.LIGHT, PBR.METAL, 0, 0, 0, { rz: Math.PI / 2, seg: 6 }); PB.glow('rocket', 0.06, 0.06, 0.06, 0xffaa44, -0.16, 0, 0);
   PB.sph('shell', 0.07, 0xffc070, PBR.GLOW, 0, 0, 0, { seg: 8 }); PB.box('tracer', 0.5, 0.025, 0.025, 0xffe7a0, [0, 0.5, 6], 0, 0, 0, { bevel: 0 }); PB.sph('flak', 0.05, 0xffd080, PBR.GLOW, 0, 0, 0, { seg: 6 });
+  // v7.0.2 Ballista bolt: a 1.1-tile giant arrow - wooden shaft, iron head, red fletching
+  PB.cyl('bolt', 0.032, 1.1, 0x8a6a40, PBR.PAINT, 0, 0, 0, { rz: -Math.PI / 2, seg: 6 }); PB.cone('bolt', 0.07, 0.22, 0x3a3c3e, PBR.METAL, 0.64, 0, 0, { rz: -Math.PI / 2, seg: 6 });
+  for (const r of [0, Math.PI / 2]) PB.box('bolt', 0.2, 0.12, 0.014, 0xc0261c, PBR.CLOTH, -0.46, 0, 0, { rx: r, bevel: 0 });
   const pg = PB.build(); FX.proj = {};
-  for (const k of ['rocket', 'shell', 'tracer', 'flak']) { const im = new THREE.InstancedMesh(pg[k], pbrMaterial(), 400); im.frustumCulled = false; im.count = 0; R3.scene.add(im); FX.proj[k] = im; }
+  for (const k of ['rocket', 'shell', 'tracer', 'flak', 'bolt']) { const im = new THREE.InstancedMesh(pg[k], pbrMaterial(), 400); im.frustumCulled = false; im.count = 0; R3.scene.add(im); FX.proj[k] = im; }
 }
 const _m4 = typeof THREE !== 'undefined' ? new THREE.Matrix4() : null, _q = typeof THREE !== 'undefined' ? new THREE.Quaternion() : null, _e = typeof THREE !== 'undefined' ? new THREE.Euler() : null, _v = typeof THREE !== 'undefined' ? new THREE.Vector3() : null, _s = typeof THREE !== 'undefined' ? new THREE.Vector3() : null;
 const rnd = (a) => (Math.random() - 0.5) * a;
@@ -125,7 +128,7 @@ function updFx(dt) {
   for (const r of FX.vrings || []) if (r.t > 0) { r.t -= dt; const k = 1 - r.t / 0.4; r.m.scale.setScalar(0.3 + k * r.s); r.m.material.opacity = (1 - k) * 0.9; if (r.t <= 0) r.m.visible = false; }
   for (const r of FX.rings) if (r.t > 0) { r.t -= dt; const k = 1 - r.t / 0.45; r.m.scale.setScalar(0.2 + k * r.s); r.m.material.opacity = (1 - k) * 0.8; if (r.t <= 0) r.m.visible = false; }
   // projectiles
-  const cnt = { rocket: 0, shell: 0, tracer: 0, flak: 0 };
+  const cnt = { rocket: 0, shell: 0, tracer: 0, flak: 0, bolt: 0 };
   for (const p of G.projs) {
     if (p.delay > 0) continue; const vis = !G.opts.fog || vis0(idx(Math.floor(p.x), Math.floor(p.y))); if (!vis) continue;
     if (p.kind === 'fire') { for (let i = 0; i < 2; i++) FX.fire.spawn(p.x + rnd(0.15), p.y + rnd(0.15), heightAt(p.x, p.y) + p.z * 0.7, rnd(0.6), rnd(0.6), 0.4, 0.35, 0.12, 0.45, 1, 0.5, 0.12, 0.9, -1); continue; }
@@ -136,6 +139,7 @@ function updFx(dt) {
     if (BIG) { for (let i = 0; i < 3 * FX.mul; i++) FX.fire.spawn(p.x - Math.cos(ang) * i * 0.12, p.y - Math.sin(ang) * i * 0.12, gz, 0, 0, 0, 0.35, 0.22, 0.06, 1, 0.75, 0.35, 1, 0, 0); if (Math.random() < 0.6 * FX.mul) puff(p.x, p.y, gz, 0.12, 1.0, 0.7, 0.3, 0.05); }
     if ((p.kind === 'rocket' || p.kind === 'aam') && Math.random() < 0.9 * FX.mul) puff(p.x, p.y, gz, 0.1, 0.8, 0.42, 0.4, 0.2);
     if ((p.kind === 'shell') && Math.random() < 0.7 * FX.mul) FX.fire.spawn(p.x, p.y, gz, 0, 0, 0, 0.25, 0.15, 0.05, 1, 0.6, 0.3, 0.8, 0, 0);
+    if (p.kind === 'bolt') for (let i = 0; i < 2 * FX.mul; i++) FX.spark.spawn(p.x - Math.cos(ang) * (0.5 + i * 0.25), p.y - Math.sin(ang) * (0.5 + i * 0.25), gz, 0, 0, 0, 0.18, 0.07, 0.02, 0.95, 0.92, 0.85, 0.7, 0, 0); // pale air-streak behind the bolt
     if (p.kind === 'cannon' && Math.random() < 0.5 * FX.mul) puff(p.x, p.y, gz, 0.07, 0.4, 0.6, 0.35, 0.1);
   }
   for (const k in FX.proj) { FX.proj[k].count = cnt[k]; FX.proj[k].instanceMatrix.needsUpdate = true; }

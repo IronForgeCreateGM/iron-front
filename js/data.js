@@ -17,6 +17,7 @@ const DMG = {
   cmdo:   { inf: 1.25, light: 0.5, heavy: 0.3, bldg: 1.6, air: 0.3 },
   gat:    { inf: 1.35, light: 0.8, heavy: 0.35, bldg: 0.3, air: 1.4 }, // v5.9 France Gatling Bastion
   marine: { inf: 1.3, light: 0.65, heavy: 0.38, bldg: 0.35, air: 0.7 },
+  bolt:   { inf: 0.5, light: 1.0, heavy: 1.3, bldg: 0.5, air: 0 }, // v7.0.2 China Ballista Tower giant arrow: armour-piercing, wasted on infantry
   kami:   { inf: 1.2, light: 1.1, heavy: 0.9, bldg: 1.1, air: 0 }, // v7.0 Iran Shahed kamikaze drone warhead // v5.8 Brazil Iron Marine dual-purpose carbine
 };
 // weapons: dmg, rng(tiles), cd(sec), type, spd(proj tiles/s), ground/air capability
@@ -50,6 +51,8 @@ const W = {
   raijin: { dmg: 150, rng: 6, cd: 2.1, type: 'zap', spd: 99, ground: 1, air: 0, chain: 2, snd: 'zap' },                // Japan Raijin mech: lightning cannon
   rjet:   { dmg: 30, rng: 5, cd: 1.0, type: 'rocket', spd: 18, ground: 1, air: 1, snd: 'rocket' },                     // Japan Raijin jet mode: light rockets
   gtow:   { dmg: 53, rng: 10.5, cd: 0.5, type: 'bullet', spd: 40, ground: 1, air: 1, snd: 'rifle', squad: 1 },          // v7.0.2 China Great Wall guard tower: SUMMARY profile only (range ring / AI threat ≈ squad DPS); it actually fires GT_SQUAD
+  bolt:   { dmg: 380, rng: 12.5, minRng: 1.5, cd: 3.0, type: 'bolt', spd: 30, ground: 1, air: 0, snd: 'bolt' },      // v7.0.2 China Ballista Tower: one giant single-target arrow (+1.5 height range = 14). NOT in the v5.0 -25% static-defence nerf list
+  balS:   { dmg: 170, rng: 12.5, cd: 1.0, type: 'bolt', spd: 30, ground: 1, air: 1, snd: 'bolt', squad: 1 },         // v7.0.2 Ballista Tower SUMMARY profile (range ring / AI threat); it actually fires BALLISTA.w
   colossus:{ dmg: 150, rng: 7.5, cd: 2.0, type: 'shell', spd: 14, ground: 1, air: 0, splash: 1.8, arc: 1, snd: 'gcan', big: 1 }, // Endless boss
 };
 // v5.0: static defense damage -25%
@@ -72,7 +75,7 @@ const BT = {
   tesla:   { n: 'Tesla Coil', w: 1, h: 1, hp: 900, cost: 1200, pow: -60, time: 8, cat: 'def', req: ['tech'], wpn: 'tesla', sight: 7, noFac: 'fra', desc: 'Chain lightning arcs to 3 more nearby enemies. Very power-hungry (-60): goes dark in low power.' },
   gatling: { n: 'Tourelle Gatling (Gatling Bastion)', w: 1, h: 1, hp: 1500, cost: 1800, pow: -50, time: 10, cat: 'def', req: ['tech'], wpn: 'gatl', sight: 8, fac: 'fra', desc: 'France (replaces the Tesla Coil): rotating six-barrel gatling that spins up and shreds infantry and aircraft. Hits ground AND air; weak vs heavy armor.' },
   gate:    { n: 'Wall Gate', w: 1, h: 1, hp: 900, cost: 150, pow: 0, time: 2, cat: 'def', req: ['barracks'], desc: 'Your and allied units pass through; blocks enemies. Place it in a wall line.' },
-  gtower:  { n: 'Great Wall Guard Tower', w: 1, h: 1, hp: 1100, cost: 50, pow: 0, time: 1, cat: 'def', req: ['__never'], wpn: 'gtow', sight: 11, squad: 1, fac: 'chn', hide: 1, desc: 'China: every 5th wall piece you build rises as a guard tower that fights like a garrisoned squad: Rifleman, Sniper, Rocketeer and Iron Marine, each firing its own weapon, +1.5 range from the height (sniper 10.5 tiles). Hits ground + air. No power needed.' },
+  gtower:  { n: 'Great Wall Guard Tower', w: 1, h: 1, hp: 1100, cost: 50, pow: 0, time: 1, cat: 'def', req: ['__never'], wpn: 'gtow', sight: 11, squad: 1, fac: 'chn', hide: 1, desc: 'China: every 5th wall piece you build rises as a guard tower that fights like a garrisoned squad: Rifleman, Sniper, Rocketeer and Iron Marine, each firing its own weapon, +1.5 range from the height (sniper 10.5 tiles). Hits ground + air. No power needed. With a Research Lab, select one to convert it into a Ballista Tower ($1400 + 150 gas, 20s): one giant armour-piercing arrow every 3s (494 vs heavy armour, single target, no splash, 14 range, ground only), 1800 HP, uses 40 power.' },
   wall:    { n: 'Wall', w: 1, h: 1, hp: 600, cost: 50, pow: 0, time: 1, cat: 'def', req: ['barracks'] },
 };
 // Units. armor: inf|light|heavy|air. sp tiles/sec. r radius.
@@ -159,7 +162,7 @@ const FACTIONS = {
   ger: { n: 'Germany', flag: '🇩🇪', sp: 'kommando', desc: 'Jäger Kommando Squad — three elite commandos in one unit: rapid long-range fire, demolition charges wreck buildings.' },
   bra: { n: 'Brazil', flag: '🇧🇷', sp: 'marine', desc: 'Fuzileiro Blindado (Iron Marine) — armored, mass-produced Barracks infantry that hits ground and air; nearby marines boost each other (strength in numbers).' },
   irn: { n: 'Iran', flag: '🇮🇷', sp: 'drone', desc: 'Shahed Kamikaze Drones — cheap, built 3 at a time at the War Factory. They dive into enemy armies or buildings and explode with heavy splash. Anti-air shoots them down. Breaks up blobs.' },
-  chn: { n: 'China', flag: '🇨🇳', sp: 'gtower', desc: 'Great Wall — China walls have +60% HP and every 5th wall piece rises as a Guard Tower: each guard tower fights like a garrisoned squad (rifleman, sniper, rocketeer and Iron Marine), out to 10.5 tiles, ground + air, no power. Long wall lines become a fortress.' },
+  chn: { n: 'China', flag: '🇨🇳', sp: 'gtower', desc: 'Great Wall — China walls have +60% HP and every 5th wall piece rises as a Guard Tower: each guard tower fights like a garrisoned squad (rifleman, sniper, rocketeer and Iron Marine), out to 10.5 tiles, ground + air, no power. Long wall lines become a fortress. With a Research Lab, key towers convert into Ballista Towers: one giant tank-killing arrow, no splash.' },
   jpn: { n: 'Japan', flag: '🇯🇵', sp: 'raijin', desc: 'Raijin Mech — transforms between a fast jet (flies over walls and cliffs) and a heavy walking mech with a chain-lightning cannon. Press T or tap ⚡ to switch. Hit and run.' },
 };
 
@@ -167,6 +170,8 @@ const FAC_KEYS = Object.keys(FACTIONS);
 const CHN_WALL = { hp: 1.6, every: 5 }; // v7.0 China Great Wall
 // v7.0.2 guard tower garrison: the real infantry weapons (W.rifle/snipe/rocket/marine), each with its own target + cooldown, +rng tiles from the elevated hut
 const GT_SQUAD = { w: ['rifle', 'snipe', 'rocket', 'marine'], rng: 1.5 };
+// v7.0.2 Ballista Tower: a guard tower upgrade (select it, pay, wait). The sniper + rocketeer crew the ballista; the rifleman and Iron Marine stay as close guard.
+const BALLISTA = { n: 'Ballista Tower', cost: 1400, gas: 150, time: 20, hp: 1800, pow: -40, req: 'tech', w: ['bolt', 'rifle', 'marine'] };
 const XFORM = { t: 1.5, cd: 3 };         // v7.0 Raijin transform time / cooldown (s)
 // ===== deterministic math (lockstep): only + - * / and sqrt (IEEE-exact) =====
 let ME = 0; // local player index (UI/render perspective)

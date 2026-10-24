@@ -578,8 +578,7 @@ const BLD_MODELS = {
   },
   gtower(B) { // v7.0 China Great Wall guard tower: stone keep, red lacquer pillars, upturned pagoda roof, repeating gun
     const ST = 0x9a8f7c, STD = 0x7a705f, RED = 0xa8231c, GOLD = 0xd8a830, TILE = 0x2e3a36;
-    B.box('body', 0.92, 0.7, 0.92, ST, PBR.CONC, 0, 0.35, 0, { bevel: 0.05 }); B.box('body', 0.98, 0.08, 0.98, STD, PBR.CONC, 0, 0.72, 0, { bevel: 0.02 });
-    for (let k = 0; k < 4; k++) for (const o of [-0.32, 0, 0.32]) { const a = k * Math.PI / 2; B.box('body', 0.16, 0.14, 0.12, STD, PBR.CONC, Math.cos(a) * 0.43 - Math.sin(a) * o, 0.83, Math.sin(a) * 0.43 + Math.cos(a) * o, { ry: -a, bevel: 0.01 }); }
+    gtKeep(B);
     for (const [x, z] of [[0.28, 0.28], [0.28, -0.28], [-0.28, 0.28], [-0.28, -0.28]]) B.cyl('body', 0.04, 0.42, RED, PBR.PAINT, x, 0.97, z, { seg: 8 });
     B.cyl('body', 0.62, 0.16, TILE, PBR.DARKM, 0, 1.24, 0, { rt: 0.25, seg: 4, ry: Math.PI / 4 }); B.cyl('body', 0.36, 0.14, TILE, PBR.DARKM, 0, 1.4, 0, { rt: 0.08, seg: 4, ry: Math.PI / 4 });
     for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + Math.PI / 4; B.cone('body', 0.04, 0.16, GOLD, PBR.METAL, Math.cos(a) * 0.62, 1.22, Math.sin(a) * 0.62, { rx: Math.sin(a) * 0.9, rz: -Math.cos(a) * 0.9, seg: 6 }); }
@@ -588,9 +587,31 @@ const BLD_MODELS = {
     B.box('head', 0.2, 0.12, 0.16, COL.DARK, PBR.DARKM, 0.05, 0, 0); B.barrel('head', 0.42, 0.03, 0.15, 0, 0.04, 0); B.barrel('head', 0.42, 0.03, 0.15, 0, -0.04, 0); B.glow('head', 0.03, 0.03, 0.08, COL.RED, 0.12, 0.08, 0);
     B.piv.tip = 0.57;
   },
+  gtowerB(B) { // v7.0.2 China Ballista Tower: the same keep, roof swapped for an open turntable carrying a giant crossbow + loaded bolt, red war banner
+    const RED = 0xa8231c, GOLD = 0xd8a830, WOOD = 0x6b4a2a, WD = 0x3e2a18, IRON = 0x3a3c3e;
+    gtKeep(B); B.box('body', 0.5, 0.06, 0.5, 'T', PBR.PAINT, 0, 0.79, 0, { bevel: 0.01 }); B.cyl('body', 0.3, 0.1, IRON, PBR.DARKM, 0, 0.86, 0, { seg: 12 });
+    B.cyl('body', 0.02, 1.0, WD, PBR.PAINT, -0.38, 1.2, 0.38, { seg: 6 }); B.box('body', 0.26, 0.2, 0.015, RED, PBR.CLOTH, -0.24, 1.55, 0.38, { bevel: 0 }); B.box('body', 0.08, 0.08, 0.02, GOLD, PBR.METAL, -0.24, 1.55, 0.385, { bevel: 0 }); B.sph('body', 0.035, GOLD, PBR.METAL, -0.38, 1.72, 0.38, { seg: 6 });
+    B.piv.head = [0, 1.0, 0];
+    B.box('head', 0.28, 0.14, 0.26, WD, PBR.PAINT, -0.05, -0.05, 0, { bevel: 0.02 }); // carriage
+    B.box('head', 1.05, 0.08, 0.12, WOOD, PBR.PAINT, 0.08, 0.04, 0, { bevel: 0.015 }); // stock / track
+    B.cyl('head', 0.06, 0.34, IRON, PBR.DARKM, -0.4, 0.04, 0, { rx: Math.PI / 2, seg: 8 }); // winch
+    for (const sd of [1, -1]) { // recurved bow arms + taut string
+      const tx = 0.2, tz = 0.56 * sd, cx = 0.33; B.box('head', Math.hypot(tx - cx, tz), 0.06, 0.05, WD, PBR.PAINT, (tx + cx) / 2, 0.06, tz / 2, { ry: Math.atan2(-tz, tx - cx), bevel: 0.01 });
+      B.sph('head', 0.035, GOLD, PBR.METAL, tx, 0.06, tz, { seg: 6 });
+      const nx = -0.3; B.box('head', Math.hypot(tx - nx, tz), 0.012, 0.012, 0xd8d0b8, PBR.CLOTH, (tx + nx) / 2, 0.06, tz / 2, { ry: Math.atan2(-tz, tx - nx), bevel: 0 }); }
+    B.piv.arrow = [0, 1.0, 0]; // the loaded bolt (hidden after each shot until the crew re-winds)
+    B.cyl('arrow', 0.028, 1.2, 0x8a6a40, PBR.PAINT, 0.28, 0.12, 0, { rz: -Math.PI / 2, seg: 6 });
+    B.cone('arrow', 0.065, 0.2, IRON, PBR.METAL, 0.96, 0.12, 0, { rz: -Math.PI / 2, seg: 6 });
+    for (const r of [0, Math.PI / 2]) B.box('arrow', 0.18, 0.1, 0.012, RED, PBR.CLOTH, -0.26, 0.12, 0, { rx: r, bevel: 0 });
+    B.piv.tip = 1.0;
+  },
   wall(B) { if (B.chn || (typeof G !== 'undefined' && G.players && G.players[B.team] && G.players[B.team].fac === 'chn')) { B.box('body', 0.5, 0.78, 0.5, 0x9a8f7c, PBR.CONC, 0, 0.39, 0, { bevel: 0.04 }); for (const [x, z] of [[0.17, 0.17], [0.17, -0.17], [-0.17, 0.17], [-0.17, -0.17]]) B.box('body', 0.14, 0.14, 0.14, 0x7a705f, PBR.CONC, x, 0.85, z, { bevel: 0.01 }); B.box('body', 0.52, 0.05, 0.52, 'T', PBR.PAINT, 0, 0.6, 0, { bevel: 0 }); return; }
     B.box('body', 0.42, 0.72, 0.42, COL.CONC, PBR.CONC, 0, 0.36, 0, { bevel: 0.05 }); B.box('body', 0.48, 0.08, 0.48, 'TD', PBR.PAINT, 0, 0.74, 0, { bevel: 0.02 }); B.box('body', 0.5, 0.1, 0.5, 0x55595e, PBR.METAL, 0, 0.05, 0, { bevel: 0.02 }); },
 };
+function gtKeep(B) { // shared Great Wall guard-tower keep (gtower / v7.0.2 Ballista)
+  const ST = 0x9a8f7c, STD = 0x7a705f;
+  B.box('body', 0.92, 0.7, 0.92, ST, PBR.CONC, 0, 0.35, 0, { bevel: 0.05 }); B.box('body', 0.98, 0.08, 0.98, STD, PBR.CONC, 0, 0.72, 0, { bevel: 0.02 });
+  for (let k = 0; k < 4; k++) for (const o of [-0.32, 0, 0.32]) { const a = k * Math.PI / 2; B.box('body', 0.16, 0.14, 0.12, STD, PBR.CONC, Math.cos(a) * 0.43 - Math.sin(a) * o, 0.83, Math.sin(a) * 0.43 + Math.cos(a) * o, { ry: -a, bevel: 0.01 }); } }
 const MODEL_CACHE = {};
 function getModel(kind, t, team) {
   const k = kind + t + team; if (MODEL_CACHE[k]) return MODEL_CACHE[k];

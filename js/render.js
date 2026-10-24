@@ -84,8 +84,9 @@ function growIM(u, cap) {
 const _M = { a: null }; function m4() { return new THREE.Matrix4(); }
 const TMP = typeof THREE !== 'undefined' ? { b: m4(), t: m4(), l: m4(), p: new THREE.Vector3(), q: new THREE.Quaternion(), e: new THREE.Euler(0, 0, 0, 'YXZ'), s: new THREE.Vector3(1, 1, 1), one: new THREE.Vector3(1, 1, 1) } : null;
 // ---------- buildings ----------
+const bkey = b => b.bal ? 'gtowerB' : b.t; // v7.0.2 a converted Great Wall tower wears the Ballista model
 function makeBuildingObj(b) {
-  const model = getModel('b', b.t, b.team), g = new THREE.Group(), mat = pbrMaterial();
+  const model = getModel('b', bkey(b), b.team), g = new THREE.Group(), mat = pbrMaterial();
   const body = new THREE.Mesh(model.body, mat); body.castShadow = true; body.receiveShadow = true; g.add(body);
   const parts = {};
   for (const k in model) { if (k === 'piv' || k === 'body') continue; const m = new THREE.Mesh(model[k], mat); m.castShadow = true; const pv = model.piv[k] || [0, 0, 0]; m.position.set(pv[0], pv[1], pv[2]); body.add(m); parts[k] = m; }
@@ -93,11 +94,11 @@ function makeBuildingObj(b) {
   const sc = new THREE.Mesh(new THREE.BoxGeometry(b.w * 0.96, 1.4, b.h * 0.96), new THREE.MeshBasicMaterial({ color: 0xffc94d, wireframe: true, transparent: true, opacity: 0.55, fog: false })); sc.position.y = 0.7; sc.visible = false; g.add(sc);
   g.position.set(b.x, heightAt(b.x, b.y), b.y);
   R3.scene.add(g); clearFoliage(b);
-  return { g, body, parts, sc, team: b.team, piv: model.piv };
+  return { g, body, parts, sc, team: b.team, piv: model.piv, mk: bkey(b) };
 }
 function disposeObj(id) { const o = R3.objs.get(id); if (!o) return; R3.scene.remove(o.g); R3.objs.delete(id); }
 // ---------- events -> fx / sound ----------
-function barrelTip(s) { const pv = s.kind === 'b' ? getModel('b', s.t, s.team).piv : getModel('u', s.t, s.team).piv; const tip = pv.tip || 0.3; const rs = R3.rs.get(s.id);
+function barrelTip(s) { const pv = s.kind === 'b' ? getModel('b', bkey(s), s.team).piv : getModel('u', s.t, s.team).piv; const tip = pv.tip || 0.3; const rs = R3.rs.get(s.id);
   const x = rs ? rs.x : s.x, y = rs ? rs.y : s.y, base = s.kind === 'b' ? heightAt(s.x, s.y) + (pv.tipZ || (pv.head ? pv.head[1] + 0.08 : 0.6)) : (rs ? rs.z : heightAt(x, y)) + (pv.turret ? pv.turret[1] + 0.07 : UT[s.t].armor === 'inf' ? 0.38 : 0.3);
   return { x: x + Math.cos(s.tang) * tip, y: y + Math.sin(s.tang) * tip, z: base }; }
 // v6.0 Grand Cannon firing: recoil kick, huge muzzle fireball, muzzle-brake side jets, vertical shockwave ring, ground dust ring, shake
@@ -124,7 +125,8 @@ function handleEvents() {
     switch (ev.e) {
       case 'fire': {
         const s = ev.src; if (!visibleTo0(s) || !inView(s.x, s.y)) { sfx(ev.w.snd, s.x, s.y); break; }
-        const p = barrelTip(s), w = ev.w.type, big = w === 'cannon' || w === 'shell'; if (s.kind === 'b' && s.t === 'gcannon') gcannonBlast(s, p); else if (ev.w.big) { flash(p.x, p.y, p.z, 2.0, 1, 0.8, 0.5); for (let i = 0; i < 10 * FX.mul; i++) puff(p.x + rnd(0.5), p.y + rnd(0.5), p.z, 0.5, 2.0, 0.6, 0.55, 0.5); shake(0.15); }
+        const p = barrelTip(s), w = ev.w.type, big = w === 'cannon' || w === 'shell'; if (s.kind === 'b' && s.t === 'gcannon') gcannonBlast(s, p);
+        else if (w === 'bolt') { const o = R3.objs.get(s.id); if (o) { o.bk = 1; o.bfT = G.time; } flash(p.x, p.y, p.z, 0.5, 1, 0.9, 0.7); for (let i = 0; i < 5 * FX.mul; i++) puff(p.x - Math.cos(s.tang) * 0.6 + rnd(0.3), p.y - Math.sin(s.tang) * 0.6 + rnd(0.3), p.z, 0.2, 0.9, 0.62, 0.55, 0.45); shake(0.05); } // v7.0.2 Ballista release: string snap + dust else if (ev.w.big) { flash(p.x, p.y, p.z, 2.0, 1, 0.8, 0.5); for (let i = 0; i < 10 * FX.mul; i++) puff(p.x + rnd(0.5), p.y + rnd(0.5), p.z, 0.5, 2.0, 0.6, 0.55, 0.5); shake(0.15); }
         flash(p.x, p.y, p.z, big ? 0.9 : w === 'bullet' ? 0.35 : 0.55, 1, 0.8, 0.45);
         { const r0 = R3.rs.get(s.id); if (r0 && s.kind === 'u' && (UT[s.t].armor === 'inf' || UT[s.t].mech)) r0.kick = 1; }
         if (big) { for (let i = 0; i < 4 * FX.mul; i++) puff(p.x + Math.cos(s.tang) * 0.2, p.y + Math.sin(s.tang) * 0.2, p.z, 0.25, 1.1, 0.55, 0.45, 0.3); const rs = R3.rs.get(s.id); if (rs) rs.recoil = 0.09; }
@@ -139,6 +141,10 @@ function handleEvents() {
         if (G.opts.fog && !vis0(idx(Math.floor(ev.x), Math.floor(ev.y)))) break;
         const z = (ev.z || 0) + (ev.z > 1.5 ? heightAt(ev.x, ev.y) * 0.3 : heightAt(ev.x, ev.y));
         if (ev.kind === 'bullet' || ev.kind === 'gat') { sparks(ev.x, ev.y, z + 0.2, 2, 2); flash(ev.x, ev.y, z + 0.25, 0.18, 1, 0.8, 0.5); }
+        else if (ev.kind === 'bolt') { // v7.0.2 Ballista bolt: armour-cracking impact - spray of sparks, iron flash, debris + dust ring, short shake, heavy thunk
+          sparks(ev.x, ev.y, z + 0.3, 14, 5); flash(ev.x, ev.y, z + 0.4, 1.3, 1, 0.85, 0.55); flash(ev.x, ev.y, z + 0.3, 0.7, 1, 1, 1);
+          { const gz = heightAt(ev.x, ev.y), dc = G.desert ? [0.78, 0.64, 0.46] : [0.5, 0.45, 0.38]; for (let i = 0; i < 12 * FX.mul; i++) { const a = Math.random() * 6.28, v = 1.5 + Math.random() * 2; puff(ev.x + Math.cos(a) * 0.3, ev.y + Math.sin(a) * 0.3, gz + 0.1, 0.25, 0.9 + Math.random() * 0.5, dc[0], dc[1], dc[2]); FX.spark.spawn(ev.x, ev.y, z + 0.3, Math.cos(a) * v, Math.sin(a) * v, 2 + Math.random() * 2, 0.9, 0.06, 0.05, 0.35, 0.3, 0.28, 1, 9, 0); } }
+          sfx('boltHit', ev.x, ev.y); shake(0.1); }
         else if (ev.kind === 'snipe') { sparks(ev.x, ev.y, z + 0.2, 3, 2.5); flash(ev.x, ev.y, z + 0.25, 0.3, 1, 0.9, 0.7); }
         else if (ev.kind === 'fire') { for (let i = 0; i < 6 * FX.mul; i++) FX.fire.spawn(ev.x + rnd(0.8), ev.y + rnd(0.8), z + 0.15, rnd(0.5), rnd(0.5), 0.8, 0.5, 0.2, 0.6, 1, 0.45, 0.1, 0.9, -1); if (Math.random() < 0.3) puff(ev.x, ev.y, z + 0.4, 0.25, 1.4, 0.12, 0.5, 0.8); }
         else if (ev.kind === 'aam') { explosion3(ev.x, ev.y, z, 0.45); sfx('boom', ev.x, ev.y); }
@@ -166,7 +172,7 @@ function handleEvents() {
       case 'ready': if (ev.team === ME && BT[ev.t].cat === 'def' && !UI.placing && !UI.mode) UI.placing = ev.t;
         if (ev.team === ME) { sfx('ready'); uiMsg(BT[ev.t].n + ' ready to place'); } break;
       case 'unit': if (ev.team === ME) { sfx('unit'); if (ev.u && FACTIONS[G.players[ME].fac].sp === ev.u.t) announce(UT[ev.u.t].n + ' ready for battle', 'spu', 5); } break;
-      case 'upgraded': if (ev.team === ME) { sfx('ready'); uiMsg(ev.b.upKind === 'sm3' ? '🛡 SM-3 Interceptor Battery online at the ' + BT[ev.b.t].n : ev.b.upKind === 'rs' ? `🔬 Research complete: ${RES.nm[ev.b.upCat]} level ${rsLvl(ev.team, ev.b.upCat)} (+${Math.round((RES_M[rsLvl(ev.team, ev.b.upCat)] - 1) * 100)}% damage & HP)` : ev.b.upKind === 'pads' ? '✈ Air Command: 8 dock slots' : BT[ev.b.t].n + ' upgraded to level ' + ev.b.lvl); } flash(ev.b.x, ev.b.y, 1, 1.5, 0.6, 0.9, 1); break;
+      case 'upgraded': if (ev.team === ME) { sfx('ready'); uiMsg(ev.b.upKind === 'sm3' ? '🛡 SM-3 Interceptor Battery online at the ' + BT[ev.b.t].n : ev.b.upKind === 'rs' ? `🔬 Research complete: ${RES.nm[ev.b.upCat]} level ${rsLvl(ev.team, ev.b.upCat)} (+${Math.round((RES_M[rsLvl(ev.team, ev.b.upCat)] - 1) * 100)}% damage & HP)` : ev.b.upKind === 'pads' ? '✈ Air Command: 8 dock slots' : ev.b.upKind === 'bal' ? '🏹 Ballista Tower ready: giant armour-piercing bolts' : BT[ev.b.t].n + ' upgraded to level ' + ev.b.lvl); } flash(ev.b.x, ev.b.y, 1, 1.5, 0.6, 0.9, 1); break;
       case 'capture': if (ev.team === ME || ev.b.team === ME) { sfx('ready'); uiMsg('Structure captured!'); } disposeObj(ev.b.id); break;
       case 'derrick': if (typeof uiMsg === 'function') { const op = G.derricks.find(d => d.op && d.x === ev.x && d.y === ev.y); if (op && ev.team === ME) uiMsg('Outpost "' + op.name + '" captured! You can now BUILD within ' + OUTPOST_R + ' tiles — perfect spot for a Grand Cannon.'); else if (op && ev.prev === ME) uiMsg('We lost the outpost "' + op.name + '"!'); if (ev.team === ME) { if (!op) uiMsg('Oil derrick captured! +income'); announce('Derrick captured', 'dk', 3); } else if (ev.prev === ME) { uiMsg('We lost an oil derrick!'); UI.alerts.unshift({ txt: 'Derrick lost', x: ev.x, y: ev.y, t: 8 }); announce('Derrick lost', 'dkl', 3); } else if (foe(ev.team, ME)) uiMsg('Enemy captured an oil derrick'); } break;
       case 'launch': { const mine = ev.team === ME, ally = !foe(ev.team, ME); R3.misT = R3.misT || []; R3.misT.push({ ms: ev.ms, t0: R3.time });
@@ -233,13 +239,16 @@ function r3Render(dt) {
     alive.add(e.id);
     const vis = !G.opts.fog || visibleTo0(e);
     if (e.kind === 'b') {
-      let o = R3.objs.get(e.id); if (o && o.team !== e.team) { disposeObj(e.id); o = null; }
+      let o = R3.objs.get(e.id); if (o && (o.team !== e.team || o.mk !== bkey(e))) { disposeObj(e.id); o = null; }
       if (!o) { o = makeBuildingObj(e); R3.objs.set(e.id, o); }
       const show = vis && inView(e.x, e.y); o.g.visible = show; if (!show) continue;
       const age = G.time - e.born, cons = Math.min(1, age / 1.5), ease = 1 - Math.pow(1 - cons, 3);
       let sy = 0.02 + 0.98 * ease; if (e.sell >= 0) sy = Math.max(0.02, 1 - (G.time - e.sell) / 1.2);
       o.body.scale.y = sy; o.sc.visible = cons < 1 || e.sell >= 0;
       if (o.parts.spin) o.parts.spin.rotation.y += dt * 1.4; if (o.parts.head) o.parts.head.rotation.y = -e.tang;
+      if (o.parts.arrow) { // v7.0.2 Ballista: whole crossbow kicks back on release, the loaded bolt vanishes and is re-wound ~1.8 s later
+        o.bk = Math.max(0, (o.bk || 0) - dt * 4); const c = Math.cos(e.tang), sn = Math.sin(e.tang), pv = o.piv.head, kb = o.bk * 0.1;
+        o.parts.head.position.set(pv[0] - c * kb, pv[1], pv[2] - sn * kb); const a = o.parts.arrow; a.rotation.y = -e.tang; a.position.copy(o.parts.head.position); a.visible = G.time - (o.bfT == null ? -9 : o.bfT) > 1.8; }
       if (o.parts.gat) { // v5.9 gatling spin-up / spin-down; barrel cluster yaws with the head and rolls about its own axis
         const firing = e.tgt && e.tgt.hp > 0 && G.time - (e.lastFire || -9) < 0.5 && !e.offline; o.gv = (o.gv || 0) + ((firing ? 34 : 0) - (o.gv || 0)) * Math.min(1, dt * (firing ? 2.2 : 0.9)); o.gr = ((o.gr || 0) + o.gv * dt) % 628;
         const g = o.parts.gat, hp = o.parts.head.position; g.rotation.order = 'YXZ'; g.rotation.set(o.gr, -e.tang, 0); g.position.set(hp.x + Math.cos(e.tang) * 0.2, 0.66, hp.z + Math.sin(e.tang) * 0.2); }
