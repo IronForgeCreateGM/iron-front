@@ -343,7 +343,7 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
     const near = foes.filter(f => f.kind === 'u' && UT[f.t].wpn && dhypot(f.x - c.x, f.y - c.y) < 10);
     const thr = D.sys.sim ? threatsNear(P, foes, c.x, c.y, 10) : null, simR = thr && thr.length ? combatSim(S.grp, thr) : 9;
     if (V) plan71Tick(P, S, c, near);
-    if (V && G.time > (S.humT || 0)) { const hp = humanPush71(P); if (hp && dhypot(hp.x - c.x, hp.y - c.y) < 50) { S.humT = G.time + 10; if (!near.length) S.grpWp = { x: hp.x, y: hp.y, t: G.time + 25 }; } } // converge on the human ally's push
+    if (V && G.time > (S.humT || 0)) { const hp = humanPush71(P); if (hp && dhypot(hp.x - c.x, hp.y - c.y) < 80 && !near.length) { S.humT = G.time + 10; S.grpWp = { x: hp.x, y: hp.y, t: G.time + 25 }; const p = plan71(P); if (p && !p.hum) { p.x = hp.x; p.y = hp.y; p.team = hp.team; p.hum = 1; } } } // converge on the human ally's push
     const commit = S.doc && !SIOFF.commit; const lost71 = V && !SIOFF.ret && thr && thr.length && (() => { const r = sim71(S.grp.concat(home.filter(u => !S.grp.includes(u) && dhypot(u.x - c.x, u.y - c.y) < 10)), thr); S.simR71 = r; return r < 0.4 && v < S.grpV0 * 0.75 && G.time - S.lastAttack > 15; })();
     if (V && !SIOFF.mic && thr && thr.length && !lost71) micro71(P, S, S.grp);
     if (V && !SIOFF.ret ? lost71 : D.sys.sim ? (commit ? simR < 0.22 && v < S.grpV0 * 0.45 && G.time - S.lastAttack > 30 : simR < (S.siege && D.si && !SIOFF.siege ? 0.3 : 0.5) && v < S.grpV0 * 0.85 && G.time - S.lastAttack > 20) : (v < S.grpV0 * 0.35 && armyVal(near) > v * 1.2)) { // combat-sim says losing -> retreat & regroup at home defenses
@@ -874,7 +874,7 @@ function army71(P, S, D, me, foes, knownB, idle, intruders, hq, estart) { // ret
 function humanPush71(P) { // human ally's army is committed on the enemy side of the map -> {team,x,y} of what it is hitting
   const c = G.hp71 || (G.hp71 = {}), k = P.ally; if (c[k] && G.time < c[k].t) return c[k].r; let r = null;
   for (const Q of G.players) { if (Q.ai || Q.ally !== P.ally || Q.team === P.team) continue; const own = G.starts[Q.start]; let n = 0, v = 0, x = 0, y = 0;
-    for (const u of G.ents) if (u.kind === 'u' && u.team === Q.team && u.hp > 0 && UT[u.t].wpn && u.t !== 'harv') { let fe = 1e9, oe = dhypot(u.x - own[0], u.y - own[1]); for (const E of G.players) if (foe(E.team, P.team) && !E.out) { const s = G.starts[E.start]; fe = Math.min(fe, dhypot(u.x - s[0], u.y - s[1])); } if (fe < oe && fe < 50) { n++; v += UT[u.t].cost; x += u.x; y += u.y; } }
+    for (const u of G.ents) if (u.kind === 'u' && u.team === Q.team && u.hp > 0 && UT[u.t].wpn && u.t !== 'harv') { let fe = 1e9, oe = dhypot(u.x - own[0], u.y - own[1]); for (const E of G.players) if (foe(E.team, P.team) && !E.out) { const s = G.starts[E.start]; fe = Math.min(fe, dhypot(u.x - s[0], u.y - s[1])); } if (fe < oe * 1.25 && fe < 60) { n++; v += UT[u.t].cost; x += u.x; y += u.y; } }
     if (n >= 6 && v >= 2000) { x /= n; y /= n; let tb = null, bd = 1e9; for (const b of G.ents) if (b.kind === 'b' && b.hp > 0 && foe(b.team, P.team) && visibleTo(P.team, b)) { const d = dhypot(b.x - x, b.y - y); if (d < bd) { bd = d; tb = b; } }
       r = tb && bd < 18 ? { team: tb.team, x: tb.x, y: tb.y } : { team: (G.players.filter(E => foe(E.team, P.team) && !E.out).sort((a, b) => dhypot(G.starts[a.start][0] - x, G.starts[a.start][1] - y) - dhypot(G.starts[b.start][0] - x, G.starts[b.start][1] - y))[0] || {}).team, x, y }; break; } }
   c[k] = { t: G.time + 2, r: r && r.team != null ? r : null }; return c[k].r; }
