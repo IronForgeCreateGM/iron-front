@@ -51,6 +51,14 @@ Phones are auto-detected (coarse pointer + small screen); toggle with **📱 Tou
 - **🤖 Helpers** (on by default, all toggleable; they only give orders to your own units): auto-rebuild lost harvesters, new units go to the rally point, idle units engage nearby enemies, optional auto-repair, and ⚡ +Power (one tap builds and places a Power Plant when power is low).
 - Can be installed to the Home Screen (PWA manifest). Online play: if iOS drops the connection while the app is in the background, tap **Rejoin** to take your seat back (an AI holds it if you were gone more than 20 s).
 
+## v6.3 changes
+- **Seraph Medevac** (Air Command, $1100, needs Research Lab) replaces the Hauler transport. It has the same 8-slot bay (infantry 1 slot, vehicles 4).
+  - To load: select infantry, then right-click the craft (on mobile, tap it). To unload: **Unload all** button or **Shift+B**; **B** unloads at a chosen spot.
+  - Projects a green healing beam onto damaged friendly ground units within 2.5 tiles: 12 HP/s each, up to 3 targets.
+  - Healing does not stack: each target gets healed by only one craft at a time. Passengers are not healed while aboard.
+  - Fragile: 560 HP, air armor, so flak/AA brings it down fast. Bots use it to support wounded clusters and retreat when it is damaged.
+- **Volcano Crown lava:** smooth rounded shorelines blending into cooled basalt, plus an animated molten shader (flowing noise, cracked crust, pulsing glow). Also bubbles, embers and heat shimmer. Quiet mode uses a lighter shader and turns the FX off. Lava gameplay (damage and walkability) is unchanged.
+
 ## v6.2 changes
 - **Iron Marine (Brazil):** a move or retreat order breaks off combat at once. Auto-engage resumes only on arrival or when idle (attack-move still fights).
   - Legs step in the direction of travel.

@@ -111,3 +111,18 @@ Also earlier backlog: wall gate.
 ## v6.2 status (2026-10-20, not pushed)
 - DONE: every item in the two lists above except modes, maps and the editor: Iron Marine orders/legs/buffs, double-click buildings (shared rally, Upgrade all), economy (derricks +25%, $750 hauler, 4 per field, smart haulers, +30% ore, diamond fields), SM-3, Air Command, Warhound MBT, Pyro/Medic removed + Engineer repair/heal, card portraits, Howler range + Siege Mode, Research Lab tracks, mobile ghost/stop fixes.
 - NOT DONE (by scope): game modes (TD/KotH/CTF/Last Stand), new maps, map editor/browser; brainstorm faction abilities.
+
+## v6.3 status (2026-10-23, NOT pushed, waiting for Nicholas's approval; v6.2 bbed457 is live)
+- DONE: Hauler Transport replaced by the **Seraph Medevac** (healer transport).
+  - Same 8-slot cap.
+  - Loading: select infantry, then right-click the craft (mobile: tap it). Unloading: Unload all button or Shift+B; B = unload at a spot.
+  - Auto green heal beam: 2.5-tile radius, 12 HP/s per target, max 3 targets, no stacking (one healer per target per 0.5 s window).
+  - 560 HP air armor (dies to one Skyguard in ~7 s). $1100, Air Command + Research Lab.
+  - New model with medical crosses, build card, bot medevacMgr (medium/hard bots: one craft once the army is 10+ and t > 5 min; it heals wounded clusters and retreats below 35% HP).
+  - Tests: test/v63-test.js (23 checks). Shots: test/v63-shot.js.
+- DONE: Volcano Crown lava visual rework (render only).
+  - Blurred lava field gives smooth shorelines with a basalt rim.
+  - Animated shader (fbm flow, voronoi crust, pulse, white-hot streaks, heat ripple), plus bubbles, embers and haze FX.
+  - Quiet mode = simple shader + no FX. Gameplay is unchanged.
+- Shots: shots/v6_3-healer-beam.png, v6_3-healer-card.png, v6_3-cards-air.png, v6_3-lava.png, v6_3-lava-quiet.png.
+- Next: get Nicholas's go-ahead, then push. Still open from v6.2: game modes, maps, map editor.
