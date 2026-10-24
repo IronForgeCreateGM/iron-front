@@ -99,7 +99,7 @@ const ROOT = 'file://' + path.resolve(__dirname, '../index.html'), PART = proces
     const selTurret = async () => { const [x, y] = await scr(ids[0]); await tap(x, y); await pg.waitForTimeout(450); const s = await pg.evaluate(() => UI.sel.map(e => e.t).join()); if (s !== 'turret') await pg.evaluate(id => setSel([byId(id)]), ids[0]); await pg.waitForTimeout(350); };
     const upg = async () => { await pg.tap('#upBtn', { timeout: 2500 }).catch(() => {}); await pg.waitForTimeout(350); };
     // 1) tap turret -> Upgrade -> ✕ close
-    await selTurret(); ok(await pg.isVisible('#upBtn'), 'tapping a turret opens its upgrade panel'); await upg();
+    await selTurret(); ok(await pg.waitForSelector('#upBtn', { state: 'visible', timeout: 2500 }).then(() => true, () => false), 'tapping a turret opens its upgrade panel'); await upg();
     ok(await pg.evaluate(id => byId(id).upT != null || byId(id).lv > 1, ids[0]), 'Upgrade tap starts the upgrade'); await pg.tap('#mSel .x'); await tabsOK('after Upgrade + ✕ close');
     // 2) Upgrade -> tap empty ground
     await selTurret(); await pg.evaluate(id => { const b = byId(id); b.upT = null; }, ids[0]).catch(() => {}); if (await pg.isVisible('#upBtn')) await upg(); await tap(ground[0], ground[1]); await tabsOK('after Upgrade + tap empty ground');

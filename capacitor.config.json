@@ -1,0 +1,7 @@
+{
+  "appId": "com.ironfront.rts",
+  "appName": "Iron Front",
+  "webDir": "www",
+  "ios": { "contentInset": "never", "backgroundColor": "#05080c", "preferredContentMode": "mobile", "scrollEnabled": false },
+  "server": { "iosScheme": "capacitor" }
+}

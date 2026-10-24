@@ -1,3 +1,7 @@
-{ "name": "Iron Front RTS", "short_name": "Iron Front", "start_url": "./index.html", "scope": "./", "display": "fullscreen", "orientation": "landscape",
+{ "id": "./", "name": "Iron Front RTS", "short_name": "Iron Front", "description": "Real-time strategy: skirmish, online lockstep, and Endless survival.",
+  "start_url": "./index.html", "scope": "./", "display": "fullscreen", "orientation": "landscape", "categories": ["games", "strategy"],
   "background_color": "#05080c", "theme_color": "#0c1420",
-  "icons": [ { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }, { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" } ] }
+  "icons": [ { "src": "icons/icon-180.png", "sizes": "180x180", "type": "image/png" },
+             { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+             { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+             { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" } ] }

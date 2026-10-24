@@ -1,3 +1,11 @@
+# v7.0 shipped (Oct 24 2026), local commits only and NOT pushed. Nicholas approves pushes.
+Done: Endless mode, Iran/China/Japan factions with bot AI, title screen + lobby polish, safe areas/touch targets, PWA + Capacitor + APP-STORE.md.
+Next ideas / gaps:
+- Online co-op Endless is wired through lockstep (Horde = deterministic bot slot) but not yet play-tested with two real devices.
+- Real-device FPS check on iPhone (the box only has software GL); tune Quiet mode defaults if needed.
+- Map editor (deferred from v7.0).
+- Balance: watch Japan (Raijin) and China walls in real games; Brazil is intentionally a little strong.
+
 # Next coding session list (from Nicholas, Mon Oct 12 2026)
 1. AI overhaul, every bot level a TRUE challenge for Nicholas + friends; test vs human-style play.
    - Hard bots: smart base building (defenses, walls), smart expansions, tactical attacks.

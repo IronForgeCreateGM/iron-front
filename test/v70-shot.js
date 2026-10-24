@@ -84,14 +84,14 @@ const only = process.argv[2] || 'all', want = k => only === 'all' || only === k;
     ok(!pg.errs.length, 'raijin: no page errors ' + pg.errs.slice(0, 3).join(' | ')); await pg.close();
   }
   if (want('ui')) {
-    const pg = await page(); await pg.goto(URL0 + '?q=low'); await pg.waitForTimeout(2500);
-    await pg.screenshot({ path: OUT('title') });
-    const tb = await pg.$('#titleScreen'); if (tb && await tb.isVisible()) { await pg.evaluate(() => document.getElementById('titleScreen').click()); await pg.waitForTimeout(700); }
+    const pg = await page(); await pg.goto(URL0 + '?title=1&q=low'); await pg.waitForTimeout(2500);
+    await pg.screenshot({ path: OUT('title') }); ok(await pg.isVisible('#titleScreen'), 'title screen visible');
+    const tb = await pg.$('#titleScreen'); if (tb && await tb.isVisible()) { await pg.keyboard.press('Enter'); await pg.waitForTimeout(800); }
     await pg.click('#playBotsBtn'); await pg.waitForTimeout(700); await pg.screenshot({ path: OUT('lobby') });
     await pg.evaluate(() => document.querySelector('#modeTabs [data-m="endless"]') && document.querySelector('#modeTabs [data-m="endless"]').click()); await pg.waitForTimeout(500); await pg.screenshot({ path: OUT('lobby-endless') });
     ok(!pg.errs.length, 'ui: no page errors ' + pg.errs.slice(0, 3).join(' | ')); await pg.close();
-    const ph = await page({ width: 844, height: 390 }, true); await ph.goto(URL0 + '?q=low'); await ph.waitForTimeout(2500); await ph.screenshot({ path: OUT('iphone-title') });
-    const tp = await ph.$('#titleScreen'); if (tp && await tp.isVisible()) { await ph.evaluate(() => document.getElementById('titleScreen').click()); await ph.waitForTimeout(700); }
+    const ph = await page({ width: 844, height: 390 }, true); await ph.goto(URL0 + '?title=1&q=low'); await ph.evaluate(() => mobSet(true)); await ph.waitForTimeout(2500); await ph.screenshot({ path: OUT('iphone-title') });
+    const tp = await ph.$('#titleScreen'); if (tp && await tp.isVisible()) { await ph.tap('#tsGo'); await ph.waitForTimeout(800); }
     await ph.click('#playEndlessBtn'); await ph.waitForTimeout(600); await ph.screenshot({ path: OUT('iphone-lobby') });
     await ph.evaluate(() => document.getElementById('startBtn').click()); await ph.waitForTimeout(5000); await ph.screenshot({ path: OUT('iphone-game') });
     ok(!ph.errs.length, 'iphone: no page errors ' + ph.errs.slice(0, 3).join(' | ')); await ph.close();

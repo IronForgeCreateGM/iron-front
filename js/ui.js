@@ -27,7 +27,7 @@ function uiSetup() {
   $('repBtn').onclick = () => { UI.mode = UI.mode === 'repair' ? null : 'repair'; UI.placing = null; sfx('click'); };
   $('pauseBtn').onclick = () => togglePause();
   $('setBtn').onclick = () => openSettings(true);
-  $('quietBtn').onclick = () => toggleQuiet(); $('quietBtn').classList.toggle('on', !!UI.set.quiet); if (UI.set.quiet) applyQuality('quiet');
+  $('quietBtn').onclick = () => toggleQuiet(); $('quietBtn').classList.toggle('on', !!UI.set.quiet); document.body.classList.toggle('quiet', !!UI.set.quiet); if (UI.set.quiet) applyQuality('quiet');
   { const qf = $('setQuietFps'); qf.value = UI.set.quietFps || '60'; qf.onchange = () => { UI.set.quietFps = qf.value; saveSet(); }; const qc = $('setQuiet'); qc.checked = !!UI.set.quiet; qc.onchange = () => toggleQuiet(qc.checked); }
   $('muteBtn').onclick = () => { AU.muted = !AU.muted; $('muteBtn').textContent = AU.muted ? '🔇' : '🔊'; };
   const cv = $('view');
@@ -454,9 +454,27 @@ function wallTiles() { const w = screenToWorld(UI.mouse.x, UI.mouse.y), a = UI.w
 function toggleQuiet(on) {
   UI.set.quiet = on == null ? !UI.set.quiet : !!on; saveSet();
   if (UI.set.quiet) { R3.auto = false; applyQuality('quiet'); } else { R3.auto = UI.set.quality === 'auto'; applyQuality(UI.set.quality === 'auto' ? detectQuality() : UI.set.quality); }
-  $('quietBtn').classList.toggle('on', UI.set.quiet); const qc = $('setQuiet'); if (qc) qc.checked = UI.set.quiet;
+  $('quietBtn').classList.toggle('on', UI.set.quiet); document.body.classList.toggle('quiet', !!UI.set.quiet); const qc = $('setQuiet'); if (qc) qc.checked = UI.set.quiet;
   uiMsg(UI.set.quiet ? `🍃 Quiet mode ON — ${UI.set.quietFps || 60} FPS cap, 1x resolution, lighter effects (M)` : 'Quiet mode OFF (M)'); sfx('click');
 }
 
 function siloArm() { const b = UI.sel.find(s => s.t === 'silo' && s.team === ME); if (!b) return; if (!b.mis) { sfx('error'); uiMsg('No missile loaded'); return; } if (G.time < (b.cdT || 0)) { sfx('error'); uiMsg('Launcher cooling down'); return; } UI.mode = 'nuke'; UI.placing = null; sfx('click'); uiMsg('Select missile target (range ' + MIS[b.mis].rng + ')'); }
 
+// v7.0 polish: never leave a tooltip hanging when the app loses focus, rotates, or a screen opens
+addEventListener('blur', () => hideTip()); addEventListener('resize', () => hideTip()); addEventListener('orientationchange', () => hideTip());
+document.addEventListener('visibilitychange', () => { if (document.hidden) hideTip(); });
+// v7.0 title screen: shown on a fresh launch (skipped for deep links like ?room= and for automated runs unless ?title=1)
+function titleInit() {
+  const ts = document.getElementById('titleScreen'); if (!ts) return;
+  const q = new URLSearchParams(location.search), auto = typeof navigator !== 'undefined' && navigator.webdriver;
+  if (q.get('title') !== '1' && ([...q.keys()].length || auto)) return;
+  const fl = document.getElementById('tsFlags'); if (fl && typeof FACTIONS !== 'undefined') fl.innerHTML = Object.values(FACTIONS).map((f, i) => `<span title="${f.n}" style="animation-delay:${0.25 + i * 0.07}s">${f.flag}</span>`).join('');
+  ts.style.display = 'flex'; hideTip();
+  const go = e => { if (e) { e.preventDefault && e.preventDefault(); e.stopPropagation && e.stopPropagation(); }
+    removeEventListener('keydown', go, true); ts.onpointerup = null; try { typeof audioInit === 'function' && audioInit(); } catch (er) {}
+    ts.classList.add('out'); const until = performance.now() + 600; const eat = ev => { if (performance.now() < until) { ev.preventDefault(); ev.stopPropagation(); } else removeEventListener('click', eat, true); };
+    addEventListener('click', eat, true); ts.onclick = ev => ev.stopPropagation(); // swallow the ghost click from the dismissing tap
+    setTimeout(() => { ts.style.display = 'none'; }, 460); };
+  ts.onpointerup = go; addEventListener('keydown', go, true);
+}
+addEventListener('load', titleInit);

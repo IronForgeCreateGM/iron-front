@@ -1,0 +1,21 @@
+{
+  "name": "iron-front",
+  "version": "7.0.0",
+  "private": true,
+  "description": "Iron Front RTS: browser game, PWA and Capacitor (iOS/iPadOS/macOS) shell",
+  "scripts": {
+    "build:www": "node scripts/build-www.js",
+    "cap:add:ios": "npx cap add ios",
+    "cap:sync": "npm run build:www && npx cap sync ios",
+    "cap:open": "npx cap open ios",
+    "test:endless": "node test/endless-test.js",
+    "test:factions": "node test/factions7-test.js",
+    "test:ui": "node test/ui7-test.js",
+    "shots:v70": "node test/v70-shot.js"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.5.3"
+  }
+}

@@ -1,6 +1,29 @@
-# Iron Front — browser RTS (v4.1)
+# Iron Front: browser RTS (v7.0)
 
 Original real-time strategy game in plain HTML5/WebGL (Three.js vendored). No build step.
+
+## New in v7.0
+- **♾ Endless mode**: choose *Endless* on the home screen, or the ♾ tab in the lobby.
+  - Hold the western plateau of a desert map against infinite Horde waves coming through four mountain passes.
+  - There is a build break between waves, with a countdown. **Skip** starts the next wave early and pays $4 for every second skipped.
+  - Waves grow in size, HP, damage and armor. Infantry come first, then tanks (wave 7+), air (11+), and mixed armies with faction specials (25+).
+  - Every 10th wave is a **boss** wave. Clear it fast and without losses for a free elite unit; otherwise it pays bonus cash.
+  - You earn money per kill plus a wave-clear bonus.
+  - Local high scores (top 10) are kept separately for solo and co-op. They show on the game-over screen and the home screen.
+  - Co-op: add a friend (online room) or ally bots in slots 2–4. Skip needs every human to vote.
+- **New factions**:
+  - 🇮🇷 **Iran**: Shahed kamikaze drones. Built 3 at a time at the War Factory, they deal splash damage and AA can shoot them down.
+  - 🇨🇳 **China**: Great Wall. Every 5th wall segment in a line becomes a guard tower that shoots ground and air, and walls get +60% HP.
+  - 🇯🇵 **Japan**: Raijin Mech (Tech Center).
+    - Press **T**, the ⚡ panel button or the ⚡ touch button to switch it between a fast jet that flies over walls and a heavy mech with a chain-lightning cannon.
+  - Bots use all three specials.
+- **App polish**:
+  - A title screen and a cleaner lobby with mode tabs.
+  - iPhone safe areas, touch targets of 40px or more, and no stuck tooltips.
+  - A PWA manifest, plus a Capacitor shell for the iPhone/iPad/Mac App Store (see **APP-STORE.md**).
+
+## Tests (node 20; browser tests need playwright-core + Chrome)
+`node test/endless-test.js` · `node test/factions7-test.js` · `node test/ui7-test.js` · `node test/v70-shot.js [section]` (screenshots → `shots/v7_0-*.png`)
 
 ## Play offline
 Open `index.html` in Chrome or Safari (double-click works — no server needed).
