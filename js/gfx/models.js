@@ -248,11 +248,11 @@ const UNIT_MODELS = {
     B.box('body', 0.3, 0.2, 0.4, COL.GLASS, PBR.GLASS, 0.72, 0.08, 0, { bevel: 0.08 }); B.box('body', 0.22, 0.3, 0.3, 'TD', PBR.PAINT, -0.62, 0.3, 0, { bevel: 0.05 });
     B.box('body', 0.2, 0.18, 0.26, 'TD', PBR.PAINT, 0.55, 0.26, 0, { bevel: 0.05 }); for (const z of [-0.26, 0.26]) { B.box('body', 0.9, 0.12, 0.08, COL.STEEL, PBR.METAL, -0.05, -0.18, z, { bevel: 0.02 }); B.glow('body', 0.03, 0.03, 0.03, z > 0 ? COL.GRN : COL.RED, 0.1, 0.12, z * 1.05); }
     for (const x of [-0.5, 0.5]) for (const z of [-0.2, 0.2]) B.cyl('body', 0.04, 0.12, COL.DARK, PBR.DARKM, x, -0.28, z);
-    B.cyl('body', 0.75, 0.01, COL.GUN, PBR.DARKM, -0.62, 0.47, 0, { seg: 20 }); // rear rotor disc (motion blur)
+    B.cyl('body', 0.05, 0.05, COL.DARK, PBR.DARKM, -0.62, 0.47, 0); for (const r of [0, Math.PI / 2]) B.box('body', 1.2, 0.012, 0.06, COL.GUN, PBR.DARKM, -0.62, 0.48, 0, { bevel: 0, ry: r + 0.4 }); // v6.3: rear rotor blades (was an opaque disc hiding the roof cross)
     B.cyl('rotor', 0.05, 0.05, COL.DARK, PBR.DARKM, 0, 0, 0); B.box('rotor', 1.5, 0.015, 0.08, COL.GUN, PBR.DARKM, 0, 0.02, 0, { bevel: 0 }); B.box('rotor', 0.08, 0.015, 1.5, COL.GUN, PBR.DARKM, 0, 0.02, 0, { bevel: 0 });
     // v6.3 Seraph Medevac: white medical side panels with green crosses, belly beam emitter, green nav strobes
     for (const z of [-0.235, 0.235]) { B.box('body', 0.46, 0.26, 0.012, 0xeef2ee, PBR.PAINT, 0.05, 0.02, z, { bevel: 0 }); B.glow('body', 0.3, 0.07, 0.016, COL.GRN, 0.05, 0.02, z * 1.02); B.glow('body', 0.07, 0.2, 0.016, COL.GRN, 0.05, 0.02, z * 1.02); }
-    B.box('body', 0.3, 0.012, 0.3, 0xeef2ee, PBR.PAINT, -0.2, 0.215, 0, { bevel: 0 }); B.glow('body', 0.2, 0.016, 0.05, COL.GRN, -0.2, 0.22, 0); B.glow('body', 0.05, 0.016, 0.2, COL.GRN, -0.2, 0.22, 0);
+    B.box('body', 0.34, 0.012, 0.34, 0xeef2ee, PBR.PAINT, 0.12, 0.215, 0, { bevel: 0 }); B.glow('body', 0.24, 0.016, 0.07, COL.GRN, 0.12, 0.222, 0); B.glow('body', 0.07, 0.016, 0.24, COL.GRN, 0.12, 0.222, 0);
     B.cyl('body', 0.11, 0.08, COL.STEEL, PBR.METAL, 0.05, -0.25, 0, { seg: 14 }); B.glow('body', 0.14, 0.03, 0.14, COL.GRN, 0.05, -0.3, 0);
     B.piv.rotor = [0.55, 0.38, 0]; B.piv.tip = 0.8;
   },

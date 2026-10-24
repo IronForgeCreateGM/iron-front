@@ -261,7 +261,7 @@ function harassMgr(P, S, D, me, foes, knownB, home, hq) {
 // v6.3 Seraph Medevac: bots field one flying medic once the ground army is sizable and park it over the most-hurt cluster of their troops
 function medevacMgr(P, S, D, me, hq) {
   if (P.diff === 'easy' || !hq) return;
-  const meds = me.filter(u => u.t === 'medevac'), drop = S.drop && S.drop.tr, army = me.filter(u => !isAir(u) && u.t !== 'harv' && UT[u.t].wpn);
+  const meds = me.filter(u => u.t === 'medevac'), drop = S.drop && S.drop.tr, army = me.filter(u => u.kind === 'u' && !isAir(u) && u.t !== 'harv' && UT[u.t] && UT[u.t].wpn);
   if (!meds.some(m => m.id !== drop) && army.length >= 10 && G.time > 300 && avail(P.team, 'medevac') && !P.queues.air.some(q => q.t === 'medevac') && P.cr > 1300 && G.time > (S.medT || 0)) { enqueue(P.team, 'medevac'); S.medT = G.time + 60; }
   for (const m of meds) { if (m.id === drop || (m.cargo && m.cargo.length) || m.order === 'board' || m.order === 'unload') continue;
     if (m.hp < m.mhp * 0.35) { if (dhypot(m.x - hq.x, m.y - hq.y) > 4) orderMove([m], hq.x, hq.y, false); continue; }

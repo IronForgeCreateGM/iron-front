@@ -267,16 +267,74 @@ function buildVents() {
   }
 }
 
+// v6.3 lava: smooth organic shorelines + flowing molten shader. A blurred lava mask (per-vertex aF on a 3x3-subdivided
+// grid that extends 2 tiles past the lava) is noise-perturbed in the shader, so the edge is rounded and fades through a
+// cooled-basalt rim into the surrounding rock. Surface: domain-warped scrolling fbm, drifting cracked crust plates
+// (voronoi seams glow), pulsing emissive, heat ripple. Bubbles / embers / haze are particles (lavaFX). Visual only:
+// G.lava (gameplay) is untouched. Quiet mode (uLavaQ = 0) drops the warp + voronoi and the particles.
+const LAVA_GLSL = `
+vec2 lvVoro(vec2 p){ vec2 i = floor(p), f = fract(p); float d1 = 8.0, d2 = 8.0;
+  for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) { vec2 g = vec2(float(x), float(y)); vec2 o = vec2(hash12(i + g), hash12(i + g + 19.7)); float d = length(g + o - f);
+    if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d; } return vec2(d1, d2); }
+`;
+function buildLava() {
+  R3.lavaCore = null; R3.lavaVis = null;
+  if (!G.lava || !G.lava.some(v => v)) return;
+  // blurred mask at tile centres (two 3x3 box passes) -> smooth 0..1 field, ~0.5 on the original tile edges
+  let f = Float32Array.from(G.lava); for (let pass = 0; pass < 2; pass++) { const o = new Float32Array(MW * MH);
+    for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { let s = 0, n = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = Math.min(MW - 1, Math.max(0, x + dx)), yy = Math.min(MH - 1, Math.max(0, y + dy)); s += f[yy * MW + xx]; n++; } o[y * MW + x] = s / n; } f = o; }
+  const fieldAt = (x, y) => { const fx = Math.max(0, Math.min(MW - 1.001, x - 0.5)), fy = Math.max(0, Math.min(MH - 1.001, y - 0.5)), x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0, i = y0 * MW + x0;
+    const a = f[i], b = f[Math.min(i + 1, MW * MH - 1)], c = f[Math.min(i + MW, MW * MH - 1)], d = f[Math.min(i + MW + 1, MW * MH - 1)]; return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty; };
+  const S = 3, pos = [], fa = [], idx = []; let n = 0;
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { if (f[y * MW + x] < 0.012 && !G.lava[y * MW + x]) continue;
+    const b0 = n; for (let j = 0; j <= S; j++) for (let k = 0; k <= S; k++) { const px = x + k / S, py = y + j / S; pos.push(px, heightAt(px, py) + 0.05, py); fa.push(fieldAt(px, py)); n++; }
+    for (let j = 0; j < S; j++) for (let k = 0; k < S; k++) { const a = b0 + j * (S + 1) + k, b = a + 1, c = a + S + 1, d = c + 1; idx.push(a, c, b, b, c, d); } }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('aF', new THREE.Float32BufferAttribute(fa, 1)); g.setIndex(idx);
+  R3.uLavaQ = R3.uLavaQ || { value: R3.qName === 'quiet' ? 0 : 1 };
+  const m = new THREE.ShaderMaterial({ uniforms: { uTime: R3.uTime, uQ: R3.uLavaQ }, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+    vertexShader: 'attribute float aF; varying vec3 vW; varying float vF; void main(){ vec4 w = modelMatrix*vec4(position,1.0); vW = w.xyz; vF = aF; gl_Position = projectionMatrix*viewMatrix*w; }',
+    fragmentShader: GLSL_NOISE + LAVA_GLSL + `uniform float uTime, uQ; varying vec3 vW; varying float vF;
+void main(){
+  vec2 q = vW.xz; float t = uTime;
+  float en = vnoise(q*1.3)*0.55 + vnoise(q*3.7 + 4.0)*0.3 + vnoise(q*9.0)*0.15;     // organic, rounded shoreline
+  float e = vF + (en - 0.5)*0.42;
+  if (e < 0.16) discard;
+  float a = smoothstep(0.16, 0.3, e), molten = smoothstep(0.4, 0.64, e);
+  q += uQ*0.05*vec2(sin(q.y*3.1 + t*3.7), cos(q.x*2.7 + t*3.1));                   // heat ripple / shimmer
+  vec2 fl = vec2(t*0.055, t*0.032);
+  vec2 w = q*0.5; if (uQ > 0.5) w += vec2(fbm(q*0.33 + fl), fbm(q*0.33 - fl + 5.2))*1.5;  // domain-warped flow
+  float n = fbm(w + fl*2.0);
+  float seam = 1.0, pl = 0.0;
+  if (uQ > 0.5) { vec2 v = lvVoro(w*1.5 - fl*2.5); seam = v.y - v.x; pl = 1.0 - smoothstep(0.03, 0.14 + 0.12*n, seam); }
+  else { pl = 1.0 - smoothstep(0.0, 0.08, abs(vnoise(w*2.0 - fl*2.0) - 0.5)); }
+  float pulse = 0.82 + 0.18*sin(t*1.6 + n*7.0) + 0.06*sin(t*5.3 + q.x*0.7);
+  float n2 = vnoise(w*3.3 + fl*5.0);
+  vec3 hot = mix(vec3(0.75,0.08,0.01), vec3(1.25,0.42,0.04), smoothstep(0.25, 0.65, n)) * pulse;
+  hot += vec3(1.3,0.95,0.45) * pow(smoothstep(0.55, 0.95, n2*0.6 + n*0.5), 2.0) * pulse;      // white-hot streaks in the flow
+  vec3 rock = vec3(0.05,0.035,0.03) + vec3(0.06,0.045,0.035)*vnoise(q*7.0);
+  float crust = mix(0.95, smoothstep(0.42, 0.62, n)*0.9, molten);                  // shore mostly cooled crust, interior mostly molten
+  vec3 crustC = mix(rock, hot*0.9, pl*(0.55 + 0.45*molten));                          // glowing seams between drifting plates
+  vec3 col = mix(hot, crustC, crust);
+  col += vec3(0.9,0.25,0.03)*(1.0 - molten)*smoothstep(0.25, 0.45, e)*0.35*pulse;     // warm glow bleeding onto the rim
+  gl_FragColor = vec4(col, a); }` });
+  const me = new THREE.Mesh(g, m); me.renderOrder = 1; R3.scene.add(me); R3.lava = me;
+  R3.lavaCore = []; for (let i = 0; i < MW * MH; i++) if (f[i] > 0.85) R3.lavaCore.push(i);   // deep lava tiles for bubbles/embers
+}
+function lavaFX(dt) { // v6.3: bubbles, embers and heat haze over visible lava (off in quiet mode)
+  const L = R3.lavaCore; if (!L || !L.length || R3.qName === 'quiet') return;
+  if (!R3.lavaVis || R3.time > R3.lavaVisT) { const v = R3.view; R3.lavaVisT = R3.time + 0.4; R3.lavaVis = L.filter(i => { const x = i % MW + 0.5, y = (i / MW | 0) + 0.5; return x > v.x0 && x < v.x1 && y > v.y0 && y < v.y1; }); }
+  const V = R3.lavaVis; if (!V.length) return; const rate = Math.min(70, V.length * 0.4) * FX.mul * dt, cnt = Math.floor(rate) + (Math.random() < rate % 1 ? 1 : 0);
+  for (let k = 0; k < cnt; k++) { const i = V[(Math.random() * V.length) | 0], x = i % MW + Math.random(), y = (i / MW | 0) + Math.random(), h = heightAt(x, y) + 0.06, r = Math.random();
+    if (r < 0.45) { FX.fire.spawn(x, y, h, 0, 0, 0.04, 0.7 + Math.random() * 0.5, 0.06, 0.3 + Math.random() * 0.2, 1, 0.5, 0.12, 0.85, 0); if (Math.random() < 0.5) for (let s = 0; s < 3; s++) FX.spark.spawn(x, y, h + 0.15, (Math.random() - 0.5) * 0.8, (Math.random() - 0.5) * 0.8, 0.8 + Math.random(), 0.5, 0.05, 0.02, 1, 0.55, 0.15, 1, 2); }
+    else if (r < 0.85) FX.spark.spawn(x, y, h + 0.1, (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.3, 0.7 + Math.random() * 1.2, 1.6 + Math.random() * 1.4, 0.07, 0.02, 1, 0.45 + Math.random() * 0.25, 0.08, 1, -0.05);
+    else puff(x, y, h + 0.3, 0.7, 2.6, 0.95, 0.045, 0.55); }
+}
 // v5.0: lava (emissive, animated) and ice (glossy) surface overlays, built from tile masks as merged quads
 function buildSurfaces() {
   const mk = (mask, y0) => { const pos = [], idxs = []; let n = 0;
     for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) if (mask[y * MW + x]) { for (const [dx, dy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) pos.push(x + dx, heightAt(x + dx, y + dy) + y0, y + dy); idxs.push(n, n + 2, n + 1, n, n + 3, n + 2); n += 4; }
     if (!n) return null; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idxs); g.computeVertexNormals(); return g; };
-  const lg = mk(G.lava, 0.04);
-  if (lg) { const m = new THREE.ShaderMaterial({ uniforms: { uTime: R3.uTime, uFow: FOW.uFow, uFowC: FOW.uFowC }, vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }',
-      fragmentShader: GLSL_NOISE + 'uniform float uTime; varying vec3 vW; void main(){ vec2 q = vW.xz; float n = fbm(q*0.6 + vec2(uTime*0.05, uTime*0.03)), c = fbm(q*2.2 - uTime*0.08); float crust = smoothstep(0.45, 0.62, c);'
-        + ' vec3 hot = mix(vec3(1.4,0.35,0.05), vec3(2.2,1.0,0.25), n); vec3 col = mix(hot, vec3(0.12,0.07,0.05), crust*0.85); gl_FragColor = vec4(col, 1.0); }' });
-    const me = new THREE.Mesh(lg, m); R3.scene.add(me); R3.lava = me; }
+  buildLava();
   const ig = mk(G.ice, 0.03);
   if (ig) { const me = new THREE.Mesh(ig, new THREE.MeshStandardMaterial({ color: 0xbfe3f5, roughness: 0.12, metalness: 0.1, transparent: true, opacity: 0.85, envMapIntensity: 1.2 })); me.receiveShadow = true; R3.scene.add(me); }
   if (G.ruins) { const [mx, my] = G.ruins, B = new MB(0); for (let k = 0; k < 7; k++) { const a = k * 0.9, r = 1.2 + (k % 3) * 0.5; B.box('m', 0.5 + (k % 2) * 0.4, 0.4 + (k % 3) * 0.35, 0.35, 0x8a8f96, PBR.CONC, Math.cos(a) * r, 0.25, Math.sin(a) * r, { bevel: 0.05, ry: a }); }

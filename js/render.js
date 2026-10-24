@@ -48,7 +48,7 @@ function applyQuality(name) {
   R3.sun.castShadow = q.shadows;
   if (R3.sun.shadow.mapSize.x !== q.shadowSize) { R3.sun.shadow.mapSize.set(q.shadowSize, q.shadowSize); if (R3.sun.shadow.map) { R3.sun.shadow.map.dispose(); R3.sun.shadow.map = null; } }
   if (R3.grass) { R3.grass.count = Math.floor(R3.grassMax * q.grass); R3.grass.visible = q.grass > 0; }
-  FX.mul = q.fx; R3.fxBase = q.fx;
+  FX.mul = q.fx; R3.fxBase = q.fx; if (R3.uLavaQ) R3.uLavaQ.value = name === 'quiet' ? 0 : 1;
   r3Resize();
 }
 function r3Resize() {
@@ -210,7 +210,7 @@ function inView(x, y) { const v = R3.view; return x > v.x0 && x < v.x1 && y > v.
 // ---------- per-frame ----------
 function r3Render(dt) {
   missilesUpdate(dt); teslaArcs(dt);
-  medBeams(dt);
+  medBeams(dt); lavaFX(dt);
   wallsUpdate(); offlineIcons(dt); lowPowerAlert(); derricksUpdate(dt); dayNight(dt);
   R3.time += dt; R3.uTime.value = R3.time; R3.renderer.info.reset();
   updCamera(dt); updView(); if (!R3.anisoDone && R3.time > 0.5) { R3.anisoDone = true; applyAniso(); }
