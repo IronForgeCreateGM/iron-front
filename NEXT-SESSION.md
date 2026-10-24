@@ -145,3 +145,4 @@ Also earlier backlog: wall gate.
 - Regression: mobile-play-test `tabs` part (also runs in the default `play` run).
 
 - v7.0.1: mobile placement rewritten around a world-space ghost (MOB.pl in js/mobile.js: mobPlSet/mobPlSnap/mobPlStart, relative drag, hysteresis 0.75, glide, edge scroll). Regression: test/place701-test.js.
+- v7.0.2: China guard towers (BT.gtower.squad) run stepSquad in js/sim.js: four slots using W.rifle/snipe/rocket/marine via sqW (+GT_SQUAD.rng 1.5). W.gtow is only a summary for range ring / AI threat. Medevac escort: escortGroup/escortStep/airThreats in js/sim.js (order 'escort', u.esc, u.spCap), hooked in orderMove/orderAttack (non-queued) and ai.js medevacMgr. Tests: factions7, medevac702, v702-shot.

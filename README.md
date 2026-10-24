@@ -1,6 +1,15 @@
-# Iron Front: browser RTS (v7.0.1)
+# Iron Front: browser RTS (v7.0.2)
 
 Original real-time strategy game in plain HTML5/WebGL (Three.js vendored). No build step.
+
+## New in v7.0.2: Great Wall squad towers and a smarter Medevac
+
+- **China Great Wall guard towers** (every 5th wall piece) now fight like a garrisoned squad: rifleman, sniper, rocketeer and Iron Marine, each firing its own real weapon with +1.5 range from the height.
+  - Rifle 14 dmg / 0.9 s / 6 tiles; Sniper 125 / 3.2 s / 10.5 (ground, anti-infantry); Rocket 55 / 2.2 s / 7 (ground + air); Iron Marine 21 / 0.8 s / 7.6 (ground + air). Weapon upgrades and research apply.
+  - Was: one 14 dmg / 0.5 s gun at 5.5 tiles. HP 1100, cost and spacing unchanged; sight 7 → 11.
+  - Shreds infantry, but tanks, artillery and air still take towers down (4 heavy tanks kill one in about 10 s).
+- **Seraph Medevac hangs back.** Ordered along with combat units, it trails 3-5 tiles behind the army centre at the army's pace, never leads, moves in behind damaged units to heal them while keeping out of enemy range, and backs off when shot at. Ordered alone, it flies straight to the spot. Bot Medevacs use the same logic. (`MEDEVAC.escort` in js/data.js.)
+- Tests: `node test/factions7-test.js`, `node test/medevac702-test.js`, `node test/v702-shot.js [china|medevac]` (shots/v7_0_2-*.png).
 
 ## New in v7.0.1: smooth touch building placement
 - Tap a build card and a green ghost appears on a free spot near the middle of the screen, or where you last built.
