@@ -2,7 +2,7 @@
 // node test/vs-old.js "si:usa,si:rus" "old:chn,old:fra" seed [map] [maxMin]   ('old' = v7.0.3 brain from test/fixtures/ai-v703.js)
 // prints: <A> vs <B> s<seed> <map> <A|B|A(pts)|B(pts)|T> <min>m aiMs=<avg new>/<avg old> max=<worst single call>
 const fs = require('fs'), vm = require('vm'), path = require('path');
-globalThis.SIOFF = Object.fromEntries((process.env.SIOFF || '').split(',').filter(Boolean).map(k => [k, 1])); const J = f => fs.readFileSync(path.join(__dirname, '../js', f), 'utf8');
+globalThis.SIOFF = Object.fromEntries((process.env.SIOFF || '').split(',').filter(Boolean).map(k => [k, 1])); const J = f => fs.readFileSync(path.join(process.env.JSDIR || path.join(__dirname, '../js'), f), 'utf8');
 vm.runInThisContext(['data.js', 'sim.js', 'ai.js'].map(J).join('\n') + '\n' + fs.readFileSync(path.join(__dirname, 'fixtures/ai-v703.js'), 'utf8') + '\nglobalThis.A={newGame,stepGame,get G(){return G}};globalThis.NEWAI=aiStep;globalThis.OLDAI=O_aiStep;globalThis.OLDINIT=O_aiInit;');
 const [sa, sb, seed, map, mm] = process.argv.slice(2);
 const parse = (s, ally) => s.split(',').map(x => { const [diff, fac] = x.split(':'); return { ai: true, diff: diff === 'old' ? 'si' : diff, old: diff === 'old', fac, ally }; });
