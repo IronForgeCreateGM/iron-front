@@ -1,3 +1,7 @@
+# v7.0.3 (Oct 24 2026): hotfix, local commit only, NOT pushed
+Fixed the Endless boss-kill freeze (the Colossus is mech:1 with no leg rig, so the corpse animation threw and main.js rethrew, stopping requestAnimationFrame). Added loop error recovery, boss withering after 7 min, a horde A* budget and a walled-HQ elite fallback. Test: test/endless703-test.js.
+Still to verify on a real iPhone: no freeze on the boss kill, and FPS in late waves.
+
 # v7.0 shipped (Oct 24 2026), local commits only and NOT pushed. Nicholas approves pushes.
 Done: Endless mode, Iran/China/Japan factions with bot AI, title screen + lobby polish, safe areas/touch targets, PWA + Capacitor + APP-STORE.md.
 Next ideas / gaps:

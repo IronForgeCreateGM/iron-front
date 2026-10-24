@@ -69,17 +69,21 @@ function simAdvance(dt, maxN) {
 }
 // online: keep the lockstep running when this tab is hidden (rAF stops in background tabs)
 setInterval(() => { if (!started || !NET.online) return; const now = performance.now(); if (now - lastT > 250) { const dt = Math.min(2, (now - lastT) / 1000); lastT = now; simAdvance(dt, 70); if (G.events.length > 3000) G.events.splice(0, G.events.length - 1000); } }, 100);
-function frame(t, once) {
+function frame(t, once) { // v7.0.3: the next frame is always scheduled, even if this one throws
   if (REC && !once) return;
+  try { frameBody(t, once); } catch (e) { safeErr('frame', e); }
+  if (!once) requestAnimationFrame(frame);
+}
+function frameBody(t, once) {
   // FPS cap (Quiet mode 60/30) and no rendering while the tab is hidden
   const cap = typeof UI !== 'undefined' && UI.set && UI.set.quiet ? (+UI.set.quietFps || 60) : (UI.set && +UI.set.fpsCap) || 0;
-  if (!once && (document.hidden || cap && t - (R3.lastFrame || 0) < 1000 / cap - 2)) { if (document.hidden) { const dt0 = Math.max(0, Math.min(0.1, (t - lastT) / 1000)); lastT = t; simAdvance(dt0, 6); } requestAnimationFrame(frame); return; }
+  if (!once && (document.hidden || cap && t - (R3.lastFrame || 0) < 1000 / cap - 2)) { if (document.hidden) { const dt0 = Math.max(0, Math.min(0.1, (t - lastT) / 1000)); lastT = t; simAdvance(dt0, 6); } return; }
   R3.lastFrame = t;
   const dt = Math.max(0, Math.min(0.1, (t - lastT) / 1000)); lastT = t;
-  simAdvance(dt, 6);
+  try { simAdvance(dt, 6); } catch (e) { safeErr('sim', e); acc = 0; }
   if (QS.get('dbg') && G.tick % 30 === 0) document.title = 'IM ' + JSON.stringify([...R3.uiMesh.entries()].map(([k, u]) => k + ':' + u.n + ':' + u.parts.body.count + ':' + u.parts.body.visible + ':' + (R3.scene.children.includes(u.parts.body)) + ':' + Array.from(u.parts.body.instanceMatrix.array.slice(12, 15)).map(v => v.toFixed(1)))) + ' view ' + JSON.stringify(R3.view) + ' cam ' + JSON.stringify(R3.cam) + ' units ' + JSON.stringify(G.ents.filter(e => e.kind === 'u' && e.team === ME).map(e => [e.t, e.x.toFixed(1), e.y.toFixed(1)]));
-  if (G.watch && !paused) director(dt);
-  try { uiFrame(dt); r3Render(dt); } catch (e) { console.error(e); if (QS.get('stk')) document.title = 'STK ' + e.stack; throw e; }
+  if (G.watch && !paused) try { director(dt); } catch (e) { safeErr('director', e); }
+  try { uiFrame(dt); r3Render(dt); } catch (e) { safeErr('render', e); if (QS.get('stk')) document.title = 'STK ' + e.stack; } // v7.0.3: never rethrow — a throw here used to skip requestAnimationFrame and freeze the game for good
   if (G.over && !UI.endShown) { UI.endShown = true; const P = G.players[ME];
     document.getElementById('end').style.display = 'flex';
     document.getElementById('endTitle').textContent = G.end && !G.watch ? `GAME OVER — WAVE ${G.end.wave}` : G.watch ? (G.over === 'victory' ? 'BLUE TEAM WINS' : 'RED TEAM WINS') + ` · ${(G.time / 60).toFixed(1)} min` : G.over === 'victory' ? 'VICTORY' : 'DEFEAT';
@@ -87,7 +91,21 @@ function frame(t, once) {
     try { const rs = replayFile(); if (rs) localStorage.setItem('ifLastReplay', rs); } catch (e) {}
     endlessEndScreen();
     document.getElementById('endStats').innerHTML = endStatsHTML(); drawEndGraph(); sfx(G.over === 'victory' ? 'ready' : 'alert'); }
-  if (!once) requestAnimationFrame(frame);
+}
+// v7.0.3 error recovery: a thrown frame must never stop the game loop. Errors are logged (first few with stacks) and counted;
+// a sim error that repeats every tick triggers a sanitize pass that drops broken entities/projectiles so the game can carry on.
+const ERR = { n: 0, sim: 0, last: '', shown: false };
+function safeErr(where, e) {
+  ERR.n++; const msg = where + ': ' + (e && e.message || e); if (ERR.n <= 5 || msg !== ERR.last) console.error('[v7.0.3 recovered]', msg, e && e.stack); ERR.last = msg;
+  if (where === 'sim' && ++ERR.sim % 10 === 0) simSanitize();
+  if (!ERR.shown && ERR.n >= 3 && typeof uiMsg === 'function') { ERR.shown = true; try { uiMsg('Recovered from a game error — play continues'); } catch (e2) {} }
+}
+function simSanitize() {
+  const fin = v => typeof v === 'number' && isFinite(v);
+  G.ents = G.ents.filter(e => e && (e.kind === 'b' ? BT[e.t] : UT[e.t]) && fin(e.x) && fin(e.y) && fin(e.hp));
+  for (const e of G.ents) { if (e.tgt && (!G.ents.includes(e.tgt) || e.tgt.dead)) e.tgt = null; if (e.path && !Array.isArray(e.path)) e.path = []; }
+  G.projs = (G.projs || []).filter(p => p && p.w && fin(p.x) && fin(p.y) && fin(p.tx) && fin(p.ty));
+  if (G.events.length > 3000) G.events.length = 0;
 }
 // v5.2 replays: save (download a small .json) / load (file picker on the menu)
 function saveReplay() { const s = replayFile(); if (!s) { uiMsg && uiMsg('No replay recorded for this game'); return; } try { localStorage.setItem('ifLastReplay', s); } catch (e) {}

@@ -7,6 +7,8 @@ const END = {
   brk0: 45, brk: 25, brkBoss: 35,   // build breaks (s): first, normal, before a boss wave
   trickle: 0.25,                    // seconds between spawns
   cap: 80,                          // max horde units per wave (frame-rate cap; past it units just get tougher)
+  pathBudget: 16,                   // v7.0.3: max horde re-plans (A*) per AI pass
+  bossAttrT: 420, bossAttr: 0.01,   // v7.0.3: a boss still alive 7 min into its wave starts to wither too (no wave can stall forever)
   skipPay: 4,                       // $ per second of break skipped (paid to every defender)
   clearBase: 300, clearPer: 60,     // wave-clear bonus = 300 + 60 * wave (each defender)
   bounty: 0.25, bountyGrow: 0.02,   // kill bounty = 25% of unit cost * (1 + 2% per wave) to the killer
@@ -159,13 +161,15 @@ function hordeTarget(u) { // nearest defender structure (walls last), else neare
 }
 function endHordeAI() {
   const E = G.end, H = E.horde, slice = (G.tick / 30 | 0) % 2;
+  let budget = END.pathBudget; // v7.0.3: cap re-plans per pass (each is a full-map A*); the rest wait for the next pass
   for (const u of G.ents) {
+    if (budget <= 0) break;
     if (u.team !== H || u.kind !== 'u' || u.hp <= 0 || (u.id & 1) !== slice) continue;
     if (u.tgt && u.tgt.hp > 0 && !u.tgt.dead) continue;
     if (UT[u.t].kami && u.order !== 'idle') continue;
     const busy = u.path.length && (u.blockedT || 0) < 1.5;
     if (busy) continue;
-    const tg = hordeTarget(u); if (!tg) continue;
+    const tg = hordeTarget(u); if (!tg) continue; budget--;
     if (isAir(u)) { if (UT[u.t].kami) orderAttack([u], tg); else orderMove([u], tg.x, tg.y, true); continue; }
     orderMove([u], tg.x, tg.y, true);
     const end = u.path[u.path.length - 1], reach = 2.5 + (tg.w || 0);
@@ -192,7 +196,7 @@ function endlessStep() {
   if (E.spawnQ.length && G.time >= E.spawnT) { endlessSpawn(E.spawnQ.shift()); E.spawnT = G.time + END.trickle; }
   if (G.tick % 30 === 0) endHordeAI();
   if (G.tick % 300 === 150) endAllyBots();
-  if (G.tick % 30 === 0 && G.time - E.waveStart > END.attrT && !E.spawnQ.length) for (const u of G.ents) if (u.team === E.horde && u.kind === 'u' && u.hp > 0 && !u.boss) u.hp -= u.mhp * END.attr; // stragglers wither so a wave can never stall forever
+  if (G.tick % 30 === 0 && G.time - E.waveStart > END.attrT && !E.spawnQ.length) for (const u of G.ents) if (u.team === E.horde && u.kind === 'u' && u.hp > 0 && (!u.boss || G.time - E.waveStart > END.bossAttrT)) u.hp -= u.mhp * (u.boss ? END.bossAttr : END.attr); // stragglers wither so a wave can never stall forever (v7.0.3: a boss that can't reach anything too, after bossAttrT)
   if (G.tick % 15 === 0) { let a = 0; for (const e of G.ents) if (e.team === E.horde && e.kind === 'u' && e.hp > 0) a++; E.alive = a; if (!a && !E.spawnQ.length) endlessClear(); }
 }
 function endlessClear() {
@@ -214,7 +218,7 @@ function endlessClear() {
 function endElite(P) {
   const hq = G.ents.find(e => e.team === P.team && e.kind === 'b' && (e.t === 'hq' || e.t === 'cc') && e.hp > 0) || G.ents.find(e => e.team === P.team && e.kind === 'b' && e.hp > 0); if (!hq) return null;
   const t = { rus: 'tsar', ger: 'kommando', jpn: 'raijin' }[P.fac] || 'titan';
-  const u = addU(t, P.team, hq.x + 2.5, hq.y + hq.h / 2 + 1.2); const f = nearFree(Math.floor(u.x), Math.floor(u.y), 6); u.x = f[0] + 0.5; u.y = f[1] + 0.5; u.anchor = { x: u.x, y: u.y };
+  const u = addU(t, P.team, hq.x + 2.5, hq.y + hq.h / 2 + 1.2); let f = nearFree(Math.floor(u.x), Math.floor(u.y), 6); if (getBlock()[idx(f[0], f[1])]) f = nearFree(Math.floor(u.x), Math.floor(u.y), 30); /* v7.0.3: HQ walled in tight -> look further out */ u.x = f[0] + 0.5; u.y = f[1] + 0.5; u.anchor = { x: u.x, y: u.y };
   u.hp = u.mhp = Math.round(u.mhp * 1.5); u.dmgM = 1.3; u.elite = 1; u.vet = 3;
   G.events.push({ e: 'unit', team: P.team, u }, { e: 'elite', team: P.team, u });
   return u;

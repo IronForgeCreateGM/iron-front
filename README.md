@@ -1,6 +1,19 @@
-# Iron Front: browser RTS (v7.0.2)
+# Iron Front: browser RTS (v7.0.3)
 
 Original real-time strategy game in plain HTML5/WebGL (Three.js vendored). No build step.
+
+## v7.0.3: Endless boss-kill freeze fixed
+
+- **Bug:** in Endless, the game froze for good the moment the wave-10 boss (Colossus) died, on every faction and device. The Colossus counts as a "mech" but uses a tank model with no legs, so the renderer's falling-walker death animation crashed on it every frame. The crash also skipped scheduling the next frame, so the whole game stopped. The HUD stayed on the last frame, e.g. "BOSS WAVE 10 · 2 enemies left".
+- **Fix:** units without a leg rig no longer get a walker corpse, and bosses get none at all.
+  The renderer also skips, instead of crashing on, any entity whose unit type is unknown, and the walker-pose code ignores models with no legs.
+- **Safety:**
+  - The main loop now always schedules the next frame. Sim, render and director errors are logged and recovered, and a sim error that keeps repeating triggers a clean-up pass for broken entities and projectiles. After 3 errors a small "Recovered from a game error" note appears.
+  - Endless: a boss still alive 7 minutes into its wave starts to wither, as stragglers already did, so no wave can stall forever.
+  - Horde re-pathing is capped at 16 A* searches per AI pass.
+  - The elite boss reward looks up to 30 tiles out for a free tile when the HQ is walled in tight.
+  - Wave size stays capped at 80 units, and particles use fixed-size pools.
+- Regression test: `test/endless703-test.js` clears boss wave 10 in a walled China base on iPhone landscape and portrait (touch), then kills the boss and the elite as each of the other 7 factions, and checks that the loop keeps running with no errors.
 
 ## New in v7.0.2: Great Wall squad towers, Ballista Towers and a smarter Medevac
 

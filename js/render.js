@@ -128,7 +128,7 @@ function handleEvents() {
         const p = barrelTip(s), w = ev.w.type, big = w === 'cannon' || w === 'shell'; if (s.kind === 'b' && s.t === 'gcannon') gcannonBlast(s, p);
         else if (w === 'bolt') { const o = R3.objs.get(s.id); if (o) { o.bk = 1; o.bfT = G.time; } flash(p.x, p.y, p.z, 0.5, 1, 0.9, 0.7); for (let i = 0; i < 5 * FX.mul; i++) puff(p.x - Math.cos(s.tang) * 0.6 + rnd(0.3), p.y - Math.sin(s.tang) * 0.6 + rnd(0.3), p.z, 0.2, 0.9, 0.62, 0.55, 0.45); shake(0.05); } // v7.0.2 Ballista release: string snap + dust else if (ev.w.big) { flash(p.x, p.y, p.z, 2.0, 1, 0.8, 0.5); for (let i = 0; i < 10 * FX.mul; i++) puff(p.x + rnd(0.5), p.y + rnd(0.5), p.z, 0.5, 2.0, 0.6, 0.55, 0.5); shake(0.15); }
         flash(p.x, p.y, p.z, big ? 0.9 : w === 'bullet' ? 0.35 : 0.55, 1, 0.8, 0.45);
-        { const r0 = R3.rs.get(s.id); if (r0 && s.kind === 'u' && (UT[s.t].armor === 'inf' || UT[s.t].mech)) r0.kick = 1; }
+        { const r0 = R3.rs.get(s.id); if (r0 && s.kind === 'u' && UT[s.t] && (UT[s.t].armor === 'inf' || UT[s.t].mech)) r0.kick = 1; }
         if (big) { for (let i = 0; i < 4 * FX.mul; i++) puff(p.x + Math.cos(s.tang) * 0.2, p.y + Math.sin(s.tang) * 0.2, p.z, 0.25, 1.1, 0.55, 0.45, 0.3); const rs = R3.rs.get(s.id); if (rs) rs.recoil = 0.09; }
         if (w === 'gat') { // v5.9 gatling: bright flash, ejected brass casings, faint gun smoke
           flash(p.x, p.y, p.z, 0.5, 1, 0.85, 0.4); const sx = -Math.sin(s.tang), sy = Math.cos(s.tang);
@@ -158,7 +158,7 @@ function handleEvents() {
         const e = ev.ent; const seen = !G.opts.fog || visibleTo0(e);
         if (e.sold || !seen) { disposeObj(e.id); R3.rs.delete(e.id); break; }
         const rs = R3.rs.get(e.id), z = rs ? rs.z : heightAt(e.x, e.y);
-        if (e.kind === 'u' && (UT[e.t].armor === 'inf' || UT[e.t].mech) && rs) { R3.corpses.push({ t: e.t, team: e.team, rs: Object.assign({}, rs, { aim: 0, spd: 0, dead: 0, fallDir: Math.random() < 0.6 ? 1 : -1 }), t0: R3.time }); if (R3.corpses.length > 60) R3.corpses.shift(); }
+        if (e.kind === 'u' && UT[e.t] && (UT[e.t].armor === 'inf' || UT[e.t].mech) && !UT[e.t].boss && rs) { R3.corpses.push({ t: e.t, team: e.team, rs: Object.assign({}, rs, { aim: 0, spd: 0, dead: 0, fallDir: Math.random() < 0.6 ? 1 : -1 }), t0: R3.time }); if (R3.corpses.length > 60) R3.corpses.shift(); }
         if (e.kind === 'b') { const n = Math.max(3, e.w * e.h); for (let i = 0; i < n; i++) setTimeout(() => explosion3(e.tx + Math.random() * e.w, e.ty + Math.random() * e.h, heightAt(e.x, e.y) + 0.4 + Math.random(), 1.1 + Math.random() * 0.7), i * 120);
           debris(e.x, e.y, 1, 16, 0, true); scorch3(e.x, e.y, e.w * 1.8); sfx('boomBig', e.x, e.y); shake(0.5); }
         else if (UT[e.t].armor === 'inf') { puff(e.x, e.y, z + 0.2, 0.3, 1, 0.4, 0.5, 0.3); sfx('die', e.x, e.y); }
@@ -312,7 +312,8 @@ function r3Render(dt) {
     if (e.hp / e.mhp < 0.35 && d.armor !== 'inf' && Math.random() < dt * 8 * FX.mul) puff(rs.x, rs.y, rs.z + 0.4, 0.15, 1.4, 0.1, 0.7, 0.8);
   }
   R3.corpses = R3.corpses.filter(c => R3.time - c.t0 < 9);
-  for (const c of R3.corpses) { const rs = c.rs; if (!inView(rs.x, rs.y)) continue; const U = unitIM(c.t, c.team), pv = U.model.piv; if (U.n + 3 >= U.cap) growIM(U, U.cap * 2);
+  for (const c of R3.corpses) { const rs = c.rs; if (!inView(rs.x, rs.y)) continue; if (!UT[c.t]) { c.t0 = -1e9; continue; } const U = unitIM(c.t, c.team), pv = U.model.piv; if (!pv.legs) { c.t0 = -1e9; continue; } // v7.0.3: legless models (the Colossus boss is mech:1 but a tank) have no rig to collapse — this threw every frame and froze the game on the boss kill
+    if (U.n + 3 >= U.cap) growIM(U, U.cap * 2);
     const age = R3.time - c.t0, f = Math.min(1, age / 0.55), ease = f * f * (3 - 2 * f), sink = Math.max(0, age - 6) * 0.12, vs = UT[c.t].mech ? 0.85 : 1;
     rs.dead = ease; T.e.set(0, -rs.tang, 0, 'YXZ'); T.q.setFromEuler(T.e);
     const sq = pv.squad || 1; for (let m = 0; m < sq; m++) { const ii = U.n++; T.b.compose(T.p.set(rs.x, rs.z - sink, rs.y), T.q, T.s.set(vs, vs, vs)); if (sq > 1) T.b.multiply(T.l.makeTranslation([0.18, -0.2, -0.2][m], 0, [0, 0.24, -0.24][m]));
@@ -439,6 +440,7 @@ function animGait(rs, e, d, dt, L) {
 const _RG = typeof THREE !== 'undefined' ? { P: m4(), A: m4(), B: m4(), C: m4(), q: new THREE.Quaternion(), e: new THREE.Euler(), v: new THREE.Vector3(), one: new THREE.Vector3(1, 1, 1) } : null;
 function rz(m, a) { _RG.e.set(0, 0, a); _RG.q.setFromEuler(_RG.e); return m.makeRotationFromQuaternion(_RG.q); }
 function poseRig(U, i, base, rs, L, seed, fall) {
+  if (!L) return; // v7.0.3 defensive: legless model has no rig
   const R = _RG, mech = L.mech, sp = rs.spd || 0, w = Math.min(1, sp / (mech ? 0.6 : 0.45)), run = Math.max(0, Math.min(1, (sp - 1.5) / 0.8));
   const ph = (rs.ph || 0) + seed, aim = rs.aim || 0, dead = rs.dead || 0, kick = rs.kick || 0, t = R3.time + seed * 3.1 + (rs.idleT || 0) * 0.01;
   const A = (mech ? 0.4 : 0.5 + 0.25 * run) * w;
