@@ -191,10 +191,26 @@ function shake(a) { R3.shake = Math.max(R3.shake || 0, a); }
 function sm3Streak(bx, by, x, y, z, s) { const h0 = heightAt(bx, by) + 1.4, n = 12; for (let i = 1; i <= n; i++) { const f = i / n, px = bx + (x - bx) * f, py = by + (y - by) * f, pz = h0 + (z - h0) * f + Math.sin(f * Math.PI) * 1.2;
     FX.spark.spawn(px, py, pz, 0, 0, 0, 0.35 + 0.25 * f, 0.3 + 0.12 * f, 0.08, 0.55, 0.9, 1, 1, 0, 0); if (i % 2 === 0) puff(px, py, pz, 0.3, 1.1, 0.95, 0.5, 0.1); }
   FX.spark.spawn(x, y, z, 0, 0, 0, 0.5, s * 1.4, s * 2.2, 0.6, 0.9, 1, 1, 0, 0); flash(x, y, z, s * 0.7, 1, 1, 1); sparks(x, y, z, 16, 3); if (typeof sfx === 'function') sfx('flak', x, y); }
+// v6.3 Seraph Medevac: green heal beams (tapered additive cones from the craft belly down to each target) + rising green motes
+const BV1 = typeof THREE !== "undefined" ? new THREE.Vector3() : null, BV2 = typeof THREE !== "undefined" ? new THREE.Vector3() : null;
+function medBeams(dt) {
+  if (!R3.beamPool) { R3.beamPool = []; R3.beamGeo = new THREE.CylinderGeometry(0.05, 0.22, 1, 10, 1, true).translate(0, -0.5, 0); }
+  let n = 0; const pulse = 0.55 + 0.25 * Math.sin(R3.time * 9);
+  for (const e of G.ents) { if (e.t !== 'medevac' || !e.beams || !e.beams.length || e.dead) continue; if (G.opts.fog && !visibleTo0(e)) continue;
+    const a = R3.rs.get(e.id); if (!a || !inView(a.x, a.y)) continue;
+    for (const id of e.beams) { const o = byId(id); const b = o && R3.rs.get(id); if (!b || o.hp <= 0) continue;
+      let m = R3.beamPool[n]; if (!m) { m = new THREE.Mesh(R3.beamGeo, new THREE.MeshBasicMaterial({ color: 0x5cff8a, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); m.renderOrder = 3; m.frustumCulled = false; R3.scene.add(m); R3.beamPool.push(m); }
+      n++; const y0 = a.z - 0.15, y1 = b.z + 0.35, dx = b.x - a.x, dz = b.y - a.y, dy = y1 - y0, L = Math.hypot(dx, dy, dz) || 0.01;
+      m.visible = true; m.position.set(a.x, y0, a.y); m.scale.set(1, L, 1); m.quaternion.setFromUnitVectors(BV1.set(0, -1, 0), BV2.set(dx / L, dy / L, dz / L)); m.material.opacity = pulse;
+      if (Math.random() < dt * 10 * FX.mul) { const f = Math.random(); FX.spark.spawn(a.x + dx * f, a.y + dz * f, y0 + dy * f, 0, 0, 0.4, 0.5, 0.14, 0.04, 0.4, 1, 0.55, 1, 0); }
+      if (Math.random() < dt * 6 * FX.mul) FX.spark.spawn(b.x + (Math.random() - 0.5) * 0.5, b.y + (Math.random() - 0.5) * 0.5, b.z + 0.1, 0, 0, 0.9, 0.7, 0.16, 0.05, 0.45, 1, 0.6, 1, 0); } }
+  for (let i = n; i < R3.beamPool.length; i++) R3.beamPool[i].visible = false;
+}
 function inView(x, y) { const v = R3.view; return x > v.x0 && x < v.x1 && y > v.y0 && y < v.y1; }
 // ---------- per-frame ----------
 function r3Render(dt) {
   missilesUpdate(dt); teslaArcs(dt);
+  medBeams(dt);
   wallsUpdate(); offlineIcons(dt); lowPowerAlert(); derricksUpdate(dt); dayNight(dt);
   R3.time += dt; R3.uTime.value = R3.time; R3.renderer.info.reset();
   updCamera(dt); updView(); if (!R3.anisoDone && R3.time > 0.5) { R3.anisoDone = true; applyAniso(); }
@@ -240,7 +256,7 @@ function r3Render(dt) {
     const d = UT[e.t], air = !!d.air, tz = heightAt(e.x, e.y) * (air ? 0.3 : 1) + e.z;
     if (Math.hypot(rs.x - e.x, rs.y - e.y) > 2) { rs.x = e.x; rs.y = e.y; rs.z = tz; } else { rs.x += (e.x - rs.x) * k; rs.y += (e.y - rs.y) * k; rs.z += (tz - rs.z) * k; }
     rs.ang += angDiff(rs.ang, e.ang) * k; rs.tang += angDiff(rs.tang, e.tang) * Math.min(1, k * 1.5);
-    rs.recoil = Math.max(0, rs.recoil - dt * 0.35); rs.spin += dt * (e.t === 'gunship' || e.t === 'hauler' ? 28 : e.t === 'harv' ? (e.hst === 'mine' ? 8 : 0) : 3);
+    rs.recoil = Math.max(0, rs.recoil - dt * 0.35); rs.spin += dt * (e.t === 'gunship' || e.t === 'medevac' ? 28 : e.t === 'harv' ? (e.hst === 'mine' ? 8 : 0) : 3);
     if (!vis || !inView(rs.x, rs.y)) continue;
     const U = unitIM(e.t, e.team); if (U.n >= U.cap) growIM(U, U.cap * 2);
     const i = U.n++, pv = U.model.piv;

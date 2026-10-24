@@ -132,7 +132,7 @@ function aiStep(P) {
   const strikers = me.filter(u => u.kind === 'u' && (u.t === 'jet' || u.t === 'bomber' || u.t === 'stealth') && u.js === 'landed' && u.ammo >= W[UT[u.t].wpn].ammo);
   if (!doc && strikers.length && knownB.length && G.time > D.harassAfter && peaceOver(P) && G.R() < 0.4) { const pri = S.towerHeavy ? ['power', 'refinery', 'factory', 'airfield', 'tech', 'barracks'] : ['refinery', 'power', 'factory', 'airfield', 'tech', 'barracks'], tg = knownB.slice().sort((a, b) => (pri.indexOf(a.t) + 1 || 9) - (pri.indexOf(b.t) + 1 || 9))[0]; if (tg) orderAttack(strikers, tg); }
   if (doc) { airRaidMgr(P, S, D, me, foes, knownB, hq); warheadMgr(P, S, D, me, foes, knownB); }
-  macroMgr(P, S, D, cnt, me); harassMgr(P, S, D, me, foes, knownB, home, hq); dropMgr(P, S, D, me, foes, knownB, home, hq); derrickMgr(P, S, D, me, cnt, hq);
+  macroMgr(P, S, D, cnt, me); harassMgr(P, S, D, me, foes, knownB, home, hq); dropMgr(P, S, D, me, foes, knownB, home, hq); medevacMgr(P, S, D, me, hq); derrickMgr(P, S, D, me, cnt, hq);
   S.doc = doc;
   if (D.si) siExtras(P, S, me, foes, knownB, hq, estart, intruders);
   if (D.chief || D.sys.sim) { if (G.time <= END_T) chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart); keepBusy(P, S, D, me, cnt, hq, intruders); return; }
@@ -258,11 +258,21 @@ function harassMgr(P, S, D, me, foes, knownB, home, hq) {
 
 
 // transport drops: load a strike team at home, fly around the front (flank waypoint, avoid known flak), unload behind the wall on power/eco/production
+// v6.3 Seraph Medevac: bots field one flying medic once the ground army is sizable and park it over the most-hurt cluster of their troops
+function medevacMgr(P, S, D, me, hq) {
+  if (P.diff === 'easy' || !hq) return;
+  const meds = me.filter(u => u.t === 'medevac'), drop = S.drop && S.drop.tr, army = me.filter(u => !isAir(u) && u.t !== 'harv' && UT[u.t].wpn);
+  if (!meds.some(m => m.id !== drop) && army.length >= 10 && G.time > 300 && avail(P.team, 'medevac') && !P.queues.air.some(q => q.t === 'medevac') && P.cr > 1300 && G.time > (S.medT || 0)) { enqueue(P.team, 'medevac'); S.medT = G.time + 60; }
+  for (const m of meds) { if (m.id === drop || (m.cargo && m.cargo.length) || m.order === 'board' || m.order === 'unload') continue;
+    if (m.hp < m.mhp * 0.35) { if (dhypot(m.x - hq.x, m.y - hq.y) > 4) orderMove([m], hq.x, hq.y, false); continue; }
+    let best = null, bs = 0; for (const u of army) { if (u.hp >= u.mhp * 0.9) continue; let sc = 1 - u.hp / u.mhp; for (const o of army) if (o !== u && o.hp < o.mhp && dhypot(o.x - u.x, o.y - u.y) < MEDEVAC.r) sc += 1 - o.hp / o.mhp; if (sc > bs) { bs = sc; best = u; } }
+    if (best) { if (dhypot(m.x - best.x, m.y - best.y) > 1) orderMove([m], best.x, best.y, false); }
+    else if (dhypot(m.x - hq.x, m.y - hq.y) > 8 && m.order === 'idle') orderMove([m], hq.x + 2, hq.y + 2, false); } }
 function dropMgr(P, S, D, me, foes, knownB, home, hq) {
   if (P.diff === 'easy' || !peaceOver(P) || G.time < 420) return;
-  const trs = me.filter(u => u.t === 'hauler');
+  const trs = me.filter(u => u.t === 'medevac');
   const want = (S.towerHeavy || knownB.some(b => b.t === 'wall') || G.time > 720) && knownB.length;
-  if (want && !trs.length && avail(P.team, 'hauler') && !P.queues.air.some(q => q.t === 'hauler') && P.cr > 1500 && G.time > (S.dropT || 0)) enqueue(P.team, 'hauler');
+  if (want && !trs.length && avail(P.team, 'medevac') && !P.queues.air.some(q => q.t === 'medevac') && P.cr > 1500 && G.time > (S.dropT || 0)) enqueue(P.team, 'medevac');
   if (!S.drop) { const tr = trs.find(t => !t.cargo.length && dhypot(t.x - hq.x, t.y - hq.y) < 16 && t.order === 'idle');
     if (!tr || !want || G.time < (S.dropT || 0)) return;
     if (S.siege && D.si && !(S.grp || []).length && !SIOFF.siege) return; // time drops with the main push

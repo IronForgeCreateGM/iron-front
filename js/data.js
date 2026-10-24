@@ -87,7 +87,7 @@ const UT = {
   intercept:{ n: 'Talon Interceptor', hp: 360, sp: 7.5, armor: 'air', wpn: 'aam', cost: 1300, time: 10, from: 'airfield', sight: 10, r: 0.55, req: [], air: 1, jet: 1 },
   bomber: { n: 'Thunder Bomber', hp: 950, sp: 3.6, armor: 'air', wpn: 'cbomb', cost: 2800, gas: 250, time: 20, from: 'airfield', sight: 8, r: 0.9, req: [], air: 1, jet: 1 },
   stealth:{ n: 'Nightshade Stealth Fighter', hp: 380, sp: 7.5, armor: 'air', wpn: 'sbomb', cost: 2400, gas: 200, time: 16, from: 'airfield', sight: 8, r: 0.6, req: [], air: 1, jet: 1, stealthy: 1, fac: 'usa' },
-  hauler: { n: 'Hauler Transport', hp: 1000, sp: 3.0, armor: 'air', cost: 1100, time: 10, from: 'airfield', sight: 7, r: 0.7, req: ['tech'], air: 1, cap: 8, desc: 'Carries 8 slots (infantry 1, vehicles 4). Right-click it with ground units to board; D to unload anywhere. Weak to flak/AA.' },
+  medevac:{ n: 'Seraph Medevac', hp: 560, sp: 3.0, armor: 'air', cost: 1100, time: 10, from: 'airfield', sight: 7, r: 0.7, req: ['tech'], air: 1, cap: 8, medevac: 1, desc: 'Flying medic + transport (replaces the Hauler Transport). Projects a green healing beam onto damaged friendly ground units within 2.5 tiles (12 HP/s each, up to 3 at once; healers do not stack). Carries 8 slots (infantry 1, vehicles 4): select units and right-click it to board; Unload all = button or Shift+B (B = unload at a spot). Fragile vs flak/AA.' },
   gunship:{ n: 'Hornet Gunship', hp: 340, sp: 3.4, armor: 'air', wpn: 'gun', cost: 1200, time: 10, from: 'airfield', sight: 8, r: 0.5, req: [], air: 1 },
 };
 const CATS = { bld: 'Structures', def: 'Defenses', inf: 'Infantry', veh: 'Vehicles', air: 'Aircraft' };
@@ -113,6 +113,7 @@ const DIFF = {
 // economy
 const DERRICK_RATE = 11.25; // credits / second per captured oil derrick (v6.2: 9 -> 11.25, +25%)
 const ORE_VALUE = 0.91, HARV_CAP = 360, MINE_RATE = 40, UNLOAD_RATE = 300, ORE_REGROW = 0.8, ORE_MULT = 14.3; // per second (v6.2: load 600 -> 360 = -40%, patches 11 -> 14.3 = +30% ore)
+const MEDEVAC = { r: 2.5, hps: 12, max: 3 }; // v6.3 Seraph Medevac heal beam: radius, HP/s per target, beams per craft (one healer per target)
 const FIELD_CAP = 4, DIA_BONUS = 140, DIA_DIST = 20; // v6.2: max haulers per ore field (per team); diamond ore (fields > DIA_DIST tiles from every start) pays +$140 per full load
 // defense upgrades: level 2/3 cost & time per structure; per-level multipliers
 // v5.2 Warhead Launcher missiles: build one at a time in the silo, then launch at a target (arcs through the atmosphere)

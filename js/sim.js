@@ -808,6 +808,7 @@ function stepUnit(u) {
   if (false) { // v5.1: lava is purely visual (no damage)
  u.hp -= 26 * DT * 6 * (d.armor === 'inf' ? 1 : 1.4); u.lastHitBy = null; u.hitT = G.time; }
   if (d.heal) medic(u, d);
+  if (d.medevac && (G.tick + u.id) % 15 === 0) medevacHeal(u);
   if (d.marine && (G.tick + u.id) % 15 === 0) { let n = 0; for (const o of G.ents) if (o !== u && o.kind === 'u' && o.t === 'marine' && o.team === u.team && o.hp > 0 && dhypot(o.x - u.x, o.y - u.y) < MAR.rad && ++n >= MAR.cap) break; u.nb = n; }
   if (d.regen && u.hp < u.mhp) u.hp = Math.min(u.mhp, u.hp + d.regen * DT);
   if (d.air && u.hp < u.mhp && (G.tick + u.id) % 15 === 0 && (u.js === 'landed' || !u.path.length)) { for (const b of G.ents) if (b.t === 'airfield' && b.team === u.team && b.kind === 'b' && b.sell < 0 && b.hp > 0 && Math.abs(b.x - u.x) < 2.6 && Math.abs(b.y - u.y) < 2.1) { u.hp = Math.min(u.mhp, u.hp + u.mhp * 0.04); if (!(G.tick % 30)) G.events.push({ e: 'heal', x: u.x, y: u.y, src: b, rep: 1 }); break; } } // v6.2 Air Command repairs docked aircraft (8%/s)
@@ -880,6 +881,11 @@ function jetStep(u, d) {
   if (u.order === 'idle' && !u.tgt && !u.path.length && (G.tick + u.id) % 60 === 0) { const b = airBase(u); if (b && dhypot(b.x - u.x, b.y - u.y) > 2.5) u.js = 'rtb'; else if (b) { u.js = 'rtb'; } }
   return false;
 }
+function medevacHeal(u) { // v6.3: heal beam onto damaged friendly ground units below/near; a target already healed this window by another craft is skipped (no stacking)
+  const w = G.tick - (G.tick % 15); if (G.healW !== w) { G.healW = w; G.healed = new Set(); }
+  const c = []; for (const o of G.ents) if (o.kind === 'u' && o.team === u.team && o.hp > 0 && o.hp < o.mhp && !isAir(o) && !o.dead) { const dd = dhypot(o.x - u.x, o.y - u.y); if (dd < MEDEVAC.r) c.push([dd, o]); }
+  c.sort((a, b) => a[0] - b[0] || a[1].id - b[1].id); u.beams = [];
+  for (const [, o] of c) { if (u.beams.length >= MEDEVAC.max) break; if (G.healed.has(o.id)) continue; G.healed.add(o.id); o.hp = Math.min(o.mhp, o.hp + MEDEVAC.hps * 15 * DT); u.beams.push(o.id); } }
 function medic(u, d) { // v6.2 Engineer: auto-repair damaged buildings (fast) and heal nearby ground units (slower); never used up
   if (u.order !== 'idle' && u.order !== 'amove') { u.healT = null; return; }
   if ((G.tick + u.id) % 15 === 0) { let best = null, bs = -1e9;

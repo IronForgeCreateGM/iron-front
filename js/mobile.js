@@ -98,7 +98,7 @@ function mobCmd(k) {
   else if (k === 'idle') { const l = idleList('army'); if (l.length) { setSel(l); jumpTo(l[0].x, l[0].y); uiMsg(`💤 ${l.length} idle units`); } else uiMsg('No idle units'); }
   else if (k === 'type') { const ts = new Set(us.map(u => u.t)); if (!ts.size) { uiMsg('Select a unit first (or double-tap one)'); return; } setSel(G.ents.filter(o => o.team === ME && o.kind === 'u' && ts.has(o.t) && inView(o.x, o.y))); }
   else if (k === 'box') { MOB.box = !MOB.box; if (MOB.box) uiMsg('⬚ Drag a box to select units'); }
-  else if (k === 'siege') { if (!toggleSiege()) { sfx('error'); uiMsg('Select Howler artillery to deploy Siege Mode'); } }
+  else if (k === 'siege') { if (!unloadAll() && !toggleSiege()) { sfx('error'); uiMsg('Select Howler artillery to deploy Siege Mode (or a Medevac to unload all)'); } }
   else if (k === 'stop') { if (us.length) { NET.issue({ c: 'stop', u: ids(us) }); us.forEach(u => MOB.stopped.add(u.id)); sfx('ack'); } }
   else if (k === 'hold') { if (us.length) { const st = us.every(u => u.stance === 'hold') ? 'aggr' : 'hold'; NET.issue({ c: 'stance', u: ids(us), s: st }); uiMsg(st === 'hold' ? '⚓ Hold position' : '⚔ Aggressive'); sfx('ack'); } }
   else if (k === 'home') { const h = mobHome(); if (us.length && h) { NET.issue({ c: 'move', u: ids(us), x: h.x + (MW / 2 > h.x ? 4 : -4), y: h.y + (MH / 2 > h.y ? 4 : -4), am: false }); uiMsg('🏠 Retreating to base'); sfx('ack'); } else if (h) jumpTo(h.x, h.y); }
@@ -154,7 +154,7 @@ function mobTap(x, y) {
   const t = pickAt(x, y), now = performance.now();
   if (t && t.team === ME) {
     if (MOB.T.lastTapT === t.t && now - MOB.T.lastTap < 380) { setSel(sameTypeOnScreen(t)); uiMsg('👥 All ' + (BT[t.t] || UT[t.t]).n + ' on screen' + (t.kind === 'b' ? (UPG[t.t] ? ' — Upgrade all below' : PRODB.includes(t.t) ? ' — tap ground for a shared rally point' : '') : '')); }
-    else if (t.kind === 'b' && UI.sel.some(s => s.kind === 'u' && s.team === ME) && (t.cargo || t.t === 'refinery')) { onDown(fake(2)); }
+    else if ((t.kind === 'b' || t.cargo) && UI.sel.some(s => s.kind === 'u' && s.team === ME && s !== t && !s.cargo) && (t.cargo || t.t === 'refinery')) { onDown(fake(2)); }
     else setSel([t]);
     MOB.T.lastTap = now; MOB.T.lastTapT = t.t; sfx('click'); return; }
   MOB.T.lastTap = now; MOB.T.lastTapT = null;
