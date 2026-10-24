@@ -267,7 +267,10 @@ function medevacMgr(P, S, D, me, hq) {
   for (const m of meds) { if (m.id === drop || (m.cargo && m.cargo.length) || m.order === 'board' || m.order === 'unload') continue;
     if (m.hp < m.mhp * 0.35) { if (dhypot(m.x - hq.x, m.y - hq.y) > 4) orderMove([m], hq.x, hq.y, false); continue; }
     let best = null, bs = 0; for (const u of army) { if (u.hp >= u.mhp * 0.9) continue; let sc = 1 - u.hp / u.mhp; for (const o of army) if (o !== u && o.hp < o.mhp && dhypot(o.x - u.x, o.y - u.y) < MEDEVAC.r) sc += 1 - o.hp / o.mhp; if (sc > bs) { bs = sc; best = u; } }
-    if (best) { if (dhypot(m.x - best.x, m.y - best.y) > 1) orderMove([m], best.x, best.y, false); }
+    if (best) { // v7.0.2: escort the troops around the most damaged unit (same hang-back logic as the player's Medevac) instead of flying onto it
+      const cur = m.order === 'escort' && m.esc && m.esc.ids.some(id => { const g = army.find(a => a.id === id); return g && dhypot(g.x - best.x, g.y - best.y) < 10; });
+      if (!cur) { const grp = army.filter(a => dhypot(a.x - best.x, a.y - best.y) < 9); escortGroup([m, ...grp], best.x, best.y, true, false); } }
+    else if (m.order === 'escort') continue;
     else if (dhypot(m.x - hq.x, m.y - hq.y) > 8 && m.order === 'idle') orderMove([m], hq.x + 2, hq.y + 2, false); } }
 function dropMgr(P, S, D, me, foes, knownB, home, hq) {
   if (P.diff === 'easy' || !peaceOver(P) || G.time < 420) return;

@@ -526,6 +526,7 @@ function setPath(u, x, y) {
 }
 function orderMove(units, x, y, attackMove, queue) {
   units = units.filter(u => u.kind === 'u'); if (!units.length) return;
+  { const started = escortGroup(units, x, y, attackMove, queue); if (started) { units = units.filter(u => !started.has(u)); if (!units.length) return; } } // v7.0.2 Medevac hangs back behind the army
   let cx = 0, cy = 0; units.forEach(u => { cx += u.x; cy += u.y; }); cx /= units.length; cy /= units.length;
   const dir = datan2(y - cy, x - cx), cols = Math.ceil(Math.sqrt(units.length * 1.5)), sp = units.some(u => UT[u.t].armor !== 'inf') ? 1.25 : 0.85;
   const slots = [];
@@ -558,6 +559,7 @@ function orderMove(units, x, y, attackMove, queue) {
     setPath(u, s.x, s.y); }
 }
 function orderAttack(units, tgt) {
+  { const started = escortGroup(units.filter(u => u.kind === 'u'), tgt.x, tgt.y, true, false); if (started) units = units.filter(u => !started.has(u)); }
   for (const u of units) {
     if (u.kind !== 'u') continue;
     const d = UT[u.t];
@@ -664,7 +666,21 @@ function stepBuilding(b) {
   if (!d.wpn || G.time - b.born < 1.5) return;
   if (P.pow < 0 && d.pow < 0) { b.offline = true; return; } // offline (low power)
   b.offline = false;
+  if (d.squad) { stepSquad(b); return; }
   const w = defW(b); combat(b, w, d.sight + (w.rng - W[d.wpn].rng), false);
+}
+// v7.0.2 China guard tower: one Rifleman, Sniper, Rocketeer and Iron Marine 'garrisoned' — each weapon picks its own target and fires on its own cooldown
+const _sqWC = {};
+function sqW(b, k) { const l = b.lvl || 1, rl = rsLvl(b.team, 'def'), key = k + l + 'r' + rl;
+  if (!_sqWC[key]) { const base = W[k]; _sqWC[key] = Object.assign({}, base, { dmg: Math.round(base.dmg * UPG_DMG[l - 1] * RES_M[rl]), rng: base.rng + GT_SQUAD.rng + UPG_RNG[l - 1] + (rl >= 3 ? 0.5 : 0) }); } return _sqWC[key]; }
+function stepSquad(b) {
+  if (!b.sq) b.sq = GT_SQUAD.w.map(() => ({ cd: 0, tgt: null }));
+  for (let i = 0; i < GT_SQUAD.w.length; i++) { const s = b.sq[i], w = sqW(b, GT_SQUAD.w[i]);
+    if (s.cd > 0) s.cd -= DT;
+    const t0 = s.tgt; if (t0 && (t0.hp <= 0 || t0.dead || !foe(t0.team, b.team) || distTo(b, t0) > w.rng + (t0.kind === 'u' ? UT[t0.t].r : 0))) s.tgt = null;
+    if (!s.tgt && (G.tick + b.id + i * 2) % 8 === 0) s.tgt = acquire(b, w, w.rng);
+    const t = s.tgt; if (t && s.cd <= 0) { b.tang = datan2(t.y - b.y, t.x - b.x); fire(b, w, t); s.cd = b.cd; b.cd = 0; } }
+  const a = b.sq.find(s => s.tgt); b.tgt = a ? a.tgt : null;
 }
 function tscore(e, w, o, d) {
   const eff = DMG[w.type][armorOf(o)]; if (eff <= 0.05) return 1e9;
@@ -730,7 +746,7 @@ function combat(e, w, sight, mobile) {
 const TESLA_RELAY = 4.2, TESLA_STACK = 1.25, TESLA_MAXC = 5;
 function fire(e, w, t) {
   e.cd = w.cd * (0.9 + G.R() * 0.2);
-  const z0 = e.kind === 'u' ? e.z : 0.8, tz = t.kind === 'u' ? t.z : 0.5;
+  const z0 = e.kind === 'u' ? e.z : e.t === 'gtower' ? 1.6 : 0.8, tz = t.kind === 'u' ? t.z : 0.5;
   const shots = w.twin ? 2 : 1;
   if (w.chain) { // chain lightning: instant hit, arcs to nearby enemies with falloff
     // v5.3 Tesla CHAINING: ready friendly coils within TESLA_RELAY relay their charge tower-to-tower into the coil
@@ -822,6 +838,7 @@ function stepUnit(u) {
  u.hp -= 26 * DT * 6 * (d.armor === 'inf' ? 1 : 1.4); u.lastHitBy = null; u.hitT = G.time; }
   if (d.heal) medic(u, d);
   if (d.medevac && (G.tick + u.id) % 15 === 0) medevacHeal(u);
+  if (d.medevac && u.order === 'escort') escortStep(u, d); else if (u.spCap) u.spCap = null;
   if (d.marine && (G.tick + u.id) % 15 === 0) { let n = 0; for (const o of G.ents) if (o !== u && o.kind === 'u' && o.t === 'marine' && o.team === u.team && o.hp > 0 && dhypot(o.x - u.x, o.y - u.y) < MAR.rad && ++n >= MAR.cap) break; u.nb = n; }
   if (d.regen && u.hp < u.mhp) u.hp = Math.min(u.mhp, u.hp + d.regen * DT);
   if (d.air && u.hp < u.mhp && (G.tick + u.id) % 15 === 0 && (u.js === 'landed' || !u.path.length)) { for (const b of G.ents) if (b.t === 'airfield' && b.team === u.team && b.kind === 'b' && b.sell < 0 && b.hp > 0 && Math.abs(b.x - u.x) < 2.6 && Math.abs(b.y - u.y) < 2.1) { u.hp = Math.min(u.mhp, u.hp + u.mhp * 0.04); if (!(G.tick % 30)) G.events.push({ e: 'heal', x: u.x, y: u.y, src: b, rep: 1 }); break; } } // v6.2 Air Command repairs docked aircraft (8%/s)
@@ -848,7 +865,7 @@ function stepUnit(u) {
       const veh = d.armor !== 'inf';
       u.ang = turnTo(u.ang, want, (veh ? 4 : 10) * DT);
       const f = veh ? Math.max(0, dcos(angDiff(u.ang, want))) : 1;
-      const sp = Math.min(dist, d.sp * DT * f * (d.armor === 'inf' && u.underFire && G.time - u.underFire < 2 ? 1.2 : 1));
+      const sp = Math.min(dist, (u.spCap || d.sp) * DT * f * (d.armor === 'inf' && u.underFire && G.time - u.underFire < 2 ? 1.2 : 1));
       const nx = u.x + dcos(u.ang) * sp, ny = u.y + dsin(u.ang) * sp;
       const ox = u.x, oy = u.y;
       if (d.air || !blk(nx, ny)) { u.x = nx; u.y = ny; }
@@ -927,6 +944,56 @@ function jetStep(u, d) {
   if (u.order === 'idle' && !u.tgt && !u.path.length && (G.tick + u.id) % 60 === 0) { const b = airBase(u); if (b && dhypot(b.x - u.x, b.y - u.y) > 2.5) u.js = 'rtb'; else if (b) { u.js = 'rtb'; } }
   return false;
 }
+// ---- v7.0.2 Seraph Medevac escort: ordered together with combat units it never leads — it trails 3-5 tiles behind the army centre
+// (away from the destination/enemy) at the army's pace, slides in to put damaged allies inside its beam from the safest side,
+// and backs off when hit or targeted. A Medevac ordered on its own (or carrying cargo) still goes straight where it is told.
+function escortGroup(units, x, y, am, queue) {
+  if (queue || !MEDEVAC.escort) return null; const meds = units.filter(u => UT[u.t].medevac && !(u.cargo && u.cargo.length)); if (!meds.length) return null;
+  const grp = units.filter(u => !UT[u.t].medevac && UT[u.t].wpn && u.t !== 'harv'); if (!grp.length) return null;
+  let cx = 0, cy = 0; grp.forEach(g => { cx += g.x; cy += g.y; }); cx /= grp.length; cy /= grp.length; const dl = dhypot(x - cx, y - cy) || 1;
+  for (const m of meds) { m.order = 'escort'; m.esc = { ids: grp.map(g => g.id), x, y, am: !!am, fx: (x - cx) / dl, fy: (y - cy) / dl, retT: -9 }; m.wq = []; m.tgt = null; m.face = null; m.path = []; m.anchor = { x: m.x, y: m.y }; m.grp = 1; }
+  return new Set(meds); }
+function airThreats(u, R) { const r = [];
+  for (const o of G.ents) { if (o.hp <= 0 || o.dead || !foe(o.team, u.team)) continue; let rng = 0;
+    if (o.kind === 'u') { const dd = UT[o.t]; if (!dd.wpn || o.cargoOf) continue; const w = W[dd.wpn]; if (!w.air) continue; rng = w.rng + 0.6; }
+    else { const bd = BT[o.t]; if (!bd || !bd.wpn || o.offline) continue; if (bd.squad) { for (const k of GT_SQUAD.w) if (W[k].air) rng = Math.max(rng, sqW(o, k).rng); } else { const w = defW(o); if (!w.air) continue; rng = w.rng; } rng += 0.5; }
+    if (!rng || dhypot(o.x - u.x, o.y - u.y) > rng + R) continue; if (G.visT && o.kind === 'u' && !visibleTo(u.team, o)) continue; r.push({ x: o.x, y: o.y, r: rng, o }); }
+  return r; }
+const escDanger = (th, x, y) => { let s = 0; for (const t of th) { const k = t.r + 1.2 - dhypot(x - t.x, y - t.y); if (k > 0) s += k; } return s; };
+function escortStep(u, d) {
+  if ((G.tick + u.id) % 6) return; const E = u.esc;
+  const grp = []; for (const id of E.ids) { const g = G.ents.find(e => e.id === id); if (g && g.hp > 0 && !g.dead && !g.cargoOf) grp.push(g); }
+  if (!grp.length) { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; u.spCap = null; u.esc = null; return; } // the army is gone: hold here
+  E.ids = grp.map(g => g.id);
+  let cx = 0, cy = 0, sp = 0; for (const g of grp) { cx += g.x; cy += g.y; sp += UT[g.t].sp; } cx /= grp.length; cy /= grp.length; sp /= grp.length;
+  const th = airThreats(u, 12);
+  // forward = towards the destination; once the army is there, towards the nearest threat
+  { const dd = dhypot(E.x - cx, E.y - cy); let fx = E.fx, fy = E.fy;
+    if (dd > 2) { fx = (E.x - cx) / dd; fy = (E.y - cy) / dd; }
+    else { let bt = null, bd = 14; for (const t of th) { const k = dhypot(t.x - cx, t.y - cy); if (k < bd) { bd = k; bt = t; } } if (bt && bd > 0.5) { fx = (bt.x - cx) / bd; fy = (bt.y - cy) / bd; } }
+    E.fx = fx; E.fy = fy; }
+  const fx = E.fx, fy = E.fy;
+  const targeted = th.some(t => t.o.tgt === u), hurt = G.time - (u.hitT || -9) < 1.5;
+  if (targeted || hurt) E.retT = G.time;
+  const danger = G.time - E.retT < 2.5;
+  // damaged ally to heal: near the army, worst first (with neighbours in the same beam), skipping ones deep inside enemy AA cover while in danger
+  let ht = null, hs = 0.03;
+  for (const o of G.ents) { if (o.kind !== 'u' || o.team !== u.team || o.hp <= 0 || o.dead || o.cargoOf || isAir(o) || o.hp >= o.mhp * 0.97) continue; { const dc = dhypot(o.x - cx, o.y - cy); if (dc > 8 && !(dc < 14 && E.ids.includes(o.id))) continue; }
+    let sc = 1 - o.hp / o.mhp; for (const q of G.ents) if (q !== o && q.kind === 'u' && q.team === u.team && !isAir(q) && q.hp > 0 && q.hp < q.mhp && dhypot(q.x - o.x, q.y - o.y) < MEDEVAC.r) sc += (1 - q.hp / q.mhp) * 0.5;
+    sc -= escDanger(th, o.x, o.y) * (danger ? 0.25 : 0.05); if (sc > hs) { hs = sc; ht = o; } }
+  const tr = 4; let ix = cx - fx * tr, iy = cy - fy * tr; const cand = [];
+  if (ht && !(danger && escDanger(th, ht.x, ht.y) > 2.5)) { ix = ht.x - fx * 1.5; iy = ht.y - fy * 1.5; for (let k = 0; k < 12; k++) { const a = k * Math.PI / 6; for (const rr of [1.1, 1.9]) cand.push([ht.x + dcos(a) * rr, ht.y + dsin(a) * rr]); } }
+  else { if (danger) { let bt = null, bd = 1e9; for (const t of th) { const k = dhypot(t.x - u.x, t.y - u.y); if (k < bd) { bd = k; bt = t; } } if (bt) { const k = bd || 1; ix = u.x + (u.x - bt.x) / k * 3.5; iy = u.y + (u.y - bt.y) / k * 3.5; } else { ix = cx - fx * 5.5; iy = cy - fy * 5.5; } }
+    cand.push([ix, iy]); for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; for (const rr of [1.5, 3]) cand.push([ix + dcos(a) * rr, iy + dsin(a) * rr]); } }
+  let best = null, bs = 1e9;
+  for (const [px0, py0] of cand) { const px = Math.max(0.5, Math.min(MW - 0.5, px0)), py = Math.max(0.5, Math.min(MH - 0.5, py0));
+    const ahead = (px - cx) * fx + (py - cy) * fy; // never lead the push
+    const sc = escDanger(th, px, py) * 8 + dhypot(px - ix, py - iy) + Math.max(0, ahead + 1.5) * 1.5 + dhypot(px - u.x, py - u.y) * 0.1 + Math.max(0, dhypot(px - cx, py - cy) - 9) * 2;
+    if (sc < bs) { bs = sc; best = [px, py]; } }
+  const dm = dhypot(best[0] - u.x, best[1] - u.y);
+  u.spCap = danger || dm > 3 ? null : Math.max(0.6, sp * 1.15); // match the army's pace once in its trailing slot
+  if (dm > 0.4) setPath(u, best[0], best[1]); else u.path = [];
+  u.anchor = { x: best[0], y: best[1] }; }
 function medevacHeal(u) { // v6.3: heal beam onto damaged friendly ground units below/near; a target already healed this window by another craft is skipped (no stacking)
   const w = G.tick - (G.tick % 15); if (G.healW !== w) { G.healW = w; G.healed = new Set(); }
   const c = []; for (const o of G.ents) if (o.kind === 'u' && o.team === u.team && o.hp > 0 && o.hp < o.mhp && !isAir(o) && !o.dead) { const dd = dhypot(o.x - u.x, o.y - u.y); if (dd < MEDEVAC.r) c.push([dd, o]); }

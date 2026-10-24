@@ -27,6 +27,17 @@ chk('China walls have +60% HP', ws[0].mhp === Math.round(BT.wall.hp * 1.6), ws[0
 const uw = []; for (let i = 0; i < 10; i++) uw.push(A.addB('wall', 1, 20 + i, 60, true)); chk('other factions: plain walls, no towers', uw.every(b => b.t === 'wall' && b.mhp === BT.wall.hp));
 chk('Guard Tower is not in the build menu (only via walls), needs no power', BT.gtower.hide && BT.gtower.pow === 0);
 { const r = A.addU('rifle', 1, 22, 53), j = A.addU('jet', 1, 26, 47); r.stance = 'hold'; j.stance = 'hold'; const h0 = r.hp, hj = j.hp; run(3); chk('Guard Tower fires at ground and air', r.hp < h0 && j.hp < hj, `rifle ${h0}->${Math.max(0, r.hp | 0)}, jet ${hj}->${Math.max(0, j.hp | 0)}`); }
+// v7.0.2 guard tower = garrisoned squad (Rifleman, Sniper, Rocketeer, Iron Marine), real weapons, longer range
+chk('v7.0.2 Guard Tower garrison uses the real infantry weapons', JSON.stringify(GT_SQUAD.w) === JSON.stringify([UT.rifle.wpn, UT.sniper.wpn, UT.rocketeer.wpn, UT.marine.wpn]) && BT.gtower.squad, GT_SQUAD.w.join(','));
+chk('tower range is beyond the sniper (old 5.5)', W.snipe.rng + GT_SQUAD.rng > W.snipe.rng && W.snipe.rng + GT_SQUAD.rng >= 10 && W.gtow.rng === W.snipe.rng + GT_SQUAD.rng && BT.gtower.sight >= W.gtow.rng, 'range ' + W.gtow.rng);
+{ fresh('chn', 'usa'); G = A.G; let tw; for (let i = 0; i < 5; i++) tw = A.addB('wall', 0, 20 + i, 50, true); tw.born = -10;
+  const far = A.addU('rifle', 1, 22.5, 50.5 + 9.6), tank = A.addU('heavy', 1, 28.5, 50.5);[far, tank].forEach(u => u.stance = 'hold');
+  const kinds = {}, h = [far.hp, tank.hp]; for (let i = 0; i < 30 * 4; i++) { A.stepGame(); for (const e of G.events) if (e.e === 'fire' && e.src === tw) kinds[e.w.type] = (kinds[e.w.type] || 0) + 1; G.events.length = 0; }
+  chk('tower fires all four weapon profiles (bullet, snipe, rocket, marine)', kinds.bullet && kinds.snipe && kinds.rocket && kinds.marine, JSON.stringify(kinds));
+  chk('sniper reaches a rifleman 9.6 tiles out (old tower: 5.5)', far.hp < h[0] || !G.ents.includes(far), 'hp ' + h[0] + '->' + (far.hp | 0));
+  chk('rockets hurt a tank', tank.hp < h[1], `tank ${h[1]}->${tank.hp | 0}`); }
+{ fresh('chn', 'usa'); G = A.G; let tw; for (let i = 0; i < 5; i++) tw = A.addB('wall', 0, 20 + i, 50, true); const ts = [0, 1, 2, 3].map(i => A.addU('heavy', 1, 20 + i, 60)); A.orderAttack(ts, tw); run(40);
+  chk('still beatable: 4 tanks take a guard tower down', tw.hp <= 0 || !G.ents.includes(tw), 'tower hp ' + (tw.hp | 0)); }
 // ===== Japan
 fresh('jpn', 'usa'); G = A.G; const rj = A.addU('raijin', 0, 20, 40);
 chk('Raijin Mech: Japan-only, needs Tech Center', A.avail(0, 'raijin') === false && UT.raijin.req.includes('tech') && UT.raijin.fac === 'jpn');

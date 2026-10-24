@@ -49,7 +49,7 @@ const W = {
   kami:   { dmg: 175, rng: 0.7, cd: 1, type: 'kami', spd: 99, ground: 1, air: 0, splash: 1.8, snd: 'arty' },            // Iran Shahed drone (explodes on contact)
   raijin: { dmg: 150, rng: 6, cd: 2.1, type: 'zap', spd: 99, ground: 1, air: 0, chain: 2, snd: 'zap' },                // Japan Raijin mech: lightning cannon
   rjet:   { dmg: 30, rng: 5, cd: 1.0, type: 'rocket', spd: 18, ground: 1, air: 1, snd: 'rocket' },                     // Japan Raijin jet mode: light rockets
-  gtow:   { dmg: 14, rng: 5.5, cd: 0.5, type: 'bullet', spd: 40, ground: 1, air: 1, snd: 'rifle' },                    // China Great Wall guard tower
+  gtow:   { dmg: 53, rng: 10.5, cd: 0.5, type: 'bullet', spd: 40, ground: 1, air: 1, snd: 'rifle', squad: 1 },          // v7.0.2 China Great Wall guard tower: SUMMARY profile only (range ring / AI threat ≈ squad DPS); it actually fires GT_SQUAD
   colossus:{ dmg: 150, rng: 7.5, cd: 2.0, type: 'shell', spd: 14, ground: 1, air: 0, splash: 1.8, arc: 1, snd: 'gcan', big: 1 }, // Endless boss
 };
 // v5.0: static defense damage -25%
@@ -72,7 +72,7 @@ const BT = {
   tesla:   { n: 'Tesla Coil', w: 1, h: 1, hp: 900, cost: 1200, pow: -60, time: 8, cat: 'def', req: ['tech'], wpn: 'tesla', sight: 7, noFac: 'fra', desc: 'Chain lightning arcs to 3 more nearby enemies. Very power-hungry (-60): goes dark in low power.' },
   gatling: { n: 'Tourelle Gatling (Gatling Bastion)', w: 1, h: 1, hp: 1500, cost: 1800, pow: -50, time: 10, cat: 'def', req: ['tech'], wpn: 'gatl', sight: 8, fac: 'fra', desc: 'France (replaces the Tesla Coil): rotating six-barrel gatling that spins up and shreds infantry and aircraft. Hits ground AND air; weak vs heavy armor.' },
   gate:    { n: 'Wall Gate', w: 1, h: 1, hp: 900, cost: 150, pow: 0, time: 2, cat: 'def', req: ['barracks'], desc: 'Your and allied units pass through; blocks enemies. Place it in a wall line.' },
-  gtower:  { n: 'Great Wall Guard Tower', w: 1, h: 1, hp: 1100, cost: 50, pow: 0, time: 1, cat: 'def', req: ['__never'], wpn: 'gtow', sight: 7, fac: 'chn', hide: 1, desc: 'China: every 5th wall piece you build rises as a guard tower (twin MG, hits ground + air). No power needed.' },
+  gtower:  { n: 'Great Wall Guard Tower', w: 1, h: 1, hp: 1100, cost: 50, pow: 0, time: 1, cat: 'def', req: ['__never'], wpn: 'gtow', sight: 11, squad: 1, fac: 'chn', hide: 1, desc: 'China: every 5th wall piece you build rises as a guard tower that fights like a garrisoned squad: Rifleman, Sniper, Rocketeer and Iron Marine, each firing its own weapon, +1.5 range from the height (sniper 10.5 tiles). Hits ground + air. No power needed.' },
   wall:    { n: 'Wall', w: 1, h: 1, hp: 600, cost: 50, pow: 0, time: 1, cat: 'def', req: ['barracks'] },
 };
 // Units. armor: inf|light|heavy|air. sp tiles/sec. r radius.
@@ -129,7 +129,8 @@ const DIFF = {
 // economy
 const DERRICK_RATE = 11.25; // credits / second per captured oil derrick (v6.2: 9 -> 11.25, +25%)
 const ORE_VALUE = 0.91, HARV_CAP = 360, MINE_RATE = 40, UNLOAD_RATE = 300, ORE_REGROW = 0.8, ORE_MULT = 14.3; // per second (v6.2: load 600 -> 360 = -40%, patches 11 -> 14.3 = +30% ore)
-const MEDEVAC = { r: 2.5, hps: 12, max: 3 }; // v6.3 Seraph Medevac heal beam: radius, HP/s per target, beams per craft (one healer per target)
+const MEDEVAC = { r: 2.5, hps: 12, max: 3, escort: true }; // v7.0.2 escort: false = old behaviour (test baseline)
+// (prev) MEDEVAC = { r: 2.5, hps: 12, max: 3 }; // v6.3 Seraph Medevac heal beam: radius, HP/s per target, beams per craft (one healer per target)
 const FIELD_CAP = 4, DIA_BONUS = 140, DIA_DIST = 20; // v6.2: max haulers per ore field (per team); diamond ore (fields > DIA_DIST tiles from every start) pays +$140 per full load
 // defense upgrades: level 2/3 cost & time per structure; per-level multipliers
 // v5.2 Warhead Launcher missiles: build one at a time in the silo, then launch at a target (arcs through the atmosphere)
@@ -158,12 +159,14 @@ const FACTIONS = {
   ger: { n: 'Germany', flag: '🇩🇪', sp: 'kommando', desc: 'Jäger Kommando Squad — three elite commandos in one unit: rapid long-range fire, demolition charges wreck buildings.' },
   bra: { n: 'Brazil', flag: '🇧🇷', sp: 'marine', desc: 'Fuzileiro Blindado (Iron Marine) — armored, mass-produced Barracks infantry that hits ground and air; nearby marines boost each other (strength in numbers).' },
   irn: { n: 'Iran', flag: '🇮🇷', sp: 'drone', desc: 'Shahed Kamikaze Drones — cheap, built 3 at a time at the War Factory. They dive into enemy armies or buildings and explode with heavy splash. Anti-air shoots them down. Breaks up blobs.' },
-  chn: { n: 'China', flag: '🇨🇳', sp: 'gtower', desc: 'Great Wall — China walls have +60% HP and every 5th wall piece rises as a Guard Tower turret (twin MG, ground + air, no power). Long wall lines become a fortress.' },
+  chn: { n: 'China', flag: '🇨🇳', sp: 'gtower', desc: 'Great Wall — China walls have +60% HP and every 5th wall piece rises as a Guard Tower: each guard tower fights like a garrisoned squad (rifleman, sniper, rocketeer and Iron Marine), out to 10.5 tiles, ground + air, no power. Long wall lines become a fortress.' },
   jpn: { n: 'Japan', flag: '🇯🇵', sp: 'raijin', desc: 'Raijin Mech — transforms between a fast jet (flies over walls and cliffs) and a heavy walking mech with a chain-lightning cannon. Press T or tap ⚡ to switch. Hit and run.' },
 };
 
 const FAC_KEYS = Object.keys(FACTIONS);
 const CHN_WALL = { hp: 1.6, every: 5 }; // v7.0 China Great Wall
+// v7.0.2 guard tower garrison: the real infantry weapons (W.rifle/snipe/rocket/marine), each with its own target + cooldown, +rng tiles from the elevated hut
+const GT_SQUAD = { w: ['rifle', 'snipe', 'rocket', 'marine'], rng: 1.5 };
 const XFORM = { t: 1.5, cd: 3 };         // v7.0 Raijin transform time / cooldown (s)
 // ===== deterministic math (lockstep): only + - * / and sqrt (IEEE-exact) =====
 let ME = 0; // local player index (UI/render perspective)
