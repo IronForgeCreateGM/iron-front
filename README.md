@@ -2,6 +2,14 @@
 
 Original real-time strategy game in plain HTML5/WebGL (Three.js vendored). No build step.
 
+## New in v7.0.1: smooth touch building placement
+- Tap a build card and a green ghost appears on a free spot near the middle of the screen, or where you last built.
+- Drag **one finger anywhere** to slide the ghost. It moves relative to your finger, so it never jumps under your thumb. It snaps to the grid without flicker, does not pan the camera, and stays put when you lift your finger.
+- Tap the ground to drop the ghost there. Drag to the screen edge to scroll. Two fingers still pan and pinch-zoom without moving the ghost.
+- **✓ Place** / **✕ Cancel** sit beside the command column with a hint. ✓ turns red and refuses to build on a blocked spot. Haptics fire where the browser supports them.
+- Walls still drag-to-lay on touch. Desktop mouse placement is unchanged.
+- Test: `node test/place701-test.js` (iPhone 14 landscape touch regression).
+
 ## New in v7.0
 - **♾ Endless mode**: choose *Endless* on the home screen, or the ♾ tab in the lobby.
   - Hold the western plateau of a desert map against infinite Horde waves coming through four mountain passes.

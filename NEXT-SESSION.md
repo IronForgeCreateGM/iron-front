@@ -143,3 +143,5 @@ Also earlier backlog: wall gate.
   - mobTabsGuard safety net (nothing selected means bar and tabs are visible and populated, ctx closed).
   - Ground tap with only turrets selected deselects.
 - Regression: mobile-play-test `tabs` part (also runs in the default `play` run).
+
+- v7.0.1: mobile placement rewritten around a world-space ghost (MOB.pl in js/mobile.js: mobPlSet/mobPlSnap/mobPlStart, relative drag, hysteresis 0.75, glide, edge scroll). Regression: test/place701-test.js.
