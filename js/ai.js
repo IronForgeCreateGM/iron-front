@@ -590,7 +590,7 @@ function defenseMgr(P, S, D, me, cnt, hq) {
   if (V) { plan = defPlan71(P, S, tier); if (!FORT71[P.fac] && !S.rushed && !S.underAttack) ents = ents.slice(0, tier >= 3 || (cnt.cc || 0) ? 3 : 1); }
   if (P.cr < 150) return;
   // budget: static D may not starve the army; defence-first allows a big share (more when under attack / army wiped)
-  const dv = myD.reduce((a, d) => a + BT[d.t].cost, 0), av = armyVal(me.filter(u => u.kind === 'u' && UT[u.t].wpn && u.t !== 'harv')); const share = SIOFF.def53 ? (S.underAttack ? 0.45 : 0.3) : (S.underAttack ? 0.6 : 0.45); const capped = V ? dv > 1500 && dv > (P.stats.mined || 0) * ((P.fac === 'fra' ? 0.3 : P.fac === 'chn' ? 0.24 : 0.1) + (S.underAttack ? 0.08 : 0) + (popOf(P.team) >= POP_CAP - 6 ? 0.1 : 0)) : dv > 1500 && dv > (av + dv) * share; // v7.1: static D budget tracks the economy, not the (fluctuating) army
+  const dv = myD.reduce((a, d) => a + BT[d.t].cost, 0), av = armyVal(me.filter(u => u.kind === 'u' && UT[u.t].wpn && u.t !== 'harv')); const share = SIOFF.def53 ? (S.underAttack ? 0.45 : 0.3) : (S.underAttack ? 0.6 : 0.45); const capped = V ? dv > 1500 && dv > (P.stats.mined || 0) * ((P.fac === 'fra' ? (SIOFF.pe ? 0.3 : 0.22) : P.fac === 'chn' ? (SIOFF.pe ? 0.24 : 0.18) : 0.1) + (S.underAttack ? 0.08 : 0) + (popOf(P.team) >= POP_CAP - 6 ? (SIOFF.pe ? 0.1 : 0.16) : 0)) : dv > 1500 && dv > (av + dv) * share; // v7.1: static D budget tracks the economy, not the (fluctuating) army
   S.lanes = ents.flatMap(e => e.lane);
   // entrance walls with a gate (own units pass, enemies must break through under tower fire)
   if (!SIOFF.walls && !S.wallFull && tier >= 2 && P.cr > 700 && avail(P.team, 'wall')) for (const en of ents) if (G.time > (en.wallT || 0) && myD.filter(d => dhypot(d.x - en.x, d.y - en.y) < 5).length >= 2) { en.wallT = G.time + 150; aiWallEntrance(P, en); return; }
@@ -763,7 +763,7 @@ function dps71(a, b) { // counter-aware per-unit dps of type a vs type b (DMG ta
   if (A.kami) v = B.air ? 0 : 175 * DMG.kami[B.armor] * (B.armor === 'inf' ? 0.5 : 0.28);
   else if (!A.w || (B.air ? !A.w.air : !A.w.ground)) v = 0;
   else { const w = A.w; v = w.dmg / w.cd * (w.twin ? 2 : 1) * (DMG[w.type][B.armor] || 0);
-    if (w.ammo) v *= 0.3; if (w.splash) v *= 1 + w.splash * (B.armor === 'inf' ? 0.55 : 0.25); if (w.chain) v *= 1 + (B.armor === 'inf' ? 0.7 : 0.35);
+    if (w.ammo) v *= 0.3; if (w.splash) v *= 1 + w.splash * (B.armor === 'inf' ? (SIOFF.pe ? 0.55 : 1.1) : 0.25); if (w.chain) v *= 1 + (B.armor === 'inf' ? 0.7 : 0.35);
     if (B.marine) { if (A.veh && !MAR.counter[w.type]) v *= MAR.veh; if (A.air || A.tank) v *= MAR.vsTank; if (w.splash) v *= MAR.splash; if (MAR.take[w.type]) v *= MAR.take[w.type]; else if (MAR.plated[w.type]) v *= 1 - MAR.plated[w.type] - MAR.drN * 4; }
     if (A.marine) v *= 1 + MAR.dmgN * 4; if (A.stat && w.rng > 9) v *= 0.8; v *= 1 + Math.max(0, Math.min(10, w.rng) - 5) * 0.05; }
   return (DPS71[key] = v); }
@@ -795,6 +795,7 @@ function score71(P, S, t) { // value per credit vs the remembered enemy mix (off
   off /= A.cost; const surv = A.hp / A.cost / Math.max(1e-5, inc);
   let sc = off * Math.sqrt(surv);
   if (S.siege && A.w && A.w.ground) sc *= 1 + 0.6 * (DMG[A.w.type].bldg || 0) * (A.w.rng >= 7 ? 1.6 : 1); // tower-heavy enemy: long-range anti-structure
+  if (!SIOFF.pe) { const pw = Math.max(0, Math.min(1, (popOf(P.team) - 35) / 45)); if (pw) sc *= Math.pow(Math.max(0.1, A.cost / 700), 0.6 * pw); } // pro supply efficiency: near max, value per pop slot matters
   return sc; }
 // deterministic deficit production: target shares from counter scores + guaranteed special / AA / siege shares
 function produce71(P, S, cat, myCnt) {
@@ -821,7 +822,9 @@ function prodMix71(P, S, cnt, harvs, refs) {
   if (P.cr < 250) return; const air = (cnt.gunship || 0) + (cnt.jet || 0) + (cnt.intercept || 0) + (cnt.bomber || 0) + (cnt.stealth || 0);
   for (const cat of ['veh', 'inf', 'air']) { const pr = producers(P.team, cat); if (!pr) continue; if (cat === 'veh' && harvs < Math.min(2, refs * 2)) continue;
     if (cat === 'air' && air >= Math.min(16, 4 + Math.floor(G.time / 120))) continue;
-    if (P.queues[cat].length >= pr + 1) continue; const t = produce71(P, S, cat, cnt); if (t && enqueue(P.team, t)) cnt[t] = (cnt[t] || 0) + 1; } }
+    if (P.queues[cat].length >= pr + 1) continue;
+    if (cat === 'inf' && !SIOFF.pe && popOf(P.team) > 55 && P.cr < 1500 && !['marine', 'kommando'].includes(FACTIONS[P.fac] && FACTIONS[P.fac].sp) && producers(P.team, 'veh') && (cnt.rifle || 0) + (cnt.rocketeer || 0) > 14) continue; // late: pop goes to tanks/arty, infantry only as a topped-up screen
+    const t = produce71(P, S, cat, cnt); if (t && enqueue(P.team, t)) cnt[t] = (cnt[t] || 0) + 1; } }
 // macro: production buildings scale with measured income (1-min window), never float
 function income71(P, S) { S.incH = S.incH || []; if (G.time >= (S.incT || 0)) { S.incT = G.time + 10; S.incH.push(P.stats.mined || 0); if (S.incH.length > 7) S.incH.shift(); }
   const h = S.incH; return h.length > 1 ? (h[h.length - 1] - h[0]) / ((h.length - 1) * 10) : 0; }
