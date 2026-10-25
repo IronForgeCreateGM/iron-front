@@ -14,8 +14,8 @@ const URL0 = process.argv[2] || 'file://' + path.resolve(__dirname, '../index.ht
   ok(fr && fr.gat >= 3, 'France fortress: ' + JSON.stringify(fr));
   const cw = await shoot('v7_1-china-wall.png', () => { const P = G.players.find(p => p.fac === 'chn'); const w = G.ents.filter(e => e.team === P.team && (e.t === 'wall' || e.t === 'gtower' || e.t === 'gate')); const gt = G.ents.filter(e => e.team === P.team && e.t === 'gtower'); if (!w.length) return null; const c = gt[0] || w[0]; return { x: c.x, y: c.y, wall: w.length, gtower: gt.length, bal: gt.filter(e => e.bal).length }; }, 17);
   ok(cw && cw.wall >= 6, 'China wall: ' + JSON.stringify(cw));
-  let ma = null; for (let t = 480; t <= 1200 && !ma; t += 10) { await ff(t); ma = await pg.evaluate(() => { let best = null; const cu = G.ents.filter(e => e.kind === 'u' && e.hp > 0 && UT[e.t].wpn && e.t !== 'harv');
-    for (const P of G.players) { const S = P.aiS; if (!S || !S.grp) continue; for (const u of S.grp) { if (u.hp <= 0) continue; const mine = cu.filter(e => G.players[e.team].ally === P.ally && Math.hypot(e.x - u.x, e.y - u.y) < 8); if (mine.length < 16) continue;
+  let ma = null; for (let t = 420; t <= 1000 && !ma; t += 8) { await ff(t); ma = await pg.evaluate(() => { let best = null; const cu = G.ents.filter(e => e.kind === 'u' && e.hp > 0 && UT[e.t].wpn && e.t !== 'harv');
+    for (const P of G.players) { if (!P.aiS) continue; const hq = G.ents.find(e => e.team === P.team && e.t === 'hq'); for (const u of cu.filter((e, i) => e.team === P.team && i % 2 === 0)) { if (hq && Math.hypot(u.x - hq.x, u.y - hq.y) < 18) continue; const mine = cu.filter(e => G.players[e.team].ally === P.ally && Math.hypot(e.x - u.x, e.y - u.y) < 8); if (mine.length < 12) continue;
       const foes = G.ents.filter(e => e.hp > 0 && G.players[e.team] && G.players[e.team].ally !== P.ally && Math.hypot(e.x - u.x, e.y - u.y) < 11); if (foes.length < 3) continue;
       if (!best || mine.length > best.n) best = { x: u.x, y: u.y, n: mine.length, foes: foes.length, team: P.team, t: Math.round(G.time) }; } }
     return best; }); }
