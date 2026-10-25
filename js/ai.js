@@ -334,6 +334,7 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
   const ang = datan2(estart[1] - hq.y, estart[0] - hq.x);
   const stage = { x: hq.x + dcos(ang) * 9, y: hq.y + dsin(ang) * 9 };
   // group management
+  if (V && !SIOFF.bl) { const dd = (S.grp || []).filter(u => u.hp <= 0 || u.dead); S.bl71 = (S.bl71 || []).filter(x => G.time - x[0] < 16); if (dd.length) S.bl71.push([G.time, dd.length, dd.reduce((a, u) => a + UT[u.t].cost, 0)]); if (S.kl71 == null || G.time - (S.kl71T || 0) > 16) { S.kl71 = P.stats.kills; S.kl71T = G.time; } }
   S.grp = (S.grp || []).filter(u => u.hp > 0 && !u.dead);
   if (S.grp.length) {
     const v = armyVal(S.grp), c = { x: S.grp.reduce((a, u) => a + u.x, 0) / S.grp.length, y: S.grp.reduce((a, u) => a + u.y, 0) / S.grp.length };
@@ -352,11 +353,12 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
     const commit = S.doc && !SIOFF.commit; let fr = c; if (V && !SIOFF.rt2) { const pp = plan71(P), tg = S.grpWp && !S.grpWp.hold ? S.grpWp : pp ? pp : { x: estart[0], y: estart[1] }; let bd = 1e9; for (const u of S.grp) { const d = dhypot(u.x - tg.x, u.y - tg.y); if (d < bd) { bd = d; fr = u; } } } // v7.1.1: read the fight at the spearhead, not the (spread-out) centroid
     const thrF = V && !SIOFF.rt2 ? (() => { const l = threatsNear(P, foes, c.x, c.y, 11); for (const f of threatsNear(P, foes, fr.x, fr.y, 12)) if (!l.includes(f)) l.push(f); for (const b of knownB) if (BT[b.t].wpn && b.hp > 0 && !b.offline && dhypot(b.x - fr.x, b.y - fr.y) < 12 && !l.includes(b)) l.push(b); return l; })() : thr;
     const lost71 = V && !SIOFF.ret && thrF && thrF.length && (() => { const r = sim71(S.grp.concat(home.filter(u => !S.grp.includes(u) && dhypot(u.x - c.x, u.y - c.y) < 10)), thrF); S.simR71 = r; return SIOFF.rt2 ? r < 0.4 && v < S.grpV0 * 0.75 && G.time - S.lastAttack > 15 : G.time - S.lastAttack > 15 && ((r < 0.5 && v < S.grpV0 * 0.8) || (r < 1.1 && v < S.grpV0 * 0.5)); })();
-    const avoid71 = V && !SIOFF.eng && !lost71 && G.time > (S.engT || 0) && (S.engT = G.time + 1) && !(plan71(P) || {}).hum && popOf(P.team) < POP_CAP - 12 && (() => { // pros don't take bad fights: read the engagement before it starts
+    const bleed71 = V && !SIOFF.bl && !lost71 && G.time - S.lastAttack > 15 && popOf(P.team) < POP_CAP - 10 && (() => { let n = 0, val = 0; for (const x of S.bl71 || []) { n += x[1]; val += x[2]; } const kd = P.stats.kills - (S.kl71 || 0); if (n >= 6 && val > Math.max(2500, (v + val) * 0.3) && kd < n * 0.6) { S.bl71 = []; return true; } return false; })(); // v7.1.1: losing units fast without trading (towers/snipers in the fog) -> the sim is blind, pull out
+    const avoid71 = V && !SIOFF.eng && !lost71 && !bleed71 && G.time > (S.engT || 0) && (S.engT = G.time + 1) && !(plan71(P) || {}).hum && popOf(P.team) < POP_CAP - 12 && (() => { // pros don't take bad fights: read the engagement before it starts
       const t15 = threatsNear(P, foes, c.x, c.y, 15); if (!SIOFF.rt2) { for (const f of threatsNear(P, foes, fr.x, fr.y, 14)) if (!t15.includes(f)) t15.push(f); for (const b of knownB) if (BT[b.t].wpn && b.hp > 0 && !b.offline && dhypot(b.x - fr.x, b.y - fr.y) < 14 && !t15.includes(b)) t15.push(b); } if (!t15.length || armyVal(t15.filter(f => f.kind === 'u')) + t15.filter(f => f.kind === 'b').length * 400 < v * 0.35) return false;
       const r = sim71(S.grp.concat(home.filter(u => !S.grp.includes(u) && dhypot(u.x - c.x, u.y - c.y) < 12)), t15); return r < 0.7; })();
     if (V && !SIOFF.mic && thr && thr.length && !lost71) micro71(P, S, S.grp);
-    if (V && !SIOFF.ret ? lost71 || avoid71 : D.sys.sim ? (commit ? simR < 0.22 && v < S.grpV0 * 0.45 && G.time - S.lastAttack > 30 : simR < (S.siege && D.si && !SIOFF.siege ? 0.3 : 0.5) && v < S.grpV0 * 0.85 && G.time - S.lastAttack > 20) : (v < S.grpV0 * 0.35 && armyVal(near) > v * 1.2)) { // combat-sim says losing -> retreat & regroup at home defenses
+    if (V && !SIOFF.ret ? lost71 || avoid71 || bleed71 : D.sys.sim ? (commit ? simR < 0.22 && v < S.grpV0 * 0.45 && G.time - S.lastAttack > 30 : simR < (S.siege && D.si && !SIOFF.siege ? 0.3 : 0.5) && v < S.grpV0 * 0.85 && G.time - S.lastAttack > 20) : (v < S.grpV0 * 0.35 && armyVal(near) > v * 1.2)) { // combat-sim says losing -> retreat & regroup at home defenses
       orderMove(S.grp, stage.x, stage.y, false); S.grp.forEach(u => S.attackers.delete(u.id)); S.grp = []; S.grpWp = null; S.retreatT = G.time; S.wave = Math.max(S.wave, 12);
     } else if (G.time > (S.regT || 0)) {
       S.regT = G.time + 4;
@@ -876,9 +878,9 @@ function army71(P, S, D, me, foes, knownB, idle, intruders, hq, estart) { // ret
   // create a plan: whole-team available army vs remembered enemy army + their static D at the target
   const allies = G.players.filter(Q => Q.ally === P.ally && !Q.out && Q.ai && isV71(Q)); let teamAv = 0;
   for (const Q of allies) teamAv += Q === P ? av : (Q.aiS.av71 || 0);
-  const eArmy = S.compTot || 0, fortF = G.players.some(Q => foe(Q.team, P.team) && !Q.out && FORT71[Q.fac]) ? 1.3 : 1, dPrior = SIOFF.dp ? Math.max(S.eDef71 || 0, G.time * 4) : Math.max((S.eDef71 || 0) * 1.2, Math.min(Math.max(0, G.time - 60) * 30, 18000) * fortF), need = Math.max(2800 + G.time * 3, eArmy * 1.15 + dPrior * (SIOFF.x ? 0.6 : 0.95)) * (allies.length > 1 ? 1 : 0.85);
+  const eArmy = S.compTot || 0, fortF = G.players.some(Q => foe(Q.team, P.team) && !Q.out && FORT71[Q.fac]) ? 1.3 : 1, dPrior = SIOFF.dp ? Math.max(S.eDef71 || 0, G.time * 4) : Math.max((S.eDef71 || 0) * 1.2, Math.min(Math.max(0, G.time - 60) * 34, 18000) * fortF), need = Math.max(2800 + G.time * 3, eArmy * 1.15 + dPrior * (SIOFF.x ? 0.6 : 0.95)) * (allies.length > 1 ? 1 : 0.85);
   S.need71 = need; const timing = G.time > 360 && av >= 3000 && G.time - S.lastAttack > 150 && av >= need * (SIOFF.x ? 0.7 : 0.9);
-  if (G.time < 300 && teamAv < Math.max(need, SIOFF.ea ? 0 : (eArmy * 1.15 + Math.max(S.eDef71 || 0, 2400)) * 0.85) * (SIOFF.dp ? 2 : 1.4)) return false; // no blind early all-ins into unscouted towers
+  if (G.time < 300 && teamAv < Math.max(need, SIOFF.ea ? 0 : (eArmy * 1.15 + Math.max(S.eDef71 || 0, 2400)) * 0.85) * (SIOFF.dp ? 2 : fortF > 1 && G.time < 300 ? 2.4 : 1.5)) return false; // no blind early all-ins into unscouted towers
   if (!(teamAv >= need && av >= Math.min(need * 0.4, 6000)) && !(maxed && idle.length >= 10) && !timing) return false;
   // target: the enemy player whose known army+defence is weakest relative to distance
   let tgt = null, bs = 1e18; for (const Q of G.players) if (foe(Q.team, P.team) && !Q.out) { let v = 0; for (const [, m] of S.mem || []) if (m.team === Q.team) v += UT[m.t].cost; for (const b of knownB) if (b.team === Q.team && BT[b.t].wpn) v += BT[b.t].cost * 0.5; const st = G.starts[Q.start], s = v + dhypot(st[0] - hq.x, st[1] - hq.y) * 60; if (s < bs) { bs = s; tgt = Q; } }
