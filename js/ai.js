@@ -326,10 +326,17 @@ function derrickMgr(P, S, D, me, cnt, hq) {
 
 // ===== Chief: stronger commander (no resource cheats) =====
 const armyVal = l => l.reduce((a, u) => a + UT[u.t].cost * u.hp / u.mhp, 0);
+// v7.1.1: a maxed army's group order costs one A* per unit (60-110 ms for ~100 units on 96-tile maps) — Chief SI orders big groups in waves of 30 over consecutive AI ticks, later waves forming up behind
+function oM71(P, S, us, x, y, am) { if (!isV71(P) || SIOFF.chunk || us.length <= 34) { S.mvQ = null; return orderMove(us, x, y, am); }
+  let cx = 0, cy = 0; for (const u of us) { cx += u.x; cy += u.y; } cx /= us.length; cy /= us.length; const s = us.slice().sort((a, b) => dhypot(a.x - x, a.y - y) - dhypot(b.x - x, b.y - y) || a.id - b.id), d = Math.max(1, dhypot(cx - x, cy - y)), bx = (cx - x) / d, by = (cy - y) / d;
+  orderMove(s.slice(0, 30), x, y, am); S.mvQ = { u: s.slice(30), x, y, am, bx, by, k: 1 }; }
+function mvQ71(S) { const q = S.mvQ; if (!q) return; const part = q.u.splice(0, 30).filter(u => u.hp > 0 && !u.dead && S.grp && S.grp.includes(u)); const tx = Math.max(1, Math.min(MW - 1, q.x + q.bx * 3.5 * q.k)), ty = Math.max(1, Math.min(MH - 1, q.y + q.by * 3.5 * q.k)); q.k++;
+  if (part.length) orderMove(part, tx, ty, q.am); if (!q.u.length) S.mvQ = null; }
 function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
   if (D.chief && !D.si) { const st = { x: hq.x, y: hq.y }; for (const u of S.grp || []) if (u.hp < u.mhp * 0.25 && !u.retreating && UT[u.t].armor !== 'inf') { u.retreating = true; orderMove([u], st.x, st.y, false); S.attackers.delete(u.id); } if (S.grp) S.grp = S.grp.filter(u => !u.retreating); for (const u of me) if (u.retreating && (u.hp > u.mhp * 0.7 || dhypot(u.x - st.x, u.y - st.y) < 4)) u.retreating = false; }
   S.eArmy = Math.max((S.eArmy || 0) * 0.995, armyVal(foes.filter(f => f.kind === 'u' && UT[f.t].wpn)));
   const V = isV71(P) && !SIOFF.a71;
+  if (S.mvQ) mvQ71(S);
   if (V && !SIOFF.ts) { const hx = hq.x + 2, hy = hq.y + 2; for (const u of me) if (u.t === 'tsar' && u.hp > 0) { // v7.1.1: Tsars are 3200+gas — pull a badly hurt one home to regenerate instead of trading it
       if (!u.tsR && u.hp < u.mhp * 0.42) { u.tsR = 1; S.attackers.delete(u.id); orderMove([u], hx, hy, false); } else if (u.tsR && u.hp >= u.mhp * 0.9) u.tsR = 0; else if (u.tsR && u.order === 'idle' && dhypot(u.x - hx, u.y - hy) > 6) orderMove([u], hx, hy, false); }
     if (S.grp) S.grp = S.grp.filter(u => !u.tsR); }
@@ -345,7 +352,7 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
     if (!S.grpMark || G.time - S.grpMark.t > 12) {
       if (S.grpMark && dhypot(c.x - S.grpMark.x, c.y - S.grpMark.y) < 2.5 && !foes.some(f => f.kind === 'u' && dhypot(f.x - c.x, f.y - c.y) < 8)) {
         const dest = S.grpWp || knownB[0] || { x: estart[0], y: estart[1] };
-        S.grp.forEach(u => { u.path = []; u.stuckN = 0; }); orderMove(S.grp, dest.x + (G.R() - 0.5) * 4, dest.y + (G.R() - 0.5) * 4, true);
+        S.grp.forEach(u => { u.path = []; u.stuckN = 0; }); oM71(P, S, S.grp, dest.x + (G.R() - 0.5) * 4, dest.y + (G.R() - 0.5) * 4, true);
       }
       S.grpMark = { x: c.x, y: c.y, t: G.time };
     }
@@ -368,9 +375,9 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
       // regroup stragglers: leaders wait for the pack
       const far = S.grp.filter(u => dhypot(u.x - c.x, u.y - c.y) > 5 + Math.sqrt(S.grp.length) * 0.9);
       if (S.grpWp && !S.grpWp.hold && !near.length && (dhypot(c.x - S.grpWp.x, c.y - S.grpWp.y) < 4.5 || G.time > S.grpWp.t)) S.grpWp = null; // flank waypoint reached
-      if (S.grpWp && S.grpWp.hold) { if (!near.length && dhypot(c.x - S.grpWp.x, c.y - S.grpWp.y) > 4) orderMove(S.grp.filter(u => u.order !== 'attack'), S.grpWp.x, S.grpWp.y, true); } // v7.1: wait at the rally until the whole team is in place
-      else if (S.grpWp && !near.length) orderMove(S.grp, S.grpWp.x, S.grpWp.y, true);
-      else if (far.length > S.grp.length * 0.3 && !near.length && G.time > (S.regroupT || 0) && (S.regroupT = G.time + 12)) { orderMove(S.grp, c.x, c.y, true); }
+      if (S.grpWp && S.grpWp.hold) { if (!near.length && dhypot(c.x - S.grpWp.x, c.y - S.grpWp.y) > 4) oM71(P, S, S.grp.filter(u => u.order !== 'attack'), S.grpWp.x, S.grpWp.y, true); } // v7.1: wait at the rally until the whole team is in place
+      else if (S.grpWp && !near.length) oM71(P, S, S.grp, S.grpWp.x, S.grpWp.y, true);
+      else if (far.length > S.grp.length * 0.3 && !near.length && G.time > (S.regroupT || 0) && (S.regroupT = G.time + 12)) { oM71(P, S, S.grp, c.x, c.y, true); }
       else {
         const tgts = knownB.slice(); const pref = S.towerHeavy ? ['turret', 'tesla', 'gatling', 'gcannon', 'aagun', 'wall', 'power', 'refinery', 'factory', 'barracks', 'cc', 'hq'] : D.si && !SIOFF.pref ? ['cc', 'factory', 'barracks', 'refinery', 'hq', 'airfield', 'turret', 'aagun', 'tech', 'power'] : ['turret', 'aagun', 'refinery', 'factory', 'barracks', 'power', 'airfield', 'tech', 'hq'];
         tgts.sort((a, b) => dhypot(a.x - c.x, a.y - c.y) * 0.3 + (pref.indexOf(a.t) + 1 || 9) - dhypot(b.x - c.x, b.y - c.y) * 0.3 - (pref.indexOf(b.t) + 1 || 9));
@@ -380,8 +387,8 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
           if (line.length) { const real = line.map(b => byId(b.id) || b); real.sort((a, b) => (a.hp || 0) / 80 + dhypot(a.x - c.x, a.y - c.y) - (b.hp || 0) / 80 - dhypot(b.x - c.x, b.y - c.y)); const w = real[0];
             if (w && w.hp > 0 && G.time > (S.breachT || 0)) { S.breachT = G.time + 3; orderAttack(S.grp.filter(u => !u.tgt || u.tgt.kind !== 'u'), w); } } }
         const step = Math.min(8, dhypot(t.x - c.x, t.y - c.y)), a2 = datan2(t.y - c.y, t.x - c.x);
-        if (!near.length && step > 3) orderMove(S.grp.filter(u => u.order !== 'attack'), c.x + dcos(a2) * step, c.y + dsin(a2) * step, true);
-        else if (!near.length && tgts[0]) orderMove(S.grp.filter(u => u.order !== 'attack'), t.x, t.y, true);
+        if (!near.length && step > 3) oM71(P, S, S.grp.filter(u => u.order !== 'attack'), c.x + dcos(a2) * step, c.y + dsin(a2) * step, true);
+        else if (!near.length && tgts[0]) oM71(P, S, S.grp.filter(u => u.order !== 'attack'), t.x, t.y, true);
       }
     }
   }
@@ -414,7 +421,7 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
       const weak = foesAlive[0], wh = G.ents.find(e => e.team === weak.team && (e.t === 'hq' || e.t === 'cc') && e.hp > 0) || { x: G.starts[weak.start][0], y: G.starts[weak.start][1] };
       G.tplan = G.tplan || {}; G.tplan[P.ally] = { t: G.time, team: P.team, x: wh.x, y: wh.y, a: datan2(hq.y - wh.y, hq.x - wh.x), n: 0, close: 1 };
       S.grp = idle.slice(); S.grpV0 = armyVal(S.grp); S.grp.forEach(u => { S.attackers.add(u.id); u.stance = 'aggr'; u.guard = null; u.face = null; });
-      S.lastAttack = G.time; S.closeT = G.time + 45; orderMove(S.grp, wh.x, wh.y, true);
+      S.lastAttack = G.time; S.closeT = G.time + 45; oM71(P, S, S.grp, wh.x, wh.y, true);
     }
   }
   if (S.flank) { S.flank = S.flank.filter(u => u.hp > 0 && !u.dead); if (!S.flank.length) S.flank = null; else if (G.time > (S.flankT || 0)) { S.flankT = G.time + 4; const f = S.flank[0];
@@ -903,7 +910,7 @@ function humanPush71(P) { // human ally's army is committed on the enemy side of
   c[k] = { t: G.time + 2, r: r && r.team != null ? r : null }; return c[k].r; }
 function launch71(P, S, idle, p) {
   const mm = p.m[P.team]; S.grp = idle.slice(); S.grpV0 = armyVal(S.grp); S.grp.forEach(u => { S.attackers.add(u.id); u.stance = 'aggr'; u.guard = null; u.face = null; });
-  S.lastAttack = G.time; S.regT = 0; S.grpWp = { x: mm.rp.x, y: mm.rp.y, t: p.t0 + 55, hold: 1 }; orderMove(S.grp, mm.rp.x, mm.rp.y, true);
+  S.lastAttack = G.time; S.regT = 0; S.grpWp = { x: mm.rp.x, y: mm.rp.y, t: p.t0 + 55, hold: 1 }; oM71(P, S, S.grp, mm.rp.x, mm.rp.y, true);
   if (S.firstAttackT == null) S.firstAttackT = G.time; }
 function plan71Tick(P, S, c, near) { // group at its rally: mark ready; plan goes when every member is in place (or on timeout)
   const p = plan71(P); if (!p || !p.m[P.team]) { if (S.grpWp && S.grpWp.hold) S.grpWp = null; return; }
