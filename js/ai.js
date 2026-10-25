@@ -525,10 +525,11 @@ function ballistaMgr(P, S, me) {
 // China: Great Wall lines across every entrance (each 5th piece rises as a guard tower) — always with a gate lane
 function greatWallMgr(P, S, me, cnt, hq) {
   const V = isV71(P) && !G.end; if (G.time < (S.gwT || 0) || G.time < (G.end ? 20 : V ? 170 : 200) || !avail(P.team, 'wall')) return; S.gwT = G.time + (G.end ? 40 : V ? 60 : 110);
-  const nw = (cnt.wall || 0) + (cnt.gtower || 0) + (cnt.gate || 0); if (nw >= (G.end ? 110 : V ? 140 : 70) || P.cr < (G.end ? 600 : V ? 650 : 900)) return;
+  const nw = (cnt.wall || 0) + (cnt.gtower || 0) + (cnt.gate || 0); if (nw >= (G.end ? 110 : V ? 140 : 70)) return;
+  if (P.cr < (G.end ? 600 : V ? 250 : 900)) { if (V) S.gwT = G.time + 3; return; } // v7.1: income is spent fast, so poll and build the wall piece by piece
   const ents = baseEntrances(P, S, hq); if (!ents.length) return;
   const en = ents[(S.gwI = ((S.gwI || 0) + 1)) % ents.length]; if (G.time < (en.gwT || 0)) return; en.gwT = G.time + (V ? 150 : 400); if (V && (en.gwN || 0) >= 4) return;
-  aiWallEntrance(P, en, G.end ? 9 : V ? 9 : 7, 2.2 + (en.gwN || 0) * 2); en.gwN = (en.gwN || 0) + 1;
+  const placed = aiWallEntrance(P, en, G.end ? 9 : V ? 9 : 7, 2.2 + (en.gwN || 0) * 2, V ? 60 : 300); if (V && P.cr < 200) { en.gwT = 0; S.gwT = G.time + 4; return; } en.gwN = (en.gwN || 0) + 1; return placed;
 }
 // Japan: Raijin flies (jet) to far targets over walls and cliffs, lands (mech) to fight; idle jets land
 function raijinMgr(P, S, me, foes) {
@@ -590,7 +591,7 @@ function defenseMgr(P, S, D, me, cnt, hq) {
   if (V) { plan = defPlan71(P, S, tier); if (!FORT71[P.fac] && !S.rushed && !S.underAttack) ents = ents.slice(0, tier >= 3 || (cnt.cc || 0) ? 3 : 1); }
   if (P.cr < 150) return;
   // budget: static D may not starve the army; defence-first allows a big share (more when under attack / army wiped)
-  const dv = myD.reduce((a, d) => a + BT[d.t].cost, 0), av = armyVal(me.filter(u => u.kind === 'u' && UT[u.t].wpn && u.t !== 'harv')); const share = SIOFF.def53 ? (S.underAttack ? 0.45 : 0.3) : (S.underAttack ? 0.6 : 0.45); const capped = V ? dv > 1500 && dv > (P.stats.mined || 0) * ((P.fac === 'fra' ? (SIOFF.pe ? 0.3 : 0.22) : P.fac === 'chn' ? (SIOFF.pe ? 0.24 : 0.18) : 0.1) + (S.underAttack ? 0.08 : 0) + (popOf(P.team) >= POP_CAP - 6 ? (SIOFF.pe ? 0.1 : 0.16) : 0)) : dv > 1500 && dv > (av + dv) * share; // v7.1: static D budget tracks the economy, not the (fluctuating) army
+  const dv = myD.reduce((a, d) => a + BT[d.t].cost, 0), av = armyVal(me.filter(u => u.kind === 'u' && UT[u.t].wpn && u.t !== 'harv')); const share = SIOFF.def53 ? (S.underAttack ? 0.45 : 0.3) : (S.underAttack ? 0.6 : 0.45); const capped = V ? dv > 1500 && dv > (P.stats.mined || 0) * ((P.fac === 'fra' ? (SIOFF.pe ? 0.3 : 0.27) : P.fac === 'chn' ? (SIOFF.pe ? 0.24 : 0.18) : 0.1) + (S.underAttack ? 0.08 : 0) + (popOf(P.team) >= POP_CAP - 6 ? (SIOFF.pe ? 0.1 : 0.16) : 0)) : dv > 1500 && dv > (av + dv) * share; // v7.1: static D budget tracks the economy, not the (fluctuating) army
   S.lanes = ents.flatMap(e => e.lane);
   // entrance walls with a gate (own units pass, enemies must break through under tower fire)
   if (!SIOFF.walls && !S.wallFull && tier >= 2 && P.cr > 700 && avail(P.team, 'wall')) for (const en of ents) if (G.time > (en.wallT || 0) && myD.filter(d => dhypot(d.x - en.x, d.y - en.y) < 5).length >= 2) { en.wallT = G.time + 150; aiWallEntrance(P, en); return; }
@@ -620,7 +621,7 @@ function aiExitFree(P, hq) {
   }
   G.curTeam = null; return ok;
 }
-function aiWallEntrance(P, en, half, off) {
+function aiWallEntrance(P, en, half, off, rsv) {
   // v5.4: always leave a gate lane, never seal the base; roll back if exit path dies
   const a = datan2(en.y - en.b.y, en.x - en.b.x), cx = en.x + dcos(a) * (off || 2.2), cy = en.y + dsin(a) * (off || 2.2), px = -dsin(a), py = dcos(a), tiles = [], seen = new Set();
   for (let k = -(half || 5); k <= (half || 5); k += 0.5) { const x = Math.floor(cx + px * k), y = Math.floor(cy + py * k), i = idx(x, y); if (!inb(x, y) || seen.has(i)) continue; seen.add(i); tiles.push([x, y, Math.abs(k)]); }
@@ -631,7 +632,7 @@ function aiWallEntrance(P, en, half, off) {
     const gx = Math.floor(cx), gy = Math.floor(cy); if (inb(gx, gy) && avail(P.team, 'gate') && P.cr >= BT.gate.cost) {
       for (const e of G.ents) if (e.kind === 'b' && e.team === P.team && e.t === 'wall' && e.tx === gx && e.ty === gy) { P.cr += Math.floor(BT.wall.cost * 0.5); e.hp = 0; e.dead = true; }
       if (canPlace('gate', P.team, gx, gy)) { P.cr -= BT.gate.cost; placed.push(addB('gate', P.team, gx, gy)); n++; gates++; } } }
-  for (const [x, y, k] of tiles) if (k >= 1.1) { if (!avail(P.team, 'wall') || P.cr < BT.wall.cost + 300 || !canPlace('wall', P.team, x, y)) continue; P.cr -= BT.wall.cost; placed.push(addB('wall', P.team, x, y)); n++; }
+  for (const [x, y, k] of tiles) if (k >= 1.1) { if (!avail(P.team, 'wall') || P.cr < BT.wall.cost + (rsv ?? 300) || !canPlace('wall', P.team, x, y)) continue; P.cr -= BT.wall.cost; placed.push(addB('wall', P.team, x, y)); n++; }
   if (n) { G.bver = (G.bver || 0) + 1; G.events.push({ e: 'walls', team: P.team, n }); }
   // verify exit; if sealed, convert centre walls to gates or tear the last wall segment
   if (n && !aiExitFree(P, en.b)) {
@@ -883,8 +884,8 @@ function army71(P, S, D, me, foes, knownB, idle, intruders, hq, estart) { // ret
 function humanPush71(P) { // human ally's army is committed on the enemy side of the map -> {team,x,y} of what it is hitting
   const c = G.hp71 || (G.hp71 = {}), k = P.ally; if (c[k] && G.time < c[k].t) return c[k].r; let r = null;
   for (const Q of G.players) { if (Q.ai || Q.ally !== P.ally || Q.team === P.team) continue; const own = G.starts[Q.start]; let n = 0, v = 0, x = 0, y = 0;
-    for (const u of G.ents) if (u.kind === 'u' && u.team === Q.team && u.hp > 0 && UT[u.t].wpn && u.t !== 'harv') { let fe = 1e9, oe = dhypot(u.x - own[0], u.y - own[1]); for (const E of G.players) if (foe(E.team, P.team) && !E.out) { const s = G.starts[E.start]; fe = Math.min(fe, dhypot(u.x - s[0], u.y - s[1])); } if (fe < oe * 1.25 && fe < 60) { n++; v += UT[u.t].cost; x += u.x; y += u.y; } }
-    if (n >= 6 && v >= 2000) { x /= n; y /= n; let tb = null, bd = 1e9; for (const b of G.ents) if (b.kind === 'b' && b.hp > 0 && foe(b.team, P.team) && visibleTo(P.team, b)) { const d = dhypot(b.x - x, b.y - y); if (d < bd) { bd = d; tb = b; } }
+    for (const u of G.ents) if (u.kind === 'u' && u.team === Q.team && u.hp > 0 && UT[u.t].wpn && u.t !== 'harv') { let fe = 1e9, oe = dhypot(u.x - own[0], u.y - own[1]); for (const E of G.players) if (foe(E.team, P.team) && !E.out) { const s = G.starts[E.start]; fe = Math.min(fe, dhypot(u.x - s[0], u.y - s[1])); } if ((fe < oe * 1.25 || (oe > 18 && fe < oe * 1.8)) && fe < 60) { n++; v += UT[u.t].cost; x += u.x; y += u.y; } }
+    if (n >= 4 && v >= 2500) { x /= n; y /= n; let tb = null, bd = 1e9; for (const b of G.ents) if (b.kind === 'b' && b.hp > 0 && foe(b.team, P.team) && visibleTo(P.team, b)) { const d = dhypot(b.x - x, b.y - y); if (d < bd) { bd = d; tb = b; } }
       r = tb && bd < 18 ? { team: tb.team, x: tb.x, y: tb.y } : { team: (G.players.filter(E => foe(E.team, P.team) && !E.out).sort((a, b) => dhypot(G.starts[a.start][0] - x, G.starts[a.start][1] - y) - dhypot(G.starts[b.start][0] - x, G.starts[b.start][1] - y))[0] || {}).team, x, y }; break; } }
   c[k] = { t: G.time + 2, r: r && r.team != null ? r : null }; return c[k].r; }
 function launch71(P, S, idle, p) {

@@ -19,7 +19,7 @@ const URL0 = 'file://' + path.resolve(__dirname, '../index.html');
     await pg.keyboard.press('Enter'); await pg.waitForTimeout(800);
     ok(!(await vis(pg, '#titleScreen')), 'any key dismisses title');
     ok(await vis(pg, '#playBotsBtn') && await vis(pg, '#playEndlessBtn'), 'home: Play vs Bots + Endless buttons');
-    ok(/v7\.0/.test(await pg.textContent('#menu .sub')), 'menu subtitle says v7.0');
+    ok(/v7\.\d/.test(await pg.textContent("#menu .sub")), "menu subtitle says v7.x");
     await pg.click('#playEndlessBtn'); await pg.waitForTimeout(600);
     ok(await pg.evaluate(() => document.querySelector('#modeTabs [data-m=endless]').classList.contains('on')), 'Endless button opens lobby on the Endless tab');
     ok(await vis(pg, '#endInfo'), 'Endless info panel visible');

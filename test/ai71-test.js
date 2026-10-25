@@ -3,7 +3,7 @@
 // allied armies launch coordinated multi-member pushes, no exceptions, AI tick cost budget, no bot bonuses, difficulty ladder intact.
 const fs = require('fs'), vm = require('vm'), path = require('path');
 let fail = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fail++; };
-globalThis.SIOFF = {}; const J = f => fs.readFileSync(path.join(__dirname, '../js', f), 'utf8');
+globalThis.SIOFF = Object.fromEntries((process.env.SIOFF || '').split(',').filter(Boolean).map(k => [k, 1])); const J = f => fs.readFileSync(path.join(__dirname, '../js', f), 'utf8');
 vm.runInThisContext(['data.js', 'sim.js', 'ai.js'].map(J).join('\n') + '\nglobalThis.A={newGame,stepGame,get G(){return G}};globalThis.NEWAI=aiStep;');
 // ---- difficulty ladder + skill-only
 ok(DIFF.si.v71 && !DIFF.hard.v71 && !DIFF.normal.v71 && !DIFF.easy.v71, 'v7.1 brain is Chief SI only (Easy/Normal/Hard unchanged)');
