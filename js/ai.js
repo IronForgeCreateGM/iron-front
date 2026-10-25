@@ -672,7 +672,7 @@ function airRaidMgr(P, S, D, me, foes, knownB, hq) {
     else if (R.ph === 'wp') { const c = R.u.reduce((a, u) => (a.x += u.x / R.u.length, a.y += u.y / R.u.length, a), { x: 0, y: 0 }); if (dhypot(c.x - R.wp.x, c.y - R.wp.y) < 3.5 || G.time > R.t0 + 18) { orderAttack(R.u, tg); R.ph = 'hit'; } else if (G.tick % 30 < 15) R.u.forEach(u => { if (!u.path.length) orderMove([u], R.wp.x, R.wp.y, false); }); }
     return; }
   if (!peaceOver(P) || G.time < (S.raidT || 0) || !knownB.length) return;
-  const armed = air.filter(u => u.js === 'landed' && u.ammo >= W[UT[u.t].wpn].ammo); if (armed.length < (isV71(P) && G.tp71 && G.tp71[P.ally] && !G.tp71[P.ally].go ? 2 : G.time > 1300 ? 4 : 5)) return;
+  const armed = air.filter(u => u.js === 'landed' && u.ammo >= W[UT[u.t].wpn].ammo); if (armed.length < (isV71(P) && G.tp71 && G.tp71[P.ally] && !G.tp71[P.ally].go ? 2 : isV71(P) && !SIOFF.jr ? 3 : G.time > 1300 ? 4 : 5)) return; // v7.1.1: an airfield parks 4 — waiting for 5 meant extra strike craft circled forever and never struck
   const aa = knownB.filter(b => b.t === 'aagun' || b.t === 'tesla' || b.t === 'gatling').concat(foes.filter(f => f.kind === 'u' && (f.t === 'aa' || f.t === 'intercept' || f.t === 'rocketeer')));
   const aaAt = (x, y) => aa.reduce((s, a) => s + (dhypot(a.x - x, a.y - y) < 7.5 ? (a.kind === 'b' ? 2 * ((a.lvl || 1) + 1) / 2 : 1) : 0), 0);
   const pri = isV71(P) && (S.towerHeavy || S.siege) ? { power: 0, aagun: 1, gcannon: 1, tesla: 2, refinery: 3, factory: 3, silo: 0, tech: 3 } : S.towerHeavy ? { power: 0, refinery: 2, factory: 2, silo: 0, airfield: 3, tech: 3 } : { refinery: 0, power: 1, factory: 1, silo: 0, airfield: 2, tech: 3, barracks: 3, extractor: 2 };
@@ -810,10 +810,10 @@ function score71(P, S, t) { // value per credit vs the remembered enemy mix (off
   if (!SIOFF.pe) { const pw = Math.max(0, Math.min(1, (popOf(P.team) - 35) / 45)); if (pw) sc *= Math.pow(Math.max(0.1, A.cost / 700), 0.6 * pw); } // pro supply efficiency: near max, value per pop slot matters
   return sc; }
 // deterministic deficit production: target shares from counter scores + guaranteed special / AA / siege shares
-function produce71(P, S, cat, myCnt) {
+function produce71(P, S, cat, myCnt, noJet) {
   if (!producers(P.team, cat)) return null;
   S.score71 = S.score71 || {}; const sp = FACTIONS[P.fac] && FACTIONS[P.fac].sp;
-  const opts = CAND71[cat].filter(t => avail(P.team, t)); if (!opts.length) return null;
+  const opts = CAND71[cat].filter(t => avail(P.team, t) && !(noJet && UT[t].jet)); if (!opts.length) return null;
   const sc = {}; for (const t of opts) sc[t] = S.score71[t] != null ? S.score71[t] : (S.score71[t] = score71(P, S, t));
   if (cat === 'air') { for (const t of opts) if (t === 'intercept') sc[t] = S.eAir > 1500 ? sc[t] * 2 : 0; }
   const aaFull = !SIOFF.aac && (myCnt.aa || 0) * UT.aa.cost > (S.eAir || 0) * 0.8 + 1400; // v7.1.1: enough Skyguards for the air we have seen — the rest of the factory goes to ground power
@@ -835,6 +835,7 @@ function prodMix71(P, S, cnt, harvs, refs) {
   if (P.cr < 250) return; const air = (cnt.gunship || 0) + (cnt.jet || 0) + (cnt.intercept || 0) + (cnt.bomber || 0) + (cnt.stealth || 0);
   for (const cat of ['veh', 'inf', 'air']) { const pr = producers(P.team, cat); if (!pr) continue; if (cat === 'veh' && harvs < Math.min(2, refs * 2)) continue;
     if (cat === 'air' && air >= Math.min(16, 4 + Math.floor(G.time / 120))) continue;
+    if (cat === 'air' && !SIOFF.jr && (cnt.jet || 0) + (cnt.bomber || 0) + (cnt.stealth || 0) >= G.ents.reduce((n, b) => n + (b.team === P.team && b.t === 'airfield' && b.hp > 0 && b.kind === 'b' ? airSlots(b) : 0), 0) && producers(P.team, 'air') && (S.jrN = 1)) { const t = produce71(P, S, cat, cnt, 1); if (t && enqueue(P.team, t)) cnt[t] = (cnt[t] || 0) + 1; continue; } // v7.1.1: no more strike craft than parking slots
     if (P.queues[cat].length >= pr + 1) continue;
     if (cat === 'inf' && !SIOFF.pe && popOf(P.team) > 55 && P.cr < 1500 && !['marine', 'kommando'].includes(FACTIONS[P.fac] && FACTIONS[P.fac].sp) && producers(P.team, 'veh') && (cnt.rifle || 0) + (cnt.rocketeer || 0) > 14) continue; // late: pop goes to tanks/arty, infantry only as a topped-up screen
     const t = produce71(P, S, cat, cnt); if (t && enqueue(P.team, t)) cnt[t] = (cnt[t] || 0) + 1; } }
