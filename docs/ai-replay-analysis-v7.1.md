@@ -85,20 +85,50 @@ The last ~5 minutes (team B collapsing) is taken from the replay result.
 9. **Gas floats** (1.5–5k unused gas in most bots): specials and upgrades not prioritized.
 10. **AI frame spikes** up to 30 ms on layout/wall planning.
 
-## 4. v7.1 Chief SI plan (implemented, see `js/ai.js` `si71` paths)
+## 4. v7.1 Chief SI: what was actually implemented (`js/ai.js`, gated by `isV71(P)`)
 
-* **Lean, purposeful defense**: ≤2–3 early static D (at the enemy-facing approach only) until tech + expansion; then a threat-driven budget.
-  AA only when enemy *combat* air has been seen. France and China are fortress factions: walls in front, Gatling/Tourelle
-  lines plus Grand Cannons behind at the chokes, China Great Wall lines with guard towers converted to Ballistas.
-* **Macro**: tech by ~3:00, expansion at ~3:30 and then on income; barracks/factories/airfields scale with income;
-  gas sinks into specials; production never idles.
-* **Intel + counter matrix**: remembers every enemy unit seen (decaying), then scores each buildable unit by real
-  damage-per-cost vs that composition using the sim's own `DMG` table plus marine plating/resistance, and survivability.
-  Specials get a guaranteed share.
-* **Army discipline**: one home army; defend with everything when the fight is winnable, otherwise fall back under the guns;
-  no piecemeal leaks.
-* **Team timing**: allied SI bots share a plan — a target, per-bot staging points (multi-prong), a launch time; everyone
-  arrives, then engages together. Air strikes on power/AA and drone swarms go in just before the ground army; medevacs follow.
-  Reinforcements rally and join as waves. Max-and-trade at high supply.
-* **Micro**: focus fire on priority targets (artillery, medevacs, specials, low-HP), pull back badly damaged units,
-  retreat from lost fights, keep artillery behind the front.
+Chief SI only. Easy/Normal/Hard keep their old behaviour. No resource, build-speed or stat bonuses. Endless keeps the
+old horde/bot paths. Every v7.1 rule can be switched off for A/B tests with `SIOFF` flags (`v71 e71 p71 d71 a71 ret mic plan dfn x eng pe ea`).
+
+**Economy (pro opener and macro cycle)**
+* Opener: the 2nd refinery goes down before more units, and nothing starves it. Tech comes next, then the expansion
+  (after ~195 s × (1 + 0.7 × CCs), once refineries ≥ 2 + CCs). If a site turns out blocked, it is marked bad and the next
+  best site is tried.
+* Fast high-value income: an early 2nd gas extractor (when cash allows), then up to 2 + 2 × CCs vents.
+* Production scales with measured 1-minute income: factories up to 7, barracks up to 5 (7 for Brazil/Germany),
+  airfields up to 3 (4 for USA), +1 of each while banking. So the army remaxes fast after every trade.
+* Saving-aware spending: while saving for a CC/refinery, towers and extra units wait.
+
+**Army composition (counters, not mono-spam)**
+* Intel memory: every enemy unit seen is remembered for 4 minutes, plus every known enemy tower.
+* Counter matrix: each buildable unit is scored by real damage-per-cost against that remembered mix (the sim's own
+  damage table, marine plating, splash/chain vs blobs, range) times survivability. Production follows the top 3 scores
+  as shares, so armies are mixed.
+* The faction special always has a guaranteed share (Tsar, Stealth, Raijin, Kommando, Marines, drones…), and gas is kept for it.
+* AA only when real enemy air is seen. Artillery share when the enemy is tower-heavy.
+* Supply efficiency (late fix): near max supply every pop slot counts, so expensive high-value units (tanks, artillery,
+  Titans) are preferred over rifle/rocket spam, and infantry is capped to a screen once over 55 pop.
+  Artillery splash vs infantry blobs was recalibrated (the counter sim used to under-rate it).
+
+**Fortress factions**
+* France: Gatling (Tourelle) lines at each entrance with walls in front and Grand Cannons behind. China: Great Wall
+  lines with guard towers converted to Ballistas.
+* Static D budget follows the economy (France 22 %, China 18 % of mined, more when attacked or maxed). Other factions
+  build lean D at the enemy-facing entrance only.
+
+**Attacks and teamwork**
+* Attacks are timing pushes: army value vs remembered enemy army + known towers × 0.95. No early all-ins into an
+  unscouted base (assume 4 towers until seen).
+* Allied Chief SI bots share one plan: target, per-bot rally points (multi-prong), a go signal when everyone is in place,
+  late joiners as reinforcement waves, an air pre-strike on power/AA while the ground armies gather.
+* A human ally's push is detected and the Chief SI army converges on the same target.
+
+**Micro and unit preservation**
+* Engagement read: before a fight, the counter sim is run on the local armies (+ home units, + 400 per tower).
+  If it says we lose, the group backs off under its own guns.
+* Lost-fight retreat, home defence with the whole army only when the fight is winnable, and focus fire on
+  artillery/medevacs/specials/low-HP targets without overkill.
+
+**Performance**
+* AI tick budget: about 0.15–0.25 ms average per AI per tick (old AI: 0.10–0.20 ms). Spikes were cut by bounding the
+  build-site scan and throttling defence re-orders.
