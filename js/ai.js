@@ -347,8 +347,11 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
     if (V) plan71Tick(P, S, c, near);
     if (V && G.time > (S.humT || 0)) { const hp = humanPush71(P); if (hp && dhypot(hp.x - c.x, hp.y - c.y) < 80 && !near.length) { S.humT = G.time + 10; S.grpWp = { x: hp.x, y: hp.y, t: G.time + 25 }; const p = plan71(P); if (p && !p.hum) { p.x = hp.x; p.y = hp.y; p.team = hp.team; p.hum = 1; } } } // converge on the human ally's push
     const commit = S.doc && !SIOFF.commit; const lost71 = V && !SIOFF.ret && thr && thr.length && (() => { const r = sim71(S.grp.concat(home.filter(u => !S.grp.includes(u) && dhypot(u.x - c.x, u.y - c.y) < 10)), thr); S.simR71 = r; return r < 0.4 && v < S.grpV0 * 0.75 && G.time - S.lastAttack > 15; })();
+    const avoid71 = V && !SIOFF.eng && !lost71 && G.time > (S.engT || 0) && (S.engT = G.time + 1) && !(plan71(P) || {}).hum && popOf(P.team) < POP_CAP - 12 && (() => { // pros don't take bad fights: read the engagement before it starts
+      const t15 = threatsNear(P, foes, c.x, c.y, 15); if (!t15.length || armyVal(t15.filter(f => f.kind === 'u')) + t15.filter(f => f.kind === 'b').length * 400 < v * 0.35) return false;
+      const r = sim71(S.grp.concat(home.filter(u => !S.grp.includes(u) && dhypot(u.x - c.x, u.y - c.y) < 12)), t15); return r < 0.7; })();
     if (V && !SIOFF.mic && thr && thr.length && !lost71) micro71(P, S, S.grp);
-    if (V && !SIOFF.ret ? lost71 : D.sys.sim ? (commit ? simR < 0.22 && v < S.grpV0 * 0.45 && G.time - S.lastAttack > 30 : simR < (S.siege && D.si && !SIOFF.siege ? 0.3 : 0.5) && v < S.grpV0 * 0.85 && G.time - S.lastAttack > 20) : (v < S.grpV0 * 0.35 && armyVal(near) > v * 1.2)) { // combat-sim says losing -> retreat & regroup at home defenses
+    if (V && !SIOFF.ret ? lost71 || avoid71 : D.sys.sim ? (commit ? simR < 0.22 && v < S.grpV0 * 0.45 && G.time - S.lastAttack > 30 : simR < (S.siege && D.si && !SIOFF.siege ? 0.3 : 0.5) && v < S.grpV0 * 0.85 && G.time - S.lastAttack > 20) : (v < S.grpV0 * 0.35 && armyVal(near) > v * 1.2)) { // combat-sim says losing -> retreat & regroup at home defenses
       orderMove(S.grp, stage.x, stage.y, false); S.grp.forEach(u => S.attackers.delete(u.id)); S.grp = []; S.grpWp = null; S.retreatT = G.time; S.wave = Math.max(S.wave, 12);
     } else if (G.time > (S.regT || 0)) {
       S.regT = G.time + 4;
