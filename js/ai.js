@@ -871,7 +871,7 @@ function army71(P, S, D, me, foes, knownB, idle, intruders, hq, estart) { // ret
   for (const Q of allies) teamAv += Q === P ? av : (Q.aiS.av71 || 0);
   const eArmy = S.compTot || 0, need = Math.max(2800 + G.time * 3, eArmy * 1.15 + Math.max(S.eDef71 || 0, G.time * 4) * (SIOFF.x ? 0.6 : 0.95)) * (allies.length > 1 ? 1 : 0.85);
   const timing = G.time > 360 && av >= 3000 && G.time - S.lastAttack > 150 && av >= need * (SIOFF.x ? 0.7 : 0.9);
-  if (G.time < 300 && teamAv < need * 2) return false; // no blind early all-ins into unscouted towers
+  if (G.time < 300 && teamAv < Math.max(need, SIOFF.ea ? 0 : (eArmy * 1.15 + Math.max(S.eDef71 || 0, 2400)) * 0.85) * 2) return false; // no blind early all-ins into unscouted towers
   if (!(teamAv >= need && av >= Math.min(need * 0.4, 6000)) && !(maxed && idle.length >= 10) && !timing) return false;
   // target: the enemy player whose known army+defence is weakest relative to distance
   let tgt = null, bs = 1e18; for (const Q of G.players) if (foe(Q.team, P.team) && !Q.out) { let v = 0; for (const [, m] of S.mem || []) if (m.team === Q.team) v += UT[m.t].cost; for (const b of knownB) if (b.team === Q.team && BT[b.t].wpn) v += BT[b.t].cost * 0.5; const st = G.starts[Q.start], s = v + dhypot(st[0] - hq.x, st[1] - hq.y) * 60; if (s < bs) { bs = s; tgt = Q; } }
