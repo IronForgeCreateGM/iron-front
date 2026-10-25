@@ -327,7 +327,10 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
   if (D.chief && !D.si) { const st = { x: hq.x, y: hq.y }; for (const u of S.grp || []) if (u.hp < u.mhp * 0.25 && !u.retreating && UT[u.t].armor !== 'inf') { u.retreating = true; orderMove([u], st.x, st.y, false); S.attackers.delete(u.id); } if (S.grp) S.grp = S.grp.filter(u => !u.retreating); for (const u of me) if (u.retreating && (u.hp > u.mhp * 0.7 || dhypot(u.x - st.x, u.y - st.y) < 4)) u.retreating = false; }
   S.eArmy = Math.max((S.eArmy || 0) * 0.995, armyVal(foes.filter(f => f.kind === 'u' && UT[f.t].wpn)));
   const V = isV71(P) && !SIOFF.a71;
-  const ground = home.filter(u => u.t !== 'harv' && !UT[u.t].jet && UT[u.t].wpn);
+  if (V && !SIOFF.ts) { const hx = hq.x + 2, hy = hq.y + 2; for (const u of me) if (u.t === 'tsar' && u.hp > 0) { // v7.1.1: Tsars are 3200+gas — pull a badly hurt one home to regenerate instead of trading it
+      if (!u.tsR && u.hp < u.mhp * 0.42) { u.tsR = 1; S.attackers.delete(u.id); orderMove([u], hx, hy, false); } else if (u.tsR && u.hp >= u.mhp * 0.9) u.tsR = 0; else if (u.tsR && u.order === 'idle' && dhypot(u.x - hx, u.y - hy) > 6) orderMove([u], hx, hy, false); }
+    if (S.grp) S.grp = S.grp.filter(u => !u.tsR); }
+  const ground = home.filter(u => u.t !== 'harv' && !UT[u.t].jet && UT[u.t].wpn && !u.tsR);
   const ang = datan2(estart[1] - hq.y, estart[0] - hq.x);
   const stage = { x: hq.x + dcos(ang) * 9, y: hq.y + dsin(ang) * 9 };
   // group management
@@ -346,9 +349,11 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
     const thr = D.sys.sim ? threatsNear(P, foes, c.x, c.y, 10) : null, simR = thr && thr.length ? combatSim(S.grp, thr) : 9;
     if (V) plan71Tick(P, S, c, near);
     if (V && G.time > (S.humT || 0)) { const hp = humanPush71(P); if (hp && dhypot(hp.x - c.x, hp.y - c.y) < 80 && !near.length) { S.humT = G.time + 10; S.grpWp = { x: hp.x, y: hp.y, t: G.time + 25 }; const p = plan71(P); if (p && !p.hum) { p.x = hp.x; p.y = hp.y; p.team = hp.team; p.hum = 1; } } } // converge on the human ally's push
-    const commit = S.doc && !SIOFF.commit; const lost71 = V && !SIOFF.ret && thr && thr.length && (() => { const r = sim71(S.grp.concat(home.filter(u => !S.grp.includes(u) && dhypot(u.x - c.x, u.y - c.y) < 10)), thr); S.simR71 = r; return r < 0.4 && v < S.grpV0 * 0.75 && G.time - S.lastAttack > 15; })();
+    const commit = S.doc && !SIOFF.commit; let fr = c; if (V && !SIOFF.rt2) { const pp = plan71(P), tg = S.grpWp && !S.grpWp.hold ? S.grpWp : pp ? pp : { x: estart[0], y: estart[1] }; let bd = 1e9; for (const u of S.grp) { const d = dhypot(u.x - tg.x, u.y - tg.y); if (d < bd) { bd = d; fr = u; } } } // v7.1.1: read the fight at the spearhead, not the (spread-out) centroid
+    const thrF = V && !SIOFF.rt2 ? (() => { const l = threatsNear(P, foes, c.x, c.y, 11); for (const f of threatsNear(P, foes, fr.x, fr.y, 12)) if (!l.includes(f)) l.push(f); for (const b of knownB) if (BT[b.t].wpn && b.hp > 0 && !b.offline && dhypot(b.x - fr.x, b.y - fr.y) < 12 && !l.includes(b)) l.push(b); return l; })() : thr;
+    const lost71 = V && !SIOFF.ret && thrF && thrF.length && (() => { const r = sim71(S.grp.concat(home.filter(u => !S.grp.includes(u) && dhypot(u.x - c.x, u.y - c.y) < 10)), thrF); S.simR71 = r; return SIOFF.rt2 ? r < 0.4 && v < S.grpV0 * 0.75 && G.time - S.lastAttack > 15 : G.time - S.lastAttack > 15 && ((r < 0.5 && v < S.grpV0 * 0.8) || (r < 1.1 && v < S.grpV0 * 0.5)); })();
     const avoid71 = V && !SIOFF.eng && !lost71 && G.time > (S.engT || 0) && (S.engT = G.time + 1) && !(plan71(P) || {}).hum && popOf(P.team) < POP_CAP - 12 && (() => { // pros don't take bad fights: read the engagement before it starts
-      const t15 = threatsNear(P, foes, c.x, c.y, 15); if (!t15.length || armyVal(t15.filter(f => f.kind === 'u')) + t15.filter(f => f.kind === 'b').length * 400 < v * 0.35) return false;
+      const t15 = threatsNear(P, foes, c.x, c.y, 15); if (!SIOFF.rt2) { for (const f of threatsNear(P, foes, fr.x, fr.y, 14)) if (!t15.includes(f)) t15.push(f); for (const b of knownB) if (BT[b.t].wpn && b.hp > 0 && !b.offline && dhypot(b.x - fr.x, b.y - fr.y) < 14 && !t15.includes(b)) t15.push(b); } if (!t15.length || armyVal(t15.filter(f => f.kind === 'u')) + t15.filter(f => f.kind === 'b').length * 400 < v * 0.35) return false;
       const r = sim71(S.grp.concat(home.filter(u => !S.grp.includes(u) && dhypot(u.x - c.x, u.y - c.y) < 12)), t15); return r < 0.7; })();
     if (V && !SIOFF.mic && thr && thr.length && !lost71) micro71(P, S, S.grp);
     if (V && !SIOFF.ret ? lost71 || avoid71 : D.sys.sim ? (commit ? simR < 0.22 && v < S.grpV0 * 0.45 && G.time - S.lastAttack > 30 : simR < (S.siege && D.si && !SIOFF.siege ? 0.3 : 0.5) && v < S.grpV0 * 0.85 && G.time - S.lastAttack > 20) : (v < S.grpV0 * 0.35 && armyVal(near) > v * 1.2)) { // combat-sim says losing -> retreat & regroup at home defenses
@@ -383,7 +388,7 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
   let need = Math.max(S.wave * 650, (S.eArmy || 0) * 1.4); if (S.doc) need = Math.max(need, (S.eArmy || 0) * 1.25 + (S.eDefV || 0) * 0.7);
   if (S.towerHeavy) { const arty = idle.filter(u => u.t === 'arty').length; need = Math.max(need, (S.eArmy || 0) * 1.2 + S.eDefV * (S.eOffline ? 0.5 : 1.1)); if (arty < 3 && !S.eOffline && idle.length < 30) need *= 1.5; }
   // reinforce a running attack with what has gathered at home
-  const rl = S.doc && !SIOFF.commit; if (S.grp.length && !intruders.length && (rl ? av > 2200 || idle.length > 7 : av > 5000 || idle.length > 14) && G.time > (S.reinfT || 0)) { S.reinfT = G.time + (rl ? 10 : 20); const c = S.grp[0]; orderMove(idle, c.x, c.y, true); idle.forEach(u => { S.grp.push(u); S.attackers.add(u.id); u.stance = 'aggr'; u.guard = null; u.face = null; }); }
+  const rl = S.doc && !SIOFF.commit; if (S.grp.length && !intruders.length && (rl ? av > 2200 || idle.length > 7 : av > 5000 || idle.length > 14) && G.time > (S.reinfT || 0)) { S.reinfT = G.time + (rl ? 10 : 20); const c = S.grp[0]; orderMove(idle, c.x, c.y, true); if (!SIOFF.rt2) S.grpV0 = (S.grpV0 || 0) + armyVal(idle); idle.forEach(u => { S.grp.push(u); S.attackers.add(u.id); u.stance = 'aggr'; u.guard = null; u.face = null; }); }
   const maxed = popOf(P.team) >= POP_CAP - 8;
   const tp = S.doc && !SIOFF.team && !(V && !SIOFF.plan) ? teamPlan(P) : null, join = tp && tp.team !== P.team && av >= need * 0.55 && idle.length >= 6;
   if (V && !SIOFF.plan) { if (army71(P, S, D, me, foes, knownB, idle, intruders, hq, estart) && D.sys.prong && S.grp.length >= 14 && knownB.length >= 2) { const fast = S.grp.filter(u => UT[u.t].sp >= 2.2 && !UT[u.t].air).slice(0, Math.min(6, Math.floor(S.grp.length * 0.2))); if (fast.length >= 3) { S.grp = S.grp.filter(u => !fast.includes(u)); S.flank = fast; S.flankT = G.time + 25; } } }
@@ -420,7 +425,7 @@ function siExtras(P, S, me, foes, knownB, hq, estart, intruders) {
   const army = me.filter(u => u.kind === 'u' && UT[u.t].wpn && !UT[u.t].air);
   // early rush defense: recall everything when base attacked in the first 6 minutes
   // base defense recall (any time): bring the attack group home if the base faces a real threat
-  if (!SIOFF.recall2 && intruders.length && S.grp && S.grp.length && G.time > (S.recallT || 0)) { const iv = armyVal(intruders.filter(f => me.some(b => b.kind === 'b' && dhypot(b.x - f.x, b.y - f.y) < 12))), hv = armyVal(army.filter(u => !S.grp.includes(u) && dhypot(u.x - hq.x, u.y - hq.y) < 20));
+  if (!SIOFF.recall2 && intruders.length && S.grp && S.grp.length && G.time > (S.recallT || 0)) { const iv = armyVal((isV71(P) && !SIOFF.air2 ? intruders.filter(f => !isAir(f) && UT[f.t].wpn) : intruders).filter(f => me.some(b => b.kind === 'b' && dhypot(b.x - f.x, b.y - f.y) < 12))), hv = armyVal(army.filter(u => !S.grp.includes(u) && dhypot(u.x - hq.x, u.y - hq.y) < 20));
     if (iv > Math.max(4500, hv * 1.5)) { const c = intruders[0]; S.recallT = G.time + 10; S.grp.forEach(u => S.attackers.delete(u.id)); orderMove(S.grp, c.x, c.y, true); S.grp = []; S.retreatT = G.time; } }
   if (!SIOFF.recall && intruders.length && G.time < 360) { const c = intruders.reduce((a, f) => (a.x += f.x / intruders.length, a.y += f.y / intruders.length, a), { x: 0, y: 0 });
     if (armyVal(intruders) > 500 && G.time > (S.recallT || 0)) { S.recallT = G.time + 6; const all = army.filter(u => u.t !== 'harv'); if (S.grp && S.grp.length) { S.grp.forEach(u => S.attackers.delete(u.id)); S.grp = []; } orderMove(all, c.x, c.y, true); } }
@@ -526,6 +531,7 @@ function ballistaMgr(P, S, me) {
 function greatWallMgr(P, S, me, cnt, hq) {
   const V = isV71(P) && !G.end; if (G.time < (S.gwT || 0) || G.time < (G.end ? 20 : V ? 170 : 200) || !avail(P.team, 'wall')) return; S.gwT = G.time + (G.end ? 40 : V ? 60 : 110);
   const nw = (cnt.wall || 0) + (cnt.gtower || 0) + (cnt.gate || 0); if (nw >= (G.end ? 110 : V ? 140 : 70)) return;
+  if (V && !SIOFF.wcap) { const wv = (cnt.wall || 0) * BT.wall.cost + (cnt.gtower || 0) * BT.gtower.cost + (cnt.gate || 0) * BT.gate.cost; if ((S.saving && P.cr < BT[S.saving].cost + 300) || (wv > 1200 && wv > (P.stats.mined || 0) * 0.05)) { S.gwT = G.time + 8; return; } } // v7.1.1: the wall may not starve the economy or the army
   if (P.cr < (G.end ? 600 : V ? 250 : 900)) { if (V) S.gwT = G.time + 3; return; } // v7.1: income is spent fast, so poll and build the wall piece by piece
   const ents = baseEntrances(P, S, hq); if (!ents.length) return;
   const en = ents[(S.gwI = ((S.gwI || 0) + 1)) % ents.length]; if (G.time < (en.gwT || 0)) return; en.gwT = G.time + (V ? 150 : 400); if (V && (en.gwN || 0) >= 4) return;
@@ -857,7 +863,7 @@ function rally71(p, P, hq) { // per-member rally ~17 tiles short of the target, 
   for (const r of [17, 14, 20, 11]) { const a = a0 + side, x = Math.max(3, Math.min(MW - 3, p.x + dcos(a) * r)), y = Math.max(3, Math.min(MH - 3, p.y + dsin(a) * r)); const f = nearFree(Math.floor(x), Math.floor(y), 5); if (f) return { x: f[0] + 0.5, y: f[1] + 0.5 }; }
   return { x: hq.x, y: hq.y }; }
 function army71(P, S, D, me, foes, knownB, idle, intruders, hq, estart) { // returns true if it launched / joined
-  if (!peaceOver(P) || intruders.length || S.grp.length) return false;
+  if (!peaceOver(P) || S.grp.length) return false; if (SIOFF.air2 ? intruders.length : armyVal(intruders.filter(f => !isAir(f) && UT[f.t].wpn)) > 900 || intruders.filter(f => !isAir(f)).length >= 3) return false;
   const av = armyVal(idle), maxed = popOf(P.team) >= POP_CAP - 8; let p = plan71(P);
   const hp = humanPush71(P); // a human ally is pushing: back the push now with everything idle (no waiting for a team plan)
   if (hp && av >= 1200 && idle.length >= 4) { if (!p || p.team !== hp.team || !p.hum) p = G.tp71[P.ally] = { t0: G.time, team: hp.team, x: hp.x, y: hp.y, m: {}, go: G.time, hum: 1 };
@@ -870,9 +876,9 @@ function army71(P, S, D, me, foes, knownB, idle, intruders, hq, estart) { // ret
   // create a plan: whole-team available army vs remembered enemy army + their static D at the target
   const allies = G.players.filter(Q => Q.ally === P.ally && !Q.out && Q.ai && isV71(Q)); let teamAv = 0;
   for (const Q of allies) teamAv += Q === P ? av : (Q.aiS.av71 || 0);
-  const eArmy = S.compTot || 0, need = Math.max(2800 + G.time * 3, eArmy * 1.15 + Math.max(S.eDef71 || 0, G.time * 4) * (SIOFF.x ? 0.6 : 0.95)) * (allies.length > 1 ? 1 : 0.85);
-  const timing = G.time > 360 && av >= 3000 && G.time - S.lastAttack > 150 && av >= need * (SIOFF.x ? 0.7 : 0.9);
-  if (G.time < 300 && teamAv < Math.max(need, SIOFF.ea ? 0 : (eArmy * 1.15 + Math.max(S.eDef71 || 0, 2400)) * 0.85) * 2) return false; // no blind early all-ins into unscouted towers
+  const eArmy = S.compTot || 0, fortF = G.players.some(Q => foe(Q.team, P.team) && !Q.out && FORT71[Q.fac]) ? 1.3 : 1, dPrior = SIOFF.dp ? Math.max(S.eDef71 || 0, G.time * 4) : Math.max((S.eDef71 || 0) * 1.2, Math.min(Math.max(0, G.time - 60) * 30, 18000) * fortF), need = Math.max(2800 + G.time * 3, eArmy * 1.15 + dPrior * (SIOFF.x ? 0.6 : 0.95)) * (allies.length > 1 ? 1 : 0.85);
+  S.need71 = need; const timing = G.time > 360 && av >= 3000 && G.time - S.lastAttack > 150 && av >= need * (SIOFF.x ? 0.7 : 0.9);
+  if (G.time < 300 && teamAv < Math.max(need, SIOFF.ea ? 0 : (eArmy * 1.15 + Math.max(S.eDef71 || 0, 2400)) * 0.85) * (SIOFF.dp ? 2 : 1.4)) return false; // no blind early all-ins into unscouted towers
   if (!(teamAv >= need && av >= Math.min(need * 0.4, 6000)) && !(maxed && idle.length >= 10) && !timing) return false;
   // target: the enemy player whose known army+defence is weakest relative to distance
   let tgt = null, bs = 1e18; for (const Q of G.players) if (foe(Q.team, P.team) && !Q.out) { let v = 0; for (const [, m] of S.mem || []) if (m.team === Q.team) v += UT[m.t].cost; for (const b of knownB) if (b.team === Q.team && BT[b.t].wpn) v += BT[b.t].cost * 0.5; const st = G.starts[Q.start], s = v + dhypot(st[0] - hq.x, st[1] - hq.y) * 60; if (s < bs) { bs = s; tgt = Q; } }
