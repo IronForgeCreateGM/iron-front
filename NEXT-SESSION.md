@@ -1,3 +1,7 @@
+# v7.1.1 (Oct 24 2026): Chief SI tuning, local commits only, NOT pushed (v7.1 390ee59 is live)
+Benchmark vs v7.0.3 SI: 26W/0L/6D of 32 (81%), table in docs/ai-replay-analysis-v7.1.md. Open: ai71 4v4 fails China wall /
+USA Stealth peak / Russia Tsar peak (losing side on seed 11); stashed attempt in `git stash list` (top entry).
+
 # v7.1 (Oct 24 2026): Chief SI super-intelligence overhaul, local commits only, NOT pushed
 All v7.1 logic is gated by isV71(P) (Chief SI only); SIOFF flags allow ablation (test/ai71-test.js, env SIOFF=a,b).
 Benchmark vs v7.0.3 SI (mirror, 14 min): see docs/ai-replay-analysis-v7.1.md. Below the 75% outright-win target; France/USA mirrors and Germany weakest.

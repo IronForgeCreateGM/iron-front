@@ -139,3 +139,36 @@ old horde/bot paths. Every v7.1 rule can be switched off for A/B tests with `SIO
 - All batches combined (68 games): 39W (57%) 6L (9%) 23T; win-or-draw 91%. Below the 75% outright-win target.
 - Late additions: China builds the Great Wall piece by piece (cash gate 250, 60 reserve, retries every 4 s), so walls now actually appear in pro-economy games.
   Human-push detection is more lenient (n>=4 units, value>=2500; deeper forward positions count).
+
+
+## v7.1.1 tuning (Oct 24 2026)
+
+Benchmark: new Chief SI (v7.1.1) vs frozen v7.0.3 Chief SI, faction mirror 1v1 on classic, 14 game minutes, seeds 38/69/100/131,
+all 8 factions = 32 games (`test/vs-old.js`). Win = elimination or value ratio > 1.3 (A / A(pts)); D = draw (ratio 0.77-1.3).
+
+| Faction | W | L | D | Draws (seed, ratio) |
+|---|---|---|---|---|
+| USA | 4 | 0 | 0 | - |
+| France | 3 | 0 | 1 | s100 (1.19) |
+| Russia | 3 | 0 | 1 | s38 (1.27) |
+| Germany | 3 | 0 | 1 | s131 (1.01) |
+| Brazil | 4 | 0 | 0 | - |
+| Iran | 3 | 0 | 1 | s69 (1.23) |
+| China | 2 | 0 | 2 | s69 (1.22), s131 (1.02) |
+| Japan | 4 | 0 | 0 | - |
+| **Total** | **26** | **0** | **6** | **81% outright wins, 100% win-or-draw** |
+
+v7.1 for comparison: 57% outright wins, 9% losses. Changes in v7.1.1 (all gated by isV71 + SIOFF flags, Easy/Normal/Hard untouched):
+- `art`: Howlers in the attack group step up to siege range of the nearest visible ground enemy (they idled 10-16 tiles back while
+  the enemy's sieged Howlers out-damaged them ~12:1).
+- `jr`: strike craft (jet/bomber/stealth) capped at total airfield parking slots; air raids launch with 3 armed (was 5 with 4 slots -> never).
+- `aac`: Skyguard AA value capped at 0.8x seen enemy air value + 1400. `bank`/`bl`: maxed (pop >= 94) with > 3000 banked -> tower spend
+  cap lifted, bleed rule active at max pop.
+- `chunk`: group orders of > 34 units go out in waves of 30 over consecutive AI ticks, later waves forming up behind
+  (single-call spike from bulk A* pathing: 112 ms -> 35 ms, usa s131).
+- Known open: ai71 4v4 (volcano8 seed 11) fails China wall (16+4 < 30), USA Stealth peak 2 and Russia Tsar peak 2; on that seed the
+  fra/chn/usa/rus side is overrun (Russia eliminated ~10:00, also in v7.1). A Tsar home-anchor + extra-airfield attempt made it worse
+  and is parked in `git stash` (not committed).
+- Known open: ai71-human fails at the `chunk` commit (2e87767): on that seed the SI ally had already launched its own push 12 s before
+  the scripted human push and never diverted (passes at 08ead55 and with SIOFF=chunk). Reverting `chunk` restores it; the benchmark
+  without `chunk` (08ead55) was 24W/2L/6D (75%).

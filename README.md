@@ -1,4 +1,11 @@
-# Iron Front: browser RTS (v7.1)
+# Iron Front: browser RTS (v7.1.1)
+
+## v7.1.1: Chief SI tuning (skill only, no bonuses)
+- Howlers in the attack group walk up to siege range instead of idling behind the army.
+- Strike craft are capped at airfield parking slots and air raids launch with 3 armed jets (extra jets used to circle forever).
+- Skyguard AA share is capped by the enemy air actually seen; a maxed army with a big bank spends on towers and trades forward.
+- Big army orders go out in waves of 30 over consecutive AI ticks (worst single AI call 112 ms -> 35 ms on a maxed army).
+- Benchmark vs v7.0.3 Chief SI (32 mirror games, 8 factions x 4 seeds): 26 W / 0 L / 6 D = 81% outright wins (v7.1 was 57%).
 
 ## v7.1: Chief SI "super-intelligence" overhaul (skill only, no bonuses)
 - Pro macro cycle: scout, then counter-build; production buildings scale with income so armies remax fast; early gas/diamond extractors.
