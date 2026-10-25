@@ -1,4 +1,13 @@
-# Iron Front: browser RTS (v7.0.3)
+# Iron Front: browser RTS (v7.1)
+
+## v7.1: Chief SI "super-intelligence" overhaul (skill only, no bonuses)
+- Pro macro cycle: scout, then counter-build; production buildings scale with income so armies remax fast; early gas/diamond extractors.
+- Varied armies built around each faction's special; no mono-unit spam; armies get more cost-efficient per pop slot late game.
+- Timing pushes with multi-prong, coordinated team attacks; damaged units retreat to be preserved; early pushes need clear superiority.
+- France fortress builds (Gatlings, Grand Cannons, walls); China builds the Great Wall piece by piece with guard towers converted to Ballistas.
+- Chief SI teammates detect and back a human ally's push.
+- Easy/Normal/Hard unchanged. Benchmark vs v7.0.3 Chief SI: see docs/ai-replay-analysis-v7.1.md.
+
 
 Original real-time strategy game in plain HTML5/WebGL (Three.js vendored). No build step.
 

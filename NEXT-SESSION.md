@@ -1,3 +1,8 @@
+# v7.1 (Oct 24 2026): Chief SI super-intelligence overhaul, local commits only, NOT pushed
+All v7.1 logic is gated by isV71(P) (Chief SI only); SIOFF flags allow ablation (test/ai71-test.js, env SIOFF=a,b).
+Benchmark vs v7.0.3 SI (mirror, 14 min): see docs/ai-replay-analysis-v7.1.md. Below the 75% outright-win target; France/USA mirrors and Germany weakest.
+Known: ai71 Russia Tsar peak check (needs >=3) fails, as Tsars die in 4v4 fights. Real-device play-test of human-push support still needed.
+
 # v7.0.3 (Oct 24 2026): hotfix, local commit only, NOT pushed
 Fixed the Endless boss-kill freeze (the Colossus is mech:1 with no leg rig, so the corpse animation threw and main.js rethrew, stopping requestAnimationFrame). Added loop error recovery, boss withering after 7 min, a horde A* budget and a walled-HQ elite fallback. Test: test/endless703-test.js.
 Still to verify on a real iPhone: no freeze on the boss kill, and FPS in late waves.
