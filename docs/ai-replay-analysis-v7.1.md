@@ -132,3 +132,10 @@ old horde/bot paths. Every v7.1 rule can be switched off for A/B tests with `SIO
 **Performance**
 * AI tick budget: about 0.15–0.25 ms average per AI per tick (old AI: 0.10–0.20 ms). Spikes were cut by bounding the
   build-site scan and throttling defence re-orders.
+
+## Final benchmark (Oct 24 2026, new Chief SI vs v7.0.3 Chief SI, mirror, classic map, 14 min)
+- Final code (after piece-by-piece Great Wall + human-push tweaks), 8 factions x seeds 38/131: 8W 2L 6T.
+  Losses: usa s38 (r 0.70), chn s38 (r 0.70, economy lag: 201k mined vs 330k).
+- All batches combined (68 games): 39W (57%) 6L (9%) 23T; win-or-draw 91%. Below the 75% outright-win target.
+- Late additions: China builds the Great Wall piece by piece (cash gate 250, 60 reserve, retries every 4 s), so walls now actually appear in pro-economy games.
+  Human-push detection is more lenient (n>=4 units, value>=2500; deeper forward positions count).
