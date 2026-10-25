@@ -18,7 +18,7 @@ const t0 = Date.now();
 for (let n = 0; n < 16 * 60 * 30 && !G.over && Date.now() - t0 < 200000; n++) {
   try { A.stepGame(); } catch (e) { errs++; err1 = err1 || e.stack; } G.events.length = 0;
   if (n % 150) continue;
-  const c = G.players.map(() => ({})); for (const e of G.ents) if (e.hp > 0 && e.team >= 0 && e.team < 8) { c[e.team][e.t] = (c[e.team][e.t] || 0) + 1; if (e.kind === 'u' && UT[e.t].wpn) (types[e.team] = types[e.team] || new Set()).add(e.t); }
+  const c = G.players.map(() => ({})); for (const e of G.ents) if (e.hp > 0 && e.team >= 0 && e.team < 8) { c[e.team][e.t] = (c[e.team][e.t] || 0) + 1; if (e.t === 'gtower' && e.bal) c[e.team].ballista = (c[e.team].ballista || 0) + 1; if (e.kind === 'u' && UT[e.t].wpn) (types[e.team] = types[e.team] || new Set()).add(e.t); }
   G.players.forEach((P, i) => { const m = mx[i] = mx[i] || {}; for (const k in c[i]) m[k] = Math.max(m[k] || 0, c[i][k]); m.spec = Math.max(m.spec || 0, SPEC[P.fac].reduce((s, k) => s + (c[i][k] || 0), 0)); });
   for (const a in G.tp71 || {}) { const p = G.tp71[a], k = a + ':' + p.t0; if (p.go && !seenPlan.has(k)) { seenPlan.add(k); const nm = Object.keys(p.m).length; if (nm >= 2) plans++; maxMem = Math.max(maxMem, nm); } }
 }
