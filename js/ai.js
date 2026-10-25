@@ -172,6 +172,9 @@ function aiV62(P, S, cnt, myB) { // v6.2: Air Command pads, Howler siege, resear
     let near = 1e9, inR = false; for (const o of G.ents) if (o.hp > 0 && foe(o.team, P.team) && (o.kind === 'b' || !UT[o.t].air)) { const dd = dhypot(o.x - u.x, o.y - u.y); if (o.kind === 'u' && dd < near) near = dd; if (dd < SIEGE.rng - 0.3 && dd > W.arty.minRng + 0.5) inR = true; }
     if (!u.sg && inR && near > 4.5 && (!u.path.length || u.order === 'amove' || u.order === 'idle')) { if (siegeToggle(u, 1)) u.sgHold = true; }
     else if (u.sg === 2 && (near < 3.2 || !inR)) siegeToggle(u, 0); }
+  if (isV71(P) && !SIOFF.art && S.grp && S.grp.length && G.time >= (S.art71T || 0)) { S.art71T = G.time + 1; // v7.1.1: Howlers at the back of a big fight walk up to siege range instead of idling out of reach
+    for (const u of S.grp) if (u.t === 'arty' && u.hp > 0 && !u.sg && (u.order === 'idle' || u.order === 'amove') && !u.tgt) { let nr = 1e9, ne = null; for (const o of G.ents) if (o.kind === 'u' && o.hp > 0 && foe(o.team, P.team) && !isAir(o) && o.t !== 'harv' && dhypot(o.x - u.x, o.y - u.y) < 17 && visibleTo(P.team, o)) { const dd = dhypot(o.x - u.x, o.y - u.y); if (dd < nr) { nr = dd; ne = o; } }
+      if (ne && nr > SIEGE.rng - 0.6 && nr < 17) { const k = (nr - (SIEGE.rng - 1.6)) / nr; orderMove([u], u.x + (ne.x - u.x) * k, u.y + (ne.y - u.y) * k, false); } } }
   S.rsSave = 0;
   if (cnt.tech && G.time > 360 && G.time >= (S.t62r || 0)) { // v6.2 bots research the track matching their army (same prices as the player; they save up for it)
     const lab = myB.find(b => b.t === 'tech' && b.upT == null && b.sell < 0 && b.hp > 0 && G.time - b.born > 2); if (lab) { const n = {}; for (const e of G.ents) if (e.team === P.team && e.hp > 0) { const c = resCat(e); if (c) n[c] = (n[c] || 0) + (e.kind === 'b' ? 1.5 : 1); }
