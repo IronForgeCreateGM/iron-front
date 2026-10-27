@@ -1,3 +1,10 @@
+# v7.2.0 (Oct 27 2026): place-then-build construction (nightly, queue item 1 done)
+- Buildings/defenses/walls: pay in full at placement, build on the ground (e.con = {p, w}), HP grows with progress, cancel refunds b.paid/b.paidG, destroyable while building. One active site per category lane (walls exempt); build rate scales with yards and halves on low power.
+- Bots: an order sets its price aside gradually (2x the old build pace, resvOf/it.acc in stepProduction), then becomes P.ready[cat] and is placed by placeReady. aiThink sees only spendable credits. Benchmark vs v7.0.3 SI: 31W/0L/1D (results in /workspace/bench-v720-final).
+- Tests: test/build72-test.js (new), test/v72-shot.js (shots/v7_2-under-construction.png).
+- Open / known: ai71 seed 11 "coordinated team pushes" gets 1 plan (needs 2). Seeds 12-14 give 9 multi-player plans vs 8 on v7.1.1, so this is seed-specific. ai71 Russia Tsar peak 2 (predates v7.2). endless703 "loop alive" is flaky under software GL (fails on v7.1.1 too). mobile-play "build tabs restored after Upgrade + tap ground" x2 (predates v7.2). js/mobile.js still has dead P.ready.bld/wantPower code to clean up.
+- Real-device check: placing on iPhone touch and a two-device online game with sites under construction.
+
 # v7.1.1 (Oct 24 2026): Chief SI tuning, local commits only, NOT pushed (v7.1 390ee59 is live)
 Benchmark vs v7.0.3 SI: 26W/0L/6D of 32 (81%), table in docs/ai-replay-analysis-v7.1.md. Open: ai71 4v4 fails China wall /
 USA Stealth peak / Russia Tsar peak (losing side on seed 11); stashed attempt in `git stash list` (top entry).

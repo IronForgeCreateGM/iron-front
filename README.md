@@ -1,4 +1,10 @@
-# Iron Front: browser RTS (v7.1.1)
+# Iron Front: browser RTS (v7.2.0)
+
+## v7.2.0: place-then-build construction
+- Pick a building or defense, place it, and the full price is paid right then. It builds on the ground with scaffolding and a progress bar; the side-panel countdown for buildings is gone.
+- Cancel a building under construction for a full refund. A site can be attacked and destroyed (no refund), and its HP grows as it builds.
+- Walls and defenses work the same way; drag-to-lay walls still works. Mobile touch and online lockstep both use the same build command.
+- Bots use the exact same system with no bonuses. Benchmark vs v7.0.3 Chief SI: 31 W / 0 L / 1 D of 32 (97%).
 
 ## v7.1.1: Chief SI tuning (skill only, no bonuses)
 - Howlers in the attack group walk up to siege range instead of idling behind the army.
