@@ -69,13 +69,12 @@ function mobWireCard(b, t) { // tap = build/queue; long-press = tooltip; horizon
   let lp = null, sx = 0, sy = 0, moved = false, long = false;
   b.addEventListener('pointerdown', e => { audioInit(); sx = e.clientX; sy = e.clientY; moved = false; long = false; clearTimeout(lp); lp = setTimeout(() => { long = true; showTip(t, b); mobTipPos(b); }, 450); });
   b.addEventListener('pointermove', e => { if (Math.hypot(e.clientX - sx, e.clientY - sy) > 12) { moved = true; clearTimeout(lp); } });
-  const up = e => { clearTimeout(lp); if (long) { const P = G.players[ME], c = catOf(t); if (P.queues[c].some(q => q.t === t) || (BT[t] && P.ready[c] === t)) { clickItem(t, true, false); uiMsg('Cancelled one ' + (BT[t] || UT[t]).n + ' (long-press cancels)'); } setTimeout(hideTip, 1400); return; } if (moved || e.type === 'pointercancel') return; mobCardTap(t); };
+  const up = e => { clearTimeout(lp); if (long) { const P = G.players[ME], c = catOf(t); if (P.queues[c].some(q => q.t === t) || (BT[t] && G.ents.some(e => e.con && e.team === ME && e.t === t && e.hp > 0))) { clickItem(t, true, false); uiMsg('Cancelled one ' + (BT[t] || UT[t]).n + (BT[t] ? ' — full refund' : '') + ' (long-press cancels)'); } setTimeout(hideTip, 1400); return; } if (moved || e.type === 'pointercancel') return; mobCardTap(t); };
   b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('contextmenu', e => e.preventDefault());
 }
 function mobTipPos(b) { const r = b.getBoundingClientRect(); UI.tip.style.right = 'auto'; UI.tip.style.left = Math.max(8, Math.min(innerWidth - 300, r.left)) + 'px'; UI.tip.style.top = Math.max(8, r.top - UI.tip.offsetHeight - 8) + 'px'; }
 function mobCardTap(t) {
   const P = G.players[ME], cat = catOf(t);
-  if (BT[t] && P.ready[cat] === t) { UI.placing = t; UI.mode = null; mobStartPlace(); sfx('click'); return; }
   clickItem(t, false, false);
   if (UI.mode === 'wall') { MOB.mode = 'wall'; UI.msgT = 0; document.getElementById('msg').style.opacity = 0; } // the ✓/✗ hint explains touch walls
   if (UI.placing) mobStartPlace();
@@ -102,9 +101,9 @@ function mobPlSync() { const L = MOB.pl, d = BT[L.t], cx = L.tx + d.w / 2, cy = 
 function mobStartPlace() { MOB.placeFor = UI.placing; if (UI.placing) mobPlStart(UI.placing); }
 function mobConfirm() {
   if (UI.mode === 'wall') { mobCancel(); return; }
-  if (!UI.placing || !MOB.pl) return; const L = MOB.pl, cat = BT[UI.placing].cat; mobPlSnap(false);
-  const ok = L.ok && (NET.online ? (NET.issue({ c: 'place', cat, x: L.tx, y: L.ty }), true) : NET.issue({ c: 'place', cat, x: L.tx, y: L.ty }));
-  if (ok) { MOB.plLast = { x: L.fx, y: L.fy }; UI.placing = null; MOB.placeFor = null; MOB.pl = null; sfx('ack'); mobBuzz(15); } else { sfx('error'); mobBuzz([30, 40, 30]); uiMsg("Can't build there — drag the ghost to a green spot"); }
+  if (!UI.placing || !MOB.pl) return; const L = MOB.pl, t = UI.placing; mobPlSnap(false); const why = buildWhy(ME, t, L.tx, L.ty); // v7.2: pay in full on placement
+  const ok = L.ok && !why && (NET.online ? (NET.issue({ c: 'build', t, x: L.tx, y: L.ty }), true) : NET.issue({ c: 'build', t, x: L.tx, y: L.ty }));
+  if (ok) { MOB.plLast = { x: L.fx, y: L.fy }; UI.placing = null; MOB.placeFor = null; MOB.pl = null; sfx('ack'); mobBuzz(15); } else { sfx('error'); mobBuzz([30, 40, 30]); uiMsg(why && why !== 'spot' ? buildMsg(t, why) : "Can't build there — drag the ghost to a green spot"); }
 }
 function mobCancel() { UI.placing = null; MOB.placeFor = null; MOB.pl = null; UI.mode = null; UI.wallA = null; MOB.mode = null; MOB.box = false; UI.mouse.x = -1; }
 function myArmy() { return G.ents.filter(e => e.team === ME && e.kind === 'u' && e.hp > 0 && UT[e.t].wpn && e.t !== 'harv'); }
@@ -124,8 +123,10 @@ function mobCmd(k) {
   else if (k === 'rally') { MOB.mode = MOB.mode === 'rally' ? null : 'rally'; if (MOB.mode) uiMsg('🚩 Tap the ground to set the rally point for new units'); }
   sfx('click');
 }
-function mobPowerTap() { const P = G.players[ME]; if (P.ready.bld === 'power') { MOB.wantPower = true; return; } if (P.queues.bld.some(q => q.t === 'power')) { MOB.wantPower = true; uiMsg('⚡ Power Plant on the way — it will be placed automatically'); return; }
-  if (P.queues.bld.length || P.ready.bld) { uiMsg('Finish the current structure first'); sfx('error'); return; } clickItem('power', false, false); MOB.wantPower = true; uiMsg('⚡ Building a Power Plant — auto-placed when ready'); }
+function mobPowerTap() { // v7.2: one tap pays for a Power Plant and drops it on a good spot; it builds on the ground
+  const why = buildWhy(ME, 'power'); if (why) { sfx('error'); uiMsg(buildMsg('power', why)); return; }
+  const sp = mobSpot('power'); if (!sp) { clickItem('power', false, false); if (UI.placing) mobStartPlace(); return; }
+  NET.issue({ c: 'build', t: 'power', x: sp[0], y: sp[1] }); sfx('ack'); uiMsg('⚡ Power Plant placed — building now'); }
 function mobSpot(t) { const hq = mobHome(); if (!hq) return null; try { return aiSpot(G.players[ME], t, hq, []); } catch (e) { return null; } }
 // ---------- touch on the battlefield ----------
 function mobInitTouch() {
@@ -264,7 +265,7 @@ function mobAuto() {
     if (idle.length) { const foes = G.ents.filter(o => foe(o.team, ME) && o.hp > 0 && (o.kind === 'u' || BT[o.t].wpn) && visibleTo0(o));
       const groups = new Map(); for (const u of idle) { let best = null, bd = 13; for (const f of foes) { const d = Math.hypot(f.x - u.x, f.y - u.y); if (d < bd) { bd = d; best = f; } } if (best) { (groups.get(best) || groups.set(best, []).get(best)).push(u); } MOB.engT[u.id] = G.time + 4; }
       for (const [f, us] of groups) NET.issue({ c: 'move', u: ids(us), x: f.x, y: f.y, am: true }); } }
-  if (A.repair && P.cr > 600) { const hurt = mine.filter(e => e.kind === 'b' && !e.repair && e.hp < e.mhp * 0.6 && e.sell < 0 && e.t !== 'wall'); for (const b of hurt.slice(0, 2)) NET.issue({ c: 'repair', b: b.id, on: true }); }
+  if (A.repair && P.cr > 600) { const hurt = mine.filter(e => e.kind === 'b' && !e.con && !e.repair && e.hp < e.mhp * 0.6 && e.sell < 0 && e.t !== 'wall'); for (const b of hurt.slice(0, 2)) NET.issue({ c: 'repair', b: b.id, on: true }); }
   if (MOB.wantPower && P.ready.bld === 'power') { const sp = mobSpot('power'); if (sp) { NET.issue({ c: 'place', cat: 'bld', x: sp[0], y: sp[1] }); MOB.wantPower = false; if (UI.placing === 'power') { UI.placing = null; MOB.placeFor = null; } uiMsg('⚡ Power Plant placed'); } }
   if (MOB.wantPower && !P.ready.bld && !P.queues.bld.some(q => q.t === 'power')) MOB.wantPower = false;
 }

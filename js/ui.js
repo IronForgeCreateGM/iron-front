@@ -117,13 +117,14 @@ function showTip(t, el) { tipOwn(el);
 }
 function clickItem(t, right, shift) {
   const P = G.players[ME], cat = catOf(t);
-  if (right) { const n = NET.online ? (P.queues[cat].some(q => q.t === t) || P.ready[cat] === t ? 1 : 0) : 0; const r = NET.issue({ c: 'cancel', t, n: shift ? 5 : 1 }); if (NET.online ? n : r) { sfx('click'); if (UI.placing === t) UI.placing = null; } return; }
+  if (right) { const n = NET.online ? (P.queues[cat].some(q => q.t === t) || P.ready[cat] === t || (BT[t] && G.ents.some(e => e.con && e.team === ME && e.t === t && e.hp > 0)) ? 1 : 0) : 0; const r = NET.issue({ c: 'cancel', t, n: shift ? 5 : 1 }); if (NET.online ? n : r) { sfx('click'); if (UI.placing === t) UI.placing = null; } return; }
   if (t === 'wall') { if (!avail(ME, t)) { sfx('error'); uiMsg('Walls require a Barracks'); return; } UI.mode = 'wall'; UI.placing = null; UI.wallA = null; sfx('click'); uiMsg('Wall: click-drag to lay a chain ($' + BT.wall.cost + '/segment, straight or diagonal). Shift keeps the tool. Right-click/Esc to stop.'); return; }
-  if (BT[t] && P.ready[cat] === t) { UI.placing = t; UI.mode = null; sfx('click'); return; }
   if (!avail(ME, t)) { sfx('error'); const d = BT[t] || UT[t]; uiMsg('Requires: ' + [...(d.req || []), ...(UT[t] ? [UT[t].from] : [])].filter(r => r !== '__never' && !hasBuilt(ME, r)).map(r => BT[r].n).join(', ')); return; }
+  if (BT[t]) { const why = buildWhy(ME, t); if (why) { sfx('error'); uiMsg(buildMsg(t, why)); return; } UI.placing = t; UI.mode = null; sfx('click'); uiMsg(`Place the ${BT[t].n}: $${BT[t].cost}${BT[t].gas ? ' ◆' + BT[t].gas : ''} is paid when you place it, then it builds on the spot. Shift keeps the tool · Right-click/Esc to stop.`); return; } // v7.2 place-then-build
   const cnt = shift && UT[t] ? 5 : 1; let n; if (NET.online) { n = canEnqueue(ME, t) ? 1 : 0; if (n) NET.issue({ c: 'enq', t, n: cnt }); } else n = NET.issue({ c: 'enq', t, n: cnt });
   if (n) sfx('click'); else { sfx('error'); const gq = (BT[t] || UT[t]).gas || 0; uiMsg(gq > P.gas ? `Need ${gq} Plasma Gas (build a Gas Extractor on a vent)` : BT[t] ? (BT[t].cat === 'def' ? 'Defense queue full (5)' : 'Already building a structure') : 'Queue full (' + queueCap(ME, cat) + ' — build more production to raise it)'); }
 }
+function buildMsg(t, why) { const d = BT[t], P = G.players[ME]; return why === 'cr' ? `Not enough credits: ${d.n} costs $${d.cost} (you have $${Math.floor(P.cr)})` : why === 'gas' ? `Need ${d.gas} Plasma Gas (build a Gas Extractor on a vent)` : why === 'busy' ? `${CON_CAP[d.cat]} ${d.cat === 'def' ? 'defenses' : 'structures'} already waiting to be built — let one finish first` : why === 'spot' ? "Can't build there" : why === 'req' ? 'Requirements missing' : "Can't build that"; }
 function pickAt(sx, sy) {
   const w = screenToWorld(sx, sy); if (!w) return null;
   let best = null, bd = 1e9;
@@ -172,7 +173,8 @@ function onDown(e) {
   if (e.button !== 0) return;
   if (UI.placing) {
     const d = BT[UI.placing], tx = Math.floor(w.x - d.w / 2 + 0.5), ty = Math.floor(w.y - d.h / 2 + 0.5);
-    if (NET.online ? canPlace(UI.placing, ME, tx, ty) && (NET.issue({ c: 'place', cat: BT[UI.placing].cat, x: tx, y: ty }), true) : NET.issue({ c: 'place', cat: BT[UI.placing].cat, x: tx, y: ty })) UI.placing = null; else { sfx('error'); uiMsg("Can't build there"); }
+    const why = buildWhy(ME, UI.placing, tx, ty); // v7.2: full price paid on placement; the site builds on the ground
+    if (!why && (NET.online ? (NET.issue({ c: 'build', t: UI.placing, x: tx, y: ty }), true) : NET.issue({ c: 'build', t: UI.placing, x: tx, y: ty }))) { sfx('ack'); if (!e.shiftKey) UI.placing = null; } else { sfx('error'); uiMsg(buildMsg(UI.placing, why || 'spot')); }
     return;
   }
   if (UI.mode === 'nuke') { const b = UI.sel.find(s => s.t === 'silo' && s.team === ME); if (w && b) { if (dhypot(w.x - b.x, w.y - b.y) > MIS[b.mis || 'small'].rng) { sfx('error'); uiMsg('Target out of range (' + MIS[b.mis || 'small'].rng + ')'); return; } NET.issue({ c: 'mlaunch', b: b.id, x: w.x, y: w.y }); marker(w.x, w.y, true); sfx('ack'); } UI.mode = null; return; }
@@ -195,7 +197,7 @@ function upgradeAll() { // v6.2: blanket-upgrade every selected defense of one t
   NET.issue({ c: 'upgall', b: ids(bs) }); sfx('click'); uiMsg(`⬆ Upgrading ${n} of ${bs.length} ${BT[bs[0].t].n}${bs.length > 1 ? 's' : ''} (nearest first)`); UI.ctxKey = null; }
 function onUp(e) {
   if (e.button === 1) { UI.pan = false; return; }
-  if (e.button === 0 && UI.mode === 'wall' && UI.wallA) { const tl = wallTiles(); UI.wallA = null; const ok = tl.filter(([x, y]) => canPlace('wall', ME, x, y)); if (ok.length) { NET.issue({ c: 'walls', t: ok }); sfx('ack'); } else { sfx('error'); uiMsg("Can't build walls there"); } if (!e.shiftKey) UI.mode = null; return; }
+  if (e.button === 0 && UI.mode === 'wall' && UI.wallA) { const tl = wallTiles(); UI.wallA = null; const ok = tl.filter(([x, y]) => canPlace('wall', ME, x, y)); if (ok.length && G.players[ME].cr < BT.wall.cost) { sfx('error'); uiMsg(`Not enough credits: walls cost $${BT.wall.cost} per piece`); } else if (ok.length) { NET.issue({ c: 'walls', t: ok }); sfx('ack'); } else { sfx('error'); uiMsg("Can't build walls there"); } if (!e.shiftKey) UI.mode = null; return; }
   const m = UI.mouse; if (!m.down || e.button !== 0) return; m.down = false;
   const x0 = Math.min(m.sx, m.x), x1 = Math.max(m.sx, m.x), y0 = Math.min(m.sy, m.y), y1 = Math.max(m.sy, m.y);
   let list;
@@ -318,7 +320,7 @@ function uiFrame(dt) {
   else if (UI.placing && m.x >= 0) { const w = screenToWorld(m.x, m.y); if (w) { const d = BT[UI.placing], tx = Math.floor(w.x - d.w / 2 + 0.5), ty = Math.floor(w.y - d.h / 2 + 0.5); ghost(UI.placing, tx, ty, canPlace(UI.placing, ME, tx, ty)); } }
   else ghost(null);
   wallPreview(UI.mode === 'wall' ? (UI.wallA ? wallTiles() : (() => { const w = m.x >= 0 && screenToWorld(m.x, m.y); return w ? [[Math.floor(w.x), Math.floor(w.y)]] : null; })()) : null);
-  if (UI.placing && P.ready[BT[UI.placing].cat] !== UI.placing) UI.placing = null;
+  if (UI.placing && !avail(ME, UI.placing)) UI.placing = null;
   if (UI.msgT > 0) { UI.msgT -= dt; if (UI.msgT <= 0) $('msg').style.opacity = 0; }
   el.style.cursor = UI.pan ? 'grabbing' : UI.placing ? 'cell' : UI.mode === 'sell' ? 'not-allowed' : UI.mode === 'repair' ? 'help' : UI.mode === 'amove' || UI.mode === 'nuke' ? 'crosshair' : (R3.hoverId && byId(R3.hoverId) && byId(R3.hoverId).team !== ME && UI.sel.some(s => s.kind === 'u' && s.team === ME)) ? 'crosshair' : 'default';
   if ((UI.hovT = (UI.hovT || 0) + dt) > 0.05) { UI.hovT = 0; const h = m.x >= 0 && !m.down ? pickAt(m.x, m.y) : null; R3.hoverId = h ? h.id : null; }
@@ -335,16 +337,18 @@ function sidebar() {
   $('cr').textContent = '$' + Math.floor(P.cr); $('gas').textContent = '◆ ' + Math.floor(P.gas);
   const pb = $('powbar'); const frac = P.gen ? Math.min(1, P.use / P.gen) : 1; pb.style.width = (frac * 100) + '%'; pb.style.background = P.pow < 0 ? '#ff4d3d' : frac > 0.85 ? '#ffc23d' : '#4dff7a';
   $('powtxt').textContent = `${P.use} / ${P.gen}` + (P.pow < 0 ? '  LOW POWER' : '');
+  const sites = {}; for (const e of G.ents) if (e.con && e.team === ME && e.hp > 0) { const k = e.t === 'gtower' ? 'wall' : e.t, o = sites[k] || (sites[k] = { n: 0, p: 0 }); o.n++; if (!e.con.w) o.p = Math.max(o.p, e.con.p); }
   const upd = (b) => {
     const t = b.dataset.t, cat = catOf(t), q = P.queues[cat], d = BT[t] || UT[t];
     b.classList.toggle('locked', !avail(ME, t));
+    if (BT[t]) { const st = sites[t] || null; b.querySelector('.prog').style.height = st ? (100 - st.p * 100) + '%' : '0%'; b.querySelector('.cnt').textContent = st && st.n > 1 ? st.n : ''; b.classList.toggle('ready', false); b.classList.toggle('active', !!st); b.classList.toggle('poor', P.cr < d.cost); return; } // v7.2: card shows the site being built
     const n = q.filter(i => i.t === t).length, first = q[0] && q[0].t === t ? q[0] : null;
     b.querySelector('.prog').style.height = first ? (100 - first.prog * 100) + '%' : n ? '100%' : '0%';
     b.querySelector('.cnt').textContent = n > 1 ? n : n === 1 && !first ? '1' : '';
     b.classList.toggle('ready', P.ready[cat] === t); b.classList.toggle('active', !!first); b.classList.toggle('poor', P.cr < d.cost * 0.1);
   };
   document.querySelectorAll('.item').forEach(upd);
-  document.querySelectorAll('.tab').forEach(b => { const c = b.dataset.cat; b.querySelector('i').textContent = P.ready[c] ? '!' : P.queues[c].length ? P.queues[c].length : ''; b.classList.toggle('dis', !listFor(c).some(t => avail(ME, t))); });
+  document.querySelectorAll('.tab').forEach(b => { const c = b.dataset.cat, ns = c === 'bld' || c === 'def' ? Object.keys(sites).filter(t => BT[t].cat === c).reduce((a, t) => a + sites[t].n, 0) : 0; b.querySelector('i').textContent = ns ? ns : P.queues[c].length ? P.queues[c].length : ''; b.classList.toggle('dis', !listFor(c).some(t => avail(ME, t))); });
   $('sellBtn').classList.toggle('on', UI.mode === 'sell'); $('repBtn').classList.toggle('on', UI.mode === 'repair');
   // alerts
   const ih = idleList('harv').length, ia = idleList('army').length;
@@ -354,19 +358,20 @@ function sidebar() {
   const alEl = $('alerts'); if (alEl.dataset.h !== ah) { alEl.innerHTML = ah; alEl.dataset.h = ah; alEl.querySelectorAll('.al').forEach(s => s.onclick = () => { if (s.dataset.idle) selectIdle(s.dataset.idle); else { const a = UI.alerts[+s.dataset.a]; if (a) jumpTo(a.x, a.y); } }); }
   // context panel
   const s = UI.sel, ctx = $('ctx');
-  const key = s.map(e => e.id).join(',') + '|' + (s.length === 1 ? s[0].t + s[0].team + (s[0].bal ? 'B' : '') : '');
+  const key = s.map(e => e.id).join(',') + '|' + (s.length === 1 ? s[0].t + s[0].team + (s[0].bal ? 'B' : '') + (s[0].con ? 'C' : '') : '');
   if (key !== UI.ctxKey) {
     UI.ctxKey = key; let h = '';
     if (s.length === 1) { const e = s[0], d = defOf(e);
       h = `<div class="pt"><img src="${icon(e.t)}"><div><b>${e.bal ? '🏹 ' + BALLISTA.n : d.n}</b>${foe(e.team, ME) ? ' <span class="r">(enemy)</span>' : e.team !== ME ? ' <span class="g">(ally)</span>' : ''}<div class="hpb"><div id="ctxhp"></div></div><div id="ctxinfo" class="dim"></div></div></div>`;
-      if (e.kind === 'b' && e.team === ME && (UPG[e.t] || e.t === 'hq' || e.t === 'cc' || e.t === 'airfield' || e.t === 'gtower')) h += `<button id="upBtn" class="act"></button>`; // v7.0.2 gtower -> Ballista Tower
-      if (e.kind === 'b' && e.team === ME && e.t === 'tech') h += `<div class="rsp"><div class="rsh">🔬 Research tracks <span class="dim small">L2 +15% · L3 +30% damage & HP (existing units too)</span></div>${RES.cats.map(c => `<button class="act rsb" data-k="${c}"></button>`).join('')}<div id="rsSt" class="dim small"></div></div>`;
-      if (e.kind === 'b' && e.team === ME && e.t === 'silo') h += `<div class="acts">${Object.keys(MIS).map(k => `<button class="act mis" data-k="${k}" title="Range ${MIS[k].rng} · ${MIS[k].sub > 1 ? MIS[k].sub + '× ' : ''}${MIS[k].dmg} dmg · build ${MIS[k].time}s · cooldown ${MIS[k].cd}s${MIS[k].icpt ? ' · can be intercepted by Lv3 Flak' : ''}">🚀 ${MIS[k].n} <span class="c">$${MIS[k].cost}</span> <span class="gas">◆${MIS[k].gas}</span></button>`).join('')}<button id="nukeBtn" class="act">🎯 Launch <kbd>N</kbd></button></div><div id="siloSt" class="dim small"></div>`;
+      if (e.con) { if (e.team === ME) h += `<div class="acts"><button id="bcBtn" class="act" title="Stop building and get the full price back">✖ Cancel construction · refund $${e.paid != null ? e.paid : BT[e.t].cost}${e.paidG ? ' ◆' + e.paidG : ''}</button></div>`; h += `<div id="conSt" class="dim small"></div>`; }
+      else if (e.kind === 'b' && e.team === ME && (UPG[e.t] || e.t === 'hq' || e.t === 'cc' || e.t === 'airfield' || e.t === 'gtower')) h += `<button id="upBtn" class="act"></button>`; // v7.0.2 gtower -> Ballista Tower
+      if (!e.con && e.kind === 'b' && e.team === ME && e.t === 'tech') h += `<div class="rsp"><div class="rsh">🔬 Research tracks <span class="dim small">L2 +15% · L3 +30% damage & HP (existing units too)</span></div>${RES.cats.map(c => `<button class="act rsb" data-k="${c}"></button>`).join('')}<div id="rsSt" class="dim small"></div></div>`;
+      if (!e.con && e.kind === 'b' && e.team === ME && e.t === 'silo') h += `<div class="acts">${Object.keys(MIS).map(k => `<button class="act mis" data-k="${k}" title="Range ${MIS[k].rng} · ${MIS[k].sub > 1 ? MIS[k].sub + '× ' : ''}${MIS[k].dmg} dmg · build ${MIS[k].time}s · cooldown ${MIS[k].cd}s${MIS[k].icpt ? ' · can be intercepted by Lv3 Flak' : ''}">🚀 ${MIS[k].n} <span class="c">$${MIS[k].cost}</span> <span class="gas">◆${MIS[k].gas}</span></button>`).join('')}<button id="nukeBtn" class="act">🎯 Launch <kbd>N</kbd></button></div><div id="siloSt" class="dim small"></div>`;
       if (e.kind === 'u' && e.team === ME && UT[e.t].wpn) h += `<div class="acts"><button id="fmBtn" class="act">⛨ Defensive Formation <kbd>G</kbd></button><button id="stBtn" class="act"></button></div>`;
       if (e.kind === 'u' && e.team === ME && UT[e.t].xform) h += `<div class="acts"><button id="xfBtn" class="act xf" title="Raijin: switch between JET (fast, flies over walls and cliffs, rockets) and MECH (heavy armor, chain-lightning cannon). ${XFORM.t}s transform, ${XFORM.cd}s cooldown."></button></div>`;
       if (e.kind === 'u' && e.team === ME && UT[e.t].siege) h += `<div class="acts"><button id="sgBtn" class="act" title="${SIEGE.dep}s to deploy: stationary, range ${SIEGE.rng} (mobile ${W.arty.rng}), wider splash. ${SIEGE.pack}s to pack; a move order packs automatically."></button></div>`;
       if (s.some(u => u.kind === 'u' && u.team === ME && u.cargo)) h += `<div class="acts"><button id="ulBtn" class="act" title="Drop every passenger right where the craft is">⏬ Unload all <kbd>Shift+B</kbd></button><button id="ulAtBtn" class="act" title="Fly to a spot and unload there">📍 Unload at… <kbd>B</kbd></button></div>`;
-      if (e.kind === 'b' && e.team === ME) { const opts = Object.keys(UT).filter(t => UT[t].from === e.t || (UT[t].alt || []).includes(e.t)); if (opts.length) h += `<div class="cgrid">${opts.map(t => `<div class="item sm">${itemHTML(t)}</div>`).join('')}</div><div class="dim small">Right-click ground to set rally point</div>`; }
+      if (!e.con && e.kind === 'b' && e.team === ME) { const opts = Object.keys(UT).filter(t => UT[t].from === e.t || (UT[t].alt || []).includes(e.t)); if (opts.length) h += `<div class="cgrid">${opts.map(t => `<div class="item sm">${itemHTML(t)}</div>`).join('')}</div><div class="dim small">Right-click ground to set rally point</div>`; }
     } else if (s.length > 1) { const c = {}; s.forEach(e => c[e.t] = (c[e.t] || 0) + 1); h = '<div class="chips">' + Object.entries(c).map(([t, n]) => `<span class="chip" data-t="${t}"><img src="${icon(t)}">${n}</span>`).join('') + '</div>';
       if (s.some(u => u.kind === 'u' && u.team === ME && UT[u.t].siege)) h += `<div class="acts"><button id="sgBtn" class="act"></button></div>`;
       if (s.some(u => u.kind === 'u' && u.team === ME && UT[u.t].xform)) h += `<div class="acts"><button id="xfBtn" class="act xf"></button></div>`;
@@ -376,7 +381,8 @@ function sidebar() {
       if (mb.length === s.length && mb.every(b => UPG[b.t])) h += `<div class="acts"><button id="upAllBtn" class="act">⬆ Upgrade all (${mb.filter(b => upgradeInfo(b) && b.upT == null).length} upgradable) <kbd>Z</kbd></button></div><div class="dim small">Nearest first, as many as you can afford.</div>`;
       if (mb.length === s.length && mb.every(b => PRODB.includes(b.t))) h += `<div class="dim small">Right-click the ground: one shared rally point for all ${mb.length}.</div>`; }
     ctx.innerHTML = h;
-    const opts = s.length === 1 && s[0].kind === 'b' ? Object.keys(UT).filter(t => UT[t].from === s[0].t || (UT[t].alt || []).includes(s[0].t)) : [];
+    const bcb = $('bcBtn'); if (bcb) bcb.onclick = () => { const b = UI.sel[0]; if (!b || !b.con) return; const ok = NET.online ? (NET.issue({ c: 'bcancel', b: b.id }), true) : NET.issue({ c: 'bcancel', b: b.id }); if (ok) { sfx('click'); uiMsg('Construction cancelled — full refund'); } };
+    const opts = s.length === 1 && s[0].kind === 'b' && !s[0].con ? Object.keys(UT).filter(t => UT[t].from === s[0].t || (UT[t].alt || []).includes(s[0].t)) : [];
     ctx.querySelectorAll('.item').forEach((b, i) => wireItem(b, opts[i]));
     ctx.querySelectorAll('.chip').forEach(c => c.onclick = () => setSel(UI.sel.filter(e => e.t === c.dataset.t)));
     const fm = $('fmBtn'); if (fm) { fm.onclick = e => doFormation(e.shiftKey); fm.title = 'Arrange selected units in battle formation facing the nearest enemy and hold. Shift: at base entrance.'; }
@@ -392,7 +398,8 @@ function sidebar() {
   const xfb = $('xfBtn'); if (xfb) { const a = s.filter(u => u.kind === 'u' && u.team === ME && UT[u.t].xform), busy = a.length && a.every(u => u.xfT != null || G.time < (u.xfCd || 0)), jet = a.length && a.every(u => UT[u.t].air);
     const t = busy ? (a.some(u => u.xfT != null) ? '⚡ Transforming…' : '⚡ Recharging…') : jet ? '⚡ Land → MECH <kbd>T</kbd>' : '⚡ Take off → JET <kbd>T</kbd>'; if (xfb.innerHTML !== t) xfb.innerHTML = t; xfb.classList.toggle('on', !!jet); xfb.disabled = !!busy; }
   const sgb = $('sgBtn'); if (sgb) { const a = s.filter(u => u.kind === 'u' && UT[u.t].siege), on = a.length && a.every(u => u.sg === 2), mv = a.some(u => u.sg === 1 || u.sg === 3); const t = mv ? '⏳ Deploying / packing…' : on ? '🎯 Siege Mode ON (range 10) · pack up <kbd>B</kbd>' : '🎯 Siege Mode <kbd>B</kbd>'; if (sgb.innerHTML !== t) sgb.innerHTML = t; sgb.classList.toggle('on', !!on); }
-  if (s.length === 1 && s[0].t === 'tech' && s[0].team === ME) researchPanel(s[0]);
+  { const cs = $('conSt'), b = s[0]; if (cs && b) { const t = !b.con ? '<span class="g">Construction complete</span>' : `🏗 Under construction ${Math.floor(b.con.p * 100)}%` + (b.con.w ? (G.ents.some(e => e.team === b.team && (e.t === 'hq' || e.t === 'cc') && !e.con && e.hp > 0) ? ' · waiting for the site ahead' : ' · needs a Command Yard') : ` · ~${Math.ceil((1 - b.con.p) * BT[b.t].time)}s`) + '<br>No power, production or weapons until finished'; if (cs.innerHTML !== t) cs.innerHTML = t; } }
+  if (s.length === 1 && s[0].t === 'tech' && s[0].team === ME && !s[0].con) researchPanel(s[0]);
   const upb = $('upBtn'); if (upb && s[0]) { const b = s[0], inf = upgradeInfo(b); let t;
     if (b.upT != null) t = `⬆ Upgrading… ${Math.floor((G.time - b.upT) / b.upDur * 100)}%`; else if (!inf) t = b.t === 'gtower' ? (b.bal ? '🏹 Ballista Tower' : '🏹 Ballista needs a Research Lab') : b.t === 'hq' || b.t === 'cc' ? (b.sm3 ? '🛡 SM-3 interceptors online' : '🛡 SM-3 needs a Research Lab') : b.t === 'tech' ? '✔ ' + DEF_RESEARCH.n + ' researched' : b.t === 'airfield' ? `✈ ${airSlots(b)} dock slots` : '★ Max level (3)';
     else t = inf.kind === 'bal' ? `🏹 Ballista Tower $${inf.cost} ◆${inf.gas} <kbd>Z</kbd>` : inf.kind === 'pads' ? `✈ ${AIRPADS.n} (4→8 slots) $${inf.cost} <kbd>Z</kbd>` : inf.kind === 'sm3' ? `🛡 ${SM3.n} $${inf.cost} ◆${inf.gas} <kbd>Z</kbd>` : inf.kind === 'def' ? `⬆ ${DEF_RESEARCH.n} $${inf.cost} <kbd>Z</kbd>` : `⬆ Upgrade to Lv${inf.next} $${inf.cost} <kbd>Z</kbd>`;
@@ -423,7 +430,7 @@ function overlay() {
   x.clearRect(0, 0, c.width, c.height);
   const mode = UI.set.hbars;
   for (const e of G.ents) {
-    const show = mode === 'always' || e.sel || e.id === R3.hoverId || (mode === 'smart' && e.hp < e.mhp), rl = e.kind === 'u' || BT[e.t].wpn ? rsLvl(e.team, resCat(e)) : 1;
+    const show = mode === 'always' || e.sel || e.id === R3.hoverId || (mode === 'smart' && e.hp < e.mhp) || (e.con && e.team === ME), rl = e.kind === 'u' || BT[e.t].wpn ? rsLvl(e.team, resCat(e)) : 1;
     if ((!show && rl < 2) || !visibleTo0(e) || !inView(e.x, e.y)) continue;
     const rs = e.kind === 'u' ? (R3.rs.get(e.id) || e) : e;
     const top = e.kind === 'b' ? 1.9 : (rs.z || 0) + (UT[e.t].armor === 'inf' ? 0.8 : 0.95);
@@ -435,6 +442,9 @@ function overlay() {
     x.fillStyle = f > 0.6 ? '#4dff7a' : f > 0.3 ? '#ffd23d' : '#ff4d3d'; x.fillRect(p.x - w / 2, p.y, w * f, 3);
     if (segs > 1 && segs < 30) { x.fillStyle = 'rgba(0,0,0,.45)'; for (let i = 1; i < segs; i++) x.fillRect(p.x - w / 2 + w * i / segs, p.y, 1, 3); }
     if (foe(e.team, ME)) { x.fillStyle = '#ff5040'; x.fillRect(p.x - w / 2 - 4, p.y, 2, 3); }
+    if (e.con) { const cw = Math.max(w, 22), cy = p.y - 9; x.fillStyle = 'rgba(0,0,0,.8)'; x.fillRect(p.x - cw / 2 - 1, cy - 1, cw + 2, 6); x.fillStyle = e.con.w ? '#9a8450' : '#ffb52e'; x.fillRect(p.x - cw / 2, cy, cw * e.con.p, 4); // v7.2 construction progress bar
+      x.fillStyle = 'rgba(0,0,0,.45)'; for (let i = 1; i < 10; i++) x.fillRect(p.x - cw / 2 + cw * i / 10, cy, 1, 4);
+      if (e.w > 1) { x.font = 'bold 11px system-ui,sans-serif'; x.textAlign = 'center'; x.fillStyle = '#ffd88a'; x.strokeStyle = 'rgba(0,0,0,.85)'; x.lineWidth = 3; const tx = '🏗 ' + Math.floor(e.con.p * 100) + '%' + (e.con.w ? ' · waiting' : ''); x.strokeText(tx, p.x, cy - 4); x.fillText(tx, p.x, cy - 4); x.textAlign = 'left'; } }
     if (e.t === 'harv' && e.load > 0) { x.fillStyle = '#e8b030'; x.fillRect(p.x - w / 2, p.y + 4, w * e.load / HARV_CAP, 2); }
     if (e.sel && e.kind === 'b' && e.rally && e.team === ME) { const r = worldToScreen(e.rally.x, e.rally.y, heightAt(e.rally.x, e.rally.y)); x.strokeStyle = 'rgba(120,255,140,.7)'; x.setLineDash([5, 5]); x.beginPath(); x.moveTo(p.x, p.y + 20); x.lineTo(r.x, r.y); x.stroke(); x.setLineDash([]); x.fillStyle = '#7f8'; x.fillRect(r.x - 1, r.y - 14, 2, 14); x.fillRect(r.x + 1, r.y - 14, 9, 6); }
     if (e.sel && e.kind === 'u' && e.team === ME && (e.path.length || (e.wq && e.wq.length))) {

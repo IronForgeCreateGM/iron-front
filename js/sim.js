@@ -426,9 +426,16 @@ function stepConstruction() {
 function placeReady(team, cat, tx, ty) {
   const P = G.players[team], t = P.ready[cat];
   if (!t) return null;
-  const b = placeBuild(team, t, tx, ty); if (b) P.ready[cat] = null;
+  const pg = (P.rg && P.rg[cat]) || 0; P.gas += pg; // the order's set-aside gas pays the gas part
+  const rv = P._rv || 0; P.cr += rv; P._rv = 0; // inside the bot's think step: use the reserved credits
+  const b = placeBuild(team, t, tx, ty); if (b) { P.ready[cat] = null; if (P.rg) P.rg[cat] = 0; } else P.gas -= pg;
+  if (rv) { P._rv = Math.min(P.cr, resvOf(P)); P.cr -= P._rv; }
   return b;
 }
+function resvOf(P) { let r = 0; for (const cat of ['bld', 'def']) { const t = P.ready[cat] || (P.queues[cat][0] && P.queues[cat][0].t); if (t) r += BT[t].cost; } return r; }
+// A bot "thinks" with its spendable credits only (the reserved price is already committed, as the old queue had spent it);
+// the reservation is handed back only for the moment it actually places the structure.
+function aiThink(P) { const r = resvOf(P); P.cr -= r; P._rv = r; try { aiStep(P); } finally { P.cr += P._rv; P._rv = 0; } }
 // ---------- production ----------
 const POP_CAP = 100;
 function popOf(team) { let n = 0; for (const e of G.ents) if (e.team === team && e.kind === 'u' && e.t !== 'harv') n++; const P = G.players[team]; for (const c of ['inf', 'veh', 'air']) n += P.queues[c].filter(q => q.t !== 'harv').length; return n; }
@@ -439,14 +446,14 @@ function enqueue(team, t) {
   if (q.length >= queueCap(team, cat)) return false;
   if (UT[t] && t !== 'harv' && popOf(team) >= POP_CAP) { G.events.push({ e: 'popcap', team }); return false; }
   if (cat === 'bld' && P.ready[cat]) return false;
-  if (BT[t]) { if (!P.ai || (cat === 'bld' && conSites(team, 'bld'))) return false; q.push({ t, prog: 0, paid: 0, gas: 0, ord: 1 }); return true; } // v7.2: players place structures directly; bots reserve an order
+  if (BT[t]) { if (!P.ai || (cat === 'bld' && conSites(team, 'bld'))) return false; const g = BT[t].gas || 0; if (P.gas < g) return false; P.gas -= g; q.push({ t, prog: 0, paid: 0, gas: g, ord: 1 }); return true; } // gas is set aside with the order (as before); credits are paid in full at placement // v7.2: players place structures directly; bots reserve an order
   const gas = (BT[t] || UT[t]).gas || 0; if (P.gas < gas) return false; P.gas -= gas;
   q.push({ t, prog: 0, paid: 0, gas });
   return true;
 }
 function cancel(team, t) {
   const P = G.players[team], cat = catOf(t), q = P.queues[cat];
-  if (BT[t] && P.ready[cat] === t && !q.some(i => i.t === t)) { P.ready[cat] = null; return true; } // v7.2: orders/ready are unpaid
+  if (BT[t] && P.ready[cat] === t && !q.some(i => i.t === t)) { P.ready[cat] = null; P.gas += (P.rg && P.rg[cat]) || 0; if (P.rg) P.rg[cat] = 0; return true; } // v7.2: orders/ready are unpaid
   if (BT[t] && !q.some(i => i.t === t)) { let last = null; for (const e of G.ents) if (e.con && e.team === team && e.t === t && e.hp > 0) last = e; return last ? cancelBuild(team, last.id) : false; } // newest site of that type
   for (let i = q.length - 1; i >= 0; i--) if (q[i].t === t) { P.cr += q[i].paid; P.gas += q[i].gas || 0; q.splice(i, 1); return true; }
   return false;
@@ -457,13 +464,12 @@ function producers(team, cat) { const src = CAT_SRC[cat]; if (!src) return 1; le
 function queueCap(team, cat) { return cat === 'bld' ? 1 : cat === 'def' ? 5 : 6 * Math.max(1, producers(team, cat)); }
 function stepProduction(P) {
   const slow = P.pow < 0 ? 0.5 : 1, ai = 1; /* v4.3: no AI production bonus */
-  let resv = 0; // v7.2: a bot's pending structure order keeps its price in the bank (like the old queue, which drained structures first)
-  for (const cat of ['bld', 'def']) { const r = P.ready[cat] || (P.queues[cat][0] && P.queues[cat][0].t); if (r) resv += BT[r].cost; }
+  const resv = resvOf(P); // v7.2: a bot's pending structure order keeps its price in the bank (like the old queue, which drained structures first)
   for (const cat in P.queues) {
     const q = P.queues[cat]; if (!q.length) continue;
     if ((cat === 'bld' || cat === 'def') && P.ready[cat]) continue;
     if (cat === 'bld' || cat === 'def') { const it = q[0], d = BT[it.t]; if (!d) { q.shift(); continue; }
-      if (conSites(P.team, cat) === 0 && avail(P.team, it.t) && P.cr >= d.cost && P.gas >= (d.gas || 0)) { q.shift(); P.ready[cat] = it.t; G.events.push({ e: 'ready', team: P.team, t: it.t }); }
+      if (conSites(P.team, cat) === 0 && avail(P.team, it.t) && P.cr >= d.cost) { q.shift(); P.ready[cat] = it.t; (P.rg || (P.rg = {}))[cat] = it.gas || 0; G.events.push({ e: 'ready', team: P.team, t: it.t }); }
       continue; }
     const used = new Map(), done = [];
     const lanes = cat === 'bld' || cat === 'def' ? 1 : q.length;
@@ -677,7 +683,7 @@ function stepGame() {
   // removal
   for (const e of G.ents) if (e.hp <= 0 && !e.dead) { e.dead = true; onDeath(e); }
   if (G.ents.some(e => e.dead)) { G.ents = G.ents.filter(e => !e.dead); G.bver++; }
-  for (const P of G.players) if (P.ai && !P.horde && typeof aiStep === 'function') aiStep(P);
+  for (const P of G.players) if (P.ai && !P.horde && typeof aiStep === 'function') aiThink(P);
   if (G.end && typeof endlessStep === 'function') endlessStep(); // v7.0 Endless wave director
   if (G.tick % 6 === 0) updFog();
   if (G.tick % 15 === 0) {

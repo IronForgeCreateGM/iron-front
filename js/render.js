@@ -96,6 +96,22 @@ function makeBuildingObj(b) {
   R3.scene.add(g); clearFoliage(b);
   return { g, body, parts, sc, team: b.team, piv: model.piv, mk: bkey(b) };
 }
+// v7.2 place-then-build: timber/steel scaffolding with a foundation slab, a slewing jib crane and a work lamp
+const SCAF = {}; function scafMat(c) { return SCAF[c] || (SCAF[c] = new THREE.MeshLambertMaterial({ color: c })); }
+function makeScaffold(b, g) { const s = new THREE.Group(), W = b.w * 0.98, H = b.h * 0.98, wall = b.t === 'wall' || b.t === 'gate' || b.t === 'gtower', ht = wall ? 0.9 : 1.55, pm = scafMat(0xc9902e), rm = scafMat(0xe0b040);
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(W, 0.08, H), scafMat(0x8a8a82)); slab.position.y = 0.04; s.add(slab);
+  const nx = Math.max(2, Math.round(b.w) + 1), ny = Math.max(2, Math.round(b.h) + 1), pole = new THREE.BoxGeometry(0.05, ht, 0.05);
+  for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) { if (i && j && i < nx - 1 && j < ny - 1) continue; const m = new THREE.Mesh(pole, pm); m.position.set(-W / 2 + W * i / (nx - 1), ht / 2, -H / 2 + H * j / (ny - 1)); s.add(m); }
+  const lv = wall ? 2 : 3; for (let l = 1; l <= lv; l++) { const y = ht * l / lv - 0.02;
+    for (const z of [-H / 2, H / 2]) { const r = new THREE.Mesh(new THREE.BoxGeometry(W, 0.04, 0.04), rm); r.position.set(0, y, z); s.add(r); }
+    for (const x of [-W / 2, W / 2]) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, H), rm); r.position.set(x, y, 0); s.add(r); }
+    if (l < lv) { const plank = new THREE.Mesh(new THREE.BoxGeometry(W + 0.16, 0.03, 0.14), scafMat(0x8b5a2b)); plank.position.set(0, y, H / 2 + 0.08); s.add(plank); } }
+  const br = Math.hypot(W, ht); for (const z of [-H / 2, H / 2]) { const d = new THREE.Mesh(new THREE.BoxGeometry(br, 0.03, 0.03), pm); d.position.set(0, ht / 2, z); d.rotation.z = Math.atan2(ht, W) * (z > 0 ? 1 : -1); s.add(d); }
+  const crane = new THREE.Group(); crane.position.set(W / 2 - 0.1, 0, -H / 2 + 0.1); const mast = new THREE.Mesh(new THREE.BoxGeometry(0.08, ht + 0.7, 0.08), scafMat(0xf2c230)); mast.position.y = (ht + 0.7) / 2; crane.add(mast);
+  const jib = new THREE.Mesh(new THREE.BoxGeometry(Math.max(1.2, W * 0.8), 0.06, 0.06), scafMat(0xf2c230)); jib.position.set(-Math.max(1.2, W * 0.8) / 2 + 0.2, ht + 0.66, 0); crane.add(jib);
+  const hook = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.5, 0.02), scafMat(0x333333)); hook.position.set(-Math.max(1.2, W * 0.8) + 0.35, ht + 0.4, 0); crane.add(hook); if (!wall) s.add(crane);
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffb030 })); lamp.position.set(-W / 2, ht + 0.06, -H / 2); s.add(lamp);
+  s.userData.lamp = lamp; s.userData.crane = crane; g.add(s); return s; }
 function disposeObj(id) { const o = R3.objs.get(id); if (!o) return; R3.scene.remove(o.g); R3.objs.delete(id); }
 // ---------- events -> fx / sound ----------
 function barrelTip(s) { const pv = s.kind === 'b' ? getModel('b', bkey(s), s.team).piv : getModel('u', s.t, s.team).piv; const tip = pv.tip || 0.3; const rs = R3.rs.get(s.id);
@@ -184,7 +200,9 @@ function handleEvents() {
       case 'icpt': if (inView(ev.x, ev.y) || inView(ev.bx, ev.by)) sm3Streak(ev.bx, ev.by, ev.x, ev.y, Math.max(0.8, ev.z || 1), ev.big ? 1.4 : 0.8); break;
       case 'misReady': if (ev.team === ME) { sfx('ready'); uiMsg(MIS[ev.k].n + ' ready to launch (select the Warhead Launcher)'); announce('Missile ready', 'mr', 4); } break;
       case 'attacked': if (ev.team === ME && typeof uiAlert === 'function') { uiAlert(ev); announce(ev.harv ? 'Harvester under attack' : 'Base under attack', 'atk' + !!ev.harv, 25); } else if (!foe(ev.team, ME) && ev.team !== ME) { announce('Ally under attack', 'ally', 30); UI.pings.push({ x: ev.x, y: ev.y, t: 3 }); } break;
-      case 'placed': if (ev.b.t === 'cc') { if (ev.team === ME) announce('Expansion established', 'cc', 3); else if (!foe(ev.team, ME)) announce('Ally expanding', 'acc', 20); } else if (ev.team === ME && FACTIONS[G.players[ME].fac].sp === ev.b.t) announce(BT[ev.b.t].n + ' deployed', 'sp', 5); break;
+      case 'built': { const b = ev.b, wl = b.t === 'wall' || b.t === 'gate' || b.t === 'gtower'; if (!wl && inView(b.x, b.y)) for (let i = 0; i < 10 * FX.mul; i++) { const a = i / 10 * Math.PI * 2; FX.smoke.spawn(b.x + Math.cos(a) * b.w * 0.5, b.y + Math.sin(a) * b.h * 0.5, 0.2, Math.cos(a) * 0.8, Math.sin(a) * 0.8, 0.3, 1.2, 0.35, 1.1, 0.6, 0.55, 0.45, 0.5, 0); }
+        if (ev.team === ME && !wl) { sfx('ready'); uiMsg('🏗 ' + BT[b.t].n + ' complete'); } } // v7.2 construction finished (announcements moved from placement)
+        if (ev.b.t === 'cc') { if (ev.team === ME) announce('Expansion established', 'cc', 3); else if (!foe(ev.team, ME)) announce('Ally expanding', 'acc', 20); } else if (ev.team === ME && FACTIONS[G.players[ME].fac].sp === ev.b.t) announce(BT[ev.b.t].n + ' deployed', 'sp', 5); break;
       case 'eliminated': announce(ev.team === ME ? 'You have been eliminated' : G.players[ev.team].name + (foe(ev.team, ME) ? ' (enemy)' : ' (ally)') + ' eliminated', 'el' + ev.team, 1); break;
       case 'popcap': if (ev.team === ME) uiMsg('Unit cap reached (' + POP_CAP + ')'); break;
       // v7.0 Endless + new faction specials
@@ -242,9 +260,10 @@ function r3Render(dt) {
       let o = R3.objs.get(e.id); if (o && (o.team !== e.team || o.mk !== bkey(e))) { disposeObj(e.id); o = null; }
       if (!o) { o = makeBuildingObj(e); R3.objs.set(e.id, o); }
       const show = vis && inView(e.x, e.y); o.g.visible = show; if (!show) continue;
-      const age = G.time - e.born, cons = Math.min(1, age / 1.5), ease = 1 - Math.pow(1 - cons, 3);
-      let sy = 0.02 + 0.98 * ease; if (e.sell >= 0) sy = Math.max(0.02, 1 - (G.time - e.sell) / 1.2);
-      o.body.scale.y = sy; o.sc.visible = cons < 1 || e.sell >= 0;
+      const age = G.time - e.born, cons = e.con || e.fromCon ? 1 : Math.min(1, age / 1.5), ease = 1 - Math.pow(1 - cons, 3);
+      let sy = e.con ? 0.06 + 0.94 * e.con.p : 0.02 + 0.98 * ease; if (e.sell >= 0) sy = Math.max(0.02, 1 - (G.time - e.sell) / 1.2);
+      o.body.scale.y = sy; o.sc.visible = !e.con && (cons < 1 || e.sell >= 0);
+      if (e.con && !o.scaf) o.scaf = makeScaffold(e, o.g); if (o.scaf) { o.scaf.visible = !!e.con; if (e.con) { const k = e.con.w ? 0 : Math.sin(G.time * 9 + e.id) * 0.5 + 0.5; o.scaf.userData.lamp.material.color.setHex(e.con.w ? 0x8a6a30 : k > 0.5 ? 0xffe070 : 0xff9a20); o.scaf.userData.crane.rotation.y = e.con.w ? 0 : G.time * 0.6 + e.id; } } // v7.2 construction site
       if (o.parts.spin) o.parts.spin.rotation.y += dt * 1.4; if (o.parts.head) o.parts.head.rotation.y = -e.tang;
       if (o.parts.arrow) { // v7.0.2 Ballista: whole crossbow kicks back on release, the loaded bolt vanishes and is re-wound ~1.8 s later
         o.bk = Math.max(0, (o.bk || 0) - dt * 4); const c = Math.cos(e.tang), sn = Math.sin(e.tang), pv = o.piv.head, kb = o.bk * 0.1;
