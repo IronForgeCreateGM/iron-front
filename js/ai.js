@@ -531,7 +531,7 @@ function droneMgr(P, S, me, foes, hq) {
 // v7.0.2 China: once teched and rich, convert a FEW key guard towers (closest to the enemy's approach) into Ballista Towers — 2 early, 3 later (4 in Endless)
 function ballistaMgr(P, S, me) {
   if (G.time < (S.balT || 0)) return; S.balT = G.time + 5;
-  const gt = me.filter(e => e.kind === 'b' && e.t === 'gtower' && e.hp > 0 && e.sell < 0); const nb = gt.filter(e => e.bal || e.upKind === 'bal').length;
+  const gt = me.filter(e => e.kind === 'b' && e.t === 'gtower' && e.hp > 0 && e.sell < 0 && !e.con); const nb = gt.filter(e => e.bal || e.upKind === 'bal').length;
   const ok = gt.length && nb < (G.end ? 4 : isV71(P) ? (G.time < 600 ? 2 : G.time < 900 ? 4 : 6) : G.time < 900 ? 2 : 3) && nb < gt.length && hasBuilt(P.team, BALLISTA.req);
   // bots earmark a slice of income into a Ballista fund (the AI otherwise spends every credit on queues); the fund is released if there is nothing left to convert
   if (!ok) { if (S.balFund) { P.cr += S.balFund; S.balFund = 0; } return; }

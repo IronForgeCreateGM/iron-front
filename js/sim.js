@@ -435,7 +435,7 @@ function placeReady(team, cat, tx, ty) {
 function resvOf(P) { let r = 0; for (const cat of ['bld', 'def']) { const t = P.ready[cat] || (P.queues[cat][0] && P.queues[cat][0].t); if (t) r += BT[t].cost; } return r; }
 // A bot "thinks" with its spendable credits only (the reserved price is already committed, as the old queue had spent it);
 // the reservation is handed back only for the moment it actually places the structure.
-function aiThink(P) { const r = resvOf(P); P.cr -= r; P._rv = r; try { aiStep(P); } finally { P.cr += P._rv; P._rv = 0; } }
+function aiThink(P) { const r = Math.max(0, Math.min(P.cr, resvOf(P))); P.cr -= r; P._rv = r; try { aiStep(P); } finally { P.cr += P._rv; P._rv = 0; } }
 // ---------- production ----------
 const POP_CAP = 100;
 function popOf(team) { let n = 0; for (const e of G.ents) if (e.team === team && e.kind === 'u' && e.t !== 'harv') n++; const P = G.players[team]; for (const c of ['inf', 'veh', 'air']) n += P.queues[c].filter(q => q.t !== 'harv').length; return n; }

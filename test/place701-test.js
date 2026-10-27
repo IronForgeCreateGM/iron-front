@@ -13,7 +13,7 @@ const ROOT = 'file://' + path.resolve(__dirname, '../index.html');
     const all = type === 'touchend' ? [] : ts; cv.dispatchEvent(new TouchEvent(type, { touches: all, changedTouches: ts, bubbles: true, cancelable: true })); }, [pts, type, ids || null]);
   const frames = n => pg.evaluate(n => new Promise(r => { let k = 0; const f = () => (++k >= n ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); }), n);
   const pl = () => pg.evaluate(() => MOB.pl ? { tx: MOB.pl.tx, ty: MOB.pl.ty, vx: MOB.pl.vx, vy: MOB.pl.vy, ok: MOB.pl.ok, t: MOB.pl.t, cam: [R3.cam.tx, R3.cam.ty, R3.cam.td], placing: UI.placing, gv: !!(R3.ghost && R3.ghost.visible), bad: document.getElementById('mOk').classList.contains('bad') } : { placing: UI.placing, gv: !!(R3.ghost && R3.ghost.visible) });
-  const ready = t => pg.evaluate(t => { const P = G.players[ME]; P.cr = 50000; P.ready[BT[t].cat] = t; }, t);
+  const ready = t => pg.evaluate(t => { const P = G.players[ME]; P.cr = 50000; for (const e of G.ents) if (e.con && e.team === ME) conDone(e); }, t); // v7.2: no 'ready' stage - finish any sites so prerequisites are met
   const tileScr = (x, y) => pg.evaluate(([x, y]) => { const s = worldToScreen(x, y, heightAt(x, y)); return [s.x, s.y]; }, [x, y]);
   const shot = async n => { await frames(12); await pg.screenshot({ path: 'shots/v7_0_1-mobile-place-' + n + '.png' }); };
 
@@ -85,13 +85,13 @@ const ROOT = 'file://' + path.resolve(__dirname, '../index.html');
   await ready('barracks'); await pg.tap('#mCards .item[data-t="barracks"]'); await frames(6); s = await pl();
   ok(s.placing === 'barracks' && s.ok, 'next building starts on a green spot near the last one ' + JSON.stringify([s.tx, s.ty]));
   await pg.tap('#mNo'); await frames(4); s = await pl(); ok(s.placing === null && !s.gv && !(await pg.isVisible('#mPlace')), '✗ cancels placement, ghost gone');
-  ok(await pg.evaluate(() => G.players[ME].ready.bld === 'barracks'), 'cancel keeps the finished structure ready (nothing lost)');
+  ok(await pg.evaluate(() => G.players[ME].cr === 50000 && !G.ents.some(e => e.team === ME && e.t === 'barracks')), 'v7.2: cancel before placing costs nothing');
   // place it via card again + ✓ so walls are unlocked
   await pg.tap('#mCards .item[data-t="barracks"]'); await frames(6); await pg.tap('#mOk'); await frames(4);
   ok(await pg.evaluate(() => G.ents.some(e => e.team === ME && e.t === 'barracks')), 'card -> ✓ in one tap each places a Barracks');
   // 8) wall chain by touch drag
   await pg.evaluate(() => { const P = G.players[ME]; P.cr = 50000; MOB.tab = 'def'; mobCards(); }); await frames(4);
-  const w0 = await pg.evaluate(() => G.ents.filter(e => e.t === 'wall' && e.team === ME).length);
+  await ready('wall'); const w0 = await pg.evaluate(() => G.ents.filter(e => e.t === 'wall' && e.team === ME).length);
   await pg.tap('#mCards .item[data-t="wall"]'); await frames(3);
   const wp = await pg.evaluate(() => { const h = mobHome(); for (let dy = 6; dy < 14; dy++) { let okRow = true; for (let x = -3; x <= 3; x++) if (!canPlace('wall', ME, Math.floor(h.x) + x, Math.floor(h.y) + dy)) okRow = false;
     if (okRow) { const a = worldToScreen(Math.floor(h.x) - 3 + 0.5, Math.floor(h.y) + dy + 0.5, 0), b = worldToScreen(Math.floor(h.x) + 3 + 0.5, Math.floor(h.y) + dy + 0.5, 0); return [a.x, a.y, b.x, b.y]; } } return null; });

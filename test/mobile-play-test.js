@@ -38,7 +38,9 @@ const ROOT = 'file://' + path.resolve(__dirname, '../index.html'), PART = proces
     ok(nb1 === nb0 + 1, '✓ places the Power Plant (' + nb0 + ' -> ' + nb1 + ')');
     // barracks + queue infantry
     await pg.evaluate(() => { G.players[ME].cr += 5000; }); await pg.tap('#mCards .item[data-t="barracks"]'); await run(30 * 15); await pg.waitForTimeout(300);
-    const bp = await pg.evaluate(() => { const sp = mobSpot('barracks'); if (!sp) return null; NET.issue({ c: 'place', cat: 'bld', x: sp[0], y: sp[1] }); UI.placing = null; return G.ents.some(e => e.team === ME && e.t === 'barracks'); });
+    const bp0 = await pg.evaluate(() => { const sp = mobSpot('barracks'); if (!sp) return null; NET.issue({ c: 'build', t: 'barracks', x: sp[0], y: sp[1] }); UI.placing = null; return G.ents.some(e => e.team === ME && e.t === 'barracks' && e.con); });
+    ok(bp0, 'v7.2: barracks site placed and under construction'); await run(30 * 16);
+    const bp = await pg.evaluate(() => G.ents.some(e => e.team === ME && e.t === 'barracks' && !e.con));
     ok(bp, 'barracks built'); await pg.waitForTimeout(400);
     await pg.tap('.mtab[data-cat="inf"]'); await pg.waitForTimeout(300);
     const inf = await pg.evaluate(() => [...document.querySelectorAll('#mCards .item')].map(b => b.dataset.t)); ok(inf.length >= 2, 'infantry tab cards: ' + inf.join(','));
