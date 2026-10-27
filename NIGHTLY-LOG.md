@@ -9,5 +9,5 @@
   - Enemies can attack and destroy a building while it is going up.
   - Defenses and walls work the same way, and drag-to-lay walls still works, on mobile and online.
   - Bots build the same way with no bonuses. Chief SI is still at least as strong: 31 wins, 0 losses, 1 draw vs the old v7.0.3 Chief SI.
-- Live: see the status line below.
+- Live: YES. Pushed c642f85 to main at 7:11 AM PT; https://ironforgecreategm.github.io/iron-front/ showed v7.2.0 at 7:14 AM PT and loaded with no page errors.
 - Screenshot: /workspace/iron-front-v7.2.0-under-construction.png (repo copy: shots/v7_2-under-construction.png)
