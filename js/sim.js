@@ -432,7 +432,7 @@ function placeReady(team, cat, tx, ty) {
   if (rv) { P._rv = Math.min(P.cr, resvOf(P)); P.cr -= P._rv; }
   return b;
 }
-function resvOf(P) { let r = 0; for (const cat of ['bld', 'def']) { if (P.ready[cat]) { r += BT[P.ready[cat]].cost; continue; } const it = P.queues[cat][0]; if (it && BT[it.t]) r += Math.round(BT[it.t].cost * Math.min(1, it.acc || 0)); } return r; } // v7.2: a pending order sets money aside at the old build pace (cost/time per second), so the rest of the income stays spendable
+function resvOf(P) { let r = 0; for (const cat of ['bld', 'def']) { if (P.ready[cat]) { r += BT[P.ready[cat]].cost; continue; } const it = P.queues[cat][0]; if (it && BT[it.t]) r += Math.round(BT[it.t].cost * Math.min(1, it.acc || 0)); } return r; } // v7.2: a pending order sets money aside at twice the old build pace (2 x cost/time per second), so the rest of the income stays spendable
 // A bot "thinks" with its spendable credits only (the reserved price is already committed, as the old queue had spent it);
 // the reservation is handed back only for the moment it actually places the structure.
 function aiThink(P) { const r = Math.max(0, Math.min(P.cr, resvOf(P))); P.cr -= r; P._rv = r; try { aiStep(P); } finally { P.cr += P._rv; P._rv = 0; } }
@@ -469,7 +469,7 @@ function stepProduction(P) {
     const q = P.queues[cat]; if (!q.length) continue;
     if ((cat === 'bld' || cat === 'def') && P.ready[cat]) continue;
     if (cat === 'bld' || cat === 'def') { const it = q[0], d = BT[it.t]; if (!d) { q.shift(); continue; }
-      if ((it.acc || 0) < 1) { if (avail(P.team, it.t)) { const dp = Math.min(1 - (it.acc || 0), DT * slow / d.time); if (P.cr >= resv + d.cost * dp) it.acc = (it.acc || 0) + dp; } if (it.acc < 0.9999) continue; it.acc = 1; }
+      if ((it.acc || 0) < 1) { if (avail(P.team, it.t)) { const dp = Math.min(1 - (it.acc || 0), DT * slow * 2 / d.time); if (P.cr >= resv + d.cost * dp) it.acc = (it.acc || 0) + dp; } if (it.acc < 0.9999) continue; it.acc = 1; }
       if (conSites(P.team, cat) === 0 && avail(P.team, it.t) && P.cr >= d.cost) { q.shift(); P.ready[cat] = it.t; (P.rg || (P.rg = {}))[cat] = it.gas || 0; G.events.push({ e: 'ready', team: P.team, t: it.t }); }
       continue; }
     const used = new Map(), done = [];
