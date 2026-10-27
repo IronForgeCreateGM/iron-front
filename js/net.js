@@ -3,7 +3,7 @@
 // Every player action is a command {c:'move',...}. Offline: executed immediately.
 // Online: tagged for tick (now + DELAY); the host collects every human's input for a tick,
 // broadcasts the merged "turn", and all peers execute it before stepping that tick.
-const NET_VERSION = 'v7.1.1';
+const NET_VERSION = 'v7.2.0';
 const own = (T, ids) => (ids || []).map(byId).filter(e => e && e.team === T && e.hp > 0);
 const CMD = {
   mbuild(T, c) { const b = byId(c.b); return !!(b && b.team === T && siloBuild(b, c.k)); },
@@ -16,6 +16,8 @@ const CMD = {
   enq(T, c) { let n = 0; for (let i = 0; i < (c.n || 1); i++) if (enqueue(T, c.t)) n++; return n; },
   cancel(T, c) { let n = 0; for (let i = 0; i < (c.n || 1); i++) if (cancel(T, c.t)) n++; return n; },
   place(T, c) { return !!placeReady(T, c.cat, c.x, c.y); },
+  build(T, c) { return !!placeBuild(T, c.t, c.x | 0, c.y | 0); }, // v7.2 place-then-build: pay in full, site rises on the ground
+  bcancel(T, c) { return cancelBuild(T, c.b); }, // v7.2: cancel a construction site = full refund
   sell(T, c) { const b = byId(c.b); if (b && b.team === T) sellB(b); },
   repair(T, c) { const b = byId(c.b); if (b && b.team === T) b.repair = !!c.on; },
   rally(T, c) { for (const b of own(T, c.b)) b.rally = { x: c.x, y: c.y }; },
@@ -29,7 +31,7 @@ const CMD = {
   upg(T, c) { const b = byId(c.b); return !!(b && b.team === T && upgradeB(b)); },
   ping(T, c) { (G.pings = G.pings || []).push({ team: T, x: c.x, y: c.y, t: G.time, kind: c.k }); G.events.push({ e: 'ping', team: T, x: c.x, y: c.y, k: c.k }); },
   drop(T, c) { const P = G.players[c.p]; if (!P || P.ai) return; P.ai = true; P.diff = c.diff || 'normal'; P.name += ' (AI)'; aiInit(P); G.events.push({ e: 'dropped', team: c.p }); },
-  retake(T, c) { const P = G.players[c.p]; if (!P || !P.ai) return; P.ai = false; P.name = c.n || P.name.replace(/ \(AI\)$/, ''); G.events.push({ e: 'rejoined', team: c.p }); },
+  retake(T, c) { const P = G.players[c.p]; if (!P || !P.ai) return; P.ai = false; P.queues.bld = []; P.queues.def = []; P.ready.bld = P.ready.def = null; P.name = c.n || P.name.replace(/ \(AI\)$/, ''); G.events.push({ e: 'rejoined', team: c.p }); },
   skipwave(T, c) { return typeof endlessVote === 'function' && endlessVote(T); }, // v7.0 Endless: vote to start the next wave early
   xform(T, c) { let n = 0; for (const id of c.u || []) { const u = byId(id); if (u && u.team === T && xform(u)) n++; } return n; }, // v7.0 Raijin mech <-> jet
   surrender(T, c) { const P = G.players[T]; if (!P || P.out) return; for (const e of G.ents) if (e.team === T && e.kind === 'b') e.hp = 0; },
@@ -50,7 +52,7 @@ function stateHash() {
   let h = 2166136261 >>> 0; const mix = v => { h ^= v; h = Math.imul(h, 16777619) >>> 0; };
   const f = v => { _hb[0] = v || 0; mix(_hu[0]); mix(_hu[1]); };
   mix(G.tick); mix(G.ents.length); mix(G.nid);
-  for (const e of G.ents) { mix(e.id); f(e.x); f(e.y); f(e.hp); mix(e.team + 7); }
+  for (const e of G.ents) { mix(e.id); f(e.x); f(e.y); f(e.hp); mix(e.team + 7); if (e.con) f(e.con.p); }
   for (const P of G.players) { f(P.cr); f(P.gas); mix(P.ai ? 1 : 0); }
   mix(G.projs.length); return h >>> 0;
 }

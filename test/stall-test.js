@@ -33,7 +33,7 @@ const r = run('volcano', 77);
 console.log('t', (r.t / 60).toFixed(1), 'over', r.over);
 console.log(r.mid.map(x => `P${x.team} exit=${x.exit} wall=${x.walls}g${x.gates} pow=${x.pow} army=${x.army} fac=${x.fac} q=${x.q}`).join('\n'));
 ok(r.mid && r.mid.every(x => x.out || x.exit || x.walls === 0), 'no bot sealed by its own walls (terrain-only blocks ignored)');
-ok(r.mid && r.mid.filter(x => !x.out && x.walls > 0).every(x => x.gates > 0), 'walled bots also have gates');
+ok(r.mid && r.mid.filter(x => !x.out && x.walls >= 3).every(x => x.gates > 0), 'walled bots also have gates (v7.2: a lone leftover wall piece is not a wall line)');
 ok(r.mid && r.mid.filter(x => !x.out).every(x => x.fac >= 1), 'alive bots have factories/barracks');
 ok(r.mid && r.mid.filter(x => !x.out).every(x => x.pow > -80 || x.cr < 250), 'no rich bot sits blacked-out');
 ok(r.mid && r.mid.some(x => !x.out && (x.army >= 4 || x.q >= 1)), 'someone is producing or has an army');

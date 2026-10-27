@@ -24,7 +24,7 @@ for (let i = 0; i < 18; i++) A.enqueue(0, 'rifle'); chk(P.queues.inf.length === 
 const n0 = G.ents.filter(e => e.t === 'rifle' && e.team === 0).length; for (let i = 0; i < 30 * (UT.rifle.time + 0.5); i++) A.stepGame();
 console.log('rifles', G.ents.filter(e => e.t === 'rifle' && e.team === 0).length - n0, P.queues.inf.slice(0,4).map(q=>q.prog.toFixed(2))); chk(G.ents.filter(e => e.t === 'rifle' && e.team === 0).length - n0 === 3, '3 barracks build 3 rifles in parallel');
 // defenses queue several
-A.addB('power', 0, 20, 14, true); for (let i = 0; i < 3; i++) A.enqueue(0, 'turret'); chk(P.queues.def.length === 3, 'queue 3 turrets at once');
+A.addB('power', 0, 20, 14, true); P.cr += 2000; for (let i = 0; i < 3; i++) A.execCmd(0, { c: 'build', t: 'turret', x: 14 + i * 2, y: 18 }); chk(G.ents.filter(e => e.t === 'turret' && e.con).length === 3, 'v7.2: place 3 turret sites at once (each paid up front)');
 // wall chain via command
 const cr0 = P.cr; A.execCmd(0, { c: 'walls', t: wallLine(16, 12, 20, 16) }); console.log('walls', G.ents.filter(e => e.t === 'wall').length, cr0 - P.cr); chk(G.ents.filter(e => e.t === 'wall').length === 5 && cr0 - P.cr === 250, 'diagonal wall chain of 5 built for $250');
 console.log(ok ? 'DEFENSE TEST OK' : 'DEFENSE TEST FAIL'); process.exit(ok ? 0 : 1);

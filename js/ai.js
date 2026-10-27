@@ -488,7 +488,7 @@ function aiGrowth(P, S, D, cnt, hq, foes) {
     const es = G.players.filter(Q => foe(Q.team, P.team)).map(Q => G.starts[Q.start])[0];
     if (es) { const a = datan2(es[1] - hq.y, es[0] - hq.x), cx = Math.floor(hq.x + dcos(a) * 8), cy = Math.floor(hq.y + dsin(a) * 8), px = Math.round(-dsin(a) * 2), py = Math.round(dcos(a) * 2);
       const tiles = wallLine(cx - px, cy - py, cx + px, cy + py); const mid = tiles[tiles.length >> 1];
-      if (mid && avail(P.team, 'gate') && canPlace('gate', P.team, mid[0], mid[1]) && P.cr >= BT.gate.cost) { P.cr -= BT.gate.cost; addB('gate', P.team, mid[0], mid[1]); }
+      if (mid && avail(P.team, 'gate') && canPlace('gate', P.team, mid[0], mid[1]) && P.cr >= BT.gate.cost) { buyPiece(P.team, 'gate', mid[0], mid[1]); }
       buildWalls(P.team, tiles.filter(([x, y]) => !(mid && x === mid[0] && y === mid[1]) && canPlace('wall', P.team, x, y)));
       if (!aiExitFree(P, hq)) { for (const e of G.ents.filter(e => e.team === P.team && (e.t === 'wall' || e.t === 'gate') && dhypot(e.x - cx, e.y - cy) < 4)) { e.hp = 0; e.dead = true; } G.bver++; } } }
   const ok = t => avail(P.team, t) && (S.bad[t] || 0) < G.time && !!aiSpot(P, t, hq, foes);
@@ -646,16 +646,16 @@ function aiWallEntrance(P, en, half, off, rsv) {
   for (let k = -(half || 5); k <= (half || 5); k += 0.5) { const x = Math.floor(cx + px * k), y = Math.floor(cy + py * k), i = idx(x, y); if (!inb(x, y) || seen.has(i)) continue; seen.add(i); tiles.push([x, y, Math.abs(k)]); }
   const placed = []; let n = 0, gates = 0;
   // place gate(s) first on the centre 3 tiles so a lane always exists
-  for (const [x, y, k] of tiles) if (k < 1.1) { if (!avail(P.team, 'gate') || P.cr < BT.gate.cost + 200 || !canPlace('gate', P.team, x, y)) continue; P.cr -= BT.gate.cost; const b = addB('gate', P.team, x, y); placed.push(b); n++; gates++; }
+  for (const [x, y, k] of tiles) if (k < 1.1) { if (!avail(P.team, 'gate') || P.cr < BT.gate.cost + 200 || !canPlace('gate', P.team, x, y)) continue; const b = buyPiece(P.team, 'gate', x, y); placed.push(b); n++; gates++; }
   if (!gates) { // force one gate even if canPlace was picky: clear a centre tile and put a gate
     const gx = Math.floor(cx), gy = Math.floor(cy); if (inb(gx, gy) && avail(P.team, 'gate') && P.cr >= BT.gate.cost) {
       for (const e of G.ents) if (e.kind === 'b' && e.team === P.team && e.t === 'wall' && e.tx === gx && e.ty === gy) { P.cr += Math.floor(BT.wall.cost * 0.5); e.hp = 0; e.dead = true; }
-      if (canPlace('gate', P.team, gx, gy)) { P.cr -= BT.gate.cost; placed.push(addB('gate', P.team, gx, gy)); n++; gates++; } } }
-  for (const [x, y, k] of tiles) if (k >= 1.1) { if (!avail(P.team, 'wall') || P.cr < BT.wall.cost + (rsv ?? 300) || !canPlace('wall', P.team, x, y)) continue; P.cr -= BT.wall.cost; placed.push(addB('wall', P.team, x, y)); n++; }
+      if (canPlace('gate', P.team, gx, gy)) { placed.push(buyPiece(P.team, 'gate', gx, gy)); n++; gates++; } } }
+  for (const [x, y, k] of tiles) if (k >= 1.1) { if (!avail(P.team, 'wall') || P.cr < BT.wall.cost + (rsv ?? 300) || !canPlace('wall', P.team, x, y)) continue; placed.push(buyPiece(P.team, 'wall', x, y)); n++; }
   if (n) { G.bver = (G.bver || 0) + 1; G.events.push({ e: 'walls', team: P.team, n }); }
   // verify exit; if sealed, convert centre walls to gates or tear the last wall segment
   if (n && !aiExitFree(P, en.b)) {
-    for (const b of placed) if (b.t === 'wall' && dhypot(b.x - cx, b.y - cy) < 1.6) { const x = b.tx, y = b.ty; b.hp = 0; b.dead = true; P.cr += Math.floor(BT.wall.cost * 0.6); if (canPlace('gate', P.team, x, y) && P.cr >= BT.gate.cost) { P.cr -= BT.gate.cost; addB('gate', P.team, x, y); } }
+    for (const b of placed) if (b.t === 'wall' && dhypot(b.x - cx, b.y - cy) < 1.6) { const x = b.tx, y = b.ty; b.hp = 0; b.dead = true; P.cr += Math.floor(BT.wall.cost * 0.6); if (canPlace('gate', P.team, x, y) && P.cr >= BT.gate.cost) { buyPiece(P.team, 'gate', x, y); } }
     G.bver = (G.bver || 0) + 1;
     if (!aiExitFree(P, en.b)) { for (const b of placed) if (b.hp > 0) { P.cr += Math.floor(BT[b.t].cost * 0.5); b.hp = 0; b.dead = true; } G.bver++; }
   }

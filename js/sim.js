@@ -327,7 +327,7 @@ function genHellgate(R) {
   for (let i = 0; i < N; i++) if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.ore[i] = 0; }
   G.six = true; G.oreMax = Float32Array.from(G.ore);
 }
-function addB(t, team, tx, ty, instant) {
+function addB(t, team, tx, ty, instant, con) {
   const P0 = G.players[team], chn = t === 'wall' && P0 && P0.fac === 'chn'; // v7.0 China Great Wall: every 5th wall piece rises as a guard tower
   if (chn) { P0.wallN = (P0.wallN || 0) + 1; if (P0.wallN % CHN_WALL.every === 0) t = 'gtower'; }
   const d = BT[t];
@@ -335,6 +335,7 @@ function addB(t, team, tx, ty, instant) {
     born: instant ? -10 : G.time, tang: 0, rally: null, repair: false, sell: -1, cd: 0, ang: team ? Math.PI * 0.75 : -Math.PI / 4, tgt: null };
   { const l = d.wpn ? rsLvl(team, 'def') : 1; if (l > 1) b.hp = b.mhp = Math.round(d.hp * RES_M[l]); }
   if (chn && t === 'wall') b.hp = b.mhp = Math.round(d.hp * CHN_WALL.hp);
+  if (con) { b.con = { p: 0, w: 0 }; b.born = 1e9; b.hp = Math.max(1, Math.round(b.mhp * CON_HP0)); } // v7.2 place-then-build: a construction site (no function until done)
   G.ents.push(b); G.bver++;
   // push units off footprint
   for (const u of G.ents) if (u.kind === 'u' && !isAir(u) && u.x >= tx - 0.3 && u.x <= tx + d.w + 0.3 && u.y >= ty - 0.3 && u.y <= ty + d.h + 0.3) { u.y = ty + d.h + 0.6; u.path = []; }
@@ -351,7 +352,7 @@ function addU(t, team, x, y) {
 }
 function byId(id) { for (const e of G.ents) if (e.id === id) return e; return null; }
 function teamEnts(team, t) { return G.ents.filter(e => e.team === team && (!t || e.t === t)); }
-function hasBuilt(team, t) { return G.ents.some(e => e.kind === 'b' && e.team === team && e.t === t && e.hp > 0 && e.sell < 0); }
+function hasBuilt(team, t) { return G.ents.some(e => e.kind === 'b' && e.team === team && e.t === t && e.hp > 0 && e.sell < 0 && !e.con); }
 function reqOk(team, d) { return d.req.every(r => hasBuilt(team, r)); }
 function avail(team, t) {
   const dd = BT[t] || UT[t]; if (!dd) return false; if (dd.fac && G.players[team].fac !== dd.fac) return false; if (dd.noFac && G.players[team].fac === dd.noFac) return false;
@@ -388,12 +389,44 @@ function canPlace(t, team, tx, ty) {
   if (G.derricks && t !== 'extractor' && G.derricks.some(o => o.op && o.owner === team && tx < o.x + OUTPOST_R && tx + d.w > o.x - OUTPOST_R && ty < o.y + OUTPOST_R && ty + d.h > o.y - OUTPOST_R)) return true; // v6.0 captured outpost = forward build radius
   return G.ents.some(e => { if (e.kind !== 'b' || e.team !== team || e.t === 'wall' || e.t === 'gtower') return false; const R = e.t === 'hq' || e.t === 'cc' ? 10 : t === 'extractor' ? 12 : 5; return tx < e.tx + e.w + R && tx + d.w > e.tx - R && ty < e.ty + e.h + R && ty + d.h > e.ty - R; });
 }
+// ---------- v7.2 place-then-build ----------
+// Pick a structure, place it: the FULL price is paid on the spot and a construction site rises there (scaffolding + progress bar).
+// One site per lane (structures / defenses) builds at a time at the old queue speed (+50% per extra Command Yard/Center, half speed on
+// low power); more sites can be placed (paid) and wait their turn. Wall pieces/gates build in parallel. A site has no power,
+// production or weapons until finished; its HP rises from 10% with progress. Cancel = full refund; destroyed = no refund.
+const CON_HP0 = 0.1, CON_CAP = { bld: 3, def: 5 };
+const isWallT = t => t === 'wall' || t === 'gate' || t === 'gtower';
+function conSites(team, cat) { let n = 0; for (const e of G.ents) if (e.con && e.team === team && e.hp > 0 && !isWallT(e.t) && BT[e.t].cat === cat) n++; return n; }
+function buildWhy(team, t, tx, ty) { // '' = ok, else the reason (shared by the UI for feedback and by the lockstep command)
+  const d = BT[t], P = G.players[team]; if (!d || !P || t === 'hq') return 'bad'; if (!avail(team, t)) return 'req';
+  if (P.cr < d.cost) return 'cr'; if (P.gas < (d.gas || 0)) return 'gas'; if (!isWallT(t) && conSites(team, d.cat) >= CON_CAP[d.cat]) return 'busy';
+  if (tx != null && !canPlace(t, team, tx, ty)) return 'spot'; return ''; }
+function placeBuild(team, t, tx, ty) {
+  if (buildWhy(team, t, tx, ty)) return null; const d = BT[t], P = G.players[team];
+  P.cr -= d.cost; P.gas -= d.gas || 0; const b = addB(t, team, tx, ty, false, true); b.paid = d.cost; b.paidG = d.gas || 0;
+  G.events.push({ e: 'placed', team, b }); return b;
+}
+function buyPiece(team, t, x, y) { const P = G.players[team]; P.cr -= BT[t].cost; const b = addB(t, team, x, y, false, true); b.paid = BT[t].cost; return b; } // bot wall/gate piece: paid, then built on the ground
+function cancelBuild(team, id) { const b = byId(id), P = G.players[team];
+  if (!b || b.kind !== 'b' || b.team !== team || !b.con || b.hp <= 0 || b.dead) return false;
+  P.cr += b.paid != null ? b.paid : BT[b.t].cost; P.gas += b.paidG || 0; b.hp = 0; b.sold = true; b.cancelled = true; G.events.push({ e: 'bcancel', team, b }); return true; }
+function conDone(b) { const P = G.players[b.team]; b.con = null; b.born = G.time; b.fromCon = 1; b.hp = Math.min(b.mhp, Math.max(b.hp, 1)); G.bver++;
+  P.stats.built = (P.stats.built || 0) + 1; G.events.push({ e: 'built', team: b.team, b });
+  if (b.t === 'refinery') { const h = addU('harv', b.team, b.x, b.ty + b.h + 0.6); h.born = G.time; } }
+function stepConstruction() {
+  const yards = {}, lane = {};
+  for (const e of G.ents) if (e.kind === 'b' && (e.t === 'hq' || e.t === 'cc') && !e.con && e.hp > 0 && e.sell < 0 && G.time - e.born > 1.5) yards[e.team] = (yards[e.team] || 0) + 1;
+  for (const b of G.ents) { if (!b.con || b.hp <= 0 || b.sell >= 0) continue; const d = BT[b.t], P = G.players[b.team]; let rate = 1;
+    if (!isWallT(b.t)) { const k = b.team * 4 + (d.cat === 'def' ? 1 : 0), n = yards[b.team] || 0; if (lane[k] || !n) { b.con.w = 1; continue; } lane[k] = 1; rate = (1 + 0.5 * (n - 1)) * (P.pow < 0 ? 0.5 : 1); }
+    b.con.w = 0; const dp = Math.min(1 - b.con.p, DT * rate / d.time); b.con.p += dp; b.hp = Math.min(b.mhp, b.hp + b.mhp * (1 - CON_HP0) * dp);
+    if (b.con.p >= 0.9999) conDone(b); }
+}
+// Bots: decide what to build (an 'order' that reserves the price, nothing is paid or counted down), and once the lane is free and
+// the full price is in the bank the order turns ready; the bot then picks a spot and places it exactly like a player (placeBuild).
 function placeReady(team, cat, tx, ty) {
   const P = G.players[team], t = P.ready[cat];
-  if (!t || !canPlace(t, team, tx, ty)) return null;
-  P.ready[cat] = null;
-  const b = addB(t, team, tx, ty); P.stats.built = (P.stats.built || 0) + 1; G.events.push({ e: 'placed', team, b });
-  if (t === 'refinery') { const h = addU('harv', team, b.x, b.ty + b.h + 0.6); h.born = G.time; }
+  if (!t) return null;
+  const b = placeBuild(team, t, tx, ty); if (b) P.ready[cat] = null;
   return b;
 }
 // ---------- production ----------
@@ -406,13 +439,15 @@ function enqueue(team, t) {
   if (q.length >= queueCap(team, cat)) return false;
   if (UT[t] && t !== 'harv' && popOf(team) >= POP_CAP) { G.events.push({ e: 'popcap', team }); return false; }
   if (cat === 'bld' && P.ready[cat]) return false;
+  if (BT[t]) { if (!P.ai || (cat === 'bld' && conSites(team, 'bld'))) return false; q.push({ t, prog: 0, paid: 0, gas: 0, ord: 1 }); return true; } // v7.2: players place structures directly; bots reserve an order
   const gas = (BT[t] || UT[t]).gas || 0; if (P.gas < gas) return false; P.gas -= gas;
   q.push({ t, prog: 0, paid: 0, gas });
   return true;
 }
 function cancel(team, t) {
   const P = G.players[team], cat = catOf(t), q = P.queues[cat];
-  if (P.ready[cat] === t && !q.length) { P.ready[cat] = null; P.cr += BT[t].cost; P.gas += BT[t].gas || 0; return true; }
+  if (BT[t] && P.ready[cat] === t && !q.some(i => i.t === t)) { P.ready[cat] = null; return true; } // v7.2: orders/ready are unpaid
+  if (BT[t] && !q.some(i => i.t === t)) { let last = null; for (const e of G.ents) if (e.con && e.team === team && e.t === t && e.hp > 0) last = e; return last ? cancelBuild(team, last.id) : false; } // newest site of that type
   for (let i = q.length - 1; i >= 0; i--) if (q[i].t === t) { P.cr += q[i].paid; P.gas += q[i].gas || 0; q.splice(i, 1); return true; }
   return false;
 }
@@ -422,9 +457,14 @@ function producers(team, cat) { const src = CAT_SRC[cat]; if (!src) return 1; le
 function queueCap(team, cat) { return cat === 'bld' ? 1 : cat === 'def' ? 5 : 6 * Math.max(1, producers(team, cat)); }
 function stepProduction(P) {
   const slow = P.pow < 0 ? 0.5 : 1, ai = 1; /* v4.3: no AI production bonus */
+  let resv = 0; // v7.2: a bot's pending structure order keeps its price in the bank (like the old queue, which drained structures first)
+  for (const cat of ['bld', 'def']) { const r = P.ready[cat] || (P.queues[cat][0] && P.queues[cat][0].t); if (r) resv += BT[r].cost; }
   for (const cat in P.queues) {
     const q = P.queues[cat]; if (!q.length) continue;
     if ((cat === 'bld' || cat === 'def') && P.ready[cat]) continue;
+    if (cat === 'bld' || cat === 'def') { const it = q[0], d = BT[it.t]; if (!d) { q.shift(); continue; }
+      if (conSites(P.team, cat) === 0 && avail(P.team, it.t) && P.cr >= d.cost && P.gas >= (d.gas || 0)) { q.shift(); P.ready[cat] = it.t; G.events.push({ e: 'ready', team: P.team, t: it.t }); }
+      continue; }
     const used = new Map(), done = [];
     const lanes = cat === 'bld' || cat === 'def' ? 1 : q.length;
     for (let k = 0; k < lanes && k < q.length; k++) {
@@ -436,7 +476,7 @@ function stepProduction(P) {
       const key = prod[0].t, u = used.get(key) || 0; if (UT[it.t] && u >= prod.length) continue; used.set(key, u + 1);
       const bonus = BT[it.t] ? 1 + 0.5 * (prod.length - 1) : 1;
       const dp = Math.min(1 - it.prog, DT * bonus * slow * ai / d.time), c = d.cost * dp;
-      if (P.cr >= c) { P.cr -= c; it.prog += dp; it.paid += c; }
+      if (P.cr - resv >= c) { P.cr -= c; it.prog += dp; it.paid += c; }
       if (it.prog >= 0.9999) { done.push(k);
         if (BT[it.t]) { P.ready[cat] = it.t; G.events.push({ e: 'ready', team: P.team, t: it.t }); }
         else spawnUnit(P.team, it.t, prod[u % prod.length]); }
@@ -450,7 +490,7 @@ function wallLine(x0, y0, x1, y1) { const dx = Math.sign(x1 - x0), dy = Math.sig
   const out = []; for (let k = 0; k <= Math.min(n, 24); k++) out.push([x0 + sx * k, y0 + sy * k]); return out; }
 function buildWalls(team, tiles) {
   const P = G.players[team]; if (!avail(team, 'wall')) return 0; let n = 0;
-  for (const [x, y] of (tiles || []).slice(0, 25)) { if (P.cr < BT.wall.cost || !canPlace('wall', team, x, y)) continue; P.cr -= BT.wall.cost; addB('wall', team, x, y); n++; }
+  for (const [x, y] of (tiles || []).slice(0, 25)) { if (P.cr < BT.wall.cost || !canPlace('wall', team, x, y)) continue; P.cr -= BT.wall.cost; const b = addB('wall', team, x, y, false, true); b.paid = BT.wall.cost; n++; } // v7.2: each piece paid on placement, then builds on the ground
   if (n) { G.bver = (G.bver || 0) + 1; G.events.push({ e: 'walls', team, n }); } return n;
 }
 function spawnUnit(team, t, b) {
@@ -591,7 +631,7 @@ function distTo(a, e) {
   const cx = Math.max(e.tx, Math.min(a.x, e.tx + e.w)), cy = Math.max(e.ty, Math.min(a.y, e.ty + e.h));
   return dhypot(a.x - cx, a.y - cy);
 }
-function sellB(b) { if (b.kind === 'b' && b.sell < 0 && b.t !== 'hq' || (b.kind === 'b' && b.t === 'hq' && b.sell < 0 && G.ents.filter(e => e.team === b.team && e.t === 'hq').length > 1)) { b.sell = G.time; G.events.push({ e: 'sell', b }); } }
+function sellB(b) { if (b && b.con) return cancelBuild(b.team, b.id); if (b.kind === 'b' && b.sell < 0 && b.t !== 'hq' || (b.kind === 'b' && b.t === 'hq' && b.sell < 0 && G.ents.filter(e => e.team === b.team && e.t === 'hq').length > 1)) { b.sell = G.time; G.events.push({ e: 'sell', b }); } }
 // ---------- main step ----------
 // ===== v5.2 Warhead Launcher =====
 function siloBuild(b, k) { const m = MIS[k], P = G.players[b.team]; if (!m || !b || b.t !== 'silo' || b.hp <= 0 || b.sell >= 0 || b.mq || b.mis || P.cr < m.cost || P.gas < m.gas) return false; P.cr -= m.cost; P.gas -= m.gas; b.mq = { k, p: 0 }; return true; }
@@ -621,6 +661,7 @@ function stepGame() {
   stepMissiles();
   if (G.weather && G.time > G.weather.next) { G.weather.on = !G.weather.on; G.weather.next = G.time + (G.weather.on ? 60 : 180 + G.R() * 120); G.events.push({ e: 'weather', on: G.weather.on }); }
   for (const P of G.players) stepProduction(P);
+  stepConstruction();
   if (G.tick % 30 === 0 && G.derricks) for (const d of G.derricks) if (d.owner >= 0 && G.players[d.owner] && !G.players[d.owner].out) { const P = G.players[d.owner]; P.cr += DERRICK_RATE; P.stats.mined += DERRICK_RATE; }
   // spatial hash for separation
   const hash = new Map();
@@ -657,6 +698,7 @@ function onDeath(e) {
 }
 function stepBuilding(b) {
   const d = BT[b.t], P = G.players[b.team];
+  if (b.con) return; // v7.2 construction site: progress is handled in stepConstruction
   if (b.sell >= 0) { if (G.time - b.sell > 1.2) { P.cr += Math.floor((d.cost + (b.bal ? BALLISTA.cost : 0)) * 0.5 * b.hp / b.mhp); b.hp = 0; b.sold = true; } return; }
   if (b.repair && b.hp < b.mhp) { const dh = b.mhp * 0.04 * DT, c = d.cost * 0.4 * dh / b.mhp; if (P.cr >= c) { P.cr -= c; b.hp = Math.min(b.mhp, b.hp + dh); } }
   if (b.repair && b.hp >= b.mhp) b.repair = false;
@@ -1006,7 +1048,7 @@ function medic(u, d) { // v6.2 Engineer: auto-repair damaged buildings (fast) an
   if (u.order !== 'idle' && u.order !== 'amove') { u.healT = null; return; }
   if ((G.tick + u.id) % 15 === 0) { let best = null, bs = -1e9;
     for (const o of G.ents) { if (o.team !== u.team || o.hp <= 0 || o.hp >= o.mhp || o === u) continue;
-      if (o.kind === 'b') { if (!d.rep || o.sell >= 0 || o.upT != null && false) continue; const dd = dhypot(o.x - u.x, o.y - u.y) - Math.max(o.w, o.h) / 2; if (dd < 7) { const sc = (1 - o.hp / o.mhp) * 12 - dd + 4; if (sc > bs) { bs = sc; best = o; } } }
+      if (o.kind === 'b') { if (!d.rep || o.sell >= 0 || o.con || o.upT != null && false) continue; const dd = dhypot(o.x - u.x, o.y - u.y) - Math.max(o.w, o.h) / 2; if (dd < 7) { const sc = (1 - o.hp / o.mhp) * 12 - dd + 4; if (sc > bs) { bs = sc; best = o; } } }
       else if (!isAir(o)) { const dd = dhypot(o.x - u.x, o.y - u.y); if (dd < 6) { const sc = (1 - o.hp / o.mhp) * 10 - dd; if (sc > bs) { bs = sc; best = o; } } } }
     u.healT = best; }
   const o = u.healT; if (!o || o.hp <= 0 || o.hp >= o.mhp || o.dead) { u.healT = null; return; }
