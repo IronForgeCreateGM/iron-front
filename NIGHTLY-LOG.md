@@ -37,5 +37,5 @@
 - Determinism: the fixed-seed hashes match with models on (served over http under /iron-front/), with ?glb=0, and on v7.3.1. That covers both the node runs (seeds 11/202/3003) and the in-browser run with rendering (seed 7).
 - Tests: full suite run. Only known failures: ai71 (rus special peak and seed 11 team pushes; same on v7.3.1), endless703 "loop alive" under software GL (same on v7.3.1), endgame timeout. mobile-play and slot flaked in the parallel run and passed when re-run.
 - Models: 62 files, 10 MB total (LOD1 set 3.0 MB).
-- Live: PENDING. Not pushed yet: v7.4.0 commit 75484d7 is ready on local master.
+- Live: YES, 3:58 PM PT Oct 28 (site shows v7.4.0, models/hq.glb 200)
 - Screenshot: /workspace/iron-front-v7.4.0-live.png (local skirmish under /iron-front/: 24/24 models loaded, 0 page errors)
