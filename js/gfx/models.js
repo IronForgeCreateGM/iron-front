@@ -616,6 +616,7 @@ const MODEL_CACHE = {};
 function getModel(kind, t, team) {
   const k = kind + t + team; if (MODEL_CACHE[k]) return MODEL_CACHE[k];
   const B = new MB(team); B.bld = kind !== 'u'; (kind === 'u' ? UNIT_MODELS : BLD_MODELS)[t](B);
+  if (kind === 'u' && typeof glbUnitModel === 'function') { const gm = glbUnitModel(t, team, B.piv); if (gm) return MODEL_CACHE[k] = gm; } // blender-trial
   if (kind === 'u' && UT[t].armor !== 'inf' && !UT[t].air && t !== 'harv') { const g = mergeGeos(B.parts.body); const bb = g.boundingBox; for (const z of [bb.max.z + 0.004, bb.min.z - 0.004]) B.box('body', (bb.max.x - bb.min.x) * 0.3, 0.03, 0.006, 'TA', PBR.ACC, bb.min.x + (bb.max.x - bb.min.x) * 0.35, bb.min.y + (bb.max.y - bb.min.y) * 0.62, z, { bevel: 0 }); }
   return MODEL_CACHE[k] = B.build();
 }

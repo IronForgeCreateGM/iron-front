@@ -265,6 +265,7 @@ function r3Render(dt) {
       o.sc.visible = o.sc.visible || e.upT != null;
       if ((e.sel || e.id === R3.hoverId) && BT[e.t].wpn && nRange < 6) { const rg = R3.rangeRings[nRange++], r = defW(e).rng; rg.visible = true; rg.scale.set(r, 1, r); rg.position.set(e.x, heightAt(e.x, e.y) + 0.15, e.y); rg.material.color.set(e.team === ME ? 0xffd060 : 0xff6050); }
       if (o.parts.glow) o.parts.glow.visible = Math.sin(R3.time * 4 + e.id) > -0.3;
+      if (typeof glbSync === 'function') glbSync(o, e); // blender-trial: .glb building models (visual only)
       if (o.piv.smoke && Math.random() < dt * 4 * FX.mul) puff(e.x + o.piv.smoke[0], e.y + o.piv.smoke[2], o.piv.smoke[1] + heightAt(e.x, e.y), 0.2, 2.5, 0.45, 0.35, 0.8);
       const f = e.hp / e.mhp;
       if (f < 0.5 && Math.random() < dt * (f < 0.25 ? 14 : 6) * FX.mul) puff(e.tx + Math.random() * e.w, e.ty + Math.random() * e.h, 0.9, 0.35, 2.4, 0.09, 0.75, 1.0);
@@ -417,7 +418,7 @@ function makePortraits() {
 }
 // visual change per defense level: bigger head, rank chevrons, armor collar, extra glow
 function setLevelDecor(o, e) {
-  const l = e.lvl || 1; o.lvl = l; if (o.decor) { o.body.remove(o.decor); o.decor = null; }
+  const l = e.lvl || 1; o.lvl = l; if (o.decor) { if (o.decor.parent) o.decor.parent.remove(o.decor); o.decor = null; }
   if (o.parts.head) o.parts.head.scale.setScalar(1 + 0.12 * (l - 1));
   if (l < 2) return;
   const B = new MB(e.team);
