@@ -5,22 +5,26 @@ const QS = new URLSearchParams(location.search);
 window.addEventListener('error', e => { if (QS.get('stk')) document.title = 'STK ' + (e.error && e.error.stack); const d = document.getElementById('err'); if (d) { d.style.display = 'block'; d.textContent += (e.message || e) + ' @' + (e.filename || '').split('/').pop() + ':' + e.lineno + '\n'; } });
 function togglePause() { if (!started || G.over) return; if (NET.online) { const pz = document.getElementById('pause'); pz.style.display = pz.style.display === 'flex' ? 'none' : 'flex'; return; } paused = !paused; document.getElementById('pause').style.display = paused ? 'flex' : 'none'; }
 const MENU = { fac: 'usa', aiFac: 'rand' };
-const DIFF_NAME = d => ({ si: 'Chief SI', chief: 'Chief', easy: 'Easy AI', normal: 'Medium AI', hard: 'Hard AI' })[d] || d;
-const SLOT_TYPES = { off: 'Closed', human: 'You', remote: 'Human (remote)', si: 'Chief SI', chief: 'Chief', easy: 'Easy AI', normal: 'Medium AI', hard: 'Hard AI' };
+// v7.3: three player-facing difficulties. Easy = 'easy', Medium = 'normal', Hard = the 'si' profile (the internal Chief SI benchmark bot).
+// Old options (lobby rows, presets, URLs, Endless/online backfill) map to the nearest: hard/chief/si -> Hard. Replays keep their recorded profiles.
+const DIFF_MAP = { easy: 'easy', normal: 'normal', medium: 'normal', hard: 'si', chief: 'si', si: 'si' };
+const normDiff = d => DIFF_MAP[d] || d;
+const DIFF_NAME = d => ({ si: 'Hard AI', chief: 'Hard AI', easy: 'Easy AI', normal: 'Medium AI', hard: 'Hard AI' })[d] || d;
+const SLOT_TYPES = { off: 'Closed', human: 'You', remote: 'Human (remote)', easy: 'Easy AI', normal: 'Medium AI', si: 'Hard AI' };
 const PRESETS = {
   duel:   { n: '1v1', slots: [['human', 'A'], ['normal', 'B']] },
-  ffa2:   { n: '2v2', slots: [['human', 'A'], ['hard', 'A'], ['hard', 'B'], ['hard', 'B']] },
-  t4v4:   { n: '4v4 (Volcano XL)', map: 'volcano8', slots: [['human', 'A'], ['hard', 'A'], ['hard', 'A'], ['hard', 'A'], ['hard', 'B'], ['hard', 'B'], ['hard', 'B'], ['hard', 'B']] },
-  hellgate: { n: '2v6 Hindu Kush Hellgate', map: 'hellgate', slots: [['human', 'A'], ['hard', 'A'], ['hard', 'B'], ['hard', 'B'], ['hard', 'B'], ['hard', 'B'], ['hard', 'B'], ['hard', 'B']] },
-  t3v3:   { n: '3v3', slots: [['human', 'A'], ['hard', 'A'], ['hard', 'A'], ['hard', 'B'], ['hard', 'B'], ['hard', 'B']] },
-  coop:   { n: 'Me + Chief SI vs 2 Medium', slots: [['human', 'A'], ['si', 'A'], ['normal', 'B'], ['normal', 'B']] },
-  wsi:    { n: 'Watch: Chief SI + Chief vs 2 Hard', slots: [['si', 'A'], ['chief', 'A'], ['hard', 'B'], ['hard', 'B']] },
-  w1:     { n: 'Watch: Chief vs Hard', slots: [['chief', 'A'], ['hard', 'B']] },
-  w2:     { n: 'Watch: Chief (SI) vs Hard', slots: [['si', 'A'], ['hard', 'B']] },
+  ffa2:   { n: '2v2', slots: [['human', 'A'], ['si', 'A'], ['si', 'B'], ['si', 'B']] },
+  t4v4:   { n: '4v4 (Volcano XL)', map: 'volcano8', slots: [['human', 'A'], ['si', 'A'], ['si', 'A'], ['si', 'A'], ['si', 'B'], ['si', 'B'], ['si', 'B'], ['si', 'B']] },
+  hellgate: { n: '2v6 Hindu Kush Hellgate', map: 'hellgate', slots: [['human', 'A'], ['si', 'A'], ['si', 'B'], ['si', 'B'], ['si', 'B'], ['si', 'B'], ['si', 'B'], ['si', 'B']] },
+  t3v3:   { n: '3v3', slots: [['human', 'A'], ['si', 'A'], ['si', 'A'], ['si', 'B'], ['si', 'B'], ['si', 'B']] },
+  coop:   { n: 'Me + Hard AI vs 2 Medium', slots: [['human', 'A'], ['si', 'A'], ['normal', 'B'], ['normal', 'B']] },
+  wsi:    { n: 'Watch: 2 Hard vs 2 Hard', slots: [['si', 'A'], ['si', 'A'], ['si', 'B'], ['si', 'B']] },
+  w1:     { n: 'Watch: Medium vs Hard', slots: [['normal', 'A'], ['si', 'B']] },
+  w2:     { n: 'Watch: Hard vs Hard', slots: [['si', 'A'], ['si', 'B']] },
 };
 function buildSlots(list, names) { // list rows: [type, team, fac, color]; names: row -> player name
   const RF = () => FAC_KEYS[(Math.random() * FAC_KEYS.length) | 0], pref = list.filter(r => r[0] !== 'off').length > 6 ? { A: [0, 2, 4, 6, 1, 3, 5, 7], B: [3, 1, 5, 7, 2, 0, 4, 6] } : { A: [0, 2, 4, 1, 3, 5], B: [3, 1, 5, 2, 0, 4] }, taken = new Set(), startFor = team => { const s = (pref[team] || pref.A).find(k => !taken.has(k)); taken.add(s); return s; };
-  return list.map((r, row) => [r, row]).filter(([r]) => r[0] !== 'off').map(([[type, team, fac, color], row]) => ({ row, ai: type !== 'human' && type !== 'remote', local: type === 'human', diff: type === 'human' || type === 'remote' ? 'normal' : type, ally: team === 'A' ? 0 : 1, fac: fac && fac !== 'rand' ? fac : RF(), color: color && color !== 'auto' ? color : undefined, start: startFor(team === 'B' ? 'B' : 'A'), name: (names && names[row]) || (type === 'human' ? 'You' : type === 'remote' ? 'Remote ' + (row + 1) : SLOT_TYPES[type]) }));
+  return list.map((r, row) => [r, row]).filter(([r]) => r[0] !== 'off').map(([[type, team, fac, color], row]) => ({ row, ai: type !== 'human' && type !== 'remote', local: type === 'human', diff: type === 'human' || type === 'remote' ? 'normal' : normDiff(type), ally: team === 'A' ? 0 : 1, fac: fac && fac !== 'rand' ? fac : RF(), color: color && color !== 'auto' ? color : undefined, start: startFor(team === 'B' ? 'B' : 'A'), name: (names && names[row]) || (type === 'human' ? 'You' : type === 'remote' ? 'Remote ' + (row + 1) : SLOT_TYPES[type]) }));
 }
 function startGame(diff, opts) {
   opts = opts || {};
@@ -255,8 +259,8 @@ function lobbyInit() {
     <select class="lt">${Object.keys(SLOT_TYPES).map(k => `<option value="${k}">${SLOT_TYPES[k]}</option>`).join('')}</select>
     <select class="la"><option value="A">Team A</option><option value="B">Team B</option></select><select class="lf">${facOpt}</select><select class="lc"><option value="auto">Auto</option>${Object.keys(TEAM_COLORS).map(c => `<option value="${c}">${TEAM_COLORS[c].n}</option>`).join('')}</select></div>`).join('');
   box.querySelectorAll('.lc').forEach(sel => sel.onchange = () => { if (sel.value === 'auto') return; box.querySelectorAll('.lc').forEach(o => { if (o !== sel && o.value === sel.value) o.value = 'auto'; }); if (typeof lobbyChanged === 'function') lobbyChanged(); });
-  // v5.7.1: "You" can be any slot; only one row can be You (the previous one becomes a Hard AI)
-  box.querySelectorAll('.lt').forEach(sel => sel.addEventListener('change', () => { if (sel.value !== 'human') return; box.querySelectorAll('.lt').forEach(o => { if (o !== sel && o.value === 'human') o.value = 'hard'; }); }));
+  // v5.7.1: "You" can be any slot; only one row can be You (the previous one becomes a Hard AI = 'si')
+  box.querySelectorAll('.lt').forEach(sel => sel.addEventListener('change', () => { if (sel.value !== 'human') return; box.querySelectorAll('.lt').forEach(o => { if (o !== sel && o.value === 'human') o.value = 'si'; }); }));
   box.querySelectorAll('select').forEach(sel => sel.addEventListener('change', () => { if (typeof lobbyChanged === 'function') lobbyChanged(); }));
   const pb = document.getElementById('presets'); pb.innerHTML = Object.keys(PRESETS).filter(k => k[0] !== 'w').map(k => `<button data-p="${k}">${k[0] === 'w' ? '▶ ' : ''}${PRESETS[k].n}</button>`).join('');
   pb.querySelectorAll('button').forEach(b => b.onclick = () => { lobbySet(PRESETS[b.dataset.p].slots); { const ms = document.getElementById('mapSel'), pm = PRESETS[b.dataset.p].map; if (ms && pm) { ms.value = pm; ms.dispatchEvent(new Event('change')); } } if (b.dataset.p[0] === 'w') { audioInit(); startGame('normal', { slots: buildSlots(lobbyRead()), seed: (Math.random() * 1e6) | 0 }); } });
@@ -267,14 +271,14 @@ function lobbyInit() {
 function hellgateSetup() {
   const on = typeof ONL !== 'undefined' && ONL.room && ONL.host, cur = lobbyRead(), me = Math.max(0, cur.findIndex(r => r[0] === 'human'));
   const peerRows = on ? Object.values(ONL.peers || {}).map(p => p.row).filter(r => r != null && r !== me) : [];
-  const rows = cur.map((r, i) => [i === me ? 'human' : 'hard', i === me ? 'A' : 'B', r[2] || 'rand', 'auto']);
+  const rows = cur.map((r, i) => [i === me ? 'human' : 'si', i === me ? 'A' : 'B', r[2] || 'rand', 'auto']);
   const mate = on ? (peerRows.length ? peerRows : [me === 1 ? 0 : 1]) : [me === 1 ? 0 : 1];
-  for (const i of mate) rows[i] = [on ? 'remote' : 'hard', 'A', cur[i][2] || 'rand', 'auto'];
+  for (const i of mate) rows[i] = [on ? 'remote' : 'si', 'A', cur[i][2] || 'rand', 'auto'];
   if (rows[me][2] === 'rand' && MENU.fac) rows[me][2] = MENU.fac;
   { const ps = document.getElementById('peaceSel'); if (ps && ps.value === '180') ps.value = '300'; } // 5-min peace: time to dig in at the Hellgate
   lobbySet(rows); if (on) { ONL.meRow = me; if (typeof lobbyChanged === 'function') lobbyChanged(); }
 }
-function lobbySet(list) { const rows = document.querySelectorAll('#lobby .lrow:not(.lh)'); rows.forEach((r, i) => { const s = list[i] || ['off', i % 2 ? 'B' : 'A']; r.querySelector('.lt').value = s[0]; r.querySelector('.la').value = s[1]; r.querySelector('.lf').value = s[2] || (i === 0 && s[0] === 'human' ? MENU.fac : 'rand'); r.querySelector('.lc').value = s[3] || 'auto'; }); }
+function lobbySet(list) { const rows = document.querySelectorAll('#lobby .lrow:not(.lh)'); rows.forEach((r, i) => { const s = list[i] || ['off', i % 2 ? 'B' : 'A']; r.querySelector('.lt').value = normDiff(s[0]); r.querySelector('.la').value = s[1]; r.querySelector('.lf').value = s[2] || (i === 0 && s[0] === 'human' ? MENU.fac : 'rand'); r.querySelector('.lc').value = s[3] || 'auto'; }); }
 // v7.0 lobby mode: Skirmish (any map, two teams) or Endless (up to 4 defenders on Hellgate Last Stand vs the Horde)
 function setMode(m) {
   MENU.mode = m; const su = document.getElementById('setup'); if (!su) return; su.classList.toggle('endless', m === 'endless');
