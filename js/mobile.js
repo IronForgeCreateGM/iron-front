@@ -7,7 +7,7 @@
 //  - helpers (toggles, on by default): auto-harvesters, auto-rally, idle auto-engage, auto-repair, one-tap power
 //    Every helper only issues normal player commands for YOUR OWN units through NET.issue -> lockstep-safe online.
 const MOB = { on: false, touch: typeof window !== 'undefined' && (('ontouchstart' in window) || navigator.maxTouchPoints > 0), tab: 'bld', g: null,
-  auto: { harv: true, rally: true, engage: true, repair: false, power: true }, rally: null, box: false, mode: null, vel: { x: 0, y: 0 }, autoT: 0, harvPeak: 0, wantPower: false, perfT: 0, ft: [], stopped: new Set() };
+  auto: { harv: true, rally: true, engage: true, repair: false, power: true }, rally: null, box: false, mode: null, vel: { x: 0, y: 0 }, autoT: 0, harvPeak: 0, perfT: 0, ft: [], stopped: new Set() };
 try { const s = JSON.parse(localStorage.getItem('ifMobAuto') || 'null'); if (s) Object.assign(MOB.auto, s); } catch (e) {}
 function mobDetect() { // phone / small tablet: coarse primary pointer + small viewport
   try { const coarse = matchMedia('(pointer: coarse)').matches, small = Math.max(screen.width, screen.height) <= 1400 && Math.min(screen.width, screen.height) <= 1100; return coarse && small; } catch (e) { return false; } }
@@ -195,8 +195,7 @@ function mobFrame(dt) {
   // frame-time telemetry (for the perf readout / tests)
   MOB.ft.push(dt * 1000); if (MOB.ft.length > 120) MOB.ft.shift();
   if (!on) return;
-  { const P = G.players[ME], r = P.ready.bld; if (r && r !== MOB.lastReady && !UI.placing && !UI.mode && !(MOB.wantPower && r === 'power')) UI.placing = r; MOB.lastReady = r; } // structure done -> straight into placement
-  if (UI.placing && (MOB.placeFor !== UI.placing || !MOB.pl || MOB.pl.t !== UI.placing)) mobStartPlace(); // a Defense finished -> auto placement mode
+  if (UI.placing && (MOB.placeFor !== UI.placing || !MOB.pl || MOB.pl.t !== UI.placing)) mobStartPlace(); // a structure/defense was picked -> touch placement mode
   if (UI.placing && MOB.pl) { const L = MOB.pl, T = MOB.T;
     if (UI.mouse.x >= 0 && L.mx != null && Math.hypot(UI.mouse.x - L.mx, UI.mouse.y - L.my) > 1.5 && !(T && T.mode === 'ghost')) { const w = screenToWorld(UI.mouse.x, UI.mouse.y); if (w) mobPlSet(w.x, w.y); } // set from elsewhere (tests / helpers)
     if (T && T.mode === 'ghost' && T.moved && T.gl) { // drag near a screen edge: the camera follows the ghost
@@ -228,7 +227,7 @@ function mobTabsGuard() {
   if (!cards.children.length && listFor(MOB.tab).length) { MOB.tabsKey = null; mobCards(); }
 }
 function mobGameInit() {
-  MOB.g = G; MOB.rally = null; MOB.rallied = {}; MOB.harvPeak = 0; MOB.wantPower = false; MOB.box = false; MOB.mode = null; MOB.placeFor = null; MOB.engT = {};
+  MOB.g = G; MOB.rally = null; MOB.rallied = {}; MOB.harvPeak = 0; MOB.box = false; MOB.mode = null; MOB.placeFor = null; MOB.engT = {};
   if (MOB.on) { mobBuildHud(); mobCards(); mobPerf(); const ctx = document.getElementById('ctx'), host = document.getElementById('mCtx'); if (ctx && host && ctx.parentNode !== host) host.appendChild(ctx); }
 }
 function mobHud() {
@@ -236,7 +235,7 @@ function mobHud() {
   $m('mCr').textContent = '$' + Math.floor(P.cr); $m('mGas').textContent = '◆ ' + Math.floor(P.gas);
   const frac = P.gen ? Math.min(1, P.use / P.gen) : 1, pw = $m('mPow'); pw.style.width = (frac * 100) + '%'; pw.style.background = P.pow < 0 ? '#ff4d3d' : frac > 0.85 ? '#ffc23d' : '#4dff7a';
   $m('mPowT').textContent = P.pow < 0 ? 'LOW POWER' : '⚡' + (P.gen - P.use);
-  $m('mPowerBtn').style.display = MOB.auto.power && (P.pow < 15 || MOB.wantPower) && avail(ME, 'power') ? '' : 'none'; $m('mPowerBtn').classList.toggle('busy', MOB.wantPower);
+  $m('mPowerBtn').style.display = MOB.auto.power && P.pow < 15 && avail(ME, 'power') ? '' : 'none';
   if (MOB.tabsKey !== P.fac + listFor(MOB.tab).length) { MOB.tabsKey = P.fac + listFor(MOB.tab).length; mobCards(); }
   // selection chip
   const s = UI.sel.filter(e => e.hp > 0), su = s.filter(e => e.kind === 'u' && e.team === ME);
@@ -255,7 +254,7 @@ function mobAuto() {
   if (G.over || G.spectate || NET.desync) return; const P = G.players[ME]; if (!P || P.out || P.ai) return;
   const mine = G.ents.filter(e => e.team === ME && e.hp > 0), A = MOB.auto;
   if (A.harv) { const hv = mine.filter(e => e.t === 'harv').length, ref = mine.filter(e => e.t === 'refinery' && e.sell < 0).length; MOB.harvPeak = Math.max(MOB.harvPeak, hv);
-    const want = Math.min(Math.max(MOB.harvPeak, ref), ref * 2); const queued = P.queues.veh.some(q => q.t === 'harv') || (P.queues.bld || []).some(q => q.t === 'harv');
+    const want = Math.min(Math.max(MOB.harvPeak, ref), ref * 2); const queued = P.queues.veh.some(q => q.t === 'harv');
     if (ref && hv < want && !queued && avail(ME, 'harv') && P.cr >= UT.harv.cost && canEnqueue(ME, 'harv')) NET.issue({ c: 'enq', t: 'harv', n: 1 }); }
   if (A.rally) { if (!MOB.rally) { const h = mobHome(); if (h) { const dx = MW / 2 - h.x, dy = MH / 2 - h.y, d = Math.hypot(dx, dy) || 1; MOB.rally = { x: h.x + dx / d * 7, y: h.y + dy / d * 7 }; } }
     if (MOB.rally) { const need = mine.filter(e => e.kind === 'b' && ['barracks', 'factory', 'airfield'].includes(e.t) && e.sell < 0 && !(MOB.rallied[e.id] && MOB.rallied[e.id] === MOB.rally) && !(e.rally && Math.hypot(e.rally.x - MOB.rally.x, e.rally.y - MOB.rally.y) < 0.5));
@@ -266,8 +265,6 @@ function mobAuto() {
       const groups = new Map(); for (const u of idle) { let best = null, bd = 13; for (const f of foes) { const d = Math.hypot(f.x - u.x, f.y - u.y); if (d < bd) { bd = d; best = f; } } if (best) { (groups.get(best) || groups.set(best, []).get(best)).push(u); } MOB.engT[u.id] = G.time + 4; }
       for (const [f, us] of groups) NET.issue({ c: 'move', u: ids(us), x: f.x, y: f.y, am: true }); } }
   if (A.repair && P.cr > 600) { const hurt = mine.filter(e => e.kind === 'b' && !e.con && !e.repair && e.hp < e.mhp * 0.6 && e.sell < 0 && e.t !== 'wall'); for (const b of hurt.slice(0, 2)) NET.issue({ c: 'repair', b: b.id, on: true }); }
-  if (MOB.wantPower && P.ready.bld === 'power') { const sp = mobSpot('power'); if (sp) { NET.issue({ c: 'place', cat: 'bld', x: sp[0], y: sp[1] }); MOB.wantPower = false; if (UI.placing === 'power') { UI.placing = null; MOB.placeFor = null; } uiMsg('⚡ Power Plant placed'); } }
-  if (MOB.wantPower && !P.ready.bld && !P.queues.bld.some(q => q.t === 'power')) MOB.wantPower = false;
 }
 // ---------- lifecycle: pause offline on hide, context loss, rejoin hint ----------
 function mobLifecycle() {
