@@ -35,7 +35,7 @@ function pbrMaterial() {
           diffuseColor.rgb *= mix(1.0, mix(0.78, 1.08, smoothstep(0.42, 0.52, cm)) * mix(1.0, 0.86, smoothstep(0.6, 0.66, cm)), paint);
           float gr = vnoise3(vLoc.xz * 22.0 + vLoc.y * 17.0);
           diffuseColor.rgb *= 1.0 - 0.22 * gr * gr;
-          float dirt = 1.0 - smoothstep(0.02, 0.3, vLoc.y);
+          float dirt = (1.0 - smoothstep(0.02, 0.3, vLoc.y)) * (1.0 - step(0.004, vPbr.z)); // blender-trial: glb aircraft carry pbr.z=0.005 -> no ground dirt
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.13, 0.105, 0.075), dirt * 0.5);
         }`)
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vPbr.x;')

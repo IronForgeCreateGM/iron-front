@@ -7,7 +7,7 @@
 // - If a file fails to load (or ?glb=0), the procedural mesh simply stays visible.
 const GLB = {
   on: typeof THREE !== 'undefined' && typeof location !== 'undefined' && !/[?&]glb=0\b/.test(location.search),
-  dir: 'models/', tpl: {}, st: {}, team: {},
+  dir: 'models/', tpl: {}, st: {}, team: {}, c2: typeof THREE !== 'undefined' ? new THREE.Color() : null,
   KEYS: new Set(['hq', 'power', 'barracks', 'refinery', 'factory', 'tech', 'airfield', 'cc', 'extractor', 'silo',
     'turret', 'aagun', 'tesla', 'gatling', 'gcannon', 'gtower', 'gate', 'wall']),
 };
@@ -66,13 +66,14 @@ function glbSync(o, e) { // called once per frame per visible building (render.j
 // so each glb part node is baked into one geometry: colour = material colour (team-recoloured), pbr attr = (metal, rough, emissive).
 GLB.UNITS = new Set(['heavy', 'scout', 'harv', 'arty', 'aa', 'tsar', 'jet', 'intercept', 'bomber', 'stealth', 'medevac', 'gunship', 'drone']);
 function glbUnitFile(t) { return 'u_' + t + (glbLod() ? '_lod1' : ''); }
-function glbBake(meshes, rel, team) { // meshes -> one non-indexed geometry with position/normal/color/pbr (rel: Matrix4 inverse of part frame)
+function glbBake(meshes, rel, team, air) { // meshes -> one non-indexed geometry with position/normal/color/pbr (rel: Matrix4 inverse of part frame)
+  // air: aircraft are centred on y=0, so pbr.z gets a tiny 0.005 marker that turns off the shader's ground-dirt band, and team paint is pushed toward the bright team colour so sides read from RTS zoom
   const geos = [], c = new THREE.Color(), m4 = new THREE.Matrix4();
   for (const m of meshes) {
     let g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
     g.applyMatrix4(m4.multiplyMatrices(rel, m.matrixWorld)); if (!g.attributes.normal) g.computeVertexNormals();
     const mt = m.material, n = g.attributes.position.count, col = new Float32Array(n * 3), pb = new Float32Array(n * 3);
-    if (mt.name === 'TeamColor') c.setHex(TEAMPAINT[team]); else if (mt.name === 'TeamColor_Glow') c.setHex(TEAMCOL[team]); else c.copy(mt.color);
+    if (mt.name === 'TeamColor') { c.setHex(TEAMPAINT[team]); c.lerp(GLB.c2.setHex(TEAMCOL[team]), air ? 0.6 : 0.45); } else if (mt.name === 'TeamColor_Glow') c.setHex(TEAMCOL[team]); else c.copy(mt.color);
     const em = mt.emissive && (mt.emissive.r + mt.emissive.g + mt.emissive.b) > 0.05 ? Math.min(1.6, mt.emissiveIntensity || 1) : 0;
     if (em) c.lerp(mt.emissive, 0.5);
     const vc = g.attributes.color; // baked AO / dust / edge wear from Blender (COLOR_0, stored x0.5), multiplied into the material colour
@@ -80,7 +81,7 @@ function glbBake(meshes, rel, team) { // meshes -> one non-indexed geometry with
     if (vc && vc.normalized) { let mx = 0; for (let i = 0; i < n; i++) mx = Math.max(mx, vc.getX(i)); if (mx > 1.001) vs = 2 / (vc.array instanceof Uint8Array ? 255 : 65535); }
     for (let i = 0; i < n; i++) {
       const kr = vc ? vs * vc.getX(i) : 1, kg = vc ? vs * vc.getY(i) : 1, kb = vc ? vs * vc.getZ(i) : 1;
-      col[i * 3] = c.r * kr; col[i * 3 + 1] = c.g * kg; col[i * 3 + 2] = c.b * kb; pb[i * 3] = mt.metalness; pb[i * 3 + 1] = mt.roughness; pb[i * 3 + 2] = em;
+      col[i * 3] = c.r * kr; col[i * 3 + 1] = c.g * kg; col[i * 3 + 2] = c.b * kb; pb[i * 3] = mt.metalness; pb[i * 3 + 1] = mt.roughness; pb[i * 3 + 2] = em || (air ? 0.005 : 0);
     }
     geos.push({ p: g.attributes.position.array, n: g.attributes.normal.array, col, pb });
   }
@@ -103,8 +104,9 @@ function glbUnitModel(t, team, procPiv) { // -> {body, turret.., piv} or null (n
   root.traverse(n => { if (!n.isMesh) return; let p = n; while (p && p !== root && !(p.userData && p.userData.part)) p = p.parent;
     if (p && p !== root) (parts[p.userData.part] = parts[p.userData.part] || { node: p, m: [] }).m.push(n); else body.push(n); });
   const inv = new THREE.Matrix4();
-  out.body = glbBake(body, inv.copy(root.matrixWorld).invert(), team);
-  for (const pk in parts) { const P = parts[pk]; out[pk] = glbBake(P.m, new THREE.Matrix4().copy(P.node.matrixWorld).invert(), team); out.piv[pk] = P.node.position.toArray(); }
+  const air = !!(UT[t] && UT[t].air);
+  out.body = glbBake(body, inv.copy(root.matrixWorld).invert(), team, air);
+  for (const pk in parts) { const P = parts[pk]; out[pk] = glbBake(P.m, new THREE.Matrix4().copy(P.node.matrixWorld).invert(), team, air); out.piv[pk] = P.node.position.toArray(); }
   return out;
 }
 function glbUnitRefresh(t) { // a unit glb finished loading: drop cached procedural models + instanced meshes so they rebuild from the glb
