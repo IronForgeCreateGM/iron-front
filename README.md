@@ -1,4 +1,11 @@
-# Iron Front: browser RTS (v7.2.0)
+# Iron Front: browser RTS (v7.3.1)
+
+## v7.3.1: animated construction sites + Easy / Medium / Hard
+- Buildings now go up in stages: surveyor tape and stakes, rebar and a concrete pour, scaffolding and a crane (a small hoist on small buildings) rising, a steel frame, then the walls filling in course by course from the ground up with welding sparks and dust. Team-coloured panels swing in on the crane and snap on, and when it finishes the scaffold and crane fall away with a flash, a dust ring and a short chime.
+- Effects scale with building size. Defenses get the same sequence, and walls get a cheap version (tape, slab, low scaffold, the wall rising). Quiet mode, Low quality and mobile use much smaller particle budgets.
+- Render only: sim, lockstep and bots unchanged (fixed-seed hashes identical to v7.2.0, node and in-browser).
+- Difficulty is now just Easy, Medium and Hard. Hard is the strongest bot (the internal 'si' profile). Old Hard/Chief/Chief SI choices in presets, lobbies, links and online backfill all become Hard. The word "Chief" no longer appears anywhere players see it.
+- Removed the leftover mobile build-queue code (P.ready.bld / wantPower).
 
 ## v7.2.0: place-then-build construction
 - Pick a building or defense, place it, and the full price is paid right then. It builds on the ground with scaffolding and a progress bar; the side-panel countdown for buildings is gone.

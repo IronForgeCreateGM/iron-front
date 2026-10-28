@@ -9,7 +9,7 @@ const URL0 = process.argv[2] || 'file://' + path.resolve(__dirname, '../index.ht
     await pg.goto(URL0 + '?q=low'); await pg.waitForTimeout(1500); await pg.click('#playBotsBtn'); await pg.waitForTimeout(300);
     await pg.selectOption('#mapSel', map); const n = map === 'volcano8' ? 8 : map === 'volcano' ? 6 : 4;
     const rows = await pg.$$('#lobby .lrow:not(.lh)');
-    for (let i = 0; i < 8; i++) { const lt = await rows[i].$('.lt'), la = await rows[i].$('.la'); await lt.selectOption(i >= n ? 'off' : i === youRow && !spectate ? 'human' : 'hard'); if (i < n) await la.selectOption(i % 2 ? 'B' : 'A'); }
+    for (let i = 0; i < 8; i++) { const lt = await rows[i].$('.lt'), la = await rows[i].$('.la'); await lt.selectOption(i >= n ? 'off' : i === youRow && !spectate ? 'human' : 'si'); if (i < n) await la.selectOption(i % 2 ? 'B' : 'A'); }
     if (spectate) await (await rows[0].$('.lt')).selectOption('si');
     const fc = await pg.isChecked('#fogChk'); if (fc !== fog) await pg.click('#fogChk');
     await pg.focus('#mapSel'); // leave focus in a dropdown, like a real click would
