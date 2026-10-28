@@ -57,14 +57,14 @@ function glbSync(o, e) { // called once per frame per visible building (render.j
   for (const k in o.gp) {
     const n = o.gp[k], p = o.parts[k]; if (!p) continue; const pv = o.piv[k] || [0, 0, 0], p0 = n.userData.p0;
     n.position.set(p0.x + p.position.x - pv[0], p0.y + p.position.y - pv[1], p0.z + p.position.z - pv[2]);
-    n.quaternion.copy(p.quaternion); n.visible = p.visible;
+    n.quaternion.copy(p.quaternion); n.scale.copy(p.scale); n.visible = p.visible;
   }
   if (o.decor !== o.gDecor) { if (o.gDecor && o.gDecor.parent) o.gDecor.parent.remove(o.gDecor); o.gDecor = o.decor; if (o.decor) o.glb.add(o.decor); } // level-up decor stays visible
 }
 
 // ---------- units (blender-trial): vehicles are drawn as InstancedMeshes with the shared vertex-colour pbrMaterial,
 // so each glb part node is baked into one geometry: colour = material colour (team-recoloured), pbr attr = (metal, rough, emissive).
-GLB.UNITS = new Set(['heavy', 'scout', 'harv', 'arty', 'aa', 'tsar', 'jet']);
+GLB.UNITS = new Set(['heavy', 'scout', 'harv', 'arty', 'aa', 'tsar', 'jet', 'intercept', 'bomber', 'stealth', 'medevac', 'gunship', 'drone']);
 function glbUnitFile(t) { return 'u_' + t + (glbLod() ? '_lod1' : ''); }
 function glbBake(meshes, rel, team) { // meshes -> one non-indexed geometry with position/normal/color/pbr (rel: Matrix4 inverse of part frame)
   const geos = [], c = new THREE.Color(), m4 = new THREE.Matrix4();
@@ -75,7 +75,13 @@ function glbBake(meshes, rel, team) { // meshes -> one non-indexed geometry with
     if (mt.name === 'TeamColor') c.setHex(TEAMPAINT[team]); else if (mt.name === 'TeamColor_Glow') c.setHex(TEAMCOL[team]); else c.copy(mt.color);
     const em = mt.emissive && (mt.emissive.r + mt.emissive.g + mt.emissive.b) > 0.05 ? Math.min(1.6, mt.emissiveIntensity || 1) : 0;
     if (em) c.lerp(mt.emissive, 0.5);
-    for (let i = 0; i < n; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; pb[i * 3] = mt.metalness; pb[i * 3 + 1] = mt.roughness; pb[i * 3 + 2] = em; }
+    const vc = g.attributes.color; // baked AO / dust / edge wear from Blender (COLOR_0, stored x0.5), multiplied into the material colour
+    let vs = 2; // undo the x0.5 export scale; older three builds return raw ints from getX() on normalized attributes
+    if (vc && vc.normalized) { let mx = 0; for (let i = 0; i < n; i++) mx = Math.max(mx, vc.getX(i)); if (mx > 1.001) vs = 2 / (vc.array instanceof Uint8Array ? 255 : 65535); }
+    for (let i = 0; i < n; i++) {
+      const kr = vc ? vs * vc.getX(i) : 1, kg = vc ? vs * vc.getY(i) : 1, kb = vc ? vs * vc.getZ(i) : 1;
+      col[i * 3] = c.r * kr; col[i * 3 + 1] = c.g * kg; col[i * 3 + 2] = c.b * kb; pb[i * 3] = mt.metalness; pb[i * 3 + 1] = mt.roughness; pb[i * 3 + 2] = em;
+    }
     geos.push({ p: g.attributes.position.array, n: g.attributes.normal.array, col, pb });
   }
   let N = 0; for (const g of geos) N += g.p.length; const P = new Float32Array(N), Nn = new Float32Array(N), C = new Float32Array(N), B = new Float32Array(N); let o = 0;
