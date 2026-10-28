@@ -1,4 +1,9 @@
-# Iron Front: browser RTS (v7.3.1)
+# Iron Front: browser RTS (v7.4.0)
+
+## v7.4.0: Blender-built 3D models (buildings, vehicles, aircraft)
+- All 18 buildings/defenses, 6 ground vehicles (heavy, scout, harvester, artillery, AA, Tsar) and 7 aircraft (jet, interceptor, bomber, stealth, drone, gunship, medevac) now use Blender-authored .glb models with team liveries; aircraft each have their own silhouette.
+- LOD1 models on mobile, Quiet mode and Low quality. Anything that fails to load (or `?glb=0`) falls back to the procedural model.
+- Visual only: sim, lockstep and bots unchanged (fixed-seed hashes identical to v7.3.1). Titan, Raijin, Colossus and infantry are still procedural.
 
 ## v7.3.1: animated construction sites + Easy / Medium / Hard
 - Buildings now go up in stages: surveyor tape and stakes, rebar and a concrete pour, scaffolding and a crane (a small hoist on small buildings) rising, a steel frame, then the walls filling in course by course from the ground up with welding sparks and dust. Team-coloured panels swing in on the crane and snap on, and when it finishes the scaffold and crane fall away with a flash, a dust ring and a short chime.

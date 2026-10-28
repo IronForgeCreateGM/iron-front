@@ -1,3 +1,8 @@
+# v7.4.0 (Oct 28 2026): Blender .glb models live (queue item 4 PARTIAL), shipped on Nicholas's request
+- Merged blender-trial (8d97671, 2fcac88, 0ac2065). js/gfx/glb.js loads models/<type>.glb (+ _lod1 on mobile/Quiet/Low) via vendor/GLTFLoader.js; procedural fallback on load failure, ?glb=0, or file:// (CORS blocks fetch there, so tests opened from file:// stay procedural).
+- Visual only: data/sim/ai untouched; det74-test (models on via fake http origin vs ?glb=0 vs v7.3.1) all identical. test/v74-live-shot.js = skirmish shot with model-load check.
+- Still to do for item 4: Titan, raijin/raijinJ, colossus, infantry (need rigs matching B.piv pivots), tsar LOD0 tri reduction (10.1k > 8k budget).
+
 # v7.3.1 (Oct 28 2026): animated construction + Easy/Medium/Hard (nightly, queue item 2 done, item 3 done)
 - Construction visuals: js/gfx/construct.js (makeSite/conAnim/conBurst/csDispose), render-only. A per-frame particle budget (csFrameStart) is scaled by FX.mul; csLite() = quiet/mobile/low. Each site clones pbrMaterial with a clipping plane for the course-by-course reveal and restores it when done. Walls take the cheap path. sfx 'clank' (panel snap) and 'built' (completion chime) play only for your own team.
 - Difficulties: main.js DIFF_MAP/normDiff maps easy->easy, normal->normal (Medium), hard/chief/si->si (Hard), applied in buildSlots + lobbySet. SLOT_TYPES offers only Easy/Medium/Hard. Replays keep their recorded diffs, and the sim/ai DIFF table is untouched (old 'hard'/'chief' profiles still exist for tests and benchmarks). net.js drop/backfill of a disconnected human stays 'normal' (Medium).

@@ -4,9 +4,9 @@
 // - Team colour: materials named 'TeamColor' (TEAMPAINT) and 'TeamColor_Glow' (TEAMCOL) are recoloured per team.
 // - Animated parts (spin/head/gun/gat/mis...) are separate glb nodes tagged with extras.part; every frame they copy
 //   the procedural part's transform (the procedural body stays in the scene graph, hidden, and keeps animating).
-// - If a file fails to load (or ?glb=0), the procedural mesh simply stays visible.
+// - If a file fails to load (or ?glb=0, or the page is opened from file://), the procedural mesh simply stays visible.
 const GLB = {
-  on: typeof THREE !== 'undefined' && typeof location !== 'undefined' && !/[?&]glb=0\b/.test(location.search),
+  on: typeof THREE !== 'undefined' && typeof location !== 'undefined' && location.protocol !== 'file:' && !/[?&]glb=0\b/.test(location.search), // file:// cannot fetch .glb (CORS) -> procedural
   dir: 'models/', tpl: {}, st: {}, team: {}, c2: typeof THREE !== 'undefined' ? new THREE.Color() : null,
   KEYS: new Set(['hq', 'power', 'barracks', 'refinery', 'factory', 'tech', 'airfield', 'cc', 'extractor', 'silo',
     'turret', 'aagun', 'tesla', 'gatling', 'gcannon', 'gtower', 'gate', 'wall']),
