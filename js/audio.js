@@ -40,6 +40,8 @@ function sfx(name, x, y) {
     case 'click': _tone(t, 'square', 900, 0, 0.03, 0.15); break;
     case 'error': _tone(t, 'square', 180, 140, 0.18, 0.2); break;
     case 'place': _tone(t, 'sine', 160, 60, 0.3, 0.6); _noise(t, 0.3, 'lowpass', 500, 0, 0.3); break;
+    case 'clank': _noise(t, 0.07, 'bandpass', 2600, 0, 0.35, 6); _tone(t, 'square', 520, 300, 0.05, 0.12); break; // v7.3 panel locks on
+    case 'built': _noise(t, 0.25, 'lowpass', 700, 120, 0.5); _tone(t, 'square', 330, 220, 0.08, 0.18); _tone(t + 0.1, 'sine', 523, 0, 0.14, 0.32); _tone(t + 0.22, 'sine', 784, 0, 0.3, 0.32); break; // v7.3 thud + rising chime
     case 'ready': _tone(t, 'sine', 660, 0, 0.12, 0.3); _tone(t + 0.13, 'sine', 990, 0, 0.18, 0.3); break;
     case 'unit': _tone(t, 'triangle', 520, 780, 0.15, 0.25); break;
     case 'snipe': _noise(t, 0.12, 'highpass', 2500, 2500, 0.9); _tone(t, 'square', 1400, 200, 0.08, 0.25); break;
