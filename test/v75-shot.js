@@ -13,7 +13,7 @@ const TAG = process.argv[2] || 'v75', Q = process.argv[3] || '', OUT = '/workspa
   await pg.evaluate(() => { const P = G.players.find(P => !P.ai), h = G.ents.find(e => e.t === 'hq' && e.team === P.team), E = G.ents.find(e => e.t === 'hq' && e.team !== P.team);
     const inf = ['rifle', 'rocketeer', 'engineer', 'sniper', 'kommando', 'marine'], walk = [];
     inf.forEach((t, k) => { const u = spawnUnit(P.team, t, h); u.x = h.x - 1.6 + k * 0.62; u.y = h.y + 3.2; u.ang = u.tang = 0.3; const w = spawnUnit(P.team, t, h); w.x = h.x - 1.6 + k * 0.62; w.y = h.y + 4.3; walk.push(w); });
-    [['titan', -8.2], ['raijin', -6.2], ['colossus', -3.2]].forEach(([t, dx]) => { const u = spawnUnit(P.team, t, h); u.x = h.x + dx; u.y = h.y + 5.2; u.ang = u.tang = 0.4; });
+    [['titan', -9.4], ['raijin', -7.4], ['colossus', -3.4]].forEach(([t, dx]) => { const u = spawnUnit(P.team, t, h); u.x = h.x + dx; u.y = h.y + 5.2; u.ang = u.tang = 0.4; });
     const j = spawnUnit(P.team, 'raijinJ', h); j.x = h.x - 5.2; j.y = h.y + 7.2; j.ang = 0.4;
     window.__E = E; window.__h = h; window.__walk = walk; });
   await pg.evaluate(() => { paused = false; }); await pg.waitForTimeout(2500);
@@ -21,7 +21,7 @@ const TAG = process.argv[2] || 'v75', Q = process.argv[3] || '', OUT = '/workspa
     [['rifle', 0], ['marine', 0.6], ['kommando', 1.2], ['titan', 2.6]].forEach(([t, dx]) => { const u = spawnUnit(__E.team, t, __h); u.x = __h.x - 1.4 + dx; u.y = __h.y + 8.6; u.ang = u.tang = 2.6; }); });
   await pg.evaluate(() => { R3.cam.td = R3.cam.d = 6; jumpTo(__h.x + 0.4, __h.y + 0.2, true); }); await pg.waitForTimeout(2500);
   await pg.screenshot({ path: OUT + `${TAG}_close.png` });
-  await pg.evaluate(() => { R3.cam.td = R3.cam.d = 10; jumpTo(__h.x - 5.6, __h.y + 1.2, true); }); await pg.waitForTimeout(2500);
+  await pg.evaluate(() => { R3.cam.td = R3.cam.d = 9; jumpTo(__h.x - 8.6, __h.y + 1.9, true); }); await pg.waitForTimeout(2500);
   await pg.screenshot({ path: OUT + `${TAG}_mechs.png` });
   await pg.evaluate(() => { R3.cam.td = R3.cam.d = 26; jumpTo(__h.x + 0.6, __h.y + 4.6, true); }); await pg.waitForTimeout(2000);
   await pg.screenshot({ path: OUT + `${TAG}_d26.png` });
