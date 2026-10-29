@@ -55,3 +55,9 @@
 - Screenshot: /workspace/iron-front-v7.5.0-live.png (live site: the infantry and Titan close up). Repo copies: shots/v7_5-infantry-titan.png, shots/v7_5-china-ballista.png
 - Play zip: /workspace/rts-game-v7.5.0-play.zip
 - Next: queue item 4b (Hard AI army fix + last-game replay auto-save).
+
+## 2026-10-29 (late morning): v7.5.1
+- Nicholas request: lobby spot N now spawns at map spot N for humans and bots on every map/lobby; preview shows slot numbers at real bases in team colours; Hellgate fixed sides move wrong-side picks to their own side (shown in lobby).
+- Tests: new lobbytest (720 setups) passes; det73 identical; only known failures (endless loop alive, hellgate shot name check, endgame seed 22), same as v7.5.0. Online end-to-end not testable on the box.
+- Live: YES, pushed ec4c80e, site showed v7.5.1 at 11:34 AM PT.
+- Screenshot: /workspace/spawn-fix-ingame.png
