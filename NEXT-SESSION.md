@@ -1,3 +1,9 @@
+# v7.5.0 (Oct 29 2026): Blender models for every unit and building (queue item 4 DONE)
+- New glbs: infantry u_rifle/rocketeer/engineer/sniper/kommando/marine (rigged legs for the walk cycle), u_titan, u_raijin, u_raijinJ, u_colossus, plus China gtowerB (Ballista Tower, used when b.bal) and wallChn (Great Wall post). u_tsar LOD0 cut to 7.8k tris. All 23 units + 18 buildings (+2 China variants) now have glb + _lod1. Instanced wall connector segments (R3.wallSeg/wallChn) stay procedural for all factions.
+- js/gfx/glb.js: KEYS += gtowerB, wallChn; glbSync maps a China wall to 'wallChn' instead of skipping it. Blender sources: /workspace/blender-iron-front/scripts (defs.py gtowerB/wallChn, make.py).
+- Visual only: det74-test (models on vs ?glb=0 vs v7.4.0) identical, plus a chn-vs-chn wall variant. Shots: test/v75-shot.js (infantry/mechs), test/v75-chn-shot.js (China walls + Ballista, env D/OX/OY), test/v75-live-shot.js (live-style load check + infantry/Titan close-up).
+- Next: queue item 4b (Hard AI army fix + last-game replay auto-save).
+
 # v7.4.0 (Oct 28 2026): Blender .glb models live (queue item 4 PARTIAL), shipped on Nicholas's request
 - Merged blender-trial (8d97671, 2fcac88, 0ac2065). js/gfx/glb.js loads models/<type>.glb (+ _lod1 on mobile/Quiet/Low) via vendor/GLTFLoader.js; procedural fallback on load failure, ?glb=0, or file:// (CORS blocks fetch there, so tests opened from file:// stay procedural).
 - Visual only: data/sim/ai untouched; det74-test (models on via fake http origin vs ?glb=0 vs v7.3.1) all identical. test/v74-live-shot.js = skirmish shot with model-load check.
