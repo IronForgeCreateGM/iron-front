@@ -9,7 +9,7 @@ const GLB = {
   on: typeof THREE !== 'undefined' && typeof location !== 'undefined' && location.protocol !== 'file:' && !/[?&]glb=0\b/.test(location.search), // file:// cannot fetch .glb (CORS) -> procedural
   dir: 'models/', tpl: {}, st: {}, team: {}, c2: typeof THREE !== 'undefined' ? new THREE.Color() : null,
   KEYS: new Set(['hq', 'power', 'barracks', 'refinery', 'factory', 'tech', 'airfield', 'cc', 'extractor', 'silo',
-    'turret', 'aagun', 'tesla', 'gatling', 'gcannon', 'gtower', 'gate', 'wall']),
+    'turret', 'aagun', 'tesla', 'gatling', 'gcannon', 'gtower', 'gtowerB', 'gate', 'wall', 'wallChn']), // v7.5: gtowerB = China Ballista Tower, wallChn = China Great Wall post
 };
 function glbLod() { const s = typeof UI !== 'undefined' && UI.set; return (s && s.quiet) || (typeof MOB !== 'undefined' && MOB.on) || (typeof R3 !== 'undefined' && R3.qName === 'low') ? 1 : 0; }
 function glbPrep(root) {
@@ -46,10 +46,11 @@ function glbInstance(src, team) {
 function glbSync(o, e) { // called once per frame per visible building (render.js)
   if (!GLB.on || o.glbX) return;
   if (!o.glb) {
-    if (!GLB.KEYS.has(o.mk) || (o.mk === 'wall' && G.players[e.team] && G.players[e.team].fac === 'chn')) { o.glbX = 1; return; }
-    const lod = glbLod(), k = o.mk + (lod ? '_lod1' : ''); let src = glbGet(k);
-    if (!src && GLB.st[k] === 'fail' && lod) src = glbGet(o.mk); // LOD1 missing -> try LOD0
-    if (!src) { if (GLB.st[k] === 'fail' && (!lod || GLB.st[o.mk] === 'fail')) o.glbX = 1; return; }
+    const mk = o.mk === 'wall' && G.players[e.team] && G.players[e.team].fac === 'chn' ? 'wallChn' : o.mk; // v7.5 China Great Wall post has its own glb
+    if (!GLB.KEYS.has(mk)) { o.glbX = 1; return; }
+    const lod = glbLod(), k = mk + (lod ? '_lod1' : ''); let src = glbGet(k);
+    if (!src && GLB.st[k] === 'fail' && lod) src = glbGet(mk); // LOD1 missing -> try LOD0
+    if (!src) { if (GLB.st[k] === 'fail' && (!lod || GLB.st[mk] === 'fail')) o.glbX = 1; return; }
     const I = glbInstance(src, o.team); o.glb = I.r; o.gp = I.parts; o.g.add(o.glb);
   }
   const site = !!o.cs; o.glb.visible = !site; if (site) return; // staged construction keeps the procedural clip-plane animation
