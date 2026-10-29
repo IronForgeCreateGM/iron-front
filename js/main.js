@@ -310,31 +310,50 @@ function lobbyRead() { return [...document.querySelectorAll('#lobby .lrow:not(.l
 
 // Lobby regression: index.html?lobbytest=1 drives the real lobby DOM (presets + faction/colour/team changes with change events), builds slots, starts the sim and checks starts/HQs/teams/ME.
 function lobbySelfTest() {
-  const errs = [], box = document.getElementById('lobby'), rows = () => [...box.querySelectorAll('.lrow:not(.lh)')];
+  const errs = [], box = document.getElementById('lobby'), rows = () => [...box.querySelectorAll('.lrow:not(.lh)')], ms = document.getElementById('mapSel');
   const setSel = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); };
-  const facs = ['rand', ...FAC_KEYS], cols = ['auto', ...Object.keys(TEAM_COLORS)], R = mkRng(99); let n = 0;
-  const check = (label) => {
-    const list = lobbyRead(), slots = buildSlots(list), me = Math.max(0, slots.findIndex(s => s.local));
-    if (slots.length < 2) return; newGame({ seed: 7, slots }); n++;
+  const facs = ['rand', ...FAC_KEYS], cols = ['auto', ...Object.keys(TEAM_COLORS)], R = mkRng(99); let n = 0, exact = 0, moved = 0;
+  const check = (label, map) => {
+    const list = lobbyRead(), en = map === 'endless', slots = buildSlots(list, null, map), me = Math.max(0, slots.findIndex(s => s.local));
+    if (slots.length < (en ? 1 : 2)) return;
+    { const s0 = seatFix(buildSlots(list, null, 'classic'), map); if (s0.map(s => s.start).join() !== slots.map(s => s.start).join()) errs.push(label + ' seatFix differs from lobby seats'); }
+    const prev = lobbySeats(); // what the map preview + Slot badges show
+    newGame({ seed: 7, slots: slots.map(s => Object.assign({}, s)), map, mode: en ? 'endless' : undefined }); n++;
+    const eff = en ? 'endless' : seatMap(map, slots.length), order = SEAT_ORDER[eff], hum = G.players.filter(P => !P.horde);
     const starts = G.players.map(P => P.start);
     if (new Set(starts).size !== starts.length) errs.push(label + ' dup starts ' + starts);
-    G.players.forEach((P, t) => { const hq = G.ents.filter(e => e.team === t && e.t === 'hq'); if (hq.length !== 1) errs.push(label + ' p' + t + ' hq=' + hq.length);
+    G.players.forEach((P, t) => { if (P.horde) return; const hq = G.ents.filter(e => e.team === t && e.t === 'hq'); if (hq.length !== 1) errs.push(label + ' p' + t + ' hq=' + hq.length);
       if (G.ents.filter(e => e.team === t && e.kind === 'u').length < 5) errs.push(label + ' p' + t + ' units');
       const h = hq[0], st = G.starts[P.start]; if (h && Math.hypot(h.x - st[0], h.y - st[1]) > 2) errs.push(label + ' p' + t + ' hq off start'); });
-    slots.forEach((sl, t) => { const row = list.filter(r => r[0] !== 'off')[t]; if ((row[1] === 'A' ? 0 : 1) !== G.players[t].ally) errs.push(label + ' team mismatch p' + t);
-      if (row[2] !== 'rand' && G.players[t].fac !== row[2]) errs.push(label + ' fac mismatch p' + t); if (row[3] !== 'auto' && G.players[t].color !== row[3]) errs.push(label + ' color mismatch p' + t); });
+    // v7.5.1 seat rule: lobby row N (human or bot) -> the spot labelled N in the preview (G.starts[SEAT_ORDER[map][N-1]]); documented exceptions:
+    // Hellgate side conflict / spot not on the map -> lowest free spot on the row's own side; Endless solo -> centre base (4)
+    slots.forEach((sl, t) => { const P = hum[t], own = order[sl.row], pv = prev.rows.find(r => r.row === sl.row);
+      if (!pv || pv.start !== P.start) errs.push(label + ' preview/badge spot != game spot for row ' + (sl.row + 1));
+      if (en && slots.length === 1) { if (P.start !== 4) errs.push(label + ' endless solo not at centre'); return; }
+      const sideOk = own != null && (seatSide(eff, own) == null || seatSide(eff, own) === P.ally);
+      if (sideOk) { if (P.start !== own || seatLabel(eff, slots.length, P.start) !== sl.row + 1) errs.push(label + ` row ${sl.row + 1} (${sl.ai ? 'bot' : 'human'}) at spot ${seatLabel(eff, slots.length, P.start)}`); else exact++; }
+      else { moved++; if (eff === 'hellgate' && slots.filter(s => s.ally === P.ally).length <= (P.ally ? 6 : 2) && seatSide(eff, P.start) !== P.ally) errs.push(label + ' moved row ' + (sl.row + 1) + ' landed on the wrong side'); } });
+    slots.forEach((sl, t) => { const row = list.filter(r => r[0] !== 'off')[t]; if (!en && (row[1] === 'A' ? 0 : 1) !== hum[t].ally) errs.push(label + ' team mismatch p' + t);
+      if (row[2] !== 'rand' && hum[t].fac !== row[2]) errs.push(label + ' fac mismatch p' + t); if (row[3] !== 'auto' && !en && hum[t].color !== row[3]) errs.push(label + ' color mismatch p' + t); });
     if (new Set(G.players.map(P => P.color)).size !== G.players.length) errs.push(label + ' dup colours');
-    if (list[0][0] === 'human' && !(G.players[me] && !G.players[me].ai && slots[me].row === 0)) errs.push(label + ' ME wrong');
+    if (list[0][0] === 'human' && !(hum[me] && !hum[me].ai && slots[me].row === 0)) errs.push(label + ' ME wrong');
   };
-  for (const pk of Object.keys(PRESETS)) {
-    lobbySet(PRESETS[pk].slots); check(pk);
-    for (let k = 0; k < 40; k++) { const rs = rows(), r = rs[(R() * rs.length) | 0], what = (R() * 3) | 0;
-      if (what === 0) setSel(r.querySelector('.lf'), facs[(R() * facs.length) | 0]); else if (what === 1) setSel(r.querySelector('.lc'), cols[(R() * cols.length) | 0]); else setSel(r.querySelector('.la'), R() < 0.5 ? 'A' : 'B');
-      check(pk + '#' + k + ' ' + JSON.stringify(lobbyRead())); }
+  for (const map of ['classic', 'frost', 'volcano', 'volcano8', 'hellgate']) { ms.value = map;
+    for (const pk of Object.keys(PRESETS)) {
+      lobbySet(PRESETS[pk].slots); check(pk + '@' + map, map);
+      for (let k = 0; k < 12; k++) { const rs = rows(), r = rs[(R() * rs.length) | 0], what = (R() * 4) | 0;
+        if (what === 0) setSel(r.querySelector('.lf'), facs[(R() * facs.length) | 0]); else if (what === 1) setSel(r.querySelector('.lc'), cols[(R() * cols.length) | 0]); else if (what === 2) setSel(r.querySelector('.la'), R() < 0.5 ? 'A' : 'B'); else setSel(r.querySelector('.lt'), ['off', 'si', 'easy', 'normal'][(R() * 4) | 0]);
+        check(pk + '@' + map + '#' + k + ' ' + JSON.stringify(lobbyRead()), map); }
+    }
+    // all team splits for 4 active slots incl. 3v1 / 4v0, and You on every row
+    for (let m = 0; m < 16; m++) { lobbySet([['human', m & 1 ? 'B' : 'A', 'fra', 'green'], ['si', m & 2 ? 'B' : 'A', 'rus'], ['normal', m & 4 ? 'B' : 'A', 'rand', 'blue'], ['hard', m & 8 ? 'B' : 'A']]); check('split' + m + '@' + map, map); }
+    for (let h = 0; h < 8; h++) { const L = [0, 1, 2, 3, 4, 5, 6, 7].map(i => [i === h ? 'human' : i < 6 || map === 'volcano8' || map === 'hellgate' ? 'si' : 'off', map === 'hellgate' ? (i < 2 ? 'A' : 'B') : i % 2 ? 'B' : 'A']); lobbySet(L); check('you@row' + (h + 1) + '@' + map, map); }
   }
-  // all team splits for 4 active slots incl. 3v1 / 4v0
-  for (let m = 0; m < 16; m++) { lobbySet([['human', m & 1 ? 'B' : 'A', 'fra', 'green'], ['si', m & 2 ? 'B' : 'A', 'rus'], ['normal', m & 4 ? 'B' : 'A', 'rand', 'blue'], ['hard', m & 8 ? 'B' : 'A']]); check('split' + m); }
-  document.title = (errs.length ? 'LOBBYTEST FAIL ' + errs.length + ' ' + errs.slice(0, 3).join(' | ') : 'LOBBYTEST OK') + ' games=' + n;
+  // Endless: up to 4 defenders on rows 1-4 (any subset), solo -> centre base
+  setMode('endless');
+  for (let m = 1; m < 16; m++) { lobbySet([0, 1, 2, 3].map(i => [m & (1 << i) ? (i === 0 ? 'human' : 'remote') : 'off', 'A'])); check('endless' + m, 'endless'); }
+  setMode('skirmish'); ms.value = 'classic'; lobbySet(PRESETS.duel.slots);
+  document.title = (errs.length ? 'LOBBYTEST FAIL ' + errs.length + ' ' + errs.slice(0, 3).join(' | ') : 'LOBBYTEST OK') + ' games=' + n + ' exact=' + exact + ' moved=' + moved;
 }
 
 // ===== end-game stats + army graph =====
