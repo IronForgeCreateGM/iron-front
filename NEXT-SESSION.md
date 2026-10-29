@@ -1,3 +1,8 @@
+# UNRELEASED (Oct 29 2026): lobby spawn-alignment fix COMMITTED, MUST SHIP WITH TONIGHT'S VERSION (not pushed, version not bumped)
+- Commits 373a503, 5add975, 43234b8 (+ this note). Rule: lobby slot N (human or bot) spawns at map spot N = G.starts[SEAT_ORDER[map][N-1]] (sim.js seatPlan; symmetric maps 1 NW, 2 SE, 3 SW, 4 NE, 5 W-mid, 6 E-mid, 7 N-mid, 8 S-mid on Volcano XL). Preview draws slot numbers at the real starts in team colour.
+- Exceptions (lobby shows "N->M"): Hellgate spots 1-2 = Team A only, 3-8 = Team B only; a row on the wrong side or a spot the map lacks takes the lowest free spot on its side. Endless: defenders on rows 1-4 -> bases 1-4, solo -> centre base. Other maps do not force sides.
+- Presets now alternate A/B so they keep their old layouts. Old replays (no seat flag) use the old start logic. Tests: lobby-test.sh (720 games), test/spawn-det.js (old vs new hashes), test/spawn-shot.js.
+
 # v7.5.0 (Oct 29 2026): Blender models for every unit and building (queue item 4 DONE)
 - New glbs: infantry u_rifle/rocketeer/engineer/sniper/kommando/marine (rigged legs for the walk cycle), u_titan, u_raijin, u_raijinJ, u_colossus, plus China gtowerB (Ballista Tower, used when b.bal) and wallChn (Great Wall post). u_tsar LOD0 cut to 7.8k tris. All 23 units + 18 buildings (+2 China variants) now have glb + _lod1. Instanced wall connector segments (R3.wallSeg/wallChn) stay procedural for all factions.
 - js/gfx/glb.js: KEYS += gtowerB, wallChn; glbSync maps a China wall to 'wallChn' instead of skipping it. Blender sources: /workspace/blender-iron-front/scripts (defs.py gtowerB/wallChn, make.py).
