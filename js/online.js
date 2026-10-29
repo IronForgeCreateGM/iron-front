@@ -115,7 +115,7 @@ function onlRenderPeers(st) {
 function onlStartHost() {
   const rows = lobbyRead(); rows.forEach((r, i) => { if (r[0] === 'remote' && !Object.values(ONL.peers).some(p => p.row === i)) r[0] = 'si'; }); lobbySet(rows);
   const names = { [Math.max(0, rows.findIndex(r => r[0] === 'human'))]: ONL.name }; for (const p of Object.values(ONL.peers)) names[p.row] = p.name;
-  const slots = buildSlots(rows, names), seed = (Math.random() * 1e9) | 0;
+  const slots = buildSlots(rows, names, lobbyOpts().map), seed = (Math.random() * 1e9) | 0;
   const peerTeam = {}; for (const pid in ONL.peers) { const k = slots.findIndex(s => s.row === ONL.peers[pid].row); if (k >= 0) peerTeam[pid] = k; }
   const me = slots.findIndex(s => s.local), humans = slots.map((s, i) => !s.ai ? i : -1).filter(i => i >= 0);
   const gopt = lobbyOpts(); ONL.acts.start({ seed, slots, peerTeam, humans, host: ONL.selfId, map: gopt.map, peace: gopt.peace, fog: gopt.fog });
