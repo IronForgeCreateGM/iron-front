@@ -10,6 +10,23 @@ const armorOf = e => e.kind === 'b' ? 'bldg' : UT[e.t].armor;
 
 // players = slots. Each player has .ally (alliance id); entities' .team = player index.
 function foe(a, b) { if (a === b) return false; if (a == null || b == null) return true; const A = G.players[a], B = G.players[b]; return !A || !B || A.ally !== B.ally; }
+// v7.5.1 lobby seats: lobby row N (1-based) spawns at the map spot labelled N in the preview. SEAT_ORDER maps spot number -> G.starts index
+// (the 4-corner/6-base maps keep their tuned diagonal 1v1: spot 1 NW, spot 2 SE; odd spots = west side, even spots = east side).
+// Hellgate is the one team-sided map: spots 1-2 are Team A's valley seats, 3-8 the Team B warlord bases. A row whose spot is on the other
+// team's side (or whose spot does not exist on the map) takes the lowest free spot on its own side instead; the lobby shows "N→M" for it.
+// Endless: defenders sit at spots 1-4 by row (solo = the centre base), the Horde is east. Pure + deterministic (host computes it, peers get the result).
+const SEAT_ORDER = { classic: [0, 3, 2, 1, 4, 5], frost: [0, 3, 2, 1, 4, 5], volcano: [0, 3, 2, 1, 4, 5], volcano8: [0, 3, 2, 1, 4, 5, 6, 7], hellgate: [0, 1, 2, 3, 4, 5, 6, 7], endless: [0, 1, 2, 3] };
+function seatMap(map, n) { return map !== 'hellgate' && map !== 'endless' && n > 6 ? 'volcano8' : SEAT_ORDER[map] ? map : 'classic'; }
+function seatSide(map, k) { return map === 'hellgate' ? (k < 2 ? 0 : 1) : null; } // start index -> required ally (null = any team may sit there)
+function seatPlan(map, rows) { // rows: [{ row, ally }] (active lobby rows, in order) -> start index per row
+  map = seatMap(map, rows.length); const order = SEAT_ORDER[map], taken = new Set(), out = rows.map(() => null);
+  if (map === 'endless') { if (rows.length === 1) return [4]; }
+  rows.forEach((r, i) => { const k = order[r.row]; if (k == null || taken.has(k)) return; const sd = seatSide(map, k); if (sd != null && sd !== (r.ally ? 1 : 0)) return; out[i] = k; taken.add(k); });
+  rows.forEach((r, i) => { if (out[i] != null) return; const a = r.ally ? 1 : 0, pref = map === 'endless' ? order : map === 'hellgate' ? (a ? [2, 3, 4, 5, 6, 7, 0, 1] : [0, 1, 2, 3, 4, 5, 6, 7]) : order.filter((k, n) => n % 2 === a).concat(order.filter((k, n) => n % 2 !== a));
+    out[i] = pref.find(k => !taken.has(k)); taken.add(out[i]); });
+  return out;
+}
+const seatLabel = (map, n, k) => SEAT_ORDER[seatMap(map, n)].indexOf(k) + 1; // G.starts index -> spot number shown in the preview
 function newGame(opts) {
   opts = Object.assign({ seed: (Math.random() * 1e9) | 0, diff: 'normal', aiTeams: [1], fog: true }, opts || {});
   const R = mkRng(opts.seed);
@@ -20,6 +37,7 @@ function newGame(opts) {
   const NP = slots.length;
   // every player gets its own start corner (guards against duplicate/missing starts from any lobby path)
   if (EN) { /* endlessSlots() already seated everyone */ }
+  else if (HG && slots.length && slots.every(sl => sl.seat) && new Set(slots.map(sl => sl.start)).size === slots.length && slots.every(sl => sl.start >= 0 && sl.start < 8)) { /* v7.5.1: lobby seats (seatPlan) are kept as-is */ }
   else if (HG) { const pool = { 0: [0, 1, 2, 3, 4, 5, 6, 7], 1: [2, 3, 4, 5, 6, 7, 0, 1] }, taken = new Set(); slots.forEach(sl => { sl.start = (pool[sl.ally ? 1 : 0]).find(k => !taken.has(k)); taken.add(sl.start); }); } // v6.0: Team A takes the valley seats 1-2, Team B the six warlord bases
   else { const taken = new Set(); slots.forEach(sl => { if (sl.start == null || sl.start < 0 || sl.start > 7 || taken.has(sl.start)) sl.start = null; else taken.add(sl.start); });
     slots.forEach(sl => { if (sl.start == null) { sl.start = (slots.length > 6 ? (sl.ally ? [3, 1, 5, 7, 2, 0, 4, 6] : [0, 2, 4, 6, 1, 3, 5, 7]) : (sl.ally ? [3, 1, 5, 2, 0, 4] : [0, 2, 4, 1, 3, 5])).find(k => !taken.has(k)); taken.add(sl.start); } }); }

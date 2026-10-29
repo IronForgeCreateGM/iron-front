@@ -40,7 +40,8 @@ const endArmM = n => 1 / (1 + 0.02 * (n - 1));
 // lobby slots -> defenders (ally 0) + the Horde (ally 1, last slot)
 function endlessSlots(slots) {
   const d = (slots && slots.length ? slots : [{ ai: false, ally: 0 }]).filter(s => !s.horde).slice(0, 4).map(s => Object.assign({}, s, { ally: 0 }));
-  d.forEach((s, k) => { s.start = d.length === 1 ? 4 : k; });
+  const keep = d.length > 1 && d.every(s => s.seat && s.start >= 0 && s.start < 4) && new Set(d.map(s => s.start)).size === d.length; // v7.5.1: lobby seats (row N -> pass base N)
+  d.forEach((s, k) => { s.start = d.length === 1 ? 4 : keep ? s.start : k; });
   d.push({ ai: true, horde: true, ally: 1, fac: 'rus', diff: 'normal', start: 5, name: 'The Horde', color: 'red' });
   return d;
 }
