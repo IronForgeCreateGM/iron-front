@@ -204,3 +204,4 @@
   - replay-test REPLAY OK. nt76 unit drill NT76 OK (0.10 ms). stall SD=si2 + SD=si STALL OK.
   - Old replays: Oct 30 bot1v1 volcano8 49/49 bad 0 (defeat at the recorded tick). Oct 29 1v1 32/32 + 3-Hard 56/56 bad 0, victory at the recorded tick.
 - All checks passed -> pushed master by hash as v7.6.5 (no force, fast-forward from 6b692e2); push time and live check: see the next line.
+- PUSHED 089269f -> main at 3:51 PM PT (fast-forward 6b692e2..089269f, no force). LIVE VERIFIED 3:52 PM PT: version.json v7.6.5, 28 ?v=7.6.5 tags, NET_VERSION v7.6.5, live ai.js has sf2. This log line is a local docs-only commit on top (not pushed).
