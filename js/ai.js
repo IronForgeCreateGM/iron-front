@@ -45,11 +45,12 @@ function aiStep(P) {
   for (const cat of ['bld', 'def']) if (P.ready[cat]) { const rt = P.ready[cat], spot = aiSpot(P, rt, hq, foes); if (spot) placeReady(P.team, cat, spot[0], spot[1]); else { cancel(P.team, rt); S.bad[rt] = G.time + 60; } }
   // 2) structures: power emergency, then order list (rebuild handled by counting)
   if (V6) S.bank76 = (S.bank76 || 0) * 0.85 + P.cr * 0.15;
+  if (V6 && !SIOFF.sf76 && !NK && G.time > (S.sf76T || 0)) { S.sf76T = G.time + 3; const my = armyVal(me.filter(u => u.kind === 'u' && UT[u.t].wpn && u.t !== 'harv' && !UT[u.t].engineer)); S.safe76 = G.time < 480 && (S.compTot || 0) > my * 1.2 + 1500; } // v7.6.1 (SC2 'army supply parity'): the enemy has shown more army than I own -> units before greed
   if (!P.queues.bld.length && !P.ready.bld) {
     let want = null;
     if (P.pow < (doc && G.time > 400 ? 60 : 20) && (cnt.power || 0) < (doc ? 30 : 10)) want = 'power';
-    else if (G.time > (X6 && SIOFF.xa ? D.expandAt : VE ? 195 : D.expandAt) * (1 + (X6 ? 0.55 : 0.7) * (cnt.cc || 0)) && (!VE || (cnt.refinery || 0) >= (X6 && SIOFF.xa ? 1 : 2) + (cnt.cc || 0)) && !NK && (cnt.cc || 0) < (X6 ? 5 : 4) && (cnt.factory || 0) > (X6 ? Math.min(2, cnt.cc || 0) : 0) && avail(P.team, 'cc') && (S.bad.cc || 0) < G.time && aiSpot(P, 'cc', hq, foes)) want = 'cc';
-    else if ((NK || (cnt.cc || 0) > 0) && (cnt.refinery || 0) < (NK ? 5 : X6 ? 2 + Math.round((cnt.cc || 0) * 1.5) : 2 + (cnt.cc || 0)) && (S.bad.refinery || 0) < G.time) want = 'refinery';
+    else if (!(V6 && S.safe76) && G.time > (X6 && SIOFF.xa ? D.expandAt : VE ? 195 : D.expandAt) * (1 + (X6 ? 0.55 : 0.7) * (cnt.cc || 0)) && (!VE || (cnt.refinery || 0) >= (X6 && SIOFF.xa ? 1 : 2) + (cnt.cc || 0)) && !NK && (cnt.cc || 0) < (X6 ? 5 : 4) && (cnt.factory || 0) > (X6 ? Math.min(2, cnt.cc || 0) : 0) && avail(P.team, 'cc') && (S.bad.cc || 0) < G.time && aiSpot(P, 'cc', hq, foes)) want = 'cc';
+    else if ((NK || (cnt.cc || 0) > 0) && !(V6 && S.safe76 && (cnt.refinery || 0) >= 2) && (cnt.refinery || 0) < (NK ? 5 : X6 ? 2 + Math.round((cnt.cc || 0) * 1.5) : 2 + (cnt.cc || 0)) && (S.bad.refinery || 0) < G.time) want = 'refinery';
     else if (V6 && !SIOFF.m76 && !NK && (S.bank76 || 0) > 450 && P.cr > 500 && G.time > 100 && P.queues.inf.length && P.queues.veh.length && P.pow > 10 && (cnt.factory || 0) + (cnt.barracks || 0) < 4 + 2 * (cnt.cc || 0) && (cnt.factory || 0) + (cnt.barracks || 0) >= 2 && (S.m76T || 0) < G.time && (want = macro76(P, S, cnt, hq, foes))) S.m76T = G.time + 20; // v7.6.1 macro: money piling up while every producer is busy -> more production (SC2 'add production when the bank grows')
     else if (V6 && !SIOFF.f76 && !NK && G.time > 200 && (cnt.factory || 0) < Math.min(3, 1 + (cnt.cc || 0)) && P.cr > 400 && avail(P.team, 'factory') && (S.bad.factory || 0) < G.time && aiSpot(P, 'factory', hq, foes)) want = 'factory'; // v7.6: each new base brings another factory (expansions never starve the army)
     else { const need = {}; for (const b of (D.order || (VE ? AI_ORDER_SI71 : D.si ? AI_ORDER_SI : D.chief ? AI_ORDER_CHIEF : D.firstAttack || P.diff === 'normal' ? AI_ORDER : AI_ORDER_AIR))) { if (BT[b].cat !== 'bld') continue; need[b] = (need[b] || 0) + 1; if ((cnt[b] || 0) < need[b] && avail(P.team, b) && (S.bad[b] || 0) < G.time) { if (!aiSpot(P, b, hq, foes)) { S.bad[b] = G.time + 45; continue; } want = b; break; } } }
@@ -75,7 +76,7 @@ function aiStep(P) {
   const refs = cnt.refinery || 0, harvs = cnt.harv || 0;
   const threat = D.chief && G.time < 240 ? armyVal(foes.filter(f => f.kind === 'u' && UT[f.t].wpn)) > armyVal(me.filter(u => u.kind === 'u' && UT[u.t].wpn)) * 1.3 : false;
   const wantH = threat ? Math.min(2, refs * 2) : Math.min((D.chief ? 8 : 6) + (cnt.cc || 0) * 3, (refs ? refs * 2 + (D.si && !SIOFF.harv ? me.filter(e => e.t === 'refinery').length : 0) : 2)); const wantHs = Math.min(FIELD_CAP * Math.max(1, refs + (cnt.cc || 0)), Math.max(2, Math.round(wantH * 1.5 * (D.sat || 1)))); // v6.2: haulers carry 40% less but cost ~half -> ~1.5x as many, max 4 per field
-  if (harvs < wantHs && avail(P.team, 'harv') && !P.queues.veh.some(q => q.t === 'harv')) { if (P.queues.veh.length >= 2) cancel(P.team, P.queues.veh[P.queues.veh.length - 1].t); enqueue(P.team, 'harv'); }
+  if (harvs < wantHs && !(V6 && S.safe76 && harvs >= Math.max(4, refs * 2)) && avail(P.team, 'harv') && !P.queues.veh.some(q => q.t === 'harv')) { if (P.queues.veh.length >= 2) cancel(P.team, P.queues.veh[P.queues.veh.length - 1].t); enqueue(P.team, 'harv'); }
   // money stall breaker: no harvesters and broke -> sell non-essential structures
   const realH = me.filter(e => e.t === 'harv').length;
   if (realH === 0 && P.cr < UT.harv.cost && G.time > S.sellT) {
