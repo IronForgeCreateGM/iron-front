@@ -28,7 +28,7 @@ function propsReg(o) { if (!o.mesh || !propsOn()) return; o.lod = -1; R3.propSet
 // glb-only scatter set (no procedural version): o: { file, items: [[x, y, z, s, yaw, tile]], mat: fn, light: skip in light mode }
 function propsScatter(o) { if (!o.items.length || !propsOn()) return; o.scatter = 1; o.lod = -1; R3.propSets.push(o); propsSwap(o); }
 function propsSwap(o) { const lod = propsLod(); if (o.lod === lod || o.busy) return; o.busy = 1;
-  propsGet(o.file, lod, V => { o.busy = 0; if (!V || o.dead || !R3.scene) return; o.lod = lod;
+  propsGet(o.file, lod, V => { o.busy = 0; if (o.dead || !R3.scene) return; if (lod !== propsLod()) return propsSwap(o); /* quality changed while loading */ if (!V) return; o.lod = lod;
     if (o.scatter) return propsScatterBuild(o, V, lod);
     const pick = o.pick || V.map((_, i) => i), G2 = pick.map(i => V[Math.min(i, V.length - 1)]), pm = o.mesh;
     if (!pm.isInstancedMesh || G2.length === 1) { if (!o.g0) o.g0 = pm.geometry; pm.geometry = G2[0];

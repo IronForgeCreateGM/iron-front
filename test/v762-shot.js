@@ -23,6 +23,7 @@ async function shoot(br, map, phone) {
   await pg.evaluate(([map, n]) => { const L = [['human', 'A', 'bra']]; for (let i = 1; i < n; i++) L.push(['easy', map === 'hellgate' ? (i < 2 ? 'A' : 'B') : i % 2 ? 'B' : 'A', ['rus', 'usa', 'ger', 'chn', 'fra', 'jpn', 'irn'][i % 7]]);
     startGame('normal', { seed: 7, map, fog: false, mode: map === 'endless' ? 'endless' : undefined, slots: buildSlots(L, null, map) }); G.opts.fog = false; }, [map, n]);
   await pg.waitForTimeout(2500);
+  if (process.env.QUIET) { await pg.evaluate(() => toggleQuiet(true)); await pg.waitForTimeout(3000); } // mid-game switch: light ground + LOD1 props
   const spots = await pg.evaluate(() => { paused = true; const P = G.players[ME], h = G.ents.find(e => e.team === ME && (e.t === 'hq' || e.t === 'cc')) || { x: G.starts[P.start][0], y: G.starts[P.start][1] };
     const near = (mask, ox, oy) => { let b = null, bd = 1e9; for (let i = 0; i < MW * MH; i++) if (mask(i)) { const x = i % MW + 0.5, y = (i / MW | 0) + 0.5, d = Math.hypot(x - ox, y - oy); if (d < bd) { bd = d; b = { x, y }; } } return b; };
     const cx = MW / 2, cy = MH / 2, S = [{ n: 'base', x: h.x + 3, y: h.y + 2 }];
@@ -36,10 +37,10 @@ async function shoot(br, map, phone) {
   const res = [];
   for (const s of phone ? spots.slice(0, 1) : spots) {
     await pg.evaluate(s => { R3.cam.td = R3.cam.d = 26; jumpTo(s.x, s.y, true); paused = false; }, s); await pg.waitForTimeout(2500); await pg.evaluate(() => { paused = true; });
-    const f = path.join(OUT, map + '-' + s.n + (phone ? '-phone' : '') + '.png'); await pg.screenshot({ path: f, timeout: 180000 }); res.push(f);
+    const f = path.join(OUT, map + '-' + s.n + (phone ? '-phone' : '') + (process.env.QUIET ? '-quiet' : '') + '.png'); await pg.screenshot({ path: f, timeout: 180000 }); res.push(f);
   }
   const info = await pg.evaluate(() => ({ q: R3.qName, ter: typeof TEX !== 'undefined' ? TEX.st : 'n/a', props: typeof PROPS !== 'undefined' ? Object.entries(PROPS.cache).map(([k, v]) => k + ':' + v.st).join(',') : 'n/a', calls: R3.renderer.info.render.calls, tris: R3.renderer.info.render.triangles, top: (() => { const L = []; R3.scene.traverse(o => { if (!o.isMesh || !o.visible || !o.geometry) return; const g = o.geometry, t = (g.index ? g.index.count : g.attributes.position.count) / 3, n = o.isInstancedMesh ? o.count : 1; L.push([Math.round(t * n), Math.round(t), n, (o.material && o.material.type) || '']); }); return L.sort((a, b) => b[0] - a[0]).slice(0, 8).map(x => x.join('/')).join(' '); })() }));
-  console.log(map + (phone ? ' [phone]' : ''), 'pageErrors:', pg.errs.length, pg.errs.slice(0, 2).join(' | '), 'http fails:', pg.fails.length, pg.fails.slice(0, 3).join(' | '), JSON.stringify(info), pg.warns.slice(0, 3).join(' | '));
+  console.log(map + (phone ? ' [phone]' : '') + (process.env.QUIET ? ' [quiet]' : ''), 'pageErrors:', pg.errs.length, pg.errs.slice(0, 2).join(' | '), 'http fails:', pg.fails.length, pg.fails.slice(0, 3).join(' | '), JSON.stringify(info), pg.warns.slice(0, 3).join(' | '));
   await pg.context().close(); return pg.errs.length;
 }
 (async () => {
