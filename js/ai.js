@@ -45,11 +45,11 @@ function aiStep(P) {
   for (const cat of ['bld', 'def']) if (P.ready[cat]) { const rt = P.ready[cat], spot = aiSpot(P, rt, hq, foes); if (spot) placeReady(P.team, cat, spot[0], spot[1]); else { cancel(P.team, rt); S.bad[rt] = G.time + 60; } }
   // 2) structures: power emergency, then order list (rebuild handled by counting)
   if (V6) S.bank76 = (S.bank76 || 0) * 0.85 + P.cr * 0.15;
-  if (V6 && !SIOFF.sf76 && !NK && G.time > (S.sf76T || 0)) { S.sf76T = G.time + 3; const my = armyVal(me.filter(u => u.kind === 'u' && UT[u.t].wpn && u.t !== 'harv' && !UT[u.t].engineer)); S.safe76 = G.time < 480 && (S.compTot || 0) > my * 1.2 + 1500; } // v7.6.1 (SC2 'army supply parity'): the enemy has shown more army than I own -> units before greed
+  if (V6 && !SIOFF.sf76 && !NK && G.time > (S.sf76T || 0)) { S.sf76T = G.time + 3; const my = armyVal(me.filter(u => u.kind === 'u' && UT[u.t].wpn && u.t !== 'harv' && !UT[u.t].engineer)); S.safe76 = sf2On(P) ? G.time < 360 && eta76(foes, hq, 40) > my * 1.2 + 1500 : G.time < 480 && (S.compTot || 0) > my * 1.2 + 1500; } // v7.6.1 (SC2 'army supply parity'): the enemy has shown more army than I own -> units before greed
   if (!P.queues.bld.length && !P.ready.bld) {
     let want = null;
     if (P.pow < (doc && G.time > 400 ? 60 : 20) && (cnt.power || 0) < (doc ? 30 : 10)) want = 'power';
-    else if (!(V6 && S.safe76) && G.time > (X6 && SIOFF.xa ? D.expandAt : VE ? 195 : D.expandAt) * (1 + (X6 ? 0.55 : 0.7) * (cnt.cc || 0)) && (!VE || (cnt.refinery || 0) >= (X6 && SIOFF.xa ? 1 : 2) + (cnt.cc || 0)) && !NK && (cnt.cc || 0) < (X6 ? 5 : 4) && (cnt.factory || 0) > (X6 ? Math.min(2, cnt.cc || 0) : 0) && avail(P.team, 'cc') && (S.bad.cc || 0) < G.time && aiSpot(P, 'cc', hq, foes)) want = 'cc';
+    else if (!(V6 && S.safe76 && !(sf2On(P) && !(cnt.cc || 0))) && G.time > (X6 && SIOFF.xa ? D.expandAt : VE ? 195 : D.expandAt) * (1 + (X6 ? 0.55 : 0.7) * (cnt.cc || 0)) && (!VE || (cnt.refinery || 0) >= (X6 && SIOFF.xa ? 1 : 2) + (cnt.cc || 0)) && !NK && (cnt.cc || 0) < (X6 ? 5 : 4) && (cnt.factory || 0) > (X6 ? Math.min(2, cnt.cc || 0) : 0) && avail(P.team, 'cc') && (S.bad.cc || 0) < G.time && aiSpot(P, 'cc', hq, foes)) want = 'cc';
     else if ((NK || (cnt.cc || 0) > 0 || pg76(P, V6)) && !(V6 && S.safe76 && (cnt.refinery || 0) >= 2) && (cnt.refinery || 0) < (NK ? 5 : X6 ? 2 + Math.round((cnt.cc || 0) * 1.5) + (pg76(P, V6) ? 2 : 0) : 2 + (cnt.cc || 0)) && (S.bad.refinery || 0) < G.time) want = 'refinery';
     else if (V6 && !SIOFF.m76 && !NK && (S.bank76 || 0) > 450 && P.cr > 500 && G.time > 100 && (P.queues.inf.length || (!SIOFF.pp76 && popOf(P.team) > 45)) && P.queues.veh.length && P.pow > 10 && (cnt.factory || 0) + (cnt.barracks || 0) < 4 + 2 * (cnt.cc || 0) && (cnt.factory || 0) + (cnt.barracks || 0) >= 2 && (S.m76T || 0) < G.time && (want = macro76(P, S, cnt, hq, foes))) S.m76T = G.time + 20; // v7.6.1 macro: money piling up while every producer is busy -> more production (SC2 'add production when the bank grows')
     else if (V6 && !SIOFF.f76 && !NK && G.time > 200 && (cnt.factory || 0) < Math.min(3, 1 + (cnt.cc || 0)) && P.cr > 400 && avail(P.team, 'factory') && (S.bad.factory || 0) < G.time && aiSpot(P, 'factory', hq, foes)) want = 'factory'; // v7.6: each new base brings another factory (expansions never starve the army)
@@ -76,7 +76,7 @@ function aiStep(P) {
   const refs = cnt.refinery || 0, harvs = cnt.harv || 0;
   const threat = D.chief && G.time < 240 ? armyVal(foes.filter(f => f.kind === 'u' && UT[f.t].wpn)) > armyVal(me.filter(u => u.kind === 'u' && UT[u.t].wpn)) * 1.3 : false;
   const wantH = threat ? Math.min(2, refs * 2) : Math.min((D.chief ? 8 : 6) + (cnt.cc || 0) * 3, (refs ? refs * 2 + (D.si && !SIOFF.harv ? me.filter(e => e.t === 'refinery').length : 0) : 2)); const wantHs = Math.min(FIELD_CAP * Math.max(1, refs + (cnt.cc || 0)), Math.max(2, Math.round(wantH * 1.5 * (D.sat || 1)))); // v6.2: haulers carry 40% less but cost ~half -> ~1.5x as many, max 4 per field
-  if (harvs < wantHs && !(V6 && S.safe76 && harvs >= Math.max(4, refs * 2)) && avail(P.team, 'harv') && !P.queues.veh.some(q => q.t === 'harv')) { if (P.queues.veh.length >= 2) cancel(P.team, P.queues.veh[P.queues.veh.length - 1].t); enqueue(P.team, 'harv'); }
+  if (harvs < wantHs && !(V6 && S.safe76 && !sf2On(P) && harvs >= Math.max(4, refs * 2)) && avail(P.team, 'harv') && !P.queues.veh.some(q => q.t === 'harv')) { if (P.queues.veh.length >= 2) cancel(P.team, P.queues.veh[P.queues.veh.length - 1].t); enqueue(P.team, 'harv'); }
   // money stall breaker: no harvesters and broke -> sell non-essential structures
   const realH = me.filter(e => e.t === 'harv').length;
   if (realH === 0 && P.cr < UT.harv.cost && G.time > S.sellT) {
@@ -1161,10 +1161,15 @@ function popInf76(P, S, cnt) { // true -> skip the barracks this step
 const cl76On = P => !!G.r76 && !!G.nt && isV76(P) && !SIOFF.cl76 && !P.ntOff;
 function clear76(P, q, R) { // v7.6.5 (replay flag nt): nudge a gather / staging point onto open ground (no building within R tiles) so a whole army never jams between buildings or behind a turret line
   if (!q || !cl76On(P)) return q; const g = getBlock(), x0 = Math.floor(q.x), y0 = Math.floor(q.y); R = R || 3;
-  for (let r = 0; r <= 9; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; const nx = x0 + dx, ny = y0 + dy; if (!inb(nx, ny) || g[idx(nx, ny)]) continue;
+  let hq = null, tmax = 0; if (!SIOFF.cl76b) for (const e of G.ents) if (e.team === P.team && e.hp > 0) { if (e.t === 'hq' && !hq) hq = e; } // v7.6.5b: never move a point further from the HQ than it was, nor past my outermost defence
+  if (hq) for (const e of G.ents) if (e.team === P.team && e.hp > 0 && e.kind === 'b' && BT[e.t] && BT[e.t].cat === 'def' && e.t !== 'wall' && e.t !== 'gate') tmax = Math.max(tmax, dhypot(e.x - hq.x, e.y - hq.y));
+  const lim = hq ? Math.min(dhypot(q.x - hq.x, q.y - hq.y), tmax > 0 ? tmax : 1e9) + 0.01 : 1e9;
+  for (let r = 0; r <= 9; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; const nx = x0 + dx, ny = y0 + dy; if (!inb(nx, ny) || g[idx(nx, ny)]) continue; if (r && hq && dhypot(nx + 0.5 - hq.x, ny + 0.5 - hq.y) > lim) continue;
     let ok = true; for (let yy = -R; yy <= R && ok; yy++) for (let xx = -R; xx <= R; xx++) { const ax = nx + xx, ay = ny + yy; if (inb(ax, ay) && g[idx(ax, ay)] >= 2) { ok = false; break; } }
     if (ok) return { x: nx + 0.5, y: ny + 0.5 }; }
   return q; }
+const sf2On = P => !!G.r76 && !!G.nt && isV76(P) && !SIOFF.sf2 && !P.ntOff; // v7.6.5b safe76: threat = enemy army that could reach my HQ within T s (straight-line / speed), 6 min cap, never caps harvesters or blocks the first expansion
+function eta76(foes, hq, T) { let v = 0; if (!hq) return 0; for (const f of foes) { if (f.kind !== 'u' || f.t === 'harv') continue; const d = UT[f.t]; if (!d || !d.wpn || d.engineer || !d.sp) continue; if (dhypot(f.x - hq.x, f.y - hq.y) / d.sp < T) v += d.cost || 0; } return v; }
 const er76On = P => !!G.r76 && !!G.nt && isV76(P) && !SIOFF.er76 && !P.ntOff;
 function home76(P, S, q) { if (!cl76On(P)) return q; const k = (G.bver || 0) + ':' + q.x.toFixed(1) + ':' + q.y.toFixed(1); S.hm76 = S.hm76 || {}; // cached per building layout
   if (!S.hm76[k]) { if (Object.keys(S.hm76).length > 8) S.hm76 = {}; S.hm76[k] = clear76(P, q); } return S.hm76[k]; }
