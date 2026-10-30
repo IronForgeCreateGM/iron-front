@@ -169,3 +169,19 @@
 - Other checks on 2ff92cf: det73 identical to v7.6.4; replay-test REPLAY OK; nt76 unit drill OK (0.09 ms); stall OK (si2 + si); old replays Oct 29 1v1 32/32 bad 0 + 3-Hard frost 56/56 bad 0, both victory at the recorded tick.
 - Ablation (classic 5 ger mirror, abl.txt): the start0 game that nt alone won on points becomes a TIE because of the wall-gate change (OFF=wg76 -> NEW(pts) again; OFF=pw76 -> still TIE); the window launched 0 punishes there. start1 is OLD(pts) in every variant. test/fp76-vs.js now takes OFF=a,b (SIOFF flags) for this.
 - Armies stuck (new test/stuck76-drill.js, volcano8 4v4 all-Hard seed 5, 12 min): moving units stuck >30 s: NEW 0.9% (32/3559) vs LIVE brain 1.9% (64/3419). Live jams are mid-map "open" ground (64,24-64,56 on the centre line); new ones are scattered (own turret, ally factory/refinery edges).
+
+## 2026-10-30 (3:00-3:40 PM PT) Part B round 3: NOT SHIPPED (live stays v7.6.4)
+- Code (branch hard4c-b 94d0d88, all behind replay flag nt, old replays unaffected):
+  - cl76 (SIOFF.cl76): home/stage/rally points move to the nearest tile within 9 that has no building within 3 tiles (clear76/home76, cached per G.bver), so groups stop gathering inside turret lines and ally building clusters. Retreating units get spread spots (golden-angle ring, 1.5-4.5 tiles) instead of all piling onto one point.
+  - er76 (SIOFF.er76): early rush response before 6 min. If threatened and my army + towers within 9 sim to < 0.8 of the attackers, units hold at the nearest tower (pulled 25% toward HQ) instead of walking into the fight. Plus an unseen-army prior: until 7 min the early-attack check assumes the enemy has at least (time-60)*45 of army, so the bot does not launch blind on stale intel.
+- Results:
+  - Fresh 6-game check vs live Hard (new seeds frost 21 rus/usa, classic 13 usa/fra, volcano 41 ger/chn, both starts, 25 min): NEW 5, OLD 1 (/workspace/v764/b/r3/g-*.txt).
+  - det73 identical to v7.6.4. replay-test OK. nt76 drill OK. stall si2 + si OK. Old replays Oct 29 1v1 32/32 + 3-Hard 56/56 bad 0, victory at the recorded tick.
+  - Stuck drill: units stuck next to buildings 72 vs 90 with cl76/er76 off (seeds 5/7/9). Overall stuck count is noisy (open-ground group holds).
+  - Volcano 77 chn vs ger start0 still lost, but China lasts 16.5 min instead of 10.4 min. Germany out-mines China about 2.5x.
+- Why it was NOT pushed: a check added at 3:30 PM PT from the parallel replay study (test/vs8-943.js: volcano8 seed 943231385, USA si2 start0 vs Brazil si2 start3, fog off, peace 180) shows Hard gets WEAKER there (/workspace/v764/b/r4):
+  - live vs live: Brazil wins at 24.0 min, USA army 30.7k at 480 s.
+  - new USA vs live Brazil: Brazil wins at 21.0 min, USA army 1.0k at 300 s and 13.2k at 480 s. With OFF=cl76 it is identical to live vs live, so cl76 is the cause. er76, nt76, pw76 and wg76 make no difference on this side.
+  - new Brazil vs live USA: only Brazil(pts) at 25 min, vs a kill at 24.0 min live. With OFF=er76,cl76 the new Brazil wins at 19.8 min (better than live).
+  - Trace (trace-on.txt vs trace-off.txt): cl76 puts USA's home stage at (27.5,26.5), about 11 tiles out from the HQ at (16,19) and away from its own turrets. The live Brazil brain sees that exposed group, attacks at ~210 s instead of ~315 s, and USA loses 9.5k of army by 300 s.
+- Master now has a v7.6.5 bump (c0d2d1c) + merges that are NOT live. Live = v7.6.4 (6b692e2). Nothing was pushed today after 1:59 PM PT.
