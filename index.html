@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Iron Front"><meta name="theme-color" content="#0c1420"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png"><link rel="icon" type="image/png" href="icons/icon-192.png">
 <title>Iron Front</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=7.6.3">
 </head><body>
 <div id="app">
   <div id="view"><canvas id="ov"></canvas><div id="msg"></div><div id="fps"></div>
@@ -30,9 +30,9 @@
   <div class="tsIn"><div class="tsKick">REAL-TIME STRATEGY</div><h1 class="tsLogo">IRON<span>FRONT</span></h1><div class="tsTag">Command · Conquer · Endure</div>
   <div class="tsFlags" id="tsFlags"></div>
   <button id="tsGo" class="tsGo">TAP TO DEPLOY</button><div class="tsKey">or press any key</div></div>
-  <div class="tsFoot"><span>v7.6.2</span><span>NEW · 🗺 Textured ground &amp; 3D map props · ⛶ Full screen &amp; home-screen app · 🧠 Smarter Hard AI (team pushes, joint defence) · 🛠 Engineers can found a new Command Center · 🎞 Last game replay on the menu · 🎲 Fresh random map seed each game · 🚶 Fewer stuck armies · 📍 Lobby spot = map spot · 🪖 Blender-built 3D infantry, Titan, Raijin &amp; Colossus · 🛩 3D buildings, tanks &amp; aircraft · 🏗 Animated construction sites · Place-then-build · 🧠 Easy / Medium / Hard AI · 🏯 Great Wall squad towers · ⛑ smart Medevac · ♾ Endless mode · 🇮🇷 Iran · 🇨🇳 China · 🇯🇵 Japan</span></div></div>
+  <div class="tsFoot"><span>v7.6.3</span><span>NEW · 🌐 Online play fix: relay fallback when a direct connection is blocked · 🗺 Textured ground &amp; 3D map props · ⛶ Full screen &amp; home-screen app · 🧠 Smarter Hard AI (team pushes, joint defence) · 🛠 Engineers can found a new Command Center · 🎞 Last game replay on the menu · 🎲 Fresh random map seed each game · 🚶 Fewer stuck armies · 📍 Lobby spot = map spot · 🪖 Blender-built 3D infantry, Titan, Raijin &amp; Colossus · 🛩 3D buildings, tanks &amp; aircraft · 🏗 Animated construction sites · Place-then-build · 🧠 Easy / Medium / Hard AI · 🏯 Great Wall squad towers · ⛑ smart Medevac · ♾ Endless mode · 🇮🇷 Iran · 🇨🇳 China · 🇯🇵 Japan</span></div></div>
 <div id="menu" class="screen"><div class="panel">
-  <h1>IRON<span>FRONT</span></h1><p class="sub">Real-time strategy · v7.6.2 · NEW: Textured maps &amp; 3D props · Full screen · Smarter Hard AI · Engineer Command Center · Last game replay · 3D infantry &amp; super-units · Animated construction · Easy / Medium / Hard AI · ♾ Endless · Iran · China · Japan</p>
+  <h1>IRON<span>FRONT</span></h1><p class="sub">Real-time strategy · v7.6.3 · NEW: Online play fix (relay fallback, clear errors + Retry) · Textured maps &amp; 3D props · Full screen · Smarter Hard AI · Engineer Command Center · Last game replay · 3D infantry &amp; super-units · Animated construction · Easy / Medium / Hard AI · ♾ Endless · Iran · China · Japan</p>
   <div id="homeBtns">
     <button id="playBotsBtn" class="big">▶ Play vs Bots</button>
     <button id="playEndlessBtn" class="big endl">♾ Endless</button>
@@ -50,7 +50,7 @@
       <canvas id="mapPrev" width="200" height="200" title="Map preview: bases (numbers), ore (gold), gas (teal), water, cliffs, lava"></canvas><div id="mapPrevTxt" class="dim small"></div>
     </div><div class="setupR">
   <div id="onWrap" style="display:none">
-  <div id="onBox"><input id="pname" placeholder="Your name" maxlength="16"> <button id="hostBtn">🌐 Host online game</button> <input id="joinCode" placeholder="CODE" maxlength="6" size="6"> <button id="joinBtn">Join</button></div>
+  <div id="onBox"><input id="pname" placeholder="Your name" maxlength="16"> <button id="hostBtn">🌐 Host online game</button> <input id="joinCode" placeholder="CODE" maxlength="200" size="6"> <button id="joinBtn">Join</button></div>
   <div id="onStatus"></div>
   <div id="onPanel" style="display:none"><div id="onPeers"></div><div id="chatLog"></div><input id="chatIn" placeholder="Chat… (Enter)" maxlength="140"> <button id="readyBtn" style="display:none">Ready</button></div>
   </div>
@@ -84,28 +84,29 @@
 </div></div>
 <div id="end" class="screen" style="display:none"><div class="panel"><h1 id="endTitle"></h1><div id="endRun" style="display:none"></div><p id="endStats"></p><button id="saveRepBtn">💾 Save replay</button> <button class="quitBtn big">Play again</button></div></div>
 <pre id="err"></pre>
-<script src="vendor/three.min.js"></script>
-<script src="js/data.js"></script>
-<script src="js/sim.js"></script>
-<script src="js/ai.js"></script>
-<script src="js/endless.js"></script>
-<script src="js/net.js"></script>
-<script src="js/audio.js"></script>
-<script src="js/gfx/models.js"></script>
-<script src="js/gfx/terrain.js"></script>
-<script src="js/gfx/groundtex.js"></script>
-<script src="js/gfx/props.js"></script>
-<script src="js/gfx/fx.js"></script>
-<script src="js/gfx/post.js"></script>
-<script src="js/render.js"></script>
-<script src="js/gfx/construct.js"></script>
-<script src="vendor/GLTFLoader.js"></script>
-<script src="js/gfx/glb.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/net-config.js"></script>
-<script src="vendor/trystero-nostr.js"></script><script src="vendor/trystero-mqtt.js"></script><script src="vendor/trystero-torrent.js"></script>
-<script src="js/online.js"></script>
-<script src="js/main.js"></script>
-<script src="js/mobile.js"></script>
-<script src="js/fullscreen.js"></script>
+<script src="vendor/three.min.js?v=7.6.3"></script>
+<script src="js/data.js?v=7.6.3"></script>
+<script src="js/sim.js?v=7.6.3"></script>
+<script src="js/ai.js?v=7.6.3"></script>
+<script src="js/endless.js?v=7.6.3"></script>
+<script src="js/net.js?v=7.6.3"></script>
+<script src="js/audio.js?v=7.6.3"></script>
+<script src="js/gfx/models.js?v=7.6.3"></script>
+<script src="js/gfx/terrain.js?v=7.6.3"></script>
+<script src="js/gfx/groundtex.js?v=7.6.3"></script>
+<script src="js/gfx/props.js?v=7.6.3"></script>
+<script src="js/gfx/fx.js?v=7.6.3"></script>
+<script src="js/gfx/post.js?v=7.6.3"></script>
+<script src="js/render.js?v=7.6.3"></script>
+<script src="js/gfx/construct.js?v=7.6.3"></script>
+<script src="vendor/GLTFLoader.js?v=7.6.3"></script>
+<script src="js/gfx/glb.js?v=7.6.3"></script>
+<script src="js/ui.js?v=7.6.3"></script>
+<script src="js/net-config.js?v=7.6.3"></script>
+<script src="vendor/trystero-nostr.js?v=7.6.3"></script><script src="vendor/trystero-mqtt.js?v=7.6.3"></script><script src="vendor/trystero-torrent.js?v=7.6.3"></script>
+<script src="js/relay.js?v=7.6.3"></script>
+<script src="js/online.js?v=7.6.3"></script>
+<script src="js/main.js?v=7.6.3"></script>
+<script src="js/mobile.js?v=7.6.3"></script>
+<script src="js/fullscreen.js?v=7.6.3"></script>
 </body></html>

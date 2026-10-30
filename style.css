@@ -265,3 +265,8 @@ body.mobile.mplay #waveHud .wvS{font-size:10px;margin-top:2px}body.mobile.mplay 
 /* v7.6.2 full screen toggle + iPhone home-screen tip */
 #fsTip{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));z-index:200;max-width:min(560px,calc(100vw - 32px - env(safe-area-inset-left) - env(safe-area-inset-right)));background:rgba(8,14,22,.94);border:1px solid #3a5a7a;border-radius:12px;padding:10px 14px;color:#e4eef8;font-size:14px;line-height:1.35;box-shadow:0 6px 24px rgba(0,0,0,.5);display:none;cursor:pointer}
 #fsTip b{margin-left:8px;color:#9ab}
+/* v7.6.3 online errors + new-version banner */
+.onErr{background:#3a1216;border:1px solid #c0393f;color:#ffd7d7;padding:8px 10px;border-radius:6px;margin:6px 0;line-height:1.4}
+.onErr b{color:#fff}.onErrBtns{margin-top:6px;display:flex;gap:8px;flex-wrap:wrap}.onErrBtns button{padding:6px 12px}
+#verBanner{position:fixed;top:0;left:0;right:0;z-index:9999;background:#7a5a10;color:#fff;padding:8px 12px;text-align:center;font:14px sans-serif;box-shadow:0 2px 8px #0008}
+#verBanner button{margin-left:10px;padding:4px 12px}
