@@ -9,7 +9,8 @@ const MENU = { fac: 'usa', aiFac: 'rand' };
 // Old options (lobby rows, presets, URLs, Endless/online backfill) map to the nearest: hard/chief/si -> Hard. Replays keep their recorded profiles.
 const DIFF_MAP = { easy: 'easy', normal: 'normal', medium: 'normal', hard: 'si', chief: 'si', si: 'si' };
 const normDiff = d => DIFF_MAP[d] || d;
-const DIFF_NAME = d => ({ si: 'Hard AI', chief: 'Hard AI', easy: 'Easy AI', normal: 'Medium AI', hard: 'Hard AI' })[d] || d;
+const liveDiff = d => d === 'si' ? 'si2' : d; // v7.6: the lobby's 'Hard AI' plays the reworked brain; replays keep their recorded diff
+const DIFF_NAME = d => ({ si: 'Hard AI', si2: 'Hard AI', chief: 'Hard AI', easy: 'Easy AI', normal: 'Medium AI', hard: 'Hard AI' })[d] || d;
 const SLOT_TYPES = { off: 'Closed', human: 'You', remote: 'Human (remote)', easy: 'Easy AI', normal: 'Medium AI', si: 'Hard AI' };
 // v7.5.1: presets alternate A/B so each row sits on its team's side (lobby row N = map spot N; odd spots west, even spots east)
 const PRESETS = {
@@ -26,7 +27,7 @@ const PRESETS = {
 function buildSlots(list, names, map) { // list rows: [type, team, fac, color]; names: row -> player name; map: lobby map (seats: row N -> spot N, see seatPlan in sim.js)
   const RF = () => FAC_KEYS[(Math.random() * FAC_KEYS.length) | 0], act = list.map((r, row) => [r, row]).filter(([r]) => r[0] !== 'off');
   const st = seatPlan(map || 'classic', act.map(([r, row]) => ({ row, ally: r[1] === 'A' ? 0 : 1 })));
-  return act.map(([[type, team, fac, color], row], i) => ({ row, ai: type !== 'human' && type !== 'remote', local: type === 'human', diff: type === 'human' || type === 'remote' ? 'normal' : normDiff(type), ally: team === 'A' ? 0 : 1, fac: fac && fac !== 'rand' ? fac : RF(), color: color && color !== 'auto' ? color : undefined, start: st[i], seat: 1, smap: map || 'classic', name: (names && names[row]) || (type === 'human' ? 'You' : type === 'remote' ? 'Remote ' + (row + 1) : SLOT_TYPES[type]) }));
+  return act.map(([[type, team, fac, color], row], i) => ({ row, ai: type !== 'human' && type !== 'remote', local: type === 'human', diff: type === 'human' || type === 'remote' ? 'normal' : liveDiff(normDiff(type)), ally: team === 'A' ? 0 : 1, fac: fac && fac !== 'rand' ? fac : RF(), color: color && color !== 'auto' ? color : undefined, start: st[i], seat: 1, smap: map || 'classic', name: (names && names[row]) || (type === 'human' ? 'You' : type === 'remote' ? 'Remote ' + (row + 1) : SLOT_TYPES[type]) }));
 }
 function seatFix(slots, map) { if (slots.length && slots.every(s => s.seat && s.row != null && !s.horde) && slots.some(s => s.smap !== map)) { const st = seatPlan(map, slots.map(s => ({ row: s.row, ally: s.ally }))); slots.forEach((s, i) => { s.start = st[i]; s.smap = map; }); } return slots; }
 function startGame(diff, opts) {
@@ -42,7 +43,7 @@ function startGame(diff, opts) {
   seatFix(slots, map0);
   if (QS.get('fac')) slots[0].fac = QS.get('fac'); if (QS.get('aifac') && slots[1]) slots[1].fac = QS.get('aifac');
   ME = opts.me != null ? opts.me : Math.max(0, slots.findIndex(s => s.local));
-  newGame({ diff, fog: opts.fog !== false, seed: opts.seed, slots, mode: opts.mode || QS.get('mode') || undefined, map: opts.map || QS.get('map') || 'classic', peace: opts.peace != null ? opts.peace : QS.get('peace') != null ? +QS.get('peace') : 180 });
+  newGame({ diff, fog: opts.fog !== false, seed: opts.seed != null ? opts.seed : opts.replay ? undefined : ((Math.random() * 1e9) | 0) || 1, r76: opts.r76 != null ? opts.r76 : 1, slots, mode: opts.mode || QS.get('mode') || undefined, map: opts.map || QS.get('map') || 'classic', peace: opts.peace != null ? opts.peace : QS.get('peace') != null ? +QS.get('peace') : 180 });
   if (QS.get('dbg')) setTimeout(() => document.title = 'DBG map=' + G.mapName + ' np=' + G.players.length + ' t=' + (G.time | 0) + ' starts=' + G.players.map(P => P.start).join(''), 500);
   G.vis = G.visT[ME]; G.seen = G.seenT[ME];
   G.players.forEach((P, i) => P.name = (G.opts.slots[i] || {}).name || (P.ai ? DIFF_NAME(P.diff) : 'You'));
@@ -120,7 +121,7 @@ function simSanitize() {
 function saveReplay() { const s = replayFile(); if (!s) { uiMsg && uiMsg('No replay recorded for this game'); return; } try { localStorage.setItem('ifLastReplay', s); } catch (e) {}
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([s], { type: 'application/json' })); a.download = 'ironfront-replay-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.json'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
 function loadReplay(d) { if (!d || d.game !== 'ironfront' || !d.slots) { alert('Not an Iron Front replay file'); return; } audioInit && audioInit();
-  startGame(d.diff || 'normal', { replay: d, seed: d.seed, map: d.map, peace: d.peace, fog: d.fog, me: d.me || 0, slots: d.slots.map((s, i) => Object.assign({}, s, { local: i === (d.me || 0) && !s.ai })) }); }
+  startGame(d.diff || 'normal', { replay: d, r76: d.r76 ? 1 : 0, seed: d.seed, map: d.map, peace: d.peace, fog: d.fog, me: d.me || 0, slots: d.slots.map((s, i) => Object.assign({}, s, { local: i === (d.me || 0) && !s.ai })) }); }
 window.addEventListener('DOMContentLoaded', () => {
   { const rb = document.getElementById('replayBtn'), rf = document.getElementById('replayFile'); if (rb && rf) { rb.onclick = () => rf.click(); rf.onchange = () => { const f = rf.files[0]; if (!f) return; f.text().then(t => loadReplay(JSON.parse(t))).catch(e => alert('Could not read replay: ' + e.message)); }; }
     const lb = document.getElementById('lastReplayBtn'); if (lb) { let has = false; try { has = !!localStorage.getItem('ifLastReplay'); } catch (e) {} lb.style.display = has ? '' : 'none'; lb.onclick = () => { try { loadReplay(JSON.parse(localStorage.getItem('ifLastReplay'))); } catch (e) { alert('No saved replay'); } }; }

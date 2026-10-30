@@ -41,7 +41,7 @@ function newGame(opts) {
   else if (HG) { const pool = { 0: [0, 1, 2, 3, 4, 5, 6, 7], 1: [2, 3, 4, 5, 6, 7, 0, 1] }, taken = new Set(); slots.forEach(sl => { sl.start = (pool[sl.ally ? 1 : 0]).find(k => !taken.has(k)); taken.add(sl.start); }); } // v6.0: Team A takes the valley seats 1-2, Team B the six warlord bases
   else { const taken = new Set(); slots.forEach(sl => { if (sl.start == null || sl.start < 0 || sl.start > 7 || taken.has(sl.start)) sl.start = null; else taken.add(sl.start); });
     slots.forEach(sl => { if (sl.start == null) { sl.start = (slots.length > 6 ? (sl.ally ? [3, 1, 5, 7, 2, 0, 4, 6] : [0, 2, 4, 6, 1, 3, 5, 7]) : (sl.ally ? [3, 1, 5, 2, 0, 4] : [0, 2, 4, 1, 3, 5])).find(k => !taken.has(k)); taken.add(sl.start); } }); }
-  G = { R, opts, tick: 0, time: 0, ents: [], projs: [], events: [], nid: 1, over: null, bver: 1, blockVer: 0, block: null,
+  G = { R, opts, r76: opts.r76 !== 0, tick: 0, time: 0, ents: [], projs: [], events: [], nid: 1, over: null, bver: 1, blockVer: 0, block: null,
     map: new Uint8Array(MW * MH), ore: new Float32Array(MW * MH), elev: new Float32Array(MW * MH), rich: new Uint8Array(MW * MH), bridge: new Uint8Array(MW * MH), forest: new Uint8Array(MW * MH), lvl: new Float32Array(MW * MH), tier: new Uint8Array(MW * MH), lava: new Uint8Array(MW * MH), ice: new Uint8Array(MW * MH),
     visT: [], seenT: [], oreVer: 0, players: [], hist: [] };
   G.dens = new Uint8Array(MW * MH);
@@ -926,7 +926,9 @@ function stepUnit(u) {
   if (d.wpn && !(d.jet && u.ammo <= 0) && !(u.sg === 1 || u.sg === 3)) { const w = uW(u); engaged = combat(u, w, Math.max(d.sight, w.rng + 0.5), !u.sg); }
   if (!engaged && u.order === 'attack') { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; }
   if (u.stance === 'hold' && u.guard && u.order === 'idle') u.anchor = u.guard;
-  if (!engaged && u.order === 'idle' && !u.path.length && !u.sg && dhypot(u.x - u.anchor.x, u.y - u.anchor.y) > (u.stance === 'hold' ? 0.5 : 2.5) && u.t !== 'harv') setPath(u, u.anchor.x, u.anchor.y);
+  if (!engaged && u.order === 'idle' && !u.path.length && !u.sg && dhypot(u.x - u.anchor.x, u.y - u.anchor.y) > (u.stance === 'hold' ? 0.5 : 2.5) && u.t !== 'harv') { if (!G.r76) setPath(u, u.anchor.x, u.anchor.y);
+    else if (G.time >= (u.anchT || 0)) { u.anchT = G.time + 1; setPath(u, u.anchor.x, u.anchor.y); const e = u.path[u.path.length - 1], thr = u.stance === 'hold' ? 0.5 : 2.5; // v7.6: an unreachable / occupied anchor no longer re-paths every tick (stuck idle armies + huge A* cost): settle on the nearest reachable point
+      if (!e) { u.anchor = { x: u.x, y: u.y }; u.path = []; } else if (dhypot(e.x - u.anchor.x, e.y - u.anchor.y) > thr) u.anchor = { x: e.x, y: e.y }; } }
   if (!engaged && u.order === 'idle' && !u.path.length && u.face != null && u.stance === 'hold') { u.ang = turnTo(u.ang, u.face, 2 * DT); u.tang = turnTo(u.tang, u.face, 2 * DT); }
   { const ad = u.amDest || u.dest; if (!engaged && u.order === 'amove' && !u.path.length && ad && dhypot(u.x - ad.x, u.y - ad.y) > 1.5) setPath(u, ad.x, ad.y); } // v5.9: marines resume their original move destination after a fight
   // movement
