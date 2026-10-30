@@ -448,12 +448,14 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
 const SIOFF = (typeof globalThis !== 'undefined' && globalThis.SIOFF) || {};
 // 4c opt-in experiments (default OFF, so live games and replays are untouched): SION.pw76 = counter-attack window after a won defence,
 // SION.fp76 = France/China 'fortress-punish' style (picked from the game seed, 1 option in 3): heavier static defence, absorb, then punish
+const wg76On = P => !!G.r76 && !!G.nt && !SIOFF.wg76 && !P.ntOff; // v7.6.5: every bot's wall line has a gate (all difficulties; old replays have nt=0)
 const SION = (typeof globalThis !== 'undefined' && globalThis.SION) || {};
-const pw76On = P => !!G.r76 && isV76(P) && !!(SION.pw76 || SION.fp76) && !P.pwOff;
+const pw76On = P => !!G.r76 && !!G.nt && isV76(P) && !SIOFF.pw76 && !P.pwOff; // v7.6.5: counter-attack window ON for lobby Hard (si2) in games with the nt replay flag
 function style76(P) { const S = P.aiS; if (S.style76 !== undefined) return S.style76; let st = null;
   if (SION.fp76 && !P.pwOff && G.r76 && isV76(P) && (P.fac === 'fra' || P.fac === 'chn')) { let h = ((G.opts.seed | 0) ^ Math.imul(P.team + 1, 0x9E3779B1)) >>> 0; h = Math.imul(h ^ (h >>> 15), 0x85EBCA6B) >>> 0; h ^= h >>> 13; if (SION.fp76 === 'all' || h % 3 === 0) st = 'fortress'; }
   return (S.style76 = st); }
 const fort76 = P => style76(P) === 'fortress';
+const FP76_SHARE = { fra: +SION.fpShF || 0.3, chn: +SION.fpShC || 0.24 }, FP76_BAR = +SION.fpBar || 1.0; // fortress: static D capped at this share of everything mined (normal: fra 0.27, chn 0.18); normal-push bar x1.0 (1.1-1.4 starved the army in drills)
 // counter-attack window: remember who came in and what they brought; when the attack is beaten (most of it dead, my base clear), open a short window
 function pw76Track(P, S, intruders, alive) {
   const w = S.pw76 || (S.pw76 = { ids: new Map(), t: 0 }); const ground = intruders.filter(f => !isAir(f) && UT[f.t] && UT[f.t].wpn);
@@ -527,8 +529,9 @@ function aiGrowth(P, S, D, cnt, hq, foes) {
     const es = G.players.filter(Q => foe(Q.team, P.team)).map(Q => G.starts[Q.start])[0];
     if (es) { const a = datan2(es[1] - hq.y, es[0] - hq.x), cx = Math.floor(hq.x + dcos(a) * 8), cy = Math.floor(hq.y + dsin(a) * 8), px = Math.round(-dsin(a) * 2), py = Math.round(dcos(a) * 2);
       const tiles = wallLine(cx - px, cy - py, cx + px, cy + py); const mid = tiles[tiles.length >> 1]; const n0 = G.nid;
-      if (mid && avail(P.team, 'gate') && canPlace('gate', P.team, mid[0], mid[1]) && P.cr >= BT.gate.cost) { buyPiece(P.team, 'gate', mid[0], mid[1]); }
-      buildWalls(P.team, tiles.filter(([x, y]) => !(mid && x === mid[0] && y === mid[1]) && canPlace('wall', P.team, x, y)));
+      let gt = null; if (mid && avail(P.team, 'gate') && canPlace('gate', P.team, mid[0], mid[1]) && P.cr >= BT.gate.cost) { buyPiece(P.team, 'gate', mid[0], mid[1]); gt = mid; }
+      if (!gt && wg76On(P)) { for (const t of tiles.slice().sort((a, b) => Math.abs(tiles.indexOf(a) - (tiles.length >> 1)) - Math.abs(tiles.indexOf(b) - (tiles.length >> 1)))) if (avail(P.team, 'gate') && canPlace('gate', P.team, t[0], t[1]) && P.cr >= BT.gate.cost) { buyPiece(P.team, 'gate', t[0], t[1]); gt = t; break; } }
+      if (gt || !wg76On(P)) buildWalls(P.team, tiles.filter(([x, y]) => !(gt ? x === gt[0] && y === gt[1] : mid && x === mid[0] && y === mid[1]) && canPlace('wall', P.team, x, y))); // v7.6.5 (replay flag nt): a wall line always gets a gate, else no line
       if (!aiExitFree(P, hq)) { for (const e of G.ents.filter(e => e.team === P.team && (e.t === 'wall' || e.t === 'gate') && dhypot(e.x - cx, e.y - cy) < 4)) { e.hp = 0; e.dead = true; } G.bver++; }
       if (nt76On(P)) nt76Walls(P, G.ents.filter(e => e.id >= n0 && e.team === P.team && isWallT(e.t) && e.hp > 0 && !e.dead), cx, cy); } }
   const ok = t => avail(P.team, t) && (S.bad[t] || 0) < G.time && !!aiSpot(P, t, hq, foes);
@@ -651,7 +654,7 @@ function defenseMgr(P, S, D, me, cnt, hq) {
   if (V) { plan = defPlan71(P, S, tier); if (!FORT71[P.fac] && !S.rushed && !S.underAttack) ents = ents.slice(0, tier >= 3 || (cnt.cc || 0) ? 3 : 1); }
   if (P.cr < 150) return;
   // budget: static D may not starve the army; defence-first allows a big share (more when under attack / army wiped)
-  const dv = myD.reduce((a, d) => a + BT[d.t].cost, 0), av = armyVal(me.filter(u => u.kind === 'u' && UT[u.t].wpn && u.t !== 'harv')); const share = SIOFF.def53 ? (S.underAttack ? 0.45 : 0.3) : (S.underAttack ? 0.6 : 0.45); let capped = V ? !(!SIOFF.bank && popOf(P.team) >= POP_CAP - 6 && P.cr > 3000) && dv > 1500 && dv > (P.stats.mined || 0) * ((P.fac === 'fra' ? (SIOFF.pe ? 0.3 : 0.27) : P.fac === 'chn' ? (SIOFF.pe ? 0.24 : 0.18) : 0.1) + (S.underAttack ? 0.08 : 0) + (popOf(P.team) >= POP_CAP - 6 ? (SIOFF.pe ? 0.1 : 0.16) : 0)) : dv > 1500 && dv > (av + dv) * share; // v7.1: static D budget tracks the economy, not the (fluctuating) army
+  const dv = myD.reduce((a, d) => a + BT[d.t].cost, 0), av = armyVal(me.filter(u => u.kind === 'u' && UT[u.t].wpn && u.t !== 'harv')); const share = SIOFF.def53 ? (S.underAttack ? 0.45 : 0.3) : (S.underAttack ? 0.6 : 0.45); let capped = V ? !(!SIOFF.bank && popOf(P.team) >= POP_CAP - 6 && P.cr > 3000) && dv > 1500 && dv > (P.stats.mined || 0) * (fort76(P) ? FP76_SHARE[P.fac] + (S.underAttack ? 0.06 : 0) : (P.fac === 'fra' ? (SIOFF.pe ? 0.3 : 0.27) : P.fac === 'chn' ? (SIOFF.pe ? 0.24 : 0.18) : 0.1) + (S.underAttack ? 0.08 : 0) + (popOf(P.team) >= POP_CAP - 6 ? (SIOFF.pe ? 0.1 : 0.16) : 0)) : dv > 1500 && dv > (av + dv) * share; // v7.1: static D budget tracks the economy, not the (fluctuating) army
   if (isV76(P) && !SIOFF.dc76) { const c76 = defCap76(P, S, dv, av); if (c76 === 2) return; if (c76) capped = true; } // v7.6.1 defense manager: towers scale with the threat actually seen, never during peace
   S.lanes = ents.flatMap(e => e.lane);
   // entrance walls with a gate (own units pass, enemies must break through under tower fire)
@@ -755,7 +758,7 @@ function aiWallEntrance(P, en, half, off, rsv) {
     const gx = Math.floor(cx), gy = Math.floor(cy); if (inb(gx, gy) && avail(P.team, 'gate') && P.cr >= BT.gate.cost) {
       for (const e of G.ents) if (e.kind === 'b' && e.team === P.team && e.t === 'wall' && e.tx === gx && e.ty === gy) { P.cr += Math.floor(BT.wall.cost * 0.5); e.hp = 0; e.dead = true; }
       if (canPlace('gate', P.team, gx, gy)) { placed.push(buyPiece(P.team, 'gate', gx, gy)); n++; gates++; } } }
-  if (!gates && nt76On(P)) return; // v7.6.5: no gate lane (centre on a cliff / no money for a gate) -> no wall line at all (the seed-77 '5 walls, 0 gates' case)
+  if (!gates && (nt76On(P) || wg76On(P))) return; // v7.6.5: no gate lane (centre on a cliff / no money for a gate) -> no wall line at all (the seed-77 '5 walls, 0 gates' case)
   for (const [x, y, k] of tiles) if (k >= 1.1) { if (!avail(P.team, 'wall') || P.cr < BT.wall.cost + (rsv ?? 300) || !canPlace('wall', P.team, x, y)) continue; placed.push(buyPiece(P.team, 'wall', x, y)); n++; }
   if (n) { G.bver = (G.bver || 0) + 1; G.events.push({ e: 'walls', team: P.team, n }); }
   // verify exit; if sealed, convert centre walls to gates or tear the last wall segment
@@ -1012,7 +1015,7 @@ function army71(P, S, D, me, foes, knownB, idle, intruders, hq, estart) { // ret
   for (const Q of allies) teamAv += Q === P ? av : (Q.aiS.av71 || 0);
   const eArmy = S.compTot || 0, fortF = G.players.some(Q => foe(Q.team, P.team) && !Q.out && FORT71[Q.fac]) ? 1.3 : 1, dPrior = SIOFF.dp ? Math.max(S.eDef71 || 0, G.time * 4) : Math.max((S.eDef71 || 0) * 1.2, Math.min(Math.max(0, G.time - 60) * 34, 18000) * fortF), need0 = Math.max(2800 + G.time * 3, eArmy * 1.15 + dPrior * (SIOFF.x ? 0.6 : 0.95)) * (allies.length > 1 ? 1 : 0.85); let need = need0;
   const n76 = isV76(P) && !SIOFF.nd76 ? need76(P, S, knownB, hq, allies) : null; if (n76) need = n76.need;
-  if (fort76(P) && !maxed) need *= 1.4; // fortress style: sit behind the defences, let them come, punish via the window above
+  if (fort76(P) && !maxed) need *= FP76_BAR; // fortress style: sit behind the defences, let them come, punish via the window above
   if (D.nick) { if (!(popOf(P.team) >= POP_CAP - 8 && idle.length >= 30)) return false; need = 0; }
   S.need71 = need; const timing = n76 ? G.time > 300 && av >= 2500 && G.time - S.lastAttack > 90 && (allies.length > 1 && !SIOFF.ts76 ? teamAv >= need * 1.05 && av >= Math.min(need * 0.3, 5000) : av >= need * 0.8 || teamAv >= need * 0.7 && G.time - S.lastAttack > 150) : G.time > 360 && av >= 3000 && G.time - S.lastAttack > 150 && av >= need * (SIOFF.x ? 0.7 : 0.9);
   if (G.time < 300 && teamAv < Math.max(need, SIOFF.ea ? 0 : (eArmy * 1.15 + Math.max(S.eDef71 || 0, 2400)) * 0.85) * (SIOFF.dp ? 2 : fortF > 1 && G.time < 300 ? 2.4 : 1.5)) return false; // no blind early all-ins into unscouted towers
