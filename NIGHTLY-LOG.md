@@ -106,13 +106,18 @@
   - Faction signature plans.
   - Look at the stall seed 77 gate case.
 
-## 2026-10-30 (late): v7.6.2 map graphics + full screen — 5b PARTIAL, not pushed
-- Status: not live. Live stays v7.6.1. The work sits in local commits on master (c30f3ab..10a8cf7), not pushed, because it ran past the 11 PM push cutoff and the full test pass was not finished.
-- Done (local):
-  - Textured ground for all 4 themes (colour + normal maps, worn dirt paths on grass). `?tex=0` turns it off.
-  - Detailed Blender props with low-detail LOD1 versions: trees, rocks, debris, ruins, bridge, crystals, ice shards, lava rocks. `?props=0` turns them off. Quiet, Low and phone use LOD1.
-  - Full screen: web app manifest, iOS meta tags, safe-area padding, a full-screen button (Fullscreen API) and a one-time iPhone "Add to Home Screen" tip.
-  - Size: about 3.5 MB of new model/texture files.
-- Bug found and fixed: on desert maps (Hellgate, Endless) the new GLB rocks made units and some buildings render near-black. Desert now keeps the old procedural rocks; units are lit and team-coloured again (0 page errors on both maps).
-- Not done: det73/det74 re-run (the run hung and was stopped), in-browser fixed-seed hash, replay check, full suite, fresh after shots for every map, version bump to v7.6.2, push.
-- Next: find the real cause of the desert darkening so desert can get GLB rocks too; run the full verification; bump and push.
+## 2026-10-30: v7.6.2 map graphics + full screen (5b DONE)
+- Live: YES. Pushed 9ff83d8 to main at 12:49 PM PT. https://ironforgecreategm.github.io/iron-front/ showed v7.6.2 at 12:50 PM PT (title footer and js/net.js NET_VERSION). manifest.webmanifest returned 200. Live loads of Classic, Hellgate, Frost and Volcano: 24/24 unit/building models, all theme props and 8/8 ground textures, 0 page errors, 0 http failures.
+- What changed for players (visual only; sim, AI and net code are byte-identical to v7.6.1):
+  - Textured ground on all 4 themes (colour + normal maps; worn dirt paths on grass, wet shores, horizon shading). `?tex=0` turns it off.
+  - Blender map props with LOD1: trees, rocks, debris, ruins, bridge, crystals, ice shards, lava-rim rocks. `?props=0` turns them off. Phone, Quiet and Low use LOD1 and lighter ground.
+  - Per map: Classic gets textured grass and dirt, new pines/broadleaf trees, carved cliffs, a plank bridge and blue ore crystals. Frost's pines are now snowy, sparser and part-bare, with ruins and ice shards by the frozen lakes. Volcano and Volcano XL get cracked-earth ground, charred trees and lava-rim rocks. Hellgate and Endless get rippled sand with darker dune patches and desert debris, but keep the old procedural rocks.
+  - Full screen: web app manifest, iOS meta tags, safe-area padding, a Fullscreen button and a one-time iPhone "Add to Home Screen" tip.
+  - Size: +3.4 MB (props 0.76 MB, ground textures 2.7 MB).
+- Determinism: node fixed-seed hashes (seeds 11/202/3003) are identical to v7.6.1. The in-browser seed 7 run with rendering (det73, file://) and with models, props and textures on (det74, http) matches v7.6.1 too: cef04e15ece7 e592efdf4c68 63c24f04630a 0df6c2d12f58, 0 page errors.
+  - Why det73/det74 "hung" last night: they did not. The node part prints nothing until it has finished all 3 seeds (about 1 min), and the browser part takes about 2 min on swiftshader. With other jobs sharing the CPU it looked stuck. The harness now prints each node line as it goes; DET_PROG=1 shows the browser chunks and DET_SKIPBROWSER=1 skips the browser.
+- Old replays (new test/replay-uploads.js): Nicholas's Oct 29 1v1 (v7.5.1) 32/32 hash checks, bad 0, victory at the recorded tick. The frost 3-Hard game 56/56, bad 0, victory.
+- Tests (per-test timeouts): these pass: sim, units, warhead, replay, marine, defense, factions7, place701, wall-exit, gate, tesla, transport, medevac702, build72, human-order, diff73, reach (local server), slot, mobile, mobile-play, six, eight, hellgate, v59, v62, v63, net, net4, endless, engcc76 and v762-fs-check. fogkeys and ui7 failed while the shot runs shared the CPU and passed when re-run alone. Known failures that also fail on v7.6.1: endless703 "loop alive" (Germany/Iran) and ui-audit. chief hit the 7-minute cap (it is a long node-only AI run, and that code is unchanged). v4, ai71, endgame and stall were not re-run (node-only; sim/AI unchanged).
+- Shots (6 maps at normal zoom + phone landscape, before = v7.6.1 worktree, after = v7.6.2): /workspace/iron-front-v7.6.2-<map>-before.png / -after.png, also -feature- pairs for Classic, Frost, Volcano and Volcano XL. Every map loaded with 0 page errors, before and after. Live shot: /workspace/iron-front-v7.6.2-live.png
+- Desert darkening (still open): with GLB rocks on desert, units and tanks near the base render near-black and lose their team colour. Two things were ruled out: (1) giving the split rock meshes their own material instead of sharing the units' PBR material and (2) turning off shadow casting from the split rocks. Neither fixed it. Desert keeps procedural rocks. Next idea: compare the desert rock GLB's attributes (pbr/colour/normal) with the grass one, and test on real GPU vs swiftshader.
+- Play zip: /workspace/rts-game-v7.6.2-play.zip
