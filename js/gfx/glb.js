@@ -65,7 +65,8 @@ function glbSync(o, e) { // called once per frame per visible building (render.j
 
 // ---------- units (blender-trial): vehicles are drawn as InstancedMeshes with the shared vertex-colour pbrMaterial,
 // so each glb part node is baked into one geometry: colour = material colour (team-recoloured), pbr attr = (metal, rough, emissive).
-GLB.UNITS = new Set(['heavy', 'scout', 'harv', 'arty', 'aa', 'tsar', 'jet', 'intercept', 'bomber', 'stealth', 'medevac', 'gunship', 'drone', 'rifle', 'rocketeer', 'engineer', 'sniper', 'kommando', 'marine', 'titan', 'raijin', 'raijinJ', 'colossus']);
+// v7.6.4: 'drone' left out on purpose: the Iran Shahed uses the original v7.0 procedural design again (models.js drone), drawn bigger in render.js.
+GLB.UNITS = new Set(['heavy', 'scout', 'harv', 'arty', 'aa', 'tsar', 'jet', 'intercept', 'bomber', 'stealth', 'medevac', 'gunship', 'rifle', 'rocketeer', 'engineer', 'sniper', 'kommando', 'marine', 'titan', 'raijin', 'raijinJ', 'colossus']);
 function glbUnitFile(t) { return 'u_' + t + (glbLod() ? '_lod1' : ''); }
 function glbBake(meshes, rel, team, air) { // meshes -> one non-indexed geometry with position/normal/color/pbr (rel: Matrix4 inverse of part frame)
   // air: aircraft are centred on y=0, so pbr.z gets a tiny 0.005 marker that turns off the shader's ground-dirt band, and team paint is pushed toward the bright team colour so sides read from RTS zoom

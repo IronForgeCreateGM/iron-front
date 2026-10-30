@@ -469,6 +469,7 @@ function wallTiles() { const w = screenToWorld(UI.mouse.x, UI.mouse.y), a = UI.w
 function toggleQuiet(on) {
   UI.set.quiet = on == null ? !UI.set.quiet : !!on; saveSet();
   if (UI.set.quiet) { R3.auto = false; applyQuality('quiet'); } else { R3.auto = UI.set.quality === 'auto'; applyQuality(UI.set.quality === 'auto' ? detectQuality() : UI.set.quality); }
+  if (typeof glbUnitRefresh === 'function' && typeof R3 !== 'undefined' && R3.scene) glbUnitRefresh('drone'); // v7.6.4 procedural drone has a lite variant for Quiet
   $('quietBtn').classList.toggle('on', UI.set.quiet); document.body.classList.toggle('quiet', !!UI.set.quiet); const qc = $('setQuiet'); if (qc) qc.checked = UI.set.quiet;
   uiMsg(UI.set.quiet ? `🍃 Quiet mode ON — ${UI.set.quietFps || 60} FPS cap, 1x resolution, lighter effects (M)` : 'Quiet mode OFF (M)'); sfx('click');
 }

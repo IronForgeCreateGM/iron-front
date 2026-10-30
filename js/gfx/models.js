@@ -59,7 +59,7 @@ function bevelBoxGeo(w, h, d, b) {
 }
 class MB {
   constructor(team) { this.team = team; this.parts = {}; this.piv = {}; }
-  col(c) { if (this.bld && (c === COL.LIGHT || c === COL.STEEL)) return new THREE.Color(c).lerp(new THREE.Color(TEAMPAINT[this.team]), c === COL.LIGHT ? 0.55 : 0.3); if (c === 'T') return new THREE.Color(TEAMPAINT[this.team]); if (c === 'TD') return new THREE.Color(TEAMPAINT[this.team]).multiplyScalar(0.62); if (c === 'TA') return new THREE.Color(TEAMCOL[this.team]); if (c === 'TL') return new THREE.Color(TEAMCOL[this.team]).lerp(new THREE.Color(0xffffff), 0.3); return new THREE.Color(c); }
+  col(c) { if (this.bld && (c === COL.LIGHT || c === COL.STEEL)) return new THREE.Color(c).lerp(new THREE.Color(TEAMPAINT[this.team]), c === COL.LIGHT ? 0.55 : 0.3); if (c === 'T') return new THREE.Color(TEAMPAINT[this.team]); if (c === 'TB') return new THREE.Color(TEAMPAINT[this.team]).lerp(new THREE.Color(TEAMCOL[this.team]), 0.6); /* v7.6.4 bright team paint (aircraft read from RTS zoom) */ if (c === 'TD') return new THREE.Color(TEAMPAINT[this.team]).multiplyScalar(0.62); if (c === 'TA') return new THREE.Color(TEAMCOL[this.team]); if (c === 'TL') return new THREE.Color(TEAMCOL[this.team]).lerp(new THREE.Color(0xffffff), 0.3); return new THREE.Color(c); }
   add(part, geo, c, pbr, x, y, z, o) {
     if (this.bld && pbr === PBR.PAINT) pbr = PBR.BPAINT;
     o = o || {}; const g = (geo.index ? geo.toNonIndexed() : geo.clone());
@@ -269,12 +269,18 @@ const UNIT_MODELS = {
     B.piv.tip = 0.5;
   },
   drone(B) { // v7.0 Iran Shahed-style loitering munition: slim fuselage, clipped delta wing, tip fins, pusher prop, red warhead
-    B.cyl('body', 0.05, 0.62, 'T', PBR.PAINT, -0.02, 0, 0, { rz: -Math.PI / 2, rt: 0.045, seg: 10 }); B.cone('body', 0.05, 0.14, COL.RED, PBR.PAINT, 0.36, 0, 0, { rz: -Math.PI / 2, seg: 10 });
+    // v7.6.4: back to this original design (the Blender MQ-9 was too small/grey to read). Same shape, bolder team marking:
+    // wing in full team paint with a dark leading edge, glowing team chevron + tip bands, white roundel; drawn ~2x in render.js. Lite (phone/Quiet/Low): fewer segments, no prop disc detail.
+    const lite = typeof glbLod === 'function' && glbLod(), sg = lite ? 6 : 10;
+    B.cyl('body', 0.05, 0.62, 'T', PBR.PAINT, -0.02, 0, 0, { rz: -Math.PI / 2, rt: 0.045, seg: sg }); B.cone('body', 0.05, 0.14, COL.RED, PBR.PAINT, 0.36, 0, 0, { rz: -Math.PI / 2, seg: sg });
     const w = new THREE.Shape(); w.moveTo(0.18, 0); w.lineTo(-0.22, 0.4); w.lineTo(-0.3, 0.4); w.lineTo(-0.26, 0); w.lineTo(-0.3, -0.4); w.lineTo(-0.22, -0.4); w.lineTo(0.18, 0);
-    const wg = new THREE.ExtrudeGeometry(w, { depth: 0.02, bevelEnabled: false }); wg.rotateX(Math.PI / 2); B.add('body', wg, 'TD', PBR.PAINT, 0, 0.01, 0);
-    for (const z of [0.4, -0.4]) B.box('body', 0.1, 0.12, 0.012, 'T', PBR.PAINT, -0.25, 0.05, z, { bevel: 0 });
-    B.cyl('body', 0.02, 0.05, COL.DARK, PBR.DARKM, -0.35, 0, 0, { rz: Math.PI / 2, seg: 8 }); B.cyl('body', 0.11, 0.008, 0x333333, PBR.DARKM, -0.38, 0, 0, { rz: Math.PI / 2, seg: 14 });
-    B.glow('body', 0.03, 0.02, 0.02, COL.RED, 0.2, 0.05, 0); B.glow('body', 0.06, 0.012, 0.04, 'TA', -0.1, 0.035, 0.18); B.glow('body', 0.06, 0.012, 0.04, 'TA', -0.1, 0.035, -0.18);
+    const wg = new THREE.ExtrudeGeometry(w, { depth: 0.03, bevelEnabled: false }); wg.rotateX(Math.PI / 2); B.add('body', wg, 'TB', PBR.PAINT, 0, 0.015, 0);
+    for (const z of [0.2, -0.2]) B.box('body', 0.52, 0.012, 0.035, COL.DARK, PBR.DARKM, -0.02, 0.022, z, { ry: z > 0 ? 0.79 : -0.79, bevel: 0 }); // dark leading edges
+    for (const z of [0.4, -0.4]) { B.box('body', 0.1, 0.12, 0.014, 'TD', PBR.PAINT, -0.25, 0.05, z, { bevel: 0 }); B.glow('body', 0.09, 0.016, 0.07, 'TA', -0.26, 0.024, z * 0.9); } // tip fins + glowing team tip bands
+    B.glow('body', 0.16, 0.014, 0.05, 'TA', -0.1, 0.03, 0.12, { ry: 0.6 }); B.glow('body', 0.16, 0.014, 0.05, 'TA', -0.1, 0.03, -0.12, { ry: -0.6 }); // team chevron on top
+    if (!lite) for (const z of [0.25, -0.25]) B.cyl('body', 0.045, 0.006, 0xf2f2f2, PBR.PAINT, -0.14, 0.033, z, { seg: 12 }); // white roundels
+    B.cyl('body', 0.02, 0.05, COL.DARK, PBR.DARKM, -0.35, 0, 0, { rz: Math.PI / 2, seg: lite ? 5 : 8 }); B.cyl('body', 0.11, 0.008, 0x333333, PBR.DARKM, -0.38, 0, 0, { rz: Math.PI / 2, seg: lite ? 8 : 14 });
+    B.glow('body', 0.03, 0.02, 0.02, COL.RED, 0.2, 0.05, 0);
     B.piv.tip = 0.3;
   },
   raijin(B) { // v7.0 Japan Raijin Mech: white/team armour, V-fin head, shoulder blocks, arm-mounted lightning cannon, folded jet nacelles on the back

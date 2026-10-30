@@ -72,6 +72,7 @@ function buildMarkers() {
 }
 function marker(x, y, attack) { const k = R3.markPool.find(k => k.t <= 0) || R3.markPool[0]; k.t = 0.5; k.m.visible = true; k.m.material.color.set(attack ? 0xff4433 : 0x55ff77); k.m.position.set(x, heightAt(x, y) + 0.1, y); }
 // ---------- unit instancing ----------
+const RVS = { drone: 1.75 }; // v7.6.4 render-only size boost (Iran Shahed drone read too small at RTS zoom); hitbox/footprint (UT.r) unchanged
 function unitIM(t, team) {
   const key = t + '|' + team; let u = R3.uiMesh.get(key); if (u) return u;
   const model = getModel('u', t, team); u = { model, parts: {}, cap: 0, n: 0 };
@@ -289,7 +290,7 @@ function r3Render(dt) {
     const moving = e.path.length > 0, bob = 0;
     rs.bank = (rs.bank || 0) * 0.9 + angDiff(rs.pang == null ? rs.ang : rs.pang, rs.ang) * (d.jet ? 9 : 0); rs.pang = rs.ang;
     T.e.set(d.jet ? -Math.max(-0.7, Math.min(0.7, rs.bank)) : 0, -(d.armor === 'inf' ? rs.tang : rs.ang), air && !d.jet ? (moving ? -0.18 : 0) : 0, 'YXZ'); T.q.setFromEuler(T.e);
-    const vs = (d.vs || 1) * (e.elite ? 1.18 : 1) * (d.vs ? 1 : (d.armor === 'inf' ? 1 : d.mech ? 0.85 : d.jet ? 1.1 : air ? 0.9 : e.t === 'harv' ? 0.62 : 0.8)); // v7.0 d.vs (boss) + elite scale; v6.2 smaller Ore Hauler
+    const vs = (RVS[e.t] || 1) * (d.vs || 1) * (e.elite ? 1.18 : 1) * (d.vs ? 1 : (d.armor === 'inf' ? 1 : d.mech ? 0.85 : d.jet ? 1.1 : air ? 0.9 : e.t === 'harv' ? 0.62 : 0.8)); // v7.0 d.vs (boss) + elite scale; v6.2 smaller Ore Hauler
     if (pv.legs) {
       animGait(rs, e, d, dt, pv.legs);
       const sq = pv.squad || 1;
@@ -309,7 +310,7 @@ function r3Render(dt) {
     if (U.parts.rotor) { if (e.t === 'harv') T.e.set(0, 0, -rs.spin); else T.e.set(0, rs.spin, 0); T.q.setFromEuler(T.e); T.l.compose(T.p.set(pv.rotor[0], pv.rotor[1], pv.rotor[2]), T.q, T.one); U.parts.rotor.setMatrixAt(i, T.t.multiplyMatrices(T.b, T.l)); }
     if (U.parts.load) { const lf = e.load / HARV_CAP; T.l.compose(T.p.set(pv.load[0], pv.load[1], pv.load[2]), T.q.identity(), T.s.set(1, Math.max(0.001, lf), 1)); U.parts.load.setMatrixAt(i, T.t.multiplyMatrices(T.b, T.l)); }
     // contact shadow + rings
-    const gz = heightAt(rs.x, rs.y), rr = d.r * (air ? 2.2 : 3.2);
+    const gz = heightAt(rs.x, rs.y), rr = d.r * (air ? 2.2 : 3.2) * (RVS[e.t] || 1);
     if (nBlob < 800) R3.blob.setMatrixAt(nBlob++, T.l.compose(T.p.set(rs.x, gz + 0.04, rs.y), T.q.identity(), T.s.set(rr, 1, rr)));
     if (e.sel || e.id === R3.hoverId) { const im = e.sel ? (e.team === ME ? R3.ringSel : R3.ringEnemy) : R3.ringHover; const j = e.sel ? (e.team === ME ? nSel++ : nEn++) : nHov++; const s = d.r * 1.15 + 0.1; if (j < im.instanceMatrix.count) im.setMatrixAt(j, T.l.compose(T.p.set(rs.x, gz + 0.06, rs.y), T.q.identity(), T.s.set(s, 1, s))); }
     // ambient unit fx
