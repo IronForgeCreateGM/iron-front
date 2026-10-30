@@ -38,7 +38,7 @@ async function shoot(br, map, phone) {
     await pg.evaluate(s => { R3.cam.td = R3.cam.d = 26; jumpTo(s.x, s.y, true); paused = false; }, s); await pg.waitForTimeout(2500); await pg.evaluate(() => { paused = true; });
     const f = path.join(OUT, map + '-' + s.n + (phone ? '-phone' : '') + '.png'); await pg.screenshot({ path: f, timeout: 180000 }); res.push(f);
   }
-  const info = await pg.evaluate(() => ({ q: R3.qName, ter: typeof TEX !== 'undefined' ? TEX.st : 'n/a', props: typeof PROPS !== 'undefined' ? Object.entries(PROPS.cache).map(([k, v]) => k + ':' + v.st).join(',') : 'n/a', calls: R3.renderer.info.render.calls, tris: R3.renderer.info.render.triangles }));
+  const info = await pg.evaluate(() => ({ q: R3.qName, ter: typeof TEX !== 'undefined' ? TEX.st : 'n/a', props: typeof PROPS !== 'undefined' ? Object.entries(PROPS.cache).map(([k, v]) => k + ':' + v.st).join(',') : 'n/a', calls: R3.renderer.info.render.calls, tris: R3.renderer.info.render.triangles, top: (() => { const L = []; R3.scene.traverse(o => { if (!o.isMesh || !o.visible || !o.geometry) return; const g = o.geometry, t = (g.index ? g.index.count : g.attributes.position.count) / 3, n = o.isInstancedMesh ? o.count : 1; L.push([Math.round(t * n), Math.round(t), n, (o.material && o.material.type) || '']); }); return L.sort((a, b) => b[0] - a[0]).slice(0, 8).map(x => x.join('/')).join(' '); })() }));
   console.log(map + (phone ? ' [phone]' : ''), 'pageErrors:', pg.errs.length, pg.errs.slice(0, 2).join(' | '), 'http fails:', pg.fails.length, pg.fails.slice(0, 3).join(' | '), JSON.stringify(info), pg.warns.slice(0, 3).join(' | '));
   await pg.context().close(); return pg.errs.length;
 }
