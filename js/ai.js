@@ -355,7 +355,7 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
     if (S.grp) S.grp = S.grp.filter(u => !u.tsR); }
   const ground = home.filter(u => u.t !== 'harv' && !UT[u.t].jet && UT[u.t].wpn && !u.tsR);
   const ang = datan2(estart[1] - hq.y, estart[0] - hq.x);
-  const stage = { x: hq.x + dcos(ang) * 9, y: hq.y + dsin(ang) * 9 };
+  const stage = home76(P, S, { x: hq.x + dcos(ang) * 9, y: hq.y + dsin(ang) * 9 });
   // group management
   if (V && !SIOFF.bl) { const dd = (S.grp || []).filter(u => u.hp <= 0 || u.dead); S.bl71 = (S.bl71 || []).filter(x => G.time - x[0] < 16); if (dd.length) S.bl71.push([G.time, dd.length, dd.reduce((a, u) => a + UT[u.t].cost, 0)]); if (S.kl71 == null || G.time - (S.kl71T || 0) > 16) { S.kl71 = P.stats.kills; S.kl71T = G.time; } }
   S.grp = (S.grp || []).filter(u => u.hp > 0 && !u.dead);
@@ -475,14 +475,16 @@ function pw76Launch(P, S, idle, av, knownB, hq, allies) {
   p.m[P.team] = { rp: { x: p.x, y: p.y }, live: 1, ready: 1 }; launch71(P, S, idle, p); S.grpWp = null; S.pwOpen = null; G.pw76go = (G.pw76go || 0) + 1;
   G.events.push({ e: 'pw76go', team: P.team, foe: o.team, av, left, def }); return true; }
 function siExtras(P, S, me, foes, knownB, hq, estart, intruders) {
-  const ang = datan2(estart[1] - hq.y, estart[0] - hq.x), stage = { x: hq.x + dcos(ang) * 8, y: hq.y + dsin(ang) * 8 };
+  const ang = datan2(estart[1] - hq.y, estart[0] - hq.x), stage = home76(P, S, { x: hq.x + dcos(ang) * 8, y: hq.y + dsin(ang) * 8 });
   const army = me.filter(u => u.kind === 'u' && UT[u.t].wpn && !UT[u.t].air);
   // early rush defense: recall everything when base attacked in the first 6 minutes
   // base defense recall (any time): bring the attack group home if the base faces a real threat
   if (!SIOFF.recall2 && intruders.length && S.grp && S.grp.length && G.time > (S.recallT || 0)) { const iv = armyVal((isV71(P) && !SIOFF.air2 ? intruders.filter(f => !isAir(f) && UT[f.t].wpn) : intruders).filter(f => me.some(b => b.kind === 'b' && dhypot(b.x - f.x, b.y - f.y) < 12))), hv = armyVal(army.filter(u => !S.grp.includes(u) && dhypot(u.x - hq.x, u.y - hq.y) < 20));
     if (iv > Math.max(4500, hv * 1.5)) { const c = intruders[0]; S.recallT = G.time + 10; S.grp.forEach(u => S.attackers.delete(u.id)); orderMove(S.grp, c.x, c.y, true); S.grp = []; S.retreatT = G.time; } }
   if (!SIOFF.recall && intruders.length && G.time < 360) { const c = intruders.reduce((a, f) => (a.x += f.x / intruders.length, a.y += f.y / intruders.length, a), { x: 0, y: 0 });
-    if (armyVal(intruders) > 500 && G.time > (S.recallT || 0)) { S.recallT = G.time + 6; const all = army.filter(u => u.t !== 'harv'); if (S.grp && S.grp.length) { S.grp.forEach(u => S.attackers.delete(u.id)); S.grp = []; } orderMove(all, c.x, c.y, true); } }
+    if (armyVal(intruders) > 500 && G.time > (S.recallT || 0)) { S.recallT = G.time + 6; const all = army.filter(u => u.t !== 'harv'); if (S.grp && S.grp.length) { S.grp.forEach(u => S.attackers.delete(u.id)); S.grp = []; } if (er76On(P)) { const myB = me.filter(b => b.kind === 'b'), thr = intruders.filter(f => UT[f.t].wpn && dhypot(f.x - c.x, f.y - c.y) < 14), tw = myB.filter(b => BT[b.t].wpn && !b.offline), core = dhypot(c.x - hq.x, c.y - hq.y) < 9; // v7.6.5 (replay flag nt): outgunned early -> fight under the turrets instead of running out to meet the rush piecemeal
+        if (!core && thr.length && sim71(all.concat(tw.filter(b => dhypot(b.x - c.x, b.y - c.y) < 9)), thr) < 0.8) { const t0 = tw.slice().sort((a, b) => dhypot(a.x - c.x, a.y - c.y) - dhypot(b.x - c.x, b.y - c.y))[0], hx = t0 ? t0.x + (hq.x - t0.x) * 0.25 : hq.x, hy = t0 ? t0.y + (hq.y - t0.y) * 0.25 : hq.y; const far = all.filter(u => dhypot(u.x - hx, u.y - hy) > 4); if (far.length) orderMove(far, hx, hy, true); G.er76n = (G.er76n || 0) + 1; } else orderMove(all, c.x, c.y, true); }
+      else orderMove(all, c.x, c.y, true); } }
   // 2 early turrets toward the enemy, gas-first upgrades
   const tur = me.filter(e => e.t === 'turret').length + P.queues.def.filter(q => q.t === 'turret').length + (P.ready.def === 'turret' ? 1 : 0);
   if (intruders.length && G.time < 360) S.rushed = true;
@@ -491,7 +493,7 @@ function siExtras(P, S, me, foes, knownB, hq, estart, intruders) {
   const sp = FACTIONS[P.fac].sp, spD = UT[sp] || BT[sp];
   if (!SIOFF.special && spD && G.time > (isV71(P) ? 200 : 300) && !(isV71(P) && S.saving && P.cr < BT[S.saving].cost + 500) && avail(P.team, sp) && P.gas >= (spD.gas || 0) && P.cr > spD.cost * 0.5) { const qc = UT[sp] ? (spD.from === 'barracks' ? 'inf' : spD.air ? 'air' : 'veh') : spD.cat; const have = me.filter(e => e.t === sp).length + P.queues[qc].filter(q => q.t === sp).length + (P.ready[qc] === sp ? 1 : 0); if (have < (isV71(P) ? (BT[sp] ? 3 + 2 * me.filter(e => e.t === 'cc').length : sp === 'marine' ? 999 : sp === 'drone' ? 9 + Math.floor(G.time / 120) : 4 + Math.floor(G.time / 200)) : BT[sp] ? 2 : 4) && P.queues[qc].length < 2) enqueue(P.team, sp); }
   // retreat badly wounded units (not when defending at home)
-  if (!SIOFF.retreat) for (const u of army) if (u.hp < u.mhp * 0.3 && !u.retreating && dhypot(u.x - hq.x, u.y - hq.y) > 14 && u.t !== 'harv') { u.retreating = true; orderMove([u], stage.x, stage.y, false); if (S.grp) S.grp = S.grp.filter(x => x !== u); S.attackers.delete(u.id); }
+  if (!SIOFF.retreat) for (const u of army) if (u.hp < u.mhp * 0.3 && !u.retreating && dhypot(u.x - hq.x, u.y - hq.y) > 14 && u.t !== 'harv') { u.retreating = true; if (cl76On(P)) { const a = u.id * 2.39996, r = 1.5 + (u.id % 4); const f = nearFree(Math.floor(stage.x + dcos(a) * r), Math.floor(stage.y + dsin(a) * r), 3); orderMove([u], f[0] + 0.5, f[1] + 0.5, false); } else orderMove([u], stage.x, stage.y, false); if (S.grp) S.grp = S.grp.filter(x => x !== u); S.attackers.delete(u.id); }
   for (const u of army) if (u.retreating && (u.hp > u.mhp * 0.7 || dhypot(u.x - stage.x, u.y - stage.y) < 3)) u.retreating = false;
   // jet strike waves (>=3 armed jets); interceptor escorts orbit the target instead of hovering
   const jets = me.filter(u => u.t === 'jet' && u.js === 'landed' && u.ammo >= W.jbomb.ammo);
@@ -994,9 +996,9 @@ function defPlan71(P, S, tier) {
 // ---- synchronized team pushes ----
 function plan71(P) { G.tp71 = G.tp71 || {}; const p = G.tp71[P.ally]; if (p && (G.time - p.t0 > 200 || (!SIOFF.ps76 && isV76(P) && !p.go && G.time - p.t0 > 20 && !Object.values(p.m).some(m => m.live)) || (p.go && G.time - p.go > 40 && !Object.values(p.m).some(m => m.live)))) { delete G.tp71[P.ally]; return null; } return p || null; }
 function rally71(p, P, hq) { // per-member rally ~17 tiles short of the target, each on its own approach angle (concave / multi-prong)
-  if (isV76(P) && !SIOFF.tg76 && !p.hum) { const r = stage76(p, P); if (r) return r; }
+  if (isV76(P) && !SIOFF.tg76 && !p.hum) { const r = stage76(p, P); if (r) return clear76(P, r); }
   const n = Object.keys(p.m).length, a0 = datan2(hq.y - p.y, hq.x - p.x), side = n === 0 ? 0 : (n % 2 ? 1 : -1) * Math.ceil(n / 2) * 0.7;
-  for (const r of [17, 14, 20, 11]) { const a = a0 + side, x = Math.max(3, Math.min(MW - 3, p.x + dcos(a) * r)), y = Math.max(3, Math.min(MH - 3, p.y + dsin(a) * r)); const f = nearFree(Math.floor(x), Math.floor(y), 5); if (f) return { x: f[0] + 0.5, y: f[1] + 0.5 }; }
+  for (const r of [17, 14, 20, 11]) { const a = a0 + side, x = Math.max(3, Math.min(MW - 3, p.x + dcos(a) * r)), y = Math.max(3, Math.min(MH - 3, p.y + dsin(a) * r)); const f = nearFree(Math.floor(x), Math.floor(y), 5); if (f) return clear76(P, { x: f[0] + 0.5, y: f[1] + 0.5 }); }
   return { x: hq.x, y: hq.y }; }
 function army71(P, S, D, me, foes, knownB, idle, intruders, hq, estart) { // returns true if it launched / joined
   if (!peaceOver(P) || S.grp.length) return false; if (SIOFF.air2 ? intruders.length : armyVal(intruders.filter(f => !isAir(f) && UT[f.t].wpn)) > 900 || intruders.filter(f => !isAir(f)).length >= 3) return false;
@@ -1018,7 +1020,7 @@ function army71(P, S, D, me, foes, knownB, idle, intruders, hq, estart) { // ret
   if (fort76(P) && !maxed) need *= FP76_BAR; // fortress style: sit behind the defences, let them come, punish via the window above
   if (D.nick) { if (!(popOf(P.team) >= POP_CAP - 8 && idle.length >= 30)) return false; need = 0; }
   S.need71 = need; const timing = n76 ? G.time > 300 && av >= 2500 && G.time - S.lastAttack > 90 && (allies.length > 1 && !SIOFF.ts76 ? teamAv >= need * 1.05 && av >= Math.min(need * 0.3, 5000) : av >= need * 0.8 || teamAv >= need * 0.7 && G.time - S.lastAttack > 150) : G.time > 360 && av >= 3000 && G.time - S.lastAttack > 150 && av >= need * (SIOFF.x ? 0.7 : 0.9);
-  if (G.time < 300 && teamAv < Math.max(need, SIOFF.ea ? 0 : (eArmy * 1.15 + Math.max(S.eDef71 || 0, 2400)) * 0.85) * (SIOFF.dp ? 2 : fortF > 1 && G.time < 300 ? 2.4 : 1.5)) return false; // no blind early all-ins into unscouted towers
+  if (G.time < (er76On(P) ? 420 : 300) && teamAv < Math.max(need, SIOFF.ea ? 0 : ((er76On(P) ? Math.max(eArmy, (G.time - 60) * 45) : eArmy) * 1.15 + Math.max(S.eDef71 || 0, 2400)) * 0.85) * (SIOFF.dp ? 2 : fortF > 1 && G.time < 300 ? 2.4 : 1.5)) return false; // no blind early all-ins into unscouted towers
   if (!(teamAv >= need && av >= Math.min(need * 0.4, 6000)) && !(maxed && idle.length >= 10) && !timing) return false;
   // target: the enemy player whose known army+defence is weakest relative to distance
   let tgt = null, bs = 1e18; for (const Q of G.players) if (foe(Q.team, P.team) && !Q.out) { let v = 0; for (const [, m] of S.mem || []) if (m.team === Q.team) v += UT[m.t].cost; for (const b of knownB) if (b.team === Q.team && BT[b.t].wpn) v += BT[b.t].cost * 0.5; const st = G.starts[Q.start], s = v + dhypot(st[0] - hq.x, st[1] - hq.y) * 60; if (s < bs) { bs = s; tgt = Q; } }
@@ -1156,6 +1158,16 @@ function defCap76(P, S, dv, av) { // 0 = ok, 1 = capped (only the 2 basic turret
 function popInf76(P, S, cnt) { // true -> skip the barracks this step
   if (popOf(P.team) <= 45 || !producers(P.team, 'veh')) return false; const sp = FACTIONS[P.fac] && FACTIONS[P.fac].sp; if (sp === 'marine' || sp === 'kommando') return false;
   if (S.eAir > 1200 && (cnt.rocketeer || 0) < 8) return false; return (cnt.rifle || 0) + (cnt.rocketeer || 0) + (cnt.scout || 0) >= 10; }
+const cl76On = P => !!G.r76 && !!G.nt && isV76(P) && !SIOFF.cl76 && !P.ntOff;
+function clear76(P, q, R) { // v7.6.5 (replay flag nt): nudge a gather / staging point onto open ground (no building within R tiles) so a whole army never jams between buildings or behind a turret line
+  if (!q || !cl76On(P)) return q; const g = getBlock(), x0 = Math.floor(q.x), y0 = Math.floor(q.y); R = R || 3;
+  for (let r = 0; r <= 9; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; const nx = x0 + dx, ny = y0 + dy; if (!inb(nx, ny) || g[idx(nx, ny)]) continue;
+    let ok = true; for (let yy = -R; yy <= R && ok; yy++) for (let xx = -R; xx <= R; xx++) { const ax = nx + xx, ay = ny + yy; if (inb(ax, ay) && g[idx(ax, ay)] >= 2) { ok = false; break; } }
+    if (ok) return { x: nx + 0.5, y: ny + 0.5 }; }
+  return q; }
+const er76On = P => !!G.r76 && !!G.nt && isV76(P) && !SIOFF.er76 && !P.ntOff;
+function home76(P, S, q) { if (!cl76On(P)) return q; const k = (G.bver || 0) + ':' + q.x.toFixed(1) + ':' + q.y.toFixed(1); S.hm76 = S.hm76 || {}; // cached per building layout
+  if (!S.hm76[k]) { if (Object.keys(S.hm76).length > 8) S.hm76 = {}; S.hm76[k] = clear76(P, q); } return S.hm76[k]; }
 function stage76(p, P) { // one shared staging point ~28 tiles short of the target on the team's side: armies gather out of the defender's reach, then hit together (SC2 bots: regroup before engaging)
   const al = G.players.filter(Q => Q.ally === P.ally && !Q.out); if (al.filter(Q => Q.ai).length < 2) return null; let x = 0, y = 0; for (const Q of al) { const s = G.starts[Q.start]; x += s[0]; y += s[1]; } x /= al.length; y /= al.length;
   const d = dhypot(x - p.x, y - p.y); if (d < 34) return null; const k = Math.min(0.85, 28 / d), n = Object.keys(p.m).length, o = (n % 2 ? 1 : -1) * Math.ceil(n / 2) * 3;
