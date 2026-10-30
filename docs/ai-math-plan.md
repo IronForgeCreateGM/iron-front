@@ -176,3 +176,16 @@ Acceptance:
 - **Most of the visible win comes from phase 1:** Lanchester + commit, passable goals/flow fields, the safe76 fix, the spend sink and the silo fixes. All are cheap, deterministic, and directly target the failures in the 10-30 replay.
 - **CMA-ES tuning is the best "learning" bang for the buck.**
 - MCTS and PPO are expensive. Inside a 30 Hz lockstep JS sim their gains are uncertain. Treat them as research, not roadmap commitments.
+
+## Standing rule and extra methods (Nicholas, 3:34 PM PT Oct 30)
+Whenever bots hit a problem, pick the best-fitting math method first. Keep Nicholas's ten in the roadmap (MDP/POMDP, Bayesian inference, utility AI, knapsack/LP, MCTS, Lanchester, A*/Dijkstra, Nash/regret matching, PPO, multi-agent) and add these where they fit:
+- Influence maps / potential fields: threat and safety maps that steer expansions, rally points and retreat paths, and help avoid tight building clusters.
+- Kalman or particle filters: track enemy army position and size under fog from last-seen scouting.
+- Hungarian algorithm: assign units to targets (focus fire, AA to air, AT to tanks) without overkill.
+- Max-flow / min-cut: pick wall and turret positions that close chokes while keeping a guaranteed gate route (pairs with the no-trap check).
+- k-means / DBSCAN clustering: group the army into squads for flanks, drops and multi-prong attacks.
+- CMA-ES with overnight headless self-play: tune the bots' weight vector (the realistic first "learning" step before PPO).
+- TrueSkill/Elo: rate bot versions against a frozen ladder so "Hard never gets weaker" is measurable.
+- Build-order search (bounded branch-and-bound over timings): opening timings per faction and matchup.
+- Queueing theory: production-queue and harvester saturation targets so money never floats.
+All of it must stay integer/fixed-point and deterministic, with bounded per-tick cost.
