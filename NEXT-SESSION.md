@@ -199,3 +199,13 @@ Also earlier backlog: wall gate.
 - v7.0.1: mobile placement rewritten around a world-space ghost (MOB.pl in js/mobile.js: mobPlSet/mobPlSnap/mobPlStart, relative drag, hysteresis 0.75, glide, edge scroll). Regression: test/place701-test.js.
 - v7.0.2: China guard towers (BT.gtower.squad) run stepSquad in js/sim.js: four slots using W.rifle/snipe/rocket/marine via sqW (+GT_SQUAD.rng 1.5). W.gtow is only a summary for range ring / AI threat. Medevac escort: escortGroup/escortStep/airThreats in js/sim.js (order 'escort', u.esc, u.spCap), hooked in orderMove/orderAttack (non-queued) and ai.js medevacMgr. Tests: factions7, medevac702, v702-shot.
 - v7.0.2 Ballista: gtower keeps t='gtower' with b.bal=true (upKind 'bal', BALLISTA in data.js; crew = BALLISTA.w bolt/rifle/marine via sqList). W.bolt is NOT in the 0.75 static-defence nerf; W.balS is the summary profile. Model 'gtowerB' (render bkey). AI: ballistaMgr earmarks income into S.balFund (90/5 s) because bots otherwise spend every credit; the fund is refunded if no tower is left to convert. Duel harness /tmp/bal/duel2.js (box only).
+
+## 2026-10-30: replay study plus AI maths plan (for the nightly 4c run)
+- Read `docs/ai-replay-study-2026-10-30.md` (volcano8 bot 1v1: blue safe76 eco freeze, red army dither and own-building pocket, silo cluster-missile deadlock, and the hard4c-b comparison) and `docs/ai-math-plan.md`.
+- hard4c-b is already merged (d1364e4). Next: start the **phase-1** items from ai-math-plan.md:
+  - Lanchester commit/contain
+  - passable goals plus a choke-aware flow field and pocket audit
+  - utility + knapsack spending, including the safe76 fix and a max-pop sink
+  - silo placement/swap/targeting
+- Put everything behind a new replay flag. A/B against the current Hard; Hard must not get weaker, no bonuses or stat changes.
+- Box tools: `/workspace/r1030/` (ex.js extractor, probe*.js, heat-*.png).
