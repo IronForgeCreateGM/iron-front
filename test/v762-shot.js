@@ -45,7 +45,7 @@ async function shoot(br, map, phone) {
 }
 (async () => {
   const br = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox', '--ignore-gpu-blocklist'] });
-  let bad = 0; for (const m of MAPS) bad += await shoot(br, m, false);
+  let bad = 0; for (const m of MAPS) if (m !== 'zzz') bad += await shoot(br, m, false); // map zzz = phone shots only
   if (process.env.PHONE !== '0') { bad += await shoot(br, 'classic', true); bad += await shoot(br, 'volcano', true); }
   console.log('TOTAL pageErrors', bad); await br.close();
 })();
