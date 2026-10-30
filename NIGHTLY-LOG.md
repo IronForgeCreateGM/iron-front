@@ -185,3 +185,22 @@
   - new Brazil vs live USA: only Brazil(pts) at 25 min, vs a kill at 24.0 min live. With OFF=er76,cl76 the new Brazil wins at 19.8 min (better than live).
   - Trace (trace-on.txt vs trace-off.txt): cl76 puts USA's home stage at (27.5,26.5), about 11 tiles out from the HQ at (16,19) and away from its own turrets. The live Brazil brain sees that exposed group, attacks at ~210 s instead of ~315 s, and USA loses 9.5k of army by 300 s.
 - Master now has a v7.6.5 bump (c0d2d1c) + merges that are NOT live. Live = v7.6.4 (6b692e2). Nothing was pushed today after 1:59 PM PT.
+
+## 2026-10-30 (3:37-4:00 PM PT) Part B round 4: blocker fix (branch hard4c-b 8972c95, merged to master 616ff95)
+- cl76 fix: a gather/stage/rally point is only moved if the original spot is boxed in. When moved, it may never end up further from the HQ than the original point, nor past the bot's outermost own defence (SIOFF.cl76b disables the limit).
+- safe76 v2 (sf2, replay flag nt, si2 only, SIOFF.sf2 disables; the live brain/old replays keep the old rule):
+  - The threat now counts only enemy army that could reach my HQ within 40 s (straight-line distance / unit speed). It no longer uses the whole remembered army, which with fog off is the entire enemy army.
+  - Active only before 6 min (was 8).
+  - It never caps harvesters and never blocks the first expansion CC.
+- vs8-943 replay-study check (/workspace/v764/b/r5, 25 min):
+  - live vs live: Brazil kills USA at 24.0 min. USA mined 200k; army 30.7k at 480 s and 8k at 840 s.
+  - new USA vs live Brazil: USA SURVIVES 25 min, Brazil(pts). USA mined 603k (3x), has 5 CCs and 27 harvesters at 840 s, and its army is 51.7k at 840 s. At 480 s the army is 24.4k because the eco came first. -> new USA not weaker.
+  - Without sf2 (cl76 fix only), USA dies at 22.9 min: sf2 is the main fix.
+  - Brazil side (new Brazil vs live USA): Brazil(pts) at 25 min (val 257k vs 81k), vs a kill at 24.0 live. With cl76 off the new Brazil kills at 17.4 min, so cl76 still costs Brazil the finish on this seed. But with cl76 off the new USA dies at 22.8 min (worse than live), so cl76 stays on. Follow-up: why cl76 slows the Brazil finish.
+- Fresh 6-game set vs live Hard (frost 33 ger/fra, classic 27 chn/rus, volcano 63 usa/bra, both starts, 25 min): NEW 4 (classic both, frost start0, volcano start0), OLD 1 (frost start1), OLD(pts) 1 (volcano start1).
+  - A second set with cl76 off (r5c: frost 45, classic 51, volcano 87) went 4-2 too. It was only used for the cl76 decision.
+- Other checks:
+  - det73 identical to v7.6.4 (node 11/202/3003 + browser 7, branch and master).
+  - replay-test REPLAY OK. nt76 unit drill NT76 OK (0.10 ms). stall SD=si2 + SD=si STALL OK.
+  - Old replays: Oct 30 bot1v1 volcano8 49/49 bad 0 (defeat at the recorded tick). Oct 29 1v1 32/32 + 3-Hard 56/56 bad 0, victory at the recorded tick.
+- All checks passed -> pushed master by hash as v7.6.5 (no force, fast-forward from 6b692e2); push time and live check: see the next line.
