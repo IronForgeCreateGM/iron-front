@@ -944,7 +944,7 @@ function plan71Tick(P, S, c, near) { // group at its rally: mark ready; plan goe
   const p = plan71(P); if (!p || !p.m[P.team]) { if (S.grpWp && S.grpWp.hold) S.grpWp = null; return; }
   const mm = p.m[P.team]; mm.live = S.grp.length ? 1 : 0;
   if (!p.go) { if (S.grpWp && dhypot(c.x - S.grpWp.x, c.y - S.grpWp.y) < 6) mm.ready = 1; if (near.length) mm.ready = 1;
-    if (Object.values(p.m).every(m => m.ready || !m.live) || G.time > p.t0 + (isV76(P) && !SIOFF.tg76 && !p.hum ? 100 : 55)) p.go = G.time; }
+    if (Object.values(p.m).every(m => m.ready || !m.live) || G.time > p.t0 + (isV76(P) && !SIOFF.tg76 && !p.hum && Object.keys(p.m).length > 1 ? 100 : 55)) p.go = G.time; }
   if (p.go && S.grpWp && S.grpWp.hold) { S.grpWp = null; S.regT = 0; } }
 // focus fire: priority targets (artillery/healers/specials/damaged) get just enough guns (no overkill)
 const PRI71 = { medevac: 2.6, arty: 2.2, drone: 1.6, engineer: 1.3, tsar: 1.7, raijin: 1.7, raijinJ: 1.7, kommando: 1.8, stealth: 1.6, sniper: 1.6, titan: 1.4, bomber: 1.5, harv: 0.5 };
@@ -1055,7 +1055,7 @@ function popInf76(P, S, cnt) { // true -> skip the barracks this step
   if (popOf(P.team) <= 45 || !producers(P.team, 'veh')) return false; const sp = FACTIONS[P.fac] && FACTIONS[P.fac].sp; if (sp === 'marine' || sp === 'kommando') return false;
   if (S.eAir > 1200 && (cnt.rocketeer || 0) < 8) return false; return (cnt.rifle || 0) + (cnt.rocketeer || 0) + (cnt.scout || 0) >= 10; }
 function stage76(p, P) { // one shared staging point ~28 tiles short of the target on the team's side: armies gather out of the defender's reach, then hit together (SC2 bots: regroup before engaging)
-  const al = G.players.filter(Q => Q.ally === P.ally && !Q.out); let x = 0, y = 0; for (const Q of al) { const s = G.starts[Q.start]; x += s[0]; y += s[1]; } x /= al.length; y /= al.length;
+  const al = G.players.filter(Q => Q.ally === P.ally && !Q.out); if (al.filter(Q => Q.ai).length < 2) return null; let x = 0, y = 0; for (const Q of al) { const s = G.starts[Q.start]; x += s[0]; y += s[1]; } x /= al.length; y /= al.length;
   const d = dhypot(x - p.x, y - p.y); if (d < 34) return null; const k = Math.min(0.85, 28 / d), n = Object.keys(p.m).length, o = (n % 2 ? 1 : -1) * Math.ceil(n / 2) * 3;
   const ax = p.x + (x - p.x) * k, ay = p.y + (y - p.y) * k, nx = -(y - p.y) / d, ny = (x - p.x) / d;
   const f = nearFree(Math.floor(Math.max(3, Math.min(MW - 3, ax + nx * o))), Math.floor(Math.max(3, Math.min(MH - 3, ay + ny * o))), 6); return f ? { x: f[0] + 0.5, y: f[1] + 0.5 } : null; }

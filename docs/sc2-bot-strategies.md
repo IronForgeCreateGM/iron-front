@@ -26,3 +26,25 @@ barracks / factory = production, towers / walls = static defence, warheads = big
 ## Not borrowed (and why)
 - AlphaStar-level APM micro: Iron Front bots already focus-fire with priorities (PRI71); more micro is not the bottleneck.
 - Cheese / proxy rushes: Hard must stay fair and stable; no resource or stat bonuses are used anywhere.
+
+## v7.6.1 — si2 as a set of SC2-style managers (python-sc2 / sharpy-sc2 / Ares architecture)
+
+SC2 framework bots split the brain into managers that each own one job and talk through shared state
+(sharpy `KnowledgeBot` managers, Ares `Manager` mediator, Eris macro/army/intel). si2 now does the same inside `js/ai.js`;
+every v7.6.1 piece has a `SIOFF` flag so it can be switched off for ablation tests.
+
+| Manager | SC2 source idea | Iron Front implementation (v7.6.1) | SIOFF |
+|---|---|---|---|
+| **Macro** | ConstantWorkerProduction, supply-ahead, "never float", production scales with income (Eris, sharpy `AutoWorker`/`AutoPylon`) | `macro76` adds a factory/barracks when the smoothed bank stays > 450 cr; with infantry stopped at high pop, a busy factory alone now triggers more production | `m76`, `pp76` |
+| **Supply efficiency** | Late-game SC2 bots remax on high-value supply (no zerglings at 200/200) | `popInf76`: past pop 32 non-marine factions stop rifles/rocketeers/scouts once 8 exist (except vs air); pop slots go to tanks/Howlers (≈1000 cr per pop vs 100–300) | `pp76` |
+| **Defense** | PlanZoneDefense: static D only vs a real threat; Robotina bunker only vs rush | `defCap76`: no towers beyond the basic pair until 75 s before peace ends; afterwards the tower budget is 1500 + 0.5 × seen enemy army + 0.2 × my army (+2500 under attack); the Great Wall follows the same rule | `dc76` |
+| **Combat sim** | Ares/sharpy `EngagementResult`: simulate with every friendly unit in the area | retreat/avoid sims now count allied units within 12–14 tiles, so bots fighting together no longer each run away from a ball they beat together | `as76` |
+| **Joint defence** | sharpy PlanZoneDefense pulls all nearby forces | `teamHome76`: when an ally is hit, each bot's help sim counts the other bots' idle home armies that answer the same call, so the whole team arrives instead of nobody | `jd76` |
+| **Army / timing** | "Gather then move as one", attack at power spikes (Eris, Overclock) | `stage76`: one shared staging point ~28 tiles short of the target on the team's side (out of the defender's reach) instead of separate rally points 17 tiles from its base; waits up to 100 s for every member; plans with no live member reset after 20 s instead of blocking the team for 200 s | `tg76`, `ps76` |
+
+### Ordered plan for what is not done yet
+1. Counter-attack window: after a won defense (enemy army < 50 % of ours), launch the team immediately (SC2 "punish after hold").
+2. Time budget: cap AI work per tick (stagger the heavy scans across bots: humanPush71, teamHome76, enemy memory) for phones.
+3. Multi-prong harass: a small squad hits harvesters while the main army stages (sharpy `PlanHarass`).
+4. Build-order benchmarks per faction with checks (pop/army at 3:00/5:00/8:00) and a transition when behind.
+5. Scout-driven counters: detect "maxed and holding" human (like the sparring profile) and time the team strike just after it moves out.
