@@ -61,3 +61,47 @@
 - Tests: new lobbytest (720 setups) passes; det73 identical; only known failures (endless loop alive, hellgate shot name check, endgame seed 22), same as v7.5.0. Online end-to-end not testable on the box.
 - Live: YES, pushed ec4c80e, site showed v7.5.1 at 11:34 AM PT.
 - Screenshot: /workspace/spawn-fix-ingame.png
+
+## 2026-10-30: v7.6.0 (finished the interrupted nightly run)
+- Live: YES. Pushed 71dc0ff to main at 6:50 AM PT. https://ironforgecreategm.github.io/iron-front/ showed v7.6.0 at 6:51 AM PT (js/net.js NET_VERSION v7.6.0). The live load had 34/34 models, 0 page errors and 0 http failures.
+- What the bots do differently: nothing in this release. The lobby's "Hard AI" still plays the v7.5.1 Hard brain ('si'). The reworked Hard layer ('si2': early derricks, faster expansion, a factory for each new base, SM-3 when it sees a warhead, money saved for a backup Command Center and the launcher, repairs and upgrades, all three warhead types) lost 1-3 to the old Hard in the release bench. "Hard must never get weaker" ruled it out, so it is in the code but switched off. That work carries over.
+- Other changes for players:
+  - Engineer Command Center rule (all players, same rules for bots and humans). Once a side has no Construction Yard or Command Center left, an engineer can found a new Command Center at the normal $2200 price. It must be placed within 9 tiles of the engineer, and the engineer is used up. The new CC builds without a yard. Normal rules apply while a side still has a yard. The live Hard bot does not use this yet (it is part of the si2 layer).
+  - Fewer stuck armies. Idle units drifting from their spot no longer re-plan their path every tick (this also fixes the path-finding storm that made big armies freeze).
+  - Every skirmish now gets a fresh random map seed. It is saved in the replay. Online games use the host's seed.
+  - Last game replay: the menu keeps your last game. "Last game replay" plays it and "Download" saves it.
+- Old replays: games recorded before v7.6.0 replay with the old rules (the r76 flag is off when a replay has none). Nicholas's two uploaded replays (Oct 29 1v1 and the frost 3-Hard game) re-simulated with 32/32 and 56/56 hash checks matching (bad 0).
+- Marine check (equal cost, test/marine check script, no stats changed). Each cell shows the % of value left for marines / for the counter, at $6300 and at $12600:
+  - Warhound MBT: 63/0 and 67/0. Marines win.
+  - Tsar: 56/0 and 56/0. Marines win.
+  - Raijin: 0/55 and 0/67. Raijin wins.
+  - Howler (sieged): 6/26 and 0/68. Howler wins.
+  - Falcon jets: 69/4 and 72/5. Marines win.
+  - Thunder bombers: 33/14 and 39/15. Marines win.
+  - 2 Tesla + rifles: 0/20 and 0/37. Tesla wins.
+  - MBT + Howler mix: 3/31 and 0/61. The mix wins.
+  - Recommendation: no stat change. Marine mass does have real counters (Raijin, sieged Howlers, Tesla, a tank + artillery mix), but it beats pure tank and pure air armies of equal cost. That is a bot composition problem, not a balance bug. The bots should answer marine mass with artillery, Tesla and Raijin, and that goes into the 4b-continued plan. A small stat tweak (tank cannon vs marine armour, or marine HP) is something to consider later only if players also get stuck on it.
+- Release bench (6 full games, new Hard 'si2' vs the v7.5.1 Hard 'si', same sim):
+  - G1 classic seed 21, si2 USA vs si Russia: si won at 15.1 min.
+  - G2 same game with sides swapped: si2 won at 11.9 min.
+  - G3 classic seed 3, si2 China vs si Germany: si won at 25.9 min.
+  - G4 frost 2v2 seed 5, si2 Brazil+Germany vs si Brazil+Germany: si won at 22.7 min.
+  - Result: si2 went 1-3. It expands and builds towers but fields about half the army at 5 minutes and cannot rebuild after losing a fight (one game built 131 turrets). Not shipped.
+- Nicholas sparring profile on frost, seed 9, 20 min cap. These games were against si2, not the live Hard:
+  - 1v1 nick (Brazil marines) vs si2 Brazil: nick won at 11.7 min (28k vs 12k army at 5 min).
+  - 3 si2 (Brazil, China, China) vs nick: the bots led on points at 20 min, but nobody was knocked out. Nick was maxed at 100 pop with a 40k army.
+  - Earlier run, last night: the v7.5.1 Hard beat nick at 23.6 min.
+- Tests:
+  - Full serial suite on the final code. These pass: sim, units, warhead, det73, det74, replay, marine, defense, factions, placement, walls/gates, tesla, transport, medevac, reach (with a local server), build, human orders, diff73 (expects Hard = si), chief, six, eight, hellgate, v59/62/63, net, net4, endless, slot, fogkeys, ui7, mobile, mobile-play, v4 (si vs hard 10/10). The new engcc76 test passes.
+  - Known failures, which also fail on v7.5.1: ai71 (special peaks; here also the China wall count on seed 11), ui-audit, endless703 "loop alive", and the endgame timeout.
+  - stall-test volcano seed 77: one bot had 5 walls and 0 gates at the checkpoint, but its exit was still open. Seeds 78 and 79 pass, and seed 77 passes with the old rules. This is a seed-specific side effect of the pathing change.
+- Screenshot: /workspace/iron-front-v7.6.0-live.png (live site, in-game). Local copy: /workspace/iron-front-v7.6.0-local.png. Menu: shots/v7_6-menu.png
+- Play zip: /workspace/rts-game-v7.6.0-play.zip
+- 4b-continued (carries over):
+  - Fix si2's army size: production first, a cap on towers, and rebuilding after a lost fight. Then re-bench it against si and switch the lobby Hard to si2 only when it wins.
+  - Let bots use the engineer Command Center rule (the si2 layer already has it).
+  - Bots defend their base with the army.
+  - Coordinated team attacks.
+  - Bots answer marine mass with artillery, Tesla and Raijin.
+  - Faction signature plans.
+  - Look at the stall seed 77 gate case.
