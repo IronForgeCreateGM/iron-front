@@ -47,10 +47,11 @@ function aiStep(P) {
   if (!P.queues.bld.length && !P.ready.bld) {
     let want = null;
     if (P.pow < (doc && G.time > 400 ? 60 : 20) && (cnt.power || 0) < (doc ? 30 : 10)) want = 'power';
-    else if (G.time > (V6 ? D.expandAt : VE ? 195 : D.expandAt) * (1 + (V6 ? 0.55 : 0.7) * (cnt.cc || 0)) && (!VE || (cnt.refinery || 0) >= (V6 ? 1 : 2) + (cnt.cc || 0)) && !NK && (cnt.cc || 0) < (V6 ? 5 : 4) && (cnt.factory || 0) > 0 && avail(P.team, 'cc') && (S.bad.cc || 0) < G.time && aiSpot(P, 'cc', hq, foes)) want = 'cc';
+    else if (G.time > (V6 ? D.expandAt : VE ? 195 : D.expandAt) * (1 + (V6 ? 0.55 : 0.7) * (cnt.cc || 0)) && (!VE || (cnt.refinery || 0) >= (V6 ? 1 : 2) + (cnt.cc || 0)) && !NK && (cnt.cc || 0) < (V6 ? 5 : 4) && (cnt.factory || 0) > (V6 ? Math.min(2, cnt.cc || 0) : 0) && avail(P.team, 'cc') && (S.bad.cc || 0) < G.time && aiSpot(P, 'cc', hq, foes)) want = 'cc';
     else if ((NK || (cnt.cc || 0) > 0) && (cnt.refinery || 0) < (NK ? 5 : V6 ? 2 + Math.round((cnt.cc || 0) * 1.5) : 2 + (cnt.cc || 0)) && (S.bad.refinery || 0) < G.time) want = 'refinery';
+    else if (V6 && !NK && G.time > 200 && (cnt.factory || 0) < Math.min(3, 1 + (cnt.cc || 0)) && P.cr > 400 && avail(P.team, 'factory') && (S.bad.factory || 0) < G.time && aiSpot(P, 'factory', hq, foes)) want = 'factory'; // v7.6: each new base brings another factory (expansions never starve the army)
     else { const need = {}; for (const b of (D.order || (VE ? AI_ORDER_SI71 : D.si ? AI_ORDER_SI : D.chief ? AI_ORDER_CHIEF : D.firstAttack || P.diff === 'normal' ? AI_ORDER : AI_ORDER_AIR))) { if (BT[b].cat !== 'bld') continue; need[b] = (need[b] || 0) + 1; if ((cnt[b] || 0) < need[b] && avail(P.team, b) && (S.bad[b] || 0) < G.time) { if (!aiSpot(P, b, hq, foes)) { S.bad[b] = G.time + 45; continue; } want = b; break; } } }
-    if (VE) { if (!want || (P.cr > 1500 && !['power', 'cc', 'refinery', 'tech'].includes(want))) want = prodTarget71(P, S, D, cnt, hq, foes) || want; }
+    if (VE) { if (!want || (P.cr > 1500 && !['power', 'cc', 'refinery', 'tech'].includes(want)) || (V6 && P.cr > 3000 && want !== 'power')) want = prodTarget71(P, S, D, cnt, hq, foes) || want; }
     else if (doc && (!want || (P.cr > 2600 && want !== 'power'))) want = prodTarget(P, S, D, cnt, hq, foes) || want;
     if (!want) want = aiGrowth(P, S, D, cnt, hq, foes);
     if (NK && (want === 'factory' && (cnt.factory || 0) >= 1 || want === 'airfield' || want === 'cc')) want = null;

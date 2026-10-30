@@ -1,0 +1,13 @@
+const fs=require('fs'),path=require('path'),{chromium}=require('playwright-core');const ROOT='/workspace/rts-game';
+(async()=>{const br=await chromium.launch({executablePath:'/usr/bin/google-chrome',args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--no-sandbox']});
+const pg=await br.newPage({viewport:{width:1200,height:800}});const errs=[];pg.on('pageerror',e=>errs.push(e.message));
+await pg.route('http://iron.test/**',r=>{const u=new URL(r.request().url());let p=decodeURIComponent(u.pathname.replace('/iron-front/','/'));if(p.endsWith('/'))p+='index.html';const f=path.join(ROOT,p);if(!fs.existsSync(f)||fs.statSync(f).isDirectory())return r.fulfill({status:404,body:'nf'});r.fulfill({status:200,contentType:p.endsWith('.html')?'text/html':p.endsWith('.js')?'text/javascript':p.endsWith('.css')?'text/css':'application/octet-stream',body:fs.readFileSync(f)});});
+await pg.goto('http://iron.test/iron-front/');await pg.waitForTimeout(2500);
+const a=await pg.evaluate(()=>({chief:/Chief/.test(document.body.innerText),dl:!!document.getElementById('lastReplayDl'),txt:[...document.querySelectorAll('button')].map(b=>b.innerText).filter(t=>/replay|Download/i.test(t)),hardOpt:[...document.querySelectorAll('option')].filter(o=>/Hard/.test(o.textContent)).map(o=>o.value+':'+o.textContent).slice(0,3)}));
+await pg.evaluate(()=>{startGame('normal',{seed:3,map:'classic',fog:false,slots:buildSlots([['human','A','usa'],['si','B','rus']])});});await pg.waitForTimeout(4000);
+const b=await pg.evaluate(()=>({diffs:G.players.map(p=>p.ai?(p.diffKey||p.diff||'?'):'human'),r76:G.r76,seed:G.seed}));
+await pg.evaluate(()=>{try{keepLastReplay()}catch(e){window.__e=e.message}});
+await pg.reload();await pg.waitForTimeout(2500);
+const c=await pg.evaluate(()=>({ls:Object.keys(localStorage).filter(k=>/replay/i.test(k)),e:window.__e}));
+await pg.screenshot({path:'/workspace/rts-game/shots/v7_6-menu.png'});
+console.log(JSON.stringify({a,b,c,errs}));await br.close();})();
