@@ -68,7 +68,7 @@ const BT = {
   turret:  { n: 'Guard Turret', w: 1, h: 1, hp: 700, cost: 600, pow: -20, time: 5, cat: 'def', req: ['barracks'], wpn: 'tcannon', sight: 7 },
   aagun:   { n: 'Flak Battery', w: 1, h: 1, hp: 500, cost: 700, pow: -25, time: 5, cat: 'def', req: ['barracks'], wpn: 'flakB', sight: 8 },
   airfield:{ n: 'Air Command', w: 4, h: 3, hp: 1700, cost: 1800, pow: -60, time: 14, cat: 'bld', req: ['factory', 'tech'], desc: 'v6.2: runway + helipads in one building (replaces Helipad + Airfield). One queue builds every aircraft; docked aircraft rearm and get repaired. 4 dock slots; buy the Extra Pads add-on for 8.' },
-  cc:      { n: 'Command Center', w: 3, h: 3, hp: 2200, cost: 2200, pow: 10, time: 25, cat: 'bld', req: ['refinery'] },
+  cc:      { n: 'Command Center', w: 3, h: 3, hp: 2200, cost: 2200, pow: 10, time: 25, cat: 'bld', req: ['refinery'], desc: 'Second construction yard: more build speed, a wider build area and a new base. Base wiped out? If you have no Command Yard or Command Center left, an Engineer can found a new Command Center (same $2200) — place it within 9 tiles of the engineer, who walks in and is used up.' },
   extractor:{ n: 'Gas Extractor', w: 2, h: 2, hp: 900, cost: 800, pow: -20, time: 8, cat: 'bld', req: ['refinery'] },
   silo:    { n: 'Warhead Launcher', w: 2, h: 2, hp: 2400, cost: 3000, gas: 500, pow: -80, time: 30, cat: 'bld', req: ['tech'], sight: 8 },
   gcannon: { n: 'Grand Cannon', w: 2, h: 2, hp: 2200, cost: 2500, gas: 300, pow: -80, time: 20, cat: 'def', req: ['tech'], wpn: 'gcan', sight: 15, fac: 'fra' },
@@ -82,7 +82,7 @@ const BT = {
 const UT = {
   rifle:  { n: 'Rifleman', hp: 110, sp: 1.6, armor: 'inf', wpn: 'rifle', cost: 100, time: 3, from: 'barracks', sight: 6, r: 0.22, req: [] },
   rocketeer:{ n: 'Rocketeer', hp: 100, sp: 1.4, armor: 'inf', wpn: 'rocket', cost: 300, time: 5, from: 'barracks', sight: 6.5, r: 0.22, req: [] },
-  engineer:{ n: 'Engineer', hp: 80, sp: 1.5, armor: 'inf', wpn: null, cost: 500, time: 6, from: 'barracks', sight: 5, r: 0.22, req: [], engineer: 1, heal: 9, rep: 32, desc: 'Auto-repairs damaged buildings (fast) and patches up nearby units (slower) without being used up. Right-click an enemy building to capture it, or an oil derrick to claim it (those use the engineer up).' },
+  engineer:{ n: 'Engineer', hp: 80, sp: 1.5, armor: 'inf', wpn: null, cost: 500, time: 6, from: 'barracks', sight: 5, r: 0.22, req: [], engineer: 1, heal: 9, rep: 32, desc: 'Auto-repairs damaged buildings (fast) and patches up nearby units (slower) without being used up. Right-click an enemy building to capture it, or an oil derrick to claim it (those use the engineer up). If your base is wiped out (no Command Yard or Center left), an engineer can found a new Command Center next to itself.' },
   sniper: { n: 'Sniper', hp: 90, sp: 1.4, armor: 'inf', wpn: 'snipe', cost: 600, time: 7, from: 'barracks', sight: 10, r: 0.22, req: [] },
   kommando:{ n: 'Jäger Kommando Squad', hp: 600, sp: 1.8, armor: 'inf', wpn: 'kmg', cost: 1500, gas: 150, time: 14, from: 'barracks', sight: 8, r: 0.4, req: ['tech'], squad: 3, fac: 'ger' },
   marine: { n: 'Fuzileiro Blindado (Iron Marine)', hp: 300, sp: 1.67, armor: 'inf', wpn: 'marine', cost: 400, time: 6, from: 'barracks', sight: 6.5, r: 0.26, req: [], fac: 'bra', marine: 1,

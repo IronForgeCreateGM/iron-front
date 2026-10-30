@@ -374,9 +374,14 @@ function hasBuilt(team, t) { return G.ents.some(e => e.kind === 'b' && e.team ==
 function reqOk(team, d) { return d.req.every(r => hasBuilt(team, r)); }
 function avail(team, t) {
   const dd = BT[t] || UT[t]; if (!dd) return false; if (dd.fac && G.players[team].fac !== dd.fac) return false; if (dd.noFac && G.players[team].fac === dd.noFac) return false;
-  if (BT[t]) return (hasBuilt(team, 'hq') || hasBuilt(team, 'cc')) && reqOk(team, BT[t]);
+  if (BT[t]) return (hasBuilt(team, 'hq') || hasBuilt(team, 'cc')) && reqOk(team, BT[t]) || (t === 'cc' && engFound(team));
   const d = UT[t]; return (hasBuilt(team, d.from) || (d.alt || []).some(a => hasBuilt(team, a))) && reqOk(team, d);
 }
+// v7.6 rule (everyone, same cost): once a side has no Command Yard and no Command Center left (not even one being built), an Engineer can
+// found a new Command Center next to itself: placed within ENG_CC_R tiles of one of its engineers, which walks in and is used up; the site builds without a yard.
+const ENG_CC_R = 9;
+function noYard(team) { return !G.ents.some(e => e.kind === 'b' && e.team === team && (e.t === 'hq' || e.t === 'cc') && e.hp > 0 && e.sell < 0); }
+function engFound(team) { return noYard(team) && G.ents.some(e => e.kind === 'u' && e.team === team && e.hp > 0 && UT[e.t].engineer); }
 function catOf(t) { return BT[t] ? BT[t].cat : FROMCAT[UT[t].from]; }
 function getBlock() {
   if (G.blockVer === G.bver) return G.block;
@@ -402,7 +407,7 @@ function canPlace(t, team, tx, ty) {
   const onVent = (G.vents || []).some(([vx, vy]) => vx >= tx && vx < tx + d.w && vy >= ty && vy < ty + d.h);
   if ((t === 'extractor') !== onVent) return false;
   for (const e of G.ents) if (e.kind === 'u' && !isAir(e) && foe(e.team, team) && e.x > tx && e.x < tx + d.w && e.y > ty && e.y < ty + d.h) return false;
-  if (t === 'cc') { const cx = tx + 1.5, cy = ty + 1.5; if (G.ents.some(e => e.kind === 'b' && foe(e.team, team) && dhypot(e.x - cx, e.y - cy) < 12)) return false; if (G.ents.some(e => e.kind === 'b' && (e.t === 'cc' || e.t === 'hq') && dhypot(e.x - cx, e.y - cy) < 9)) return false; return !!G.seenT[team][idx(Math.floor(cx), Math.floor(cy))] || G.ents.some(e => e.kind === 'b' && e.team === team && dhypot(e.x - cx, e.y - cy) < 26); }
+  if (t === 'cc') { const cx = tx + 1.5, cy = ty + 1.5; if (G.ents.some(e => e.kind === 'b' && foe(e.team, team) && dhypot(e.x - cx, e.y - cy) < 12)) return false; if (G.ents.some(e => e.kind === 'b' && (e.t === 'cc' || e.t === 'hq') && dhypot(e.x - cx, e.y - cy) < 9)) return false; if (noYard(team)) return !!engNear(team, cx, cy); return !!G.seenT[team][idx(Math.floor(cx), Math.floor(cy))] || G.ents.some(e => e.kind === 'b' && e.team === team && dhypot(e.x - cx, e.y - cy) < 26); }
   if (G.derricks && G.derricks.some(o => o.x > tx && o.x < tx + d.w && o.y > ty && o.y < ty + d.h)) return false; // v6.0: never build on top of a derrick/outpost post
   if (G.derricks && t !== 'extractor' && G.derricks.some(o => o.op && o.owner === team && tx < o.x + OUTPOST_R && tx + d.w > o.x - OUTPOST_R && ty < o.y + OUTPOST_R && ty + d.h > o.y - OUTPOST_R)) return true; // v6.0 captured outpost = forward build radius
   return G.ents.some(e => { if (e.kind !== 'b' || e.team !== team || e.t === 'wall' || e.t === 'gtower') return false; const R = e.t === 'hq' || e.t === 'cc' ? 10 : t === 'extractor' ? 12 : 5; return tx < e.tx + e.w + R && tx + d.w > e.tx - R && ty < e.ty + e.h + R && ty + d.h > e.ty - R; });
@@ -419,9 +424,11 @@ function buildWhy(team, t, tx, ty) { // '' = ok, else the reason (shared by the 
   const d = BT[t], P = G.players[team]; if (!d || !P || t === 'hq') return 'bad'; if (!avail(team, t)) return 'req';
   if (P.cr < d.cost) return 'cr'; if (P.gas < (d.gas || 0)) return 'gas'; if (!isWallT(t) && conSites(team, d.cat) >= CON_CAP[d.cat]) return 'busy';
   if (tx != null && !canPlace(t, team, tx, ty)) return 'spot'; return ''; }
+function engNear(team, cx, cy) { let best = null, bd = ENG_CC_R; for (const e of G.ents) if (e.kind === 'u' && e.team === team && e.hp > 0 && UT[e.t].engineer) { const d = dhypot(e.x - cx, e.y - cy); if (d <= bd) { bd = d; best = e; } } return best; }
 function placeBuild(team, t, tx, ty) {
-  if (buildWhy(team, t, tx, ty)) return null; const d = BT[t], P = G.players[team];
+  if (buildWhy(team, t, tx, ty)) return null; const d = BT[t], P = G.players[team], eng = t === 'cc' && noYard(team) ? engNear(team, tx + 1.5, ty + 1.5) : null;
   P.cr -= d.cost; P.gas -= d.gas || 0; const b = addB(t, team, tx, ty, false, true); b.paid = d.cost; b.paidG = d.gas || 0;
+  if (eng) { b.eng = 1; eng.hp = 0; eng.sold = true; G.events.push({ e: 'engCC', team, x: b.x, y: b.y }); }
   G.events.push({ e: 'placed', team, b }); return b;
 }
 function buyPiece(team, t, x, y) { const P = G.players[team]; P.cr -= BT[t].cost; const b = addB(t, team, x, y, false, true); b.paid = BT[t].cost; return b; } // bot wall/gate piece: paid, then built on the ground
@@ -435,7 +442,7 @@ function stepConstruction() {
   const yards = {}, lane = {};
   for (const e of G.ents) if (e.kind === 'b' && (e.t === 'hq' || e.t === 'cc') && !e.con && e.hp > 0 && e.sell < 0 && G.time - e.born > 1.5) yards[e.team] = (yards[e.team] || 0) + 1;
   for (const b of G.ents) { if (!b.con || b.hp <= 0 || b.sell >= 0) continue; const d = BT[b.t], P = G.players[b.team]; let rate = 1;
-    if (!isWallT(b.t)) { const k = b.team * 4 + (d.cat === 'def' ? 1 : 0), n = yards[b.team] || 0; if (lane[k] || !n) { b.con.w = 1; continue; } lane[k] = 1; rate = (1 + 0.5 * (n - 1)) * (P.pow < 0 ? 0.5 : 1); }
+    if (!isWallT(b.t)) { const k = b.team * 4 + (d.cat === 'def' ? 1 : 0), n = yards[b.team] || 0; if (b.eng && !n) rate = 1; else { if (lane[k] || !n) { b.con.w = 1; continue; } lane[k] = 1; rate = (1 + 0.5 * (n - 1)) * (P.pow < 0 ? 0.5 : 1); } }
     b.con.w = 0; const dp = Math.min(1 - b.con.p, DT * rate / d.time); b.con.p += dp; b.hp = Math.min(b.mhp, b.hp + b.mhp * (1 - CON_HP0) * dp);
     if (b.con.p >= 0.9999) conDone(b); }
 }
