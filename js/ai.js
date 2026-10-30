@@ -120,6 +120,7 @@ function aiStep(P) {
   aiV62(P, S, cnt, myB);
   const intruders = foes.filter(f => f.kind === 'u' && allyB.some(b => dhypot(b.x - f.x, b.y - f.y) < 10));
   S.underAttack = intruders.length > 0 || G.time - (S.uaT || -99) < 60; if (intruders.length) S.uaT = G.time;
+  if (pw76On(P)) { const al = new Set(); for (const e of G.ents) if (e.kind === 'u' && e.hp > 0 && foe(e.team, P.team)) al.add(e.id); pw76Track(P, S, intruders, al); }
   G.danger = G.danger || {}; G.danger[P.team] = intruders.map(f => ({ x: f.x, y: f.y }));
   const home = army.filter(u => !S.attackers.has(u.id));
   if (VA && !SIOFF.dfn && intruders.length) defend71(P, S, D, me, myB, home, intruders, hq);
@@ -209,12 +210,13 @@ function aiSpot(P, t, hq, foes) {
   const y0 = Math.max(1, Math.floor(ay - d.h / 2 - 15)), y1 = Math.min(MH - d.h, Math.ceil(ay - d.h / 2 + 15)), x0 = Math.max(1, Math.floor(ax - d.w / 2 - 15)), x1 = Math.min(MW - d.w, Math.ceil(ax - d.w / 2 + 15)); // v7.1: same candidates, bounded scan
   for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const dd = dhypot(x + d.w / 2 - ax, y + d.h / 2 - ay); if (dd < 14) cands.push([dd + G.R() * 1.5, x, y]); }
   cands.sort((a, b) => a[0] - b[0]);
-  const g = getBlock();
+  const g = getBlock(), NT = nt76On(P); let ntF = 0;
   for (const [, x, y] of cands) {
     if (!canPlace(t, P.team, x, y)) continue;
     if (P.aiS && P.aiS.lanes && t !== 'wall' && P.aiS.lanes.some(l => dhypot(l.x - x - d.w / 2, l.y - y - d.h / 2) < 1.4 + d.w * 0.5)) continue; // keep entrance lanes open
     // keep 1-tile gap around non-defense buildings so units can flow
     if (d.cat !== 'def') { let ok = true; for (let yy = y - 1; yy <= y + d.h && ok; yy++) for (let xx = x - 1; xx <= x + d.w; xx++) if (inb(xx, yy) && g[idx(xx, yy)] === 2) { ok = false; break; } if (!ok) continue; }
+    if (NT && !nt76Ok(P, x + d.w / 2, y + d.h / 2, nt76Foot(t, x, y), null, false /* 2-wide lane check off: it starved builds in drills */, nt76Src(P, t, x, y))) { if (++ntF >= 8) return null; continue; } // v7.6.5 no-trap
     return [x, y];
   }
   if (d.cat === 'bld' && !aiSpot.inner) { aiSpot.inner = true; try { return aiSpotWide(P, t, hq); } finally { aiSpot.inner = false; } }
@@ -222,6 +224,7 @@ function aiSpot(P, t, hq, foes) {
 }
 // v5.6: crowded base -> look around every own building (expansions too) out to 22 tiles, then without the spacing rule
 function aiSpotWide(P, t, hq) {
+  const NT = nt76On(P); let ntF = 0;
   const d = BT[t], g = getBlock(), anchors = G.ents.filter(e => e.team === P.team && e.kind === 'b' && e.t !== 'wall' && e.t !== 'gate' && e.hp > 0);
   for (const strict of [true, false]) { const cands = [];
     for (const a of anchors) for (let y = Math.max(1, Math.floor(a.y - 9)); y < Math.min(MH - d.h, a.y + 9); y++) for (let x = Math.max(1, Math.floor(a.x - 9)); x < Math.min(MW - d.w, a.x + 9); x++) cands.push([dhypot(x - hq.x, y - hq.y) + (a.t === 'hq' || a.t === 'cc' ? 0 : 3), x, y]);
@@ -229,6 +232,7 @@ function aiSpotWide(P, t, hq) {
     for (const [dd, x, y] of cands) { if (dd > 26) break; const k = y * MW + x; if (k === last) continue; last = k; if (!canPlace(t, P.team, x, y)) continue;
       if (P.aiS && P.aiS.lanes && P.aiS.lanes.some(l => dhypot(l.x - x - d.w / 2, l.y - y - d.h / 2) < 1.2 + d.w * 0.5)) continue;
       if (strict) { let ok = true; for (let yy = y - 1; yy <= y + d.h && ok; yy++) for (let xx = x - 1; xx <= x + d.w; xx++) if (inb(xx, yy) && g[idx(xx, yy)] === 2) { ok = false; break; } if (!ok) continue; }
+      if (NT && !nt76Ok(P, x + d.w / 2, y + d.h / 2, nt76Foot(t, x, y), null, false /* 2-wide lane check off: it starved builds in drills */, nt76Src(P, t, x, y))) { if (++ntF >= 8) return null; continue; } // v7.6.5 no-trap
       return [x, y]; } }
   return null;
 }
@@ -442,6 +446,32 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
 
 // ===== Chief SI extras: rush defense, wounded retreat, coordinated jet strikes w/ escort =====
 const SIOFF = (typeof globalThis !== 'undefined' && globalThis.SIOFF) || {};
+// 4c opt-in experiments (default OFF, so live games and replays are untouched): SION.pw76 = counter-attack window after a won defence,
+// SION.fp76 = France/China 'fortress-punish' style (picked from the game seed, 1 option in 3): heavier static defence, absorb, then punish
+const SION = (typeof globalThis !== 'undefined' && globalThis.SION) || {};
+const pw76On = P => !!G.r76 && isV76(P) && !!(SION.pw76 || SION.fp76) && !P.pwOff;
+function style76(P) { const S = P.aiS; if (S.style76 !== undefined) return S.style76; let st = null;
+  if (SION.fp76 && !P.pwOff && G.r76 && isV76(P) && (P.fac === 'fra' || P.fac === 'chn')) { let h = ((G.opts.seed | 0) ^ Math.imul(P.team + 1, 0x9E3779B1)) >>> 0; h = Math.imul(h ^ (h >>> 15), 0x85EBCA6B) >>> 0; h ^= h >>> 13; if (SION.fp76 === 'all' || h % 3 === 0) st = 'fortress'; }
+  return (S.style76 = st); }
+const fort76 = P => style76(P) === 'fortress';
+// counter-attack window: remember who came in and what they brought; when the attack is beaten (most of it dead, my base clear), open a short window
+function pw76Track(P, S, intruders, alive) {
+  const w = S.pw76 || (S.pw76 = { ids: new Map(), t: 0 }); const ground = intruders.filter(f => !isAir(f) && UT[f.t] && UT[f.t].wpn);
+  for (const f of ground) if (!w.ids.has(f.id)) w.ids.set(f.id, { team: f.team, v: UT[f.t].cost }); if (ground.length) w.t = G.time;
+  if (!w.ids.size || ground.length || G.time - w.t < 6) return;
+  let seen = 0, dead = 0; const by = {}; for (const [id, m] of w.ids) { seen += m.v; by[m.team] = (by[m.team] || 0) + m.v; if (!alive.has(id)) dead += m.v; }
+  w.ids = new Map(); const team = +Object.keys(by).sort((a, b) => by[b] - by[a])[0];
+  if (seen >= 2500 && dead >= seen * 0.65 && G.players[team] && !G.players[team].out) { S.pwOpen = { team, until: G.time + (fort76(P) ? 70 : 50), seen, dead }; G.events.push({ e: 'pw76', team: P.team, foe: team, seen, dead }); G.pw76n = (G.pw76n || 0) + 1; } }
+// in army71: a beaten attacker's army is weak right now -> go at its base with what is idle (lower bar than a normal push)
+function pw76Launch(P, S, idle, av, knownB, hq, allies) {
+  const o = S.pwOpen; if (!o || G.time > o.until) { S.pwOpen = null; return false; } const Q = G.players[o.team]; if (!Q || Q.out) { S.pwOpen = null; return false; }
+  let left = 0; for (const [, m] of S.mem || []) if (m.team === o.team) left += UT[m.t] ? UT[m.t].cost : 0;
+  let def = 0; for (const b of knownB) if (b.team === o.team && BT[b.t].wpn) def += BT[b.t].cost;
+  if (!(idle.length >= 8 && av >= Math.max(3500, left * 1.8 + def))) return false;
+  const tb = knownB.filter(b => b.team === o.team && !BT[b.t].wpn).sort((a, b) => dhypot(a.x - hq.x, a.y - hq.y) - dhypot(b.x - hq.x, b.y - hq.y))[0], st = G.starts[Q.start];
+  const p = G.tp71[P.ally] = { t0: G.time, team: o.team, x: tb ? tb.x : st[0], y: tb ? tb.y : st[1], m: {}, go: G.time, pw: 1 };
+  p.m[P.team] = { rp: { x: p.x, y: p.y }, live: 1, ready: 1 }; launch71(P, S, idle, p); S.grpWp = null; S.pwOpen = null; G.pw76go = (G.pw76go || 0) + 1;
+  G.events.push({ e: 'pw76go', team: P.team, foe: o.team, av, left, def }); return true; }
 function siExtras(P, S, me, foes, knownB, hq, estart, intruders) {
   const ang = datan2(estart[1] - hq.y, estart[0] - hq.x), stage = { x: hq.x + dcos(ang) * 8, y: hq.y + dsin(ang) * 8 };
   const army = me.filter(u => u.kind === 'u' && UT[u.t].wpn && !UT[u.t].air);
@@ -496,10 +526,11 @@ function aiGrowth(P, S, D, cnt, hq, foes) {
   if (P.diff !== 'easy' && !S.walled && G.time > 420 && P.cr > 2500 && G.starts) { S.walled = true;
     const es = G.players.filter(Q => foe(Q.team, P.team)).map(Q => G.starts[Q.start])[0];
     if (es) { const a = datan2(es[1] - hq.y, es[0] - hq.x), cx = Math.floor(hq.x + dcos(a) * 8), cy = Math.floor(hq.y + dsin(a) * 8), px = Math.round(-dsin(a) * 2), py = Math.round(dcos(a) * 2);
-      const tiles = wallLine(cx - px, cy - py, cx + px, cy + py); const mid = tiles[tiles.length >> 1];
+      const tiles = wallLine(cx - px, cy - py, cx + px, cy + py); const mid = tiles[tiles.length >> 1]; const n0 = G.nid;
       if (mid && avail(P.team, 'gate') && canPlace('gate', P.team, mid[0], mid[1]) && P.cr >= BT.gate.cost) { buyPiece(P.team, 'gate', mid[0], mid[1]); }
       buildWalls(P.team, tiles.filter(([x, y]) => !(mid && x === mid[0] && y === mid[1]) && canPlace('wall', P.team, x, y)));
-      if (!aiExitFree(P, hq)) { for (const e of G.ents.filter(e => e.team === P.team && (e.t === 'wall' || e.t === 'gate') && dhypot(e.x - cx, e.y - cy) < 4)) { e.hp = 0; e.dead = true; } G.bver++; } } }
+      if (!aiExitFree(P, hq)) { for (const e of G.ents.filter(e => e.team === P.team && (e.t === 'wall' || e.t === 'gate') && dhypot(e.x - cx, e.y - cy) < 4)) { e.hp = 0; e.dead = true; } G.bver++; }
+      if (nt76On(P)) nt76Walls(P, G.ents.filter(e => e.id >= n0 && e.team === P.team && isWallT(e.t) && e.hp > 0 && !e.dead), cx, cy); } }
   const ok = t => avail(P.team, t) && (S.bad[t] || 0) < G.time && !!aiSpot(P, t, hq, foes);
   const nCC = cnt.cc || 0;
   // expansion: timing scaled by difficulty; more when bases run dry
@@ -651,6 +682,68 @@ function aiExitFree(P, hq) {
   }
   G.curTeam = null; return ok;
 }
+// v7.6.5 no-trap check (si2 only, new games only; SIOFF.nt76 turns it off). Before a bot structure goes down (and right after a bot wall line goes
+// up) flood-fill the map (own gates open) and make sure every source near the spot still gets out: the yard, each barracks / factory exit and each
+// refinery must reach the open map (flood seeded at the map centre and the enemy starts, so a dead-end pocket next to the base does not count as
+// "out"), and the yard / refineries an ore field. A structure may also not squeeze a route that was 2+ tiles wide down to a 1-tile slot (walls are
+// exempt from that: their gates are the lane). add = tiles about to be blocked; pre = tiles of pieces just placed (open terrain in the "before" picture).
+const NT76_R = 22, NT76_SRC = { barracks: 1, factory: 1, hq: 1, cc: 1, refinery: 1 };
+const nt76On = P => !!G.r76 && !!G.nt && isV76(P) && !SIOFF.nt76 && !P.ntOff; // G.nt: replay flag (replays without it = pre-no-trap brain); P.ntOff: test-only per-player switch
+function nt76Flood(o, seeds, W, H) { const N = W * H, r = new Uint8Array(N), q = []; for (const k of seeds) if (o[k] && !r[k]) { r[k] = 1; q.push(k); }
+  for (let h = 0; h < q.length; h++) { const k = q[h], x = k % W;
+    if (x > 0 && !r[k - 1] && o[k - 1]) { r[k - 1] = 1; q.push(k - 1); } if (x < W - 1 && !r[k + 1] && o[k + 1]) { r[k + 1] = 1; q.push(k + 1); }
+    if (k >= W && !r[k - W] && o[k - W]) { r[k - W] = 1; q.push(k - W); } if (k + W < N && !r[k + W] && o[k + W]) { r[k + W] = 1; q.push(k + W); } } return r; }
+function nt76Wide(o, W, H) { const w = new Uint8Array(W * H); for (let y = 0; y < H - 1; y++) for (let x = 0; x < W - 1; x++) { const k = y * W + x; if (o[k] && o[k + 1] && o[k + W] && o[k + W + 1]) w[k] = w[k + 1] = w[k + W] = w[k + W + 1] = 1; } return w; }
+function nt76Ok(P, ax, ay, add, pre, narrow, extraSrc) {
+  const g = getBlock(), team = P.team, N = MW * MH; G.ntChecks = (G.ntChecks || 0) + 1;
+  const bases = G.ents.filter(e => e.team === team && (e.t === 'hq' || e.t === 'cc') && e.hp > 0 && !e.dead && dhypot(e.x - ax, e.y - ay) < NT76_R + 4);
+  if (!bases.length) return true;
+  const gone = new Set(); for (const e of G.ents) if (e.kind === 'b' && (e.dead || e.hp <= 0)) for (let y = e.ty; y < e.ty + e.h; y++) for (let x = e.tx; x < e.tx + e.w; x++) gone.add(idx(x, y)); // torn down this tick, still in the block grid
+  const addS = new Set((add || []).map(([x, y]) => idx(x, y))), preS = new Set((pre || []).map(([x, y]) => idx(x, y)));
+  const fail = why => { G.ntLast = { team, why, t: G.time }; const W = G.ntWhy || (G.ntWhy = {}); W[why] = (W[why] || 0) + 1; G.ntRej = (G.ntRej || 0) + 1; return false; };
+  // sources near the spot
+  const srcs = [];
+  const ring = e => { const t = []; for (let y = e.ty - 1; y <= e.ty + e.h; y++) for (let x = e.tx - 1; x <= e.tx + e.w; x++) if ((x < e.tx || x >= e.tx + e.w || y < e.ty || y >= e.ty + e.h) && inb(x, y)) t.push(idx(x, y)); return t; };
+  for (const e of G.ents.concat(extraSrc || [])) if (e.team === team && e.kind === 'b' && NT76_SRC[e.t] && e.hp > 0 && !e.dead && bases.some(b => dhypot(e.x - b.x, e.y - b.y) < NT76_R - 4)) {
+    const prod = e.t === 'barracks' || e.t === 'factory';
+    srcs.push({ t: prod ? null : ring(e), ore: !prod, ty: e.t, b: e }); }
+  if (!srcs.length) return true;
+  // whole-map pictures: before (pre pieces not there yet) / after (add tiles blocked)
+  const key = team + ':' + G.bver + ':' + G.tick; const CC = G.ntC || (G.ntC = {}); let C = CC[team]; // cache lives on G: per game, never shared across games
+  if (!C || C.key !== key || preS.size) { const o0 = new Uint8Array(N); for (let i = 0; i < N; i++) o0[i] = g[i] === 0 || (g[i] === 3 && G.gateT[i] >= 0 && !foe(G.gateT[i], team)) || (gone.has(i) && !G.map[i]) ? 1 : 0;
+    C = { key, base: o0.slice() }; for (const i of preS) if (!G.map[i]) o0[i] = 1; C.o0 = o0;
+    const sd = G.players.filter(Q => foe(Q.team, team)).map(Q => G.starts[Q.start]).concat([[MW / 2, MH / 2]]).map(([x, y]) => { const f = nearFree(Math.floor(x), Math.floor(y), 10); return idx(f[0], f[1]); }); C.seeds = sd;
+    C.r0 = nt76Flood(o0, sd, MW, MH); C.w0 = null; if (!preS.size) CC[team] = C; }
+  const o1 = C.base.slice(); for (const i of addS) o1[i] = 0;
+  const has = (r, t) => t.some(k => r[k]), near = (r, t) => t.some(k => r[k] || (k % MW > 0 && r[k - 1]) || (k % MW < MW - 1 && r[k + 1]) || (k >= MW && r[k - MW]) || (k + MW < N && r[k + MW]));
+  const r1 = nt76Flood(o1, C.seeds, MW, MH);
+  const T0 = s => s.t || nt76Spawn(C.o0, s.b), T1 = s => s.t || nt76Spawn(o1, s.b);
+  for (const s of srcs) if (has(C.r0, T0(s)) && !has(r1, T1(s))) return fail('out-cut:' + s.ty);
+  if (narrow) { if (!C.w0) { C.w0 = nt76Flood(nt76Wide(C.o0, MW, MH), C.seeds, MW, MH); } const w1 = nt76Flood(nt76Wide(o1, MW, MH), C.seeds, MW, MH);
+    const near2 = (r, t) => t.some(k => { const x = k % MW, y = (k / MW) | 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (inb(x + dx, y + dy) && r[idx(x + dx, y + dy)]) return true; return false; }); // a 2-wide lane within 2 tiles of the spawn / ring
+    for (const s of srcs) if (near2(C.w0, T0(s)) && !near2(w1, T1(s))) return fail('out-narrow:' + s.ty); }
+  // ore: yard / refineries must keep a route to an ore tile within reach of their base (local box)
+  const oreS = srcs.filter(s => s.ore); if (!oreS.length) return true;
+  const oreSeeds = []; for (const b of bases) { const R = NT76_R; for (let y = Math.max(0, Math.floor(b.y - R)); y <= Math.min(MH - 1, b.y + R); y++) for (let x = Math.max(0, Math.floor(b.x - R)); x <= Math.min(MW - 1, b.x + R); x++) { const i = idx(x, y); if (G.ore[i] > 0) oreSeeds.push(i); } }
+  if (!oreSeeds.length) return true;
+  const q0 = nt76Flood(C.o0, oreSeeds.filter(i => C.o0[i]), MW, MH), q1 = nt76Flood(o1, oreSeeds.filter(i => o1[i]), MW, MH);
+  for (const s of oreS) if (has(q0, s.t) && !has(q1, s.t)) return fail('ore-cut:' + s.ty);
+  return true;
+}
+// the tile spawnUnit would put a new unit on, given an open-tiles picture o (1 = free)
+function nt76Spawn(o, b) { const x = Math.floor(b.x), y = Math.floor(b.ty + b.h + 0.5);
+  for (let r = 0; r <= 12; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; const nx = x + dx, ny = y + dy; if (inb(nx, ny) && o[idx(nx, ny)]) return [idx(nx, ny)]; }
+  return [idx(Math.min(MW - 1, x), Math.min(MH - 1, y))]; }
+const nt76Src = (P, t, x, y) => NT76_SRC[t] ? [{ team: P.team, kind: 'b', t, hp: 1, tx: x, ty: y, w: BT[t].w, h: BT[t].h, x: x + BT[t].w / 2, y: y + BT[t].h / 2 }] : null;
+// walls just placed (pieces): if they cut a source off, swap the piece nearest the line centre for a gate, then tear the rest down (half refund, as before)
+function nt76Walls(P, placed, cx, cy) {
+  const live = () => placed.filter(b => b.hp > 0 && !b.dead), tiles = () => live().map(b => [b.tx, b.ty]);
+  if (nt76Ok(P, cx, cy, null, tiles(), false)) return true;
+  const w = live().filter(b => b.t === 'wall' || b.t === 'gtower').sort((a, b) => dhypot(a.x - cx, a.y - cy) - dhypot(b.x - cx, b.y - cy) || a.id - b.id)[0];
+  if (w && avail(P.team, 'gate')) { w.hp = 0; w.dead = true; P.cr += Math.floor(BT.wall.cost * 0.6); G.bver++; if (P.cr >= BT.gate.cost) { placed.push(buyPiece(P.team, 'gate', w.tx, w.ty)); G.bver++; } if (nt76Ok(P, cx, cy, null, tiles(), false)) return true; } // the torn wall's tile is free terrain (the dead piece leaves the grid at the end of the tick)
+  for (const b of live()) if (b.t === 'wall' || b.t === 'gtower') { P.cr += Math.floor(BT.wall.cost * 0.5); b.hp = 0; b.dead = true; } G.bver++; G.ntTorn = (G.ntTorn || 0) + 1; return false;
+}
+const nt76Foot = (t, x, y) => { const d = BT[t], o = []; for (let yy = y; yy < y + d.h; yy++) for (let xx = x; xx < x + d.w; xx++) o.push([xx, yy]); return o; };
 function aiWallEntrance(P, en, half, off, rsv) {
   // v5.4: always leave a gate lane, never seal the base; roll back if exit path dies
   const a = datan2(en.y - en.b.y, en.x - en.b.x), cx = en.x + dcos(a) * (off || 2.2), cy = en.y + dsin(a) * (off || 2.2), px = -dsin(a), py = dcos(a), tiles = [], seen = new Set();
@@ -662,6 +755,7 @@ function aiWallEntrance(P, en, half, off, rsv) {
     const gx = Math.floor(cx), gy = Math.floor(cy); if (inb(gx, gy) && avail(P.team, 'gate') && P.cr >= BT.gate.cost) {
       for (const e of G.ents) if (e.kind === 'b' && e.team === P.team && e.t === 'wall' && e.tx === gx && e.ty === gy) { P.cr += Math.floor(BT.wall.cost * 0.5); e.hp = 0; e.dead = true; }
       if (canPlace('gate', P.team, gx, gy)) { placed.push(buyPiece(P.team, 'gate', gx, gy)); n++; gates++; } } }
+  if (!gates && nt76On(P)) return; // v7.6.5: no gate lane (centre on a cliff / no money for a gate) -> no wall line at all (the seed-77 '5 walls, 0 gates' case)
   for (const [x, y, k] of tiles) if (k >= 1.1) { if (!avail(P.team, 'wall') || P.cr < BT.wall.cost + (rsv ?? 300) || !canPlace('wall', P.team, x, y)) continue; placed.push(buyPiece(P.team, 'wall', x, y)); n++; }
   if (n) { G.bver = (G.bver || 0) + 1; G.events.push({ e: 'walls', team: P.team, n }); }
   // verify exit; if sealed, convert centre walls to gates or tear the last wall segment
@@ -670,6 +764,7 @@ function aiWallEntrance(P, en, half, off, rsv) {
     G.bver = (G.bver || 0) + 1;
     if (!aiExitFree(P, en.b)) { for (const b of placed) if (b.hp > 0) { P.cr += Math.floor(BT[b.t].cost * 0.5); b.hp = 0; b.dead = true; } G.bver++; }
   }
+  if (n && nt76On(P)) nt76Walls(P, placed, cx, cy); // v7.6.5: the wall line may not cut a barracks / factory / refinery off (aiExitFree only checks the yard)
 }
 // production targets: many factories / barracks / airfields (never sit on money)
 function prodTarget(P, S, D, cnt, hq, foes) {
@@ -888,6 +983,8 @@ const AI_ORDER_SI71 = ['power', 'barracks', 'refinery', 'power', 'extractor', 'f
 function defPlan71(P, S, tier) {
   if (isV76(P) && !SIOFF.im76 && infMass76(S) && tier >= 3 && P.fac !== 'fra') { const T = facDef(P, 'tesla'); return [['turret', 1], [T, 2], ['aagun', S.eAir > 1500 ? 1 : 0], [T, 3]]; } // cannon turrets do 0.35x to infantry: Tesla clusters instead
   const air = S.eAir > 1500 ? Math.min(3, Math.ceil(S.eAir / 3000)) : 0;
+  if (fort76(P) && tier >= 3) { if (P.fac === 'fra') return tier === 3 ? [['gatling', 2], ['gcannon', 2], ['turret', 2], ['aagun', air ? 1 : 0], ['gatling', 3], ['gcannon', 3]] : [['gatling', 3], ['gcannon', 3], ['turret', 2], ['aagun', Math.max(1, air)], ['gatling', 4], ['gcannon', 5]]; // Grand Cannon lines
+    if (P.fac === 'chn') return tier === 3 ? [['turret', 2], ['tesla', 2], ['aagun', air ? 1 : 0], ['turret', 3]] : [['turret', 3], ['tesla', 3], ['aagun', Math.max(1, air)], ['turret', 4], ['tesla', 4]]; } // + Great Wall / Ballista managers as usual
   if (P.fac === 'fra') return tier === 1 ? [['turret', 2]] : tier === 2 ? [['turret', 2], ['aagun', air ? 1 : 0]] : tier === 3 ? [['gatling', 2], ['turret', 2], ['gcannon', 1], ['aagun', air ? 1 : 0], ['gatling', 3]] : [['gatling', 3], ['gcannon', 2], ['turret', 2], ['aagun', air], ['gatling', 4], ['gcannon', 3]];
   if (P.fac === 'chn') return tier === 1 ? [['turret', 1]] : tier === 2 ? [['turret', 2]] : tier === 3 ? [['turret', 2], ['tesla', 1], ['aagun', air ? 1 : 0]] : [['turret', 2], ['tesla', 2], ['aagun', air]];
   const T = facDef(P, 'tesla'); return tier <= 2 ? [['turret', tier]] : tier === 3 ? [['turret', 2], [T, 1], ['aagun', air ? 1 : 0]] : [['turret', 2], [T, 2], ['aagun', air]]; }
@@ -909,11 +1006,13 @@ function army71(P, S, D, me, foes, knownB, idle, intruders, hq, estart) { // ret
   if (p && p.go && !p.m[P.team] && G.time - p.go < 40 && av >= 1500 && idle.length >= 5) { p.m[P.team] = { rp: { x: p.x, y: p.y }, live: 1, ready: 1 }; launch71(P, S, idle, p); S.grpWp = null; return true; } // late joiner: straight in as a reinforcement wave
   if (p && !p.go && !p.m[P.team] && av >= 1500 && idle.length >= 5) { p.m[P.team] = { rp: rally71(p, P, hq), live: 1 }; launch71(P, S, idle, p); return true; }
   if (p) return false;
+  if (pw76On(P) && S.pwOpen && pw76Launch(P, S, idle, av, knownB, hq)) return true;
   // create a plan: whole-team available army vs remembered enemy army + their static D at the target
   const allies = G.players.filter(Q => Q.ally === P.ally && !Q.out && Q.ai && isV71(Q)); let teamAv = 0;
   for (const Q of allies) teamAv += Q === P ? av : (Q.aiS.av71 || 0);
   const eArmy = S.compTot || 0, fortF = G.players.some(Q => foe(Q.team, P.team) && !Q.out && FORT71[Q.fac]) ? 1.3 : 1, dPrior = SIOFF.dp ? Math.max(S.eDef71 || 0, G.time * 4) : Math.max((S.eDef71 || 0) * 1.2, Math.min(Math.max(0, G.time - 60) * 34, 18000) * fortF), need0 = Math.max(2800 + G.time * 3, eArmy * 1.15 + dPrior * (SIOFF.x ? 0.6 : 0.95)) * (allies.length > 1 ? 1 : 0.85); let need = need0;
   const n76 = isV76(P) && !SIOFF.nd76 ? need76(P, S, knownB, hq, allies) : null; if (n76) need = n76.need;
+  if (fort76(P) && !maxed) need *= 1.4; // fortress style: sit behind the defences, let them come, punish via the window above
   if (D.nick) { if (!(popOf(P.team) >= POP_CAP - 8 && idle.length >= 30)) return false; need = 0; }
   S.need71 = need; const timing = n76 ? G.time > 300 && av >= 2500 && G.time - S.lastAttack > 90 && (allies.length > 1 && !SIOFF.ts76 ? teamAv >= need * 1.05 && av >= Math.min(need * 0.3, 5000) : av >= need * 0.8 || teamAv >= need * 0.7 && G.time - S.lastAttack > 150) : G.time > 360 && av >= 3000 && G.time - S.lastAttack > 150 && av >= need * (SIOFF.x ? 0.7 : 0.9);
   if (G.time < 300 && teamAv < Math.max(need, SIOFF.ea ? 0 : (eArmy * 1.15 + Math.max(S.eDef71 || 0, 2400)) * 0.85) * (SIOFF.dp ? 2 : fortF > 1 && G.time < 300 ? 2.4 : 1.5)) return false; // no blind early all-ins into unscouted towers
