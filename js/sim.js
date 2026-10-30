@@ -381,7 +381,7 @@ function avail(team, t) {
 // found a new Command Center next to itself: placed within ENG_CC_R tiles of one of its engineers, which walks in and is used up; the site builds without a yard.
 const ENG_CC_R = 9;
 function noYard(team) { return !G.ents.some(e => e.kind === 'b' && e.team === team && (e.t === 'hq' || e.t === 'cc') && e.hp > 0 && e.sell < 0); }
-function engFound(team) { return noYard(team) && G.ents.some(e => e.kind === 'u' && e.team === team && e.hp > 0 && UT[e.t].engineer); }
+function engFound(team) { return G.r76 && noYard(team) && G.ents.some(e => e.kind === 'u' && e.team === team && e.hp > 0 && UT[e.t].engineer); }
 function catOf(t) { return BT[t] ? BT[t].cat : FROMCAT[UT[t].from]; }
 function getBlock() {
   if (G.blockVer === G.bver) return G.block;
@@ -407,7 +407,7 @@ function canPlace(t, team, tx, ty) {
   const onVent = (G.vents || []).some(([vx, vy]) => vx >= tx && vx < tx + d.w && vy >= ty && vy < ty + d.h);
   if ((t === 'extractor') !== onVent) return false;
   for (const e of G.ents) if (e.kind === 'u' && !isAir(e) && foe(e.team, team) && e.x > tx && e.x < tx + d.w && e.y > ty && e.y < ty + d.h) return false;
-  if (t === 'cc') { const cx = tx + 1.5, cy = ty + 1.5; if (G.ents.some(e => e.kind === 'b' && foe(e.team, team) && dhypot(e.x - cx, e.y - cy) < 12)) return false; if (G.ents.some(e => e.kind === 'b' && (e.t === 'cc' || e.t === 'hq') && dhypot(e.x - cx, e.y - cy) < 9)) return false; if (noYard(team)) return !!engNear(team, cx, cy); return !!G.seenT[team][idx(Math.floor(cx), Math.floor(cy))] || G.ents.some(e => e.kind === 'b' && e.team === team && dhypot(e.x - cx, e.y - cy) < 26); }
+  if (t === 'cc') { const cx = tx + 1.5, cy = ty + 1.5; if (G.ents.some(e => e.kind === 'b' && foe(e.team, team) && dhypot(e.x - cx, e.y - cy) < 12)) return false; if (G.ents.some(e => e.kind === 'b' && (e.t === 'cc' || e.t === 'hq') && dhypot(e.x - cx, e.y - cy) < 9)) return false; if (G.r76 && noYard(team)) return !!engNear(team, cx, cy); return !!G.seenT[team][idx(Math.floor(cx), Math.floor(cy))] || G.ents.some(e => e.kind === 'b' && e.team === team && dhypot(e.x - cx, e.y - cy) < 26); }
   if (G.derricks && G.derricks.some(o => o.x > tx && o.x < tx + d.w && o.y > ty && o.y < ty + d.h)) return false; // v6.0: never build on top of a derrick/outpost post
   if (G.derricks && t !== 'extractor' && G.derricks.some(o => o.op && o.owner === team && tx < o.x + OUTPOST_R && tx + d.w > o.x - OUTPOST_R && ty < o.y + OUTPOST_R && ty + d.h > o.y - OUTPOST_R)) return true; // v6.0 captured outpost = forward build radius
   return G.ents.some(e => { if (e.kind !== 'b' || e.team !== team || e.t === 'wall' || e.t === 'gtower') return false; const R = e.t === 'hq' || e.t === 'cc' ? 10 : t === 'extractor' ? 12 : 5; return tx < e.tx + e.w + R && tx + d.w > e.tx - R && ty < e.ty + e.h + R && ty + d.h > e.ty - R; });
@@ -426,7 +426,7 @@ function buildWhy(team, t, tx, ty) { // '' = ok, else the reason (shared by the 
   if (tx != null && !canPlace(t, team, tx, ty)) return 'spot'; return ''; }
 function engNear(team, cx, cy) { let best = null, bd = ENG_CC_R; for (const e of G.ents) if (e.kind === 'u' && e.team === team && e.hp > 0 && UT[e.t].engineer) { const d = dhypot(e.x - cx, e.y - cy); if (d <= bd) { bd = d; best = e; } } return best; }
 function placeBuild(team, t, tx, ty) {
-  if (buildWhy(team, t, tx, ty)) return null; const d = BT[t], P = G.players[team], eng = t === 'cc' && noYard(team) ? engNear(team, tx + 1.5, ty + 1.5) : null;
+  if (buildWhy(team, t, tx, ty)) return null; const d = BT[t], P = G.players[team], eng = t === 'cc' && G.r76 && noYard(team) ? engNear(team, tx + 1.5, ty + 1.5) : null;
   P.cr -= d.cost; P.gas -= d.gas || 0; const b = addB(t, team, tx, ty, false, true); b.paid = d.cost; b.paidG = d.gas || 0;
   if (eng) { b.eng = 1; eng.hp = 0; eng.sold = true; G.events.push({ e: 'engCC', team, x: b.x, y: b.y }); }
   G.events.push({ e: 'placed', team, b }); return b;
@@ -460,7 +460,7 @@ function placeReady(team, cat, tx, ty) {
 function resvOf(P) { let r = 0; for (const cat of ['bld', 'def']) { if (P.ready[cat]) { r += BT[P.ready[cat]].cost; continue; } const it = P.queues[cat][0]; if (it && BT[it.t]) r += Math.round(BT[it.t].cost * Math.min(1, it.acc || 0)); } return r; } // v7.2: a pending order sets money aside at twice the old build pace (2 x cost/time per second), so the rest of the income stays spendable
 // A bot "thinks" with its spendable credits only (the reserved price is already committed, as the old queue had spent it);
 // the reservation is handed back only for the moment it actually places the structure.
-function aiThink(P) { const r = Math.max(0, Math.min(P.cr, resvOf(P))); P.cr -= r; P._rv = r; try { aiStep(P); } finally { P.cr += P._rv; P._rv = 0; } }
+function aiThink(P) { const r = Math.max(0, Math.min(P.cr, resvOf(P))); P.cr -= r; P._rv = r; try { aiStep(P); } finally { P.cr += P._rv; P._rv = 0; if (P._rvG) { P.gas += P._rvG; P._rvG = 0; } } }
 // ---------- production ----------
 const POP_CAP = 100;
 function popOf(team) { let n = 0; for (const e of G.ents) if (e.team === team && e.kind === 'u' && e.t !== 'harv') n++; const P = G.players[team]; for (const c of ['inf', 'veh', 'air']) n += P.queues[c].filter(q => q.t !== 'harv').length; return n; }
