@@ -48,7 +48,7 @@ function startGame(diff, opts) {
   G.vis = G.visT[ME]; G.seen = G.seenT[ME];
   G.players.forEach((P, i) => P.name = (G.opts.slots[i] || {}).name || (P.ai ? DIFF_NAME(P.diff) : 'You'));
   if (opts.replay) { G.replay = { cmds: opts.replay.cmds || [], hash: opts.replay.hash || [], i: 0, checked: 0, bad: 0 }; G.spectate = true; G.watch = true; G.opts.fog = false; document.body.classList.add('watching'); RPL.on = false; RPL.data = null; G.players.forEach((P, i) => P.name = (opts.replay.slots[i] || {}).name || P.name); }
-  else recStart();
+  else { recStart(); keepLastReplay(); }
   if (opts.online) NET.begin(opts.online.tr, opts.online);
   if (G.players[ME].ai && !opts.demo) { DIR.auto = !!QS.get('auto'); G.spectate = true; G.watch = true; document.body.classList.add('watching'); }
   { const ff = +QS.get('ff') || 0, fft = +QS.get('fft') || ff * 30; for (let i = 0; i < fft && !G.over; i++) { stepGame(); if (G.watch) director(DT); G.events.length = 0; } }
@@ -118,13 +118,17 @@ function simSanitize() {
   if (G.events.length > 3000) G.events.length = 0;
 }
 // v5.2 replays: save (download a small .json) / load (file picker on the menu)
+// v7.6: exactly one 'last game' replay is kept on this device: replaced the moment a new game starts, refreshed every 30 s, at the end, on quit / Play again and when the page closes
+function keepLastReplay() { try { if (typeof RPL !== 'undefined' && RPL.on && RPL.data) { const s = replayFile(); if (s) localStorage.setItem('ifLastReplay', s); } } catch (e) {} }
+function dlReplay(s, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([s], { type: 'application/json' })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+addEventListener('pagehide', keepLastReplay); addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') keepLastReplay(); });
 function saveReplay() { const s = replayFile(); if (!s) { uiMsg && uiMsg('No replay recorded for this game'); return; } try { localStorage.setItem('ifLastReplay', s); } catch (e) {}
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([s], { type: 'application/json' })); a.download = 'ironfront-replay-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.json'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
 function loadReplay(d) { if (!d || d.game !== 'ironfront' || !d.slots) { alert('Not an Iron Front replay file'); return; } audioInit && audioInit();
   startGame(d.diff || 'normal', { replay: d, r76: d.r76 ? 1 : 0, seed: d.seed, map: d.map, peace: d.peace, fog: d.fog, me: d.me || 0, slots: d.slots.map((s, i) => Object.assign({}, s, { local: i === (d.me || 0) && !s.ai })) }); }
 window.addEventListener('DOMContentLoaded', () => {
   { const rb = document.getElementById('replayBtn'), rf = document.getElementById('replayFile'); if (rb && rf) { rb.onclick = () => rf.click(); rf.onchange = () => { const f = rf.files[0]; if (!f) return; f.text().then(t => loadReplay(JSON.parse(t))).catch(e => alert('Could not read replay: ' + e.message)); }; }
-    const lb = document.getElementById('lastReplayBtn'); if (lb) { let has = false; try { has = !!localStorage.getItem('ifLastReplay'); } catch (e) {} lb.style.display = has ? '' : 'none'; lb.onclick = () => { try { loadReplay(JSON.parse(localStorage.getItem('ifLastReplay'))); } catch (e) { alert('No saved replay'); } }; }
+    const lb = document.getElementById('lastReplayBtn'); if (lb) { let has = false; try { has = !!localStorage.getItem('ifLastReplay'); } catch (e) {} lb.style.display = has ? '' : 'none'; const ld = document.getElementById('lastReplayDl'); if (ld) { ld.style.display = has ? '' : 'none'; ld.onclick = () => { const s = localStorage.getItem('ifLastReplay'); if (!s) return alert('No saved replay'); let d = ''; try { d = (JSON.parse(s).date || '').slice(0, 16).replace(/[:T]/g, '-'); } catch (e) {} dlReplay(s, 'ironfront-replay-' + (d || 'last') + '.json'); }; } lb.onclick = () => { try { loadReplay(JSON.parse(localStorage.getItem('ifLastReplay'))); } catch (e) { alert('No saved replay'); } }; }
     const sb = document.getElementById('saveRepBtn'); if (sb) sb.onclick = saveReplay; }
   if (typeof THREE === 'undefined') { document.getElementById('err').style.display = 'block'; document.getElementById('err').textContent = 'Three.js failed to load (vendor/three.min.js)'; return; }
   let diff = 'normal';
@@ -141,7 +145,7 @@ window.addEventListener('DOMContentLoaded', () => {
   onlInitUI();
   document.getElementById('surrBtn').onclick = () => { if (!started || G.over) return; if (confirm('Surrender this match?')) { NET.issue({ c: 'surrender' }); document.getElementById('pause').style.display = 'none'; paused = false; } };
   document.getElementById('resumeBtn').onclick = () => togglePause();
-  document.querySelectorAll('.quitBtn').forEach(b => b.onclick = () => location.href = location.pathname);
+  document.querySelectorAll('.quitBtn').forEach(b => b.onclick = () => { keepLastReplay(); location.href = location.pathname; });
   if (QS.get('v34')) { startGame('easy', { seed: 4242 }); G.opts.fog = false; G.spectate = true; G.players[0].fac = 'fra'; G.players[1].fac = 'rus'; G.players[1].ai = false;
     for (const [t, x, y] of [['power', 4, 12], ['barracks', 11, 3], ['refinery', 11, 12], ['factory', 15, 6], ['tech', 3, 15]]) addB(t, 0, x, y, true).born = -10;
     const v = G.vents[0]; addB('extractor', 0, v[0], v[1], true).born = -10; addB('gcannon', 0, 16, 14, true).born = -10; const tu = addB('turret', 0, 19, 12, true); tu.born = -10; tu.lvl = 3;
