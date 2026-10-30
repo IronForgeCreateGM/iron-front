@@ -105,3 +105,14 @@
   - Bots answer marine mass with artillery, Tesla and Raijin.
   - Faction signature plans.
   - Look at the stall seed 77 gate case.
+
+## 2026-10-30 (late): v7.6.2 map graphics + full screen — 5b PARTIAL, not pushed
+- Status: not live. Live stays v7.6.1. The work sits in local commits on master (c30f3ab..10a8cf7), not pushed, because it ran past the 11 PM push cutoff and the full test pass was not finished.
+- Done (local):
+  - Textured ground for all 4 themes (colour + normal maps, worn dirt paths on grass). `?tex=0` turns it off.
+  - Detailed Blender props with low-detail LOD1 versions: trees, rocks, debris, ruins, bridge, crystals, ice shards, lava rocks. `?props=0` turns them off. Quiet, Low and phone use LOD1.
+  - Full screen: web app manifest, iOS meta tags, safe-area padding, a full-screen button (Fullscreen API) and a one-time iPhone "Add to Home Screen" tip.
+  - Size: about 3.5 MB of new model/texture files.
+- Bug found and fixed: on desert maps (Hellgate, Endless) the new GLB rocks made units and some buildings render near-black. Desert now keeps the old procedural rocks; units are lit and team-coloured again (0 page errors on both maps).
+- Not done: det73/det74 re-run (the run hung and was stopped), in-browser fixed-seed hash, replay check, full suite, fresh after shots for every map, version bump to v7.6.2, push.
+- Next: find the real cause of the desert darkening so desert can get GLB rocks too; run the full verification; bump and push.
