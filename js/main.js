@@ -9,7 +9,7 @@ const MENU = { fac: 'usa', aiFac: 'rand' };
 // Old options (lobby rows, presets, URLs, Endless/online backfill) map to the nearest: hard/chief/si -> Hard. Replays keep their recorded profiles.
 const DIFF_MAP = { easy: 'easy', normal: 'normal', medium: 'normal', hard: 'si', chief: 'si', si: 'si' };
 const normDiff = d => DIFF_MAP[d] || d;
-const liveDiff = d => d === 'si' ? 'si2' : d; // v7.6: the lobby's 'Hard AI' plays the reworked brain; replays keep their recorded diff
+const liveDiff = d => d; // v7.6.0: lobby 'Hard AI' stays on the v7.5.1 'si' brain (the v7.6 'si2' layer lost 1-3 to it in the release bench; kept for 4b-continued). Replays keep their recorded diff
 const DIFF_NAME = d => ({ si: 'Hard AI', si2: 'Hard AI', chief: 'Hard AI', easy: 'Easy AI', normal: 'Medium AI', hard: 'Hard AI' })[d] || d;
 const SLOT_TYPES = { off: 'Closed', human: 'You', remote: 'Human (remote)', easy: 'Easy AI', normal: 'Medium AI', si: 'Hard AI' };
 // v7.5.1: presets alternate A/B so each row sits on its team's side (lobby row N = map spot N; odd spots west, even spots east)

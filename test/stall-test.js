@@ -10,7 +10,7 @@ function exitFree(P) {
 }
 
 function run(map, seed) {
-  const slots = [0, 2, 4, 3, 1, 5].map((start, i) => ({ ai: true, diff: i < 3 ? 'si' : 'hard', ally: i < 3 ? 0 : 1, start, fac: 'fra' }));
+  const slots = [0, 2, 4, 3, 1, 5].map((start, i) => ({ ai: true, diff: i < 3 ? (process.env.SD || 'si') : 'hard', ally: i < 3 ? 0 : 1, start, fac: 'fra' }));
   A.newGame({ seed, map, slots });
   let mid = null;
   for (let n = 0; n < 16 * 60 * 30 && !A.G.over; n++) {
