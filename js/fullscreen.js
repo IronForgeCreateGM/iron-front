@@ -2,7 +2,7 @@
 // ===== v7.6.2 Full screen: Fullscreen API where it exists (iPad, Mac, Android, desktop); iPhone Safari has none, so tip "Add to Home Screen" =====
 const FS = {
   el: () => document.documentElement,
-  sup() { const d = FS.el(); return !!((d.requestFullscreen || d.webkitRequestFullscreen) && (document.fullscreenEnabled || document.webkitFullscreenEnabled)); },
+  sup() { if (FS.iphone()) return false; const d = FS.el(); return !!((d.requestFullscreen || d.webkitRequestFullscreen) && (document.fullscreenEnabled || document.webkitFullscreenEnabled)); },
   on: () => !!(document.fullscreenElement || document.webkitFullscreenElement),
   app: () => !!((window.matchMedia && (matchMedia('(display-mode: fullscreen)').matches || matchMedia('(display-mode: standalone)').matches)) || navigator.standalone === true),
   iphone: () => /iPhone|iPod/.test(navigator.userAgent),
@@ -14,8 +14,8 @@ const FS = {
   },
   async toggle() {
     try {
-      if (FS.on()) { if (document.exitFullscreen) await document.exitFullscreen(); else if (document.webkitExitFullscreen) document.webkitExitFullscreen(); return; }
-      if (FS.sup()) { const d = FS.el(); if (d.requestFullscreen) await d.requestFullscreen({ navigationUI: 'hide' }); else d.webkitRequestFullscreen(); try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape'); } catch (e) { } return; }
+      if (FS.on()) { if (document.exitFullscreen) await document.exitFullscreen(); else if (document.webkitExitFullscreen) document.webkitExitFullscreen(); FS.upd(); return; }
+      if (FS.sup()) { const d = FS.el(); if (d.requestFullscreen) await d.requestFullscreen({ navigationUI: 'hide' }); else d.webkitRequestFullscreen(); try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => { }); } catch (e) { } FS.upd(); return; }
     } catch (e) { }
     FS.tip(true); // iPhone Safari (or a refused request): explain the home-screen route
   },
