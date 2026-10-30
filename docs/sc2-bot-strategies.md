@@ -41,6 +41,12 @@ every v7.6.1 piece has a `SIOFF` flag so it can be switched off for ablation tes
 | **Combat sim** | Ares/sharpy `EngagementResult`: simulate with every friendly unit in the area | retreat/avoid sims now count allied units within 12–14 tiles, so bots fighting together no longer each run away from a ball they beat together | `as76` |
 | **Joint defence** | sharpy PlanZoneDefense pulls all nearby forces | `teamHome76`: when an ally is hit, each bot's help sim counts the other bots' idle home armies that answer the same call, so the whole team arrives instead of nobody | `jd76` |
 | **Army / timing** | "Gather then move as one", attack at power spikes (Eris, Overclock) | `stage76`: one shared staging point ~28 tiles short of the target on the team's side (out of the defender's reach) instead of separate rally points 17 tiles from its base; waits up to 100 s for every member; plans with no live member reset after 20 s instead of blocking the team for 200 s | `tg76`, `ps76` |
+| **Macro (greed window)** | SC2 bots go greedy when no attack can arrive (scouted-safe economy) | `pg76`: during a long peace (≥ 5 min) bots take 2 extra refineries on the main before expanding; 1v1 vs the sparring profile: 115k vs 97k mined and 52k vs 41k army at 8:00 (was 37k) | `pg76` |
+
+### Release bench (v7.6.1, Oct 30 2026)
+- si2 vs v7.6.0 si, 6 full games (30-min cap): 5-1 (4 knockouts + 1 on points; the loss is classic seed 8 si Japan vs si2 USA).
+- 3 si2 vs the sparring profile on frost, peace 8:00: 3/3 knockouts at 12.3, 14.0 and 12.9 min (seeds 9, 4, 12). The v7.6.0 si bots only led on points at 20 min.
+- 1v1 si2 Brazil vs the sparring profile: 1-1 (seed 4 si2 on points at 25 min, seed 9 the profile won at 24.3 min).
 
 ### Ordered plan for what is not done yet
 1. Counter-attack window: after a won defense (enemy army < 50 % of ours), launch the team immediately (SC2 "punish after hold").
