@@ -13,8 +13,8 @@ if (!process.env.DET_SKIPNODE) { const ctx = { console }; vm.createContext(ctx);
   for (const [seed, d0, d1] of [[11, 'hard', 'hard'], [202, 'normal', 'hard'], [3003, 'easy', 'normal']]) {
     ctx.A.newGame({ seed, map: 'classic', slots: [{ ai: true, diff: d0, ally: 0, start: 0 }, { ai: true, diff: d1, ally: 1, start: 3 }] }); const hs = [];
     for (let n = 1; n <= 30 * 60 * 8 && !ctx.A.G.over; n++) { ctx.A.stepGame(); ctx.A.G.events.length = 0; if (n % 1800 === 0) hs.push(H(ctx.A.st())); }
-    out.push(`node seed ${seed} ${d0}v${d1}: ${hs.join(' ')} over=${ctx.A.G.over || '-'}`); } }
-(async () => {
+    console.log(`node seed ${seed} ${d0}v${d1}: ${hs.join(' ')} over=${ctx.A.G.over || '-'}`); out.push(`node seed ${seed} ${d0}v${d1}: ${hs.join(' ')} over=${ctx.A.G.over || '-'}`); } }
+(async () => { if (process.env.DET_SKIPBROWSER) return;
   const { chromium } = require('playwright-core');
   const br = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'] });
   const pg = await br.newPage({ viewport: { width: 1200, height: 800 } }); const errs = []; pg.on('pageerror', e => errs.push(e.message));
@@ -29,7 +29,7 @@ if (!process.env.DET_SKIPNODE) { const ctx = { console }; vm.createContext(ctx);
     const h = await pg.evaluate(([k, S]) => { const P = G.players.find(p => !p.ai);
       if (k === 2) { P.cr = 20000; const hq = G.ents.find(e => e.t === 'hq' && e.team === P.team); let n = 0; for (const t of ['power', 'barracks', 'refinery', 'factory']) { outer: for (let r = 4; r < 20; r++) for (let dx = -r; dx <= r; dx++) for (const dy of [-r, r]) { const x = hq.tx + dx, y = hq.ty + dy; if (!buildWhy(P.team, t, x, y)) { execCmd(P.team, { c: 'build', t, x, y }); n++; break outer; } } } }
       for (let i = 0; i < 60; i++) stepGame(); return k % 30 === 29 ? eval(S) : null; }, [k, STATE]);
-    if (h) hs.push(require('crypto').createHash('sha1').update(h).digest('hex').slice(0, 12));
+    if (process.env.DET_PROG) process.stderr.write(k + ' '); if (h) hs.push(require('crypto').createHash('sha1').update(h).digest('hex').slice(0, 12));
     await pg.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))); }
   const gst = await pg.evaluate(() => typeof GLB === 'undefined' ? 'noGLB' : 'on=' + GLB.on + ' ' + JSON.stringify(Object.values(GLB.st).reduce((a, v) => (a[v] = (a[v] || 0) + 1, a), {})));
   out.push(`browser seed 7 (render on, glb ${process.env.DET_GLB === '0' ? 'off' : 'on'}): ${hs.join(' ')} pageErrors=${errs.length}${errs.length ? ' ' + errs[0] : ''} glb=${gst}`);
