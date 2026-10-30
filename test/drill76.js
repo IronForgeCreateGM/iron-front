@@ -3,7 +3,7 @@ const fs = require('fs'), vm = require('vm'), path = require('path');
 globalThis.SIOFF = {}; (process.env.SIOFF || '').split(',').filter(Boolean).forEach(k => SIOFF[k] = 1);
 vm.runInThisContext(['data.js', 'sim.js', 'ai.js'].map(f => fs.readFileSync(path.join(__dirname, '../js', f), 'utf8')).join('\n') + '\nglobalThis.A={newGame,stepGame,get G(){return G}};');
 const slots = JSON.parse(process.argv[2]), seed = +process.argv[3] || 1, maxMin = +process.argv[4] || 6;
-A.newGame({ seed, map: process.env.MAP || 'classic', slots: slots.map((s, i) => ({ ai: true, diff: s.diff, fac: s.fac, ally: s.ally, start: s.start != null ? s.start : i })) });
+A.newGame({ seed, map: process.env.MAP || 'classic', peace: +(process.env.PEACE || 0), slots: slots.map((s, i) => ({ ai: true, diff: s.diff, fac: s.fac, ally: s.ally, start: s.start != null ? s.start : i })) });
 const marks = (process.env.MARKS || '3,5,7,9').split(',').map(Number);
 const sp = slots.map(() => ({ eco: 0, prod: 0, def: 0, army: 0, harvEng: 0, other: 0, nU: 0, lostArmy: 0, lostB: 0 }));
 const ECO = ['power', 'refinery', 'cc', 'extractor'], PROD = ['barracks', 'factory', 'airfield', 'tech', 'silo'];
