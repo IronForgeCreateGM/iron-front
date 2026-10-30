@@ -12,13 +12,13 @@ async function page(br, phone) {
   pg.on('pageerror', e => pg.errs.push(e.message)); pg.on('console', m => { if (/glb|terr|tex|props/i.test(m.text())) pg.warns.push(m.text()); });
   pg.on('response', r => { if (r.status() >= 400) pg.fails.push(r.status() + ' ' + r.url()); });
   await pg.route('http://iron.test/**', r => { const u = new URL(r.request().url()); let p = decodeURIComponent(u.pathname.replace('/iron-front/', '/')); if (p.endsWith('/')) p += 'index.html'; const f = path.join(ROOT, p);
-    if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) return r.fulfill({ status: 404, body: 'nf' }); r.fulfill({ status: 200, contentType: MIME[path.extname(f)] || 'application/octet-stream', body: fs.readFileSync(f) }); });
+    if ((process.env.BLOCK && new RegExp(process.env.BLOCK).test(p)) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) return r.fulfill({ status: 404, body: 'nf' }); r.fulfill({ status: 200, contentType: MIME[path.extname(f)] || 'application/octet-stream', body: fs.readFileSync(f) }); });
   return pg;
 }
 async function shoot(br, map, phone) {
   const pg = await page(br, phone);
   if (phone) { await pg.goto('http://iron.test/iron-front/'); await pg.evaluate(() => { localStorage.setItem('ifMobile', '1'); }); }
-  await pg.goto('http://iron.test/iron-front/' + (phone ? '' : '?q=' + (process.env.SHOTQ || 'high'))); await pg.waitForTimeout(2000);
+  await pg.goto('http://iron.test/iron-front/' + (phone ? '' : '?q=' + (process.env.SHOTQ || 'high') + (process.env.QX || ''))); await pg.waitForTimeout(2000);
   const n = map === 'volcano8' || map === 'hellgate' ? 8 : map === 'volcano' || map === 'frost' ? 6 : map === 'endless' ? 1 : 2;
   await pg.evaluate(([map, n]) => { const L = [['human', 'A', 'bra']]; for (let i = 1; i < n; i++) L.push(['easy', map === 'hellgate' ? (i < 2 ? 'A' : 'B') : i % 2 ? 'B' : 'A', ['rus', 'usa', 'ger', 'chn', 'fra', 'jpn', 'irn'][i % 7]]);
     startGame('normal', { seed: 7, map, fog: false, mode: map === 'endless' ? 'endless' : undefined, slots: buildSlots(L, null, map) }); G.opts.fog = false; }, [map, n]);

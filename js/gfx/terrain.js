@@ -253,7 +253,7 @@ function buildFoliage() {
     else if (G.map[i] === 0 && !G.oreMax[i] && R() < 0.02 && !nearBase(x, y)) rocks.push([x + R(), y + R(), 0.1 + R() * 0.12]); }
   const rm = new THREE.InstancedMesh(rgeo, pbrMaterial(), rocks.length); rm.castShadow = true; rm.receiveShadow = true; rm.frustumCulled = false;
   rocks.forEach((r, j) => { e.set(R() * 3, R() * 6, R() * 3); q.setFromEuler(e); m4.compose(new THREE.Vector3(r[0], heightAt(r[0], r[1]) + r[2] * 0.1, r[1]), q, new THREE.Vector3(r[2], r[2], r[2])); rm.setMatrixAt(j, m4); });
-  R3.scene.add(rm); R3.rocks = rm; if (rocks.length) PR({ mesh: rm, file: 'rocks_' + TH, upright: true, sink: 0.08 });
+  R3.scene.add(rm); R3.rocks = rm; if (rocks.length && TH !== 'desert') PR({ mesh: rm, file: 'rocks_' + TH, upright: true, sink: 0.08 });
 }
 function buildLandmarks() {
   // bridges: plank decks + rails over river causeways
