@@ -80,6 +80,20 @@ function terrainMaterial() {
   TEX.mats = [m]; TEX.ready = ''; texLoad(); // v7.6.2: swap in the texture set when it arrives
   return m;
 }
+function wearMap() { // v7.6.2 render-only: BFS tracks start->centre / start->nearest expansions on walkable tiles, blurred (no sim state touched)
+  const N = MW * MH, ok = i => G.map[i] !== 1 && (G.map[i] !== 2 || (G.bridge && G.bridge[i])), W = new Float32Array(N), R = mkRng((G.opts.seed | 0) + 77);
+  const bfs = src => { const par = new Int32Array(N).fill(-1), q = new Int32Array(N); let h = 0, t = 0; par[src] = src; q[t++] = src;
+    while (h < t) { const c = q[h++], cx = c % MW, cy = (c / MW) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) { const nx = cx + dx, ny = cy + dy; if (nx < 0 || ny < 0 || nx >= MW || ny >= MH) continue; const k = ny * MW + nx; if (par[k] >= 0 || !ok(k)) continue; if (dx && dy && (!ok(cy * MW + nx) || !ok(ny * MW + cx))) continue; par[k] = c; q[t++] = k; } } return par; };
+  const tid = (x, y) => Math.max(0, Math.min(MH - 1, Math.floor(y))) * MW + Math.max(0, Math.min(MW - 1, Math.floor(x)));
+  const near = (x, y) => { let b = tid(x, y); if (ok(b)) return b; for (let r = 1; r < 6; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const k = tid(x + dx, y + dy); if (ok(k)) return k; } return b; };
+  const sites = (G.sites || []).filter(s => s.k !== 'main'), starts = G.starts || [];
+  for (const [sx, sy] of starts) { const par = bfs(near(sx, sy)), goals = [[MW / 2, MH / 2]];
+    sites.map(s => [s.x, s.y, Math.hypot(s.x - sx, s.y - sy)]).sort((a, b) => a[2] - b[2]).slice(0, 2).forEach(s => goals.push(s));
+    for (const [gx, gy] of goals) { let c = near(gx, gy), guard = N; if (par[c] < 0) continue; while (c !== par[c] && guard--) { W[c] = 1; c = par[c]; } } }
+  for (let i = 0; i < N; i++) { const l = G.lvl ? G.lvl[i] % 1 : 0; if (l > 0.05 && l < 0.95 && ok(i)) W[i] = Math.max(W[i], 0.9); } // ramps
+  const T = new Float32Array(N); for (let pass = 0; pass < 2; pass++) { for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { let s = 0, c = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= MW || yy >= MH) continue; s += W[yy * MW + xx]; c++; } T[y * MW + x] = s / c; } W.set(T); }
+  for (let i = 0; i < N; i++) W[i] = Math.min(1, W[i] * (1.5 + R() * 0.9)) * (G.mapName === 'frost' ? 0.75 : 0.85);
+  return W; }
 function buildTerrain3() {
   buildHeightfield();
   const geo = new THREE.PlaneGeometry(MW, MH, HW - 1, HH - 1); geo.rotateX(-Math.PI / 2); geo.translate(MW / 2, 0, MH / 2);
@@ -90,15 +104,24 @@ function buildTerrain3() {
   const nor = geo.attributes.normal, spl = new Float32Array(n * 4), col = new Float32Array(n * 3);
   // ore mask blurred
   const oreAt = (x, y) => { let s = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const tx = Math.floor(x + dx * 0.6), ty = Math.floor(y + dy * 0.6); if (inb(tx, ty) && G.oreMax[ty * MW + tx] > 0) s++; } return s / 9; };
+  const WR = R3.wear = wearMap(), wearAt = (x, y) => { const fx = Math.max(0, Math.min(MW - 1.001, x - 0.5)), fy = Math.max(0, Math.min(MH - 1.001, y - 0.5)), x0 = fx | 0, y0 = fy | 0, tx = fx - x0, ty = fy - y0, k = y0 * MW + x0;
+    return (WR[k] * (1 - tx) + WR[k + 1] * tx) * (1 - ty) + (WR[k + MW] * (1 - tx) + WR[k + MW + 1] * tx) * ty; };
+  const nearWater = (x, z) => { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const tx = Math.floor(x + dx * 0.7), ty = Math.floor(z + dy * 0.7); if (inb(tx, ty) && G.map[ty * MW + tx] === 2 && !(G.bridge && G.bridge[ty * MW + tx])) return true; } return false; };
+  const DIRS = []; for (let k = 0; k < 8; k++) DIRS.push([Math.cos(k * Math.PI / 4 + 0.2), Math.sin(k * Math.PI / 4 + 0.2)]);
   for (let i = 0; i < n; i++) {
     const x = pos.getX(i), z = pos.getZ(i), h = pos.getY(i), ny = nor.getY(i);
     const hl = h - lvlAt(x, z) * LVL_H; let rock = Math.max(0, Math.min(1, (0.93 - ny) / 0.15)) * (lvlAt(x, z) % 1 > 0.05 && lvlAt(x, z) % 1 < 0.95 ? 0.25 : 1) + Math.max(0, Math.min(1, (hl - 0.6) / 0.6));
     let sand = hl < -0.1 ? Math.min(1, (-0.1 - hl) / 0.3) : 0, dirt = oreAt(x, z) * 1.2; if (G.wadi && G.wadi[Math.min(MH - 1, Math.floor(z)) * MW + Math.min(MW - 1, Math.floor(x))]) sand = Math.max(sand, 0.85);
-    rock = Math.min(1, rock); const grass = Math.max(0, 1 - rock - sand - dirt);
+    rock = Math.min(1, rock);
+    { const wr = wearAt(x, z) * (1 - rock) * (1 - sand); dirt = Math.max(dirt, wr); } // v7.6.2 worn tracks between bases, expansions, ramps and the centre
+    const grass = Math.max(0, 1 - rock - sand - dirt);
     spl.set([grass, dirt, rock, sand], i * 4);
     // cavity AO: compare with neighborhood
     const avg = (heightAt(x + 1, z) + heightAt(x - 1, z) + heightAt(x, z + 1) + heightAt(x, z - 1)) / 4;
-    const ao = Math.max(0.3, Math.min(1, 1 - (avg - h) * 0.9));
+    let ao = Math.max(0.3, Math.min(1, 1 - (avg - h) * 0.9));
+    { let occ = 0; for (const [dx, dz] of DIRS) { let m = 0; for (const r of [0.6, 1.4, 2.8]) m = Math.max(m, (heightAt(x + dx * r, z + dz * r) - h) / r); occ += Math.atan(Math.max(0, m)); } // v7.6.2 baked horizon AO
+      ao *= 1 - Math.min(0.55, occ / 8 / 1.5708 * 1.1); }
+    if (hl < -0.05 && hl > -0.7 && nearWater(x, z)) ao *= 1 - 0.32 * Math.min(1, (-0.05 - hl) / 0.25); // wet shoreline
     col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = ao;
   }
   geo.setAttribute('splat', new THREE.BufferAttribute(spl, 4)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -107,7 +130,7 @@ function buildTerrain3() {
   const sk = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: G.desert ? 0x4a3a28 : 0x1c2416, roughness: 1 }));
   sk.position.set(MW / 2, -0.6, MH / 2); R3.scene.add(sk);
   const edge = new THREE.Mesh(new THREE.BoxGeometry(MW + 0.6, 0.6, MH + 0.6), new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.9 })); edge.position.set(MW / 2, -0.62, MH / 2); R3.scene.add(edge);
-  buildFogOverlay(); buildWater(); buildOre(); buildFoliage(); buildVents(); buildLandmarks(); buildSurfaces(); if (G.desert) buildDesert();
+  if (typeof propsReset === 'function') propsReset(); buildFogOverlay(); buildWater(); buildOre(); buildFoliage(); buildVents(); buildLandmarks(); buildSurfaces(); if (G.desert) buildDesert(); if (typeof propsBuildScatter === 'function') propsBuildScatter();
 }
 function buildWater() {
   // height texture for shoreline foam (bytes)
@@ -165,7 +188,7 @@ function buildOre() { if (typeof ensureFields === 'function') ensureFields();
   const B = new MB(0); B.add('c', geo, COL.ORE, PBR.ORE, 0, 0, 0); const g = B.build().c;
   // own material: ore uses per-instance colour (rich gold); sharing PBR_MAT made other instanced meshes pick the instanceColor program (black units)
   const om = pbrMaterial().clone(); om.onBeforeCompile = pbrMaterial().onBeforeCompile; om.customProgramCacheKey = () => 'pbrv2ic';
-  R3.oreMesh = new THREE.InstancedMesh(g, om, R3.oreTiles.length * 4); R3.oreMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(R3.oreTiles.length * 12).fill(1), 3); R3.oreMesh.castShadow = true; R3.oreMesh.receiveShadow = true; R3.oreMesh.frustumCulled = false; R3.scene.add(R3.oreMesh);
+  R3.oreMesh = new THREE.InstancedMesh(g, om, R3.oreTiles.length * 4); R3.oreMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(R3.oreTiles.length * 12).fill(1), 3); R3.oreMesh.castShadow = true; R3.oreMesh.receiveShadow = true; R3.oreMesh.frustumCulled = false; R3.scene.add(R3.oreMesh); if (typeof propsReg === 'function') propsReg({ mesh: R3.oreMesh, file: 'crystals' });
   const R = mkRng(5); R3.oreJ = R3.oreTiles.map(() => [0, 1, 2, 3].map(() => [R(), R(), R(), R()]));
 }
 function updOre() {
@@ -205,7 +228,7 @@ function buildFoliage() {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), cl = new THREE.Color(); let k = 0; R3.grassTile = [];
   let tries = 0;
   while (k < MAXG && tries++ < MAXG * 4) {
-    const x = R() * MW, y = R() * MH, ti = Math.floor(y) * MW + Math.floor(x); if (G.map[ti] !== 0 || G.oreMax[ti] > 0 || nearBase(x, y)) continue;
+    const x = R() * MW, y = R() * MH, ti = Math.floor(y) * MW + Math.floor(x); if (R3.wear && R3.wear[ti] > 0.45 && R() < 0.8) continue; if (G.map[ti] !== 0 || G.oreMax[ti] > 0 || nearBase(x, y)) continue;
     const h = heightAt(x, y); if (h > 0.35 || h < -0.05) continue;
     const s = 0.45 + R() * 0.5; e.set(0, R() * 6.28, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(x, h, y), q, new THREE.Vector3(s, s * (0.8 + R() * 0.6), s)); gm.setMatrixAt(k, m4);
     cl.setRGB(0.8 + R() * 0.4, 0.85 + R() * 0.3, 0.7 + R() * 0.3); gm.setColorAt(k, cl); (R3.grassTile[ti] = R3.grassTile[ti] || []).push(k); k++;
@@ -221,7 +244,8 @@ function buildFoliage() {
   const tm = new THREE.InstancedMesh(treeGeo, windMat(false, 0.8), trees.length); tm.castShadow = true; tm.receiveShadow = true; tm.frustumCulled = false;
   trees.forEach((t, j) => { e.set((R() - 0.5) * 0.1, R() * 6.28, (R() - 0.5) * 0.1); q.setFromEuler(e); m4.compose(new THREE.Vector3(t[0], heightAt(t[0], t[1]) - 0.05, t[1]), q, new THREE.Vector3(t[2], t[2] * (0.9 + R() * 0.4), t[2])); tm.setMatrixAt(j, m4);
     cl.setRGB(0.8 + R() * 0.4, 0.8 + R() * 0.4, 0.8 + R() * 0.3); tm.setColorAt(j, cl); (R3.treeTile = R3.treeTile || {})[Math.floor(t[1]) * MW + Math.floor(t[0])] = j; });
-  R3.trees = tm; R3.scene.add(tm);
+  R3.trees = tm; R3.scene.add(tm); const PR = typeof propsReg === 'function' ? propsReg : () => {}, TH = typeof texTheme === 'function' ? texTheme() : 'grass';
+  if (trees.length && TH !== 'desert') PR({ mesh: tm, file: 'trees_' + TH });
   // boulders on cliffs: displaced icosahedra
   const rg = new THREE.IcosahedronGeometry(0.5, 1); { const p = rg.attributes.position; for (let i = 0; i < p.count; i++) { const v = new THREE.Vector3().fromBufferAttribute(p, i); v.multiplyScalar(0.8 + 0.35 * Math.sin(v.x * 7 + v.y * 5) * Math.cos(v.z * 6)); p.setXYZ(i, v.x, v.y * 0.75, v.z); } rg.computeVertexNormals(); }
   const RB = new MB(0); RB.add('r', rg, G.desert ? 0x9a7652 : 0x77706a, [0, 0.85, 0], 0, 0, 0); const rgeo = RB.build().r; const rocks = [];
@@ -229,7 +253,7 @@ function buildFoliage() {
     else if (G.map[i] === 0 && !G.oreMax[i] && R() < 0.02 && !nearBase(x, y)) rocks.push([x + R(), y + R(), 0.1 + R() * 0.12]); }
   const rm = new THREE.InstancedMesh(rgeo, pbrMaterial(), rocks.length); rm.castShadow = true; rm.receiveShadow = true; rm.frustumCulled = false;
   rocks.forEach((r, j) => { e.set(R() * 3, R() * 6, R() * 3); q.setFromEuler(e); m4.compose(new THREE.Vector3(r[0], heightAt(r[0], r[1]) + r[2] * 0.1, r[1]), q, new THREE.Vector3(r[2], r[2], r[2])); rm.setMatrixAt(j, m4); });
-  R3.scene.add(rm);
+  R3.scene.add(rm); R3.rocks = rm; if (rocks.length) PR({ mesh: rm, file: 'rocks_' + TH, upright: true, sink: 0.08 });
 }
 function buildLandmarks() {
   // bridges: plank decks + rails over river causeways
@@ -242,6 +266,7 @@ function buildLandmarks() {
       if (!G.bridge[i - 1]) rails.push([x + 0.06, y + 0.5]); if (!G.bridge[i + 1]) rails.push([x + 0.94, y + 0.5]); });
     const rm = new THREE.InstancedMesh(RB.build().r, pbrMaterial(), rails.length); rails.forEach(([x, y], k) => { m4.makeTranslation(x, 0.06, y); rm.setMatrixAt(k, m4); });
     for (const m of [dm, rm]) { m.castShadow = m.receiveShadow = true; m.frustumCulled = false; R3.scene.add(m); }
+    if (typeof propsReg === 'function') { propsReg({ mesh: dm, file: 'bridge', pick: [0] }); propsReg({ mesh: rm, file: 'bridge', pick: [1] }); }
   }
   // central landmark: ancient reactor spire
   if (G.monument) { const [mx, my] = G.monument, B = new MB(0);
@@ -253,10 +278,10 @@ function buildLandmarks() {
 }
 function clearFoliage(b) { // remove grass/trees under a new building
   const m0 = new THREE.Matrix4().makeScale(0, 0, 0);
-  for (let y = b.ty - 1; y <= b.ty + b.h; y++) for (let x = b.tx - 1; x <= b.tx + b.w; x++) { if (!inb(x, y)) continue; const i = y * MW + x;
+  for (let y = b.ty - 1; y <= b.ty + b.h; y++) for (let x = b.tx - 1; x <= b.tx + b.w; x++) { if (!inb(x, y)) continue; const i = y * MW + x; if (R3.cleared) R3.cleared.add(i);
     const gl = R3.grassTile[i]; if (gl) { for (const k of gl) R3.grass.setMatrixAt(k, m0); R3.grass.instanceMatrix.needsUpdate = true; R3.grassTile[i] = null; }
     if (R3.propTile && R3.propTile[i]) { for (const [mesh, k] of R3.propTile[i]) { mesh.setMatrixAt(k, m0); mesh.instanceMatrix.needsUpdate = true; } R3.propTile[i] = null; }
-    if (R3.treeTile && R3.treeTile[i] != null && x >= b.tx && x < b.tx + b.w && y >= b.ty && y < b.ty + b.h) { R3.trees.setMatrixAt(R3.treeTile[i], m0); R3.trees.instanceMatrix.needsUpdate = true; } }
+    if (R3.treeTile && R3.treeTile[i] != null && x >= b.tx && x < b.tx + b.w && y >= b.ty && y < b.ty + b.h) { if (typeof propsClear === 'function') propsClear(R3.trees, R3.treeTile[i]); else { R3.trees.setMatrixAt(R3.treeTile[i], m0); R3.trees.instanceMatrix.needsUpdate = true; } } }
 }
 
 // Plasma Gas vents: dark rocky crater with glowing teal core + rising gas wisps (render.js spawns wisps)
@@ -344,7 +369,7 @@ function buildSurfaces() {
   const ig = mk(G.ice, 0.03);
   if (ig) { const me = new THREE.Mesh(ig, new THREE.MeshStandardMaterial({ color: 0xbfe3f5, roughness: 0.12, metalness: 0.1, transparent: true, opacity: 0.85, envMapIntensity: 1.2 })); me.receiveShadow = true; R3.scene.add(me); }
   if (G.ruins) { const [mx, my] = G.ruins, B = new MB(0); for (let k = 0; k < 7; k++) { const a = k * 0.9, r = 1.2 + (k % 3) * 0.5; B.box('m', 0.5 + (k % 2) * 0.4, 0.4 + (k % 3) * 0.35, 0.35, 0x8a8f96, PBR.CONC, Math.cos(a) * r, 0.25, Math.sin(a) * r, { bevel: 0.05, ry: a }); }
-    B.box('m', 0.25, 2.2, 0.25, 0x5b5f66, PBR.METAL, 0.3, 1.1, -0.2, { bevel: 0.02 }); const mesh = new THREE.Mesh(B.build().m, pbrMaterial()); mesh.position.set(mx, heightAt(mx, my), my); mesh.castShadow = mesh.receiveShadow = true; R3.scene.add(mesh); }
+    B.box('m', 0.25, 2.2, 0.25, 0x5b5f66, PBR.METAL, 0.3, 1.1, -0.2, { bevel: 0.02 }); const mesh = new THREE.Mesh(B.build().m, pbrMaterial()); mesh.position.set(mx, heightAt(mx, my), my); mesh.castShadow = mesh.receiveShadow = true; R3.scene.add(mesh); if (typeof propsReg === 'function') propsReg({ mesh, file: 'ruins' }); }
 }
 
 // v6.0 Hindu Kush Hellgate desert dressing: mud-brick compound walls (on blocking G.mud tiles), burnt-out wrecks,

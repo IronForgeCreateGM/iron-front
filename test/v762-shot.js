@@ -9,7 +9,7 @@ fs.mkdirSync(OUT, { recursive: true });
 async function page(br, phone) {
   const ctx = await br.newContext(phone ? { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } : { viewport: { width: 1400, height: 900 } });
   const pg = await ctx.newPage(); pg.errs = []; pg.fails = []; pg.warns = [];
-  pg.on('pageerror', e => pg.errs.push(e.message)); pg.on('console', m => { if (/glb|terr|tex/i.test(m.text())) pg.warns.push(m.text()); });
+  pg.on('pageerror', e => pg.errs.push(e.message)); pg.on('console', m => { if (/glb|terr|tex|props/i.test(m.text())) pg.warns.push(m.text()); });
   pg.on('response', r => { if (r.status() >= 400) pg.fails.push(r.status() + ' ' + r.url()); });
   await pg.route('http://iron.test/**', r => { const u = new URL(r.request().url()); let p = decodeURIComponent(u.pathname.replace('/iron-front/', '/')); if (p.endsWith('/')) p += 'index.html'; const f = path.join(ROOT, p);
     if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) return r.fulfill({ status: 404, body: 'nf' }); r.fulfill({ status: 200, contentType: MIME[path.extname(f)] || 'application/octet-stream', body: fs.readFileSync(f) }); });
@@ -38,7 +38,7 @@ async function shoot(br, map, phone) {
     await pg.evaluate(s => { R3.cam.td = R3.cam.d = 26; jumpTo(s.x, s.y, true); paused = false; }, s); await pg.waitForTimeout(2500); await pg.evaluate(() => { paused = true; });
     const f = path.join(OUT, map + '-' + s.n + (phone ? '-phone' : '') + '.png'); await pg.screenshot({ path: f, timeout: 180000 }); res.push(f);
   }
-  const info = await pg.evaluate(() => ({ q: R3.qName, ter: typeof TEX !== 'undefined' ? TEX.st : 'n/a', props: typeof PROPS !== 'undefined' ? PROPS.st : 'n/a', calls: R3.renderer.info.render.calls, tris: R3.renderer.info.render.triangles }));
+  const info = await pg.evaluate(() => ({ q: R3.qName, ter: typeof TEX !== 'undefined' ? TEX.st : 'n/a', props: typeof PROPS !== 'undefined' ? Object.entries(PROPS.cache).map(([k, v]) => k + ':' + v.st).join(',') : 'n/a', calls: R3.renderer.info.render.calls, tris: R3.renderer.info.render.triangles }));
   console.log(map + (phone ? ' [phone]' : ''), 'pageErrors:', pg.errs.length, pg.errs.slice(0, 2).join(' | '), 'http fails:', pg.fails.length, pg.fails.slice(0, 3).join(' | '), JSON.stringify(info), pg.warns.slice(0, 3).join(' | '));
   await pg.context().close(); return pg.errs.length;
 }

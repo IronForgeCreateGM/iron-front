@@ -54,7 +54,13 @@ const TEX_GLSL_COLOR = `
   #else
     vec4 c0 = texture2D(tC0, uA), c1 = texture2D(tC1, uA), c2 = texture2D(tC2, uA * 1.1), c3 = texture2D(tC3, uA);
   #endif
-  vec3 tex = tdec(c0.rgb) * w.x + tdec(c1.rgb) * w.y + tdec(c2.rgb) * w.z + tdec(c3.rgb) * w.w;
+  vec3 g0 = tdec(c0.rgb);
+  #if THEME == 0
+    g0 = mix(g0, g0 * vec3(1.45, 1.12, 0.62), smoothstep(0.55, 0.78, n2) * 0.55) * (0.92 + 0.16 * n3); // dry patches + fine tone breakup
+  #elif THEME == 2
+    g0 *= 0.9 + 0.2 * n3;
+  #endif
+  vec3 tex = g0 * w.x + tdec(c1.rgb) * w.y + tdec(c2.rgb) * w.z + tdec(c3.rgb) * w.w;
   tex *= 0.86 + 0.28 * n1; // large-scale variation so the repeat never reads
   diffuseColor.rgb *= tex; }
 #else
