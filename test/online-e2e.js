@@ -46,6 +46,8 @@ async function browser(port, reuse) {
     if (MOBILE) { console.log('mobile client', await B.ev(`JSON.stringify({ mob: MOB.on, mplay: document.body.classList.contains('mplay'), cards: document.querySelectorAll('#mCards .item').length, w: innerWidth, h: innerHeight, q: R3.q.label })`));
       // mobile UI path: card tap queues a Power Plant, Army button, Stop button, then tap ground (attack-move) — all through NET
       console.log('mobile actions', await B.ev(`(() => { mobCardTap('power'); mobCmd('army'); const n = UI.sel.length; mobCmd('stop'); const p = worldToScreen(48, 48, 0); jumpTo(40, 40, true); r3Render(0.016); const q = worldToScreen(48, 48, heightAt(48, 48)); mobTap(q.x, q.y); return JSON.stringify({ sel: n, pend: NET.pending.length, q: G.players[ME].queues.bld.length }); })()`));
+      // v7.6.3: since place-then-build (v7.x) a card tap starts placement instead of queueing, so the old card/tap check no longer moves units; also send a move through NET from the mobile guest
+      await B.ev(`(() => { if (typeof cancelPlace === 'function') try { cancelPlace(); } catch (e) {} const u = G.ents.filter(e => e.team === ME && e.kind === 'u' && e.t !== 'harv'); NET.issue({ c: 'move', u: u.map(e => e.id), x: 48, y: 48, am: false }); return u.length; })()`);
       await sleep(1500); console.log('mobile queue+order', await B.ev(`JSON.stringify({ q: G.players[ME].queues.bld.map(q => q.t), ord: G.ents.filter(e => e.team === ME && e.kind === 'u' && e.t !== 'harv').map(e => e.order).slice(0, 4) })`)); }
     else await B.ev(`(() => { const u = G.ents.filter(e => e.team === ME && e.kind === 'u' && e.t !== 'harv'); NET.issue({ c: 'move', u: u.map(e => e.id), x: 48, y: 48, am: false }); return u.length; })()`);
     await sleep(6000);
