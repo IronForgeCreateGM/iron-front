@@ -49,6 +49,7 @@ function applyQuality(name) {
   if (R3.sun.shadow.mapSize.x !== q.shadowSize) { R3.sun.shadow.mapSize.set(q.shadowSize, q.shadowSize); if (R3.sun.shadow.map) { R3.sun.shadow.map.dispose(); R3.sun.shadow.map = null; } }
   if (R3.grass) { R3.grass.count = Math.floor(R3.grassMax * q.grass); R3.grass.visible = q.grass > 0; }
   FX.mul = q.fx; R3.fxBase = q.fx; if (R3.uLavaQ) R3.uLavaQ.value = name === 'quiet' ? 0 : 1;
+  if (typeof texApply === 'function') texApply(); if (typeof propsApply === 'function') propsApply();
   r3Resize();
 }
 function r3Resize() {

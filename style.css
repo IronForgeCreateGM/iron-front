@@ -262,3 +262,6 @@ body.mobile.mplay #waveHud .wvS{font-size:10px;margin-top:2px}body.mobile.mplay 
 #lobby .lnum{display:inline-block;min-width:18px;padding:1px 3px;border-radius:9px;text-align:center;font-weight:700;font-size:12px;background:#2a3542;color:#9ab;white-space:nowrap}
 #lobby .lnum.tA{background:#3d9cff;color:#fff}#lobby .lnum.tB{background:#ff5040;color:#fff}#lobby .lnum.moved{font-size:10px;outline:2px solid #ffd060}
 #lobby .lrow.lh .lnum,#lobby .lrow.lh span{background:none}
+/* v7.6.2 full screen toggle + iPhone home-screen tip */
+#fsTip{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));z-index:200;max-width:min(560px,calc(100vw - 32px - env(safe-area-inset-left) - env(safe-area-inset-right)));background:rgba(8,14,22,.94);border:1px solid #3a5a7a;border-radius:12px;padding:10px 14px;color:#e4eef8;font-size:14px;line-height:1.35;box-shadow:0 6px 24px rgba(0,0,0,.5);display:none;cursor:pointer}
+#fsTip b{margin-left:8px;color:#9ab}

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Iron Front"><meta name="theme-color" content="#0c1420"><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icons/icon-180.png"><link rel="icon" type="image/png" href="icons/icon-192.png">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Iron Front"><meta name="theme-color" content="#0c1420"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png"><link rel="icon" type="image/png" href="icons/icon-192.png">
 <title>Iron Front</title>
 <link rel="stylesheet" href="style.css">
 </head><body>
@@ -40,7 +40,7 @@
     <button id="mobWatchBtn" class="big alt" style="display:none">👁 Watch 4v4 bots (Volcano XL)</button>
     <div id="mobHint" style="display:none">📱 Touch controls on (landscape recommended) — tap the build cards, drag to pan, pinch to zoom. Switch off below for mouse/keyboard.</div>
     <div id="homeHS"></div>
-    <div class="homeSmall"><button id="replayBtn">Replays</button> <button id="lastReplayBtn" style="display:none" title="Last game replay: watch it again">▶ Last game replay</button> <button id="lastReplayDl" style="display:none" title="Download the last game replay (.json)">⬇ Download</button> <button id="mobileBtn">📱 Mobile view: Off</button> <button id="homeSetBtn" onclick="openSettings(true)">Settings</button><input type="file" id="replayFile" accept=".json,application/json" style="display:none"></div>
+    <div class="homeSmall"><button id="replayBtn">Replays</button> <button id="lastReplayBtn" style="display:none" title="Last game replay: watch it again">▶ Last game replay</button> <button id="lastReplayDl" style="display:none" title="Download the last game replay (.json)">⬇ Download</button> <button id="mobileBtn">📱 Mobile view: Off</button> <button id="homeSetBtn" onclick="openSettings(true)">Settings</button> <button class="fsBtn" title="Full screen">⛶ Full screen</button><input type="file" id="replayFile" accept=".json,application/json" style="display:none"></div>
   </div>
   <div id="setup" style="display:none">
     <div class="setupTop"><button id="backBtn" class="back">← Back</button><span id="setupTitle">Game setup</span><div id="modeTabs"><button data-m="skirmish" class="on">⚔ Skirmish</button><button data-m="endless">♾ Endless</button></div></div>
@@ -67,7 +67,7 @@
   </details>
   </div>
 </div></div>
-<div id="pause" class="screen" style="display:none"><div class="panel"><h2>PAUSED</h2><button id="resumeBtn" class="big">Resume</button><button onclick="openSettings(true)">Settings</button><button id="surrBtn">🏳 Surrender</button><button class="quitBtn">Quit to menu</button></div></div>
+<div id="pause" class="screen" style="display:none"><div class="panel"><h2>PAUSED</h2><button id="resumeBtn" class="big">Resume</button><button onclick="openSettings(true)">Settings</button><button class="fsBtn" title="Full screen">⛶ Full screen</button><button id="surrBtn">🏳 Surrender</button><button class="quitBtn">Quit to menu</button></div></div>
 <div id="settings" class="screen" style="display:none"><div class="panel set">
   <h2>Settings</h2>
   <label>Graphics quality <select id="setQuality"><option value="auto">Auto</option><option value="low">Low</option><option value="med">Medium</option><option value="high">High</option><option value="ultra">Ultra</option></select></label>
@@ -93,6 +93,7 @@
 <script src="js/audio.js"></script>
 <script src="js/gfx/models.js"></script>
 <script src="js/gfx/terrain.js"></script>
+<script src="js/gfx/groundtex.js"></script>
 <script src="js/gfx/fx.js"></script>
 <script src="js/gfx/post.js"></script>
 <script src="js/render.js"></script>
@@ -105,4 +106,5 @@
 <script src="js/online.js"></script>
 <script src="js/main.js"></script>
 <script src="js/mobile.js"></script>
+<script src="js/fullscreen.js"></script>
 </body></html>

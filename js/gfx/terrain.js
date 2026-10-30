@@ -37,20 +37,22 @@ function terrainMaterial() {
   const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0, envMapIntensity: 0.5 });
   m.extensions = { derivatives: true };
   m.onBeforeCompile = sh => {
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec4 splat;\nvarying vec4 vSplat;\nvarying vec3 vW;')
-      .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvSplat = splat; vW = (modelMatrix * vec4(transformed,1.0)).xyz;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec4 vSplat;\nvarying vec3 vW;\n' + GLSL_NOISE)
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec4 splat;\nvarying vec4 vSplat;\nvarying vec3 vW;\nvarying vec3 vWN;')
+      .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvSplat = splat; vW = (modelMatrix * vec4(transformed,1.0)).xyz; vWN = normalize(mat3(modelMatrix) * objectNormal);');
+    Object.assign(sh.uniforms, texUniforms());
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec4 vSplat;\nvarying vec3 vW;\nvarying vec3 vWN;\n' + GLSL_NOISE + TEX_GLSL_HEAD)
       .replace('#include <map_fragment>', `
-        vec2 q = vW.xz;
+        vec2 q = vW.xz; vec3 tNrm = vec3(0.0);
         float fwq = length(fwidth(q)); float n1 = fbm(q * 0.35), n2 = fbm(q * 1.7 + 3.1), n3 = mix(0.5, vnoise(q * 9.0), clamp(1.0 - fwq * 9.0 * 0.6, 0.0, 1.0)), n4 = mix(0.5, vnoise(q * 31.0), clamp(1.0 - fwq * 31.0 * 0.6, 0.0, 1.0));
+        vec4 w = vSplat; w.y *= 0.7 + 0.6*n2; w.x *= 0.8 + 0.4*n1; w = max(w, vec4(0.0)); w /= max(0.0001, w.x+w.y+w.z+w.w);
+        w = pow(w, vec4(1.6)); w /= (w.x+w.y+w.z+w.w);
+        #if TEXQ == 0
         vec3 grass = mix(vec3(0.075,0.15,0.035), vec3(0.17,0.25,0.06), n1) * (0.8 + 0.35*n3) * (0.9 + 0.2*n4);
         grass = mix(grass, vec3(0.24,0.22,0.09), smoothstep(0.55, 0.75, n2) * 0.45);
         vec3 dirt = mix(vec3(0.16,0.10,0.05), vec3(0.28,0.19,0.10), n2) * (0.75 + 0.45*n3);
         vec3 rock = mix(vec3(0.17,0.16,0.15), vec3(0.36,0.33,0.29), n2) * (0.7 + 0.5*vnoise(q*5.0 + vW.y*3.0));
         rock *= 0.85 + 0.15*sin(vW.y*11.0 + n1*6.0);
         vec3 sand = mix(vec3(0.38,0.31,0.19), vec3(0.50,0.42,0.27), n3);
-        vec4 w = vSplat; w.y *= 0.7 + 0.6*n2; w.x *= 0.8 + 0.4*n1; w = max(w, vec4(0.0)); w /= max(0.0001, w.x+w.y+w.z+w.w);
-        w = pow(w, vec4(1.6)); w /= (w.x+w.y+w.z+w.w);
         #if THEME == 1
           grass = mix(vec3(0.46,0.5,0.56), vec3(0.66,0.7,0.76), n1) * (0.85 + 0.2*n3); dirt = mix(vec3(0.30,0.30,0.32), vec3(0.45,0.46,0.5), n2); sand = vec3(0.55,0.62,0.7); rock = mix(rock, vec3(0.5,0.55,0.6), 0.35);
         #elif THEME == 2
@@ -61,17 +63,21 @@ function terrainMaterial() {
           dirt = mix(vec3(0.27,0.17,0.09), vec3(0.38,0.25,0.13), n2) * (0.8 + 0.35*n3); sand = mix(vec3(0.62,0.5,0.32), vec3(0.72,0.6,0.4), n3) * (0.92 + 0.1*rip);
           rock = rock * vec3(1.55,1.12,0.8) * (0.9 + 0.25*smoothstep(0.3, 0.7, fract(vW.y*1.6 + n1*0.6))); }
         #endif
-        diffuseColor.rgb *= grass*w.x + dirt*w.y + rock*w.z + sand*w.w;
+        #endif
+        ` + TEX_GLSL_COLOR + `
         float tRock = w.z; float tGrass = w.x;`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(0.95, 0.72, tRock) - n4*0.08;')
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        #if TEXQ == 0
         { float hb = (fbm(q*2.0)*(0.03 + 0.3*tRock) + vnoise(q*9.0)*0.006) * clamp(1.0 - fwq * 4.0, 0.0, 1.0);
           vec3 dpx = dFdx(-vViewPosition), dpy = dFdy(-vViewPosition); float dhx = dFdx(hb), dhy = dFdy(hb);
           vec3 r1 = cross(dpy, normal), r2 = cross(normal, dpx); float det = dot(dpx, r1);
-          vec3 grad = sign(det) * (dhx * r1 + dhy * r2); normal = normalize(abs(det) * normal - grad * 2.5); }`);
+          vec3 grad = sign(det) * (dhx * r1 + dhy * r2); normal = normalize(abs(det) * normal - grad * 2.5); }
+        #endif` + TEX_GLSL_NORMAL);
     fowPatch(sh);
   };
-  m.defines = { THEME: G.mapName === 'frost' ? 1 : G.mapName === 'volcano' ? 2 : G.desert ? 3 : 0 }; m.customProgramCacheKey = () => 'terrain3_' + m.defines.THEME;
+  m.defines = { THEME: G.mapName === 'frost' ? 1 : G.mapName === 'volcano' ? 2 : G.desert ? 3 : 0, TEXQ: 0 }; m.customProgramCacheKey = () => 'terrain3_' + m.defines.THEME + '_' + m.defines.TEXQ;
+  TEX.mats = [m]; TEX.ready = ''; texLoad(); // v7.6.2: swap in the texture set when it arrives
   return m;
 }
 function buildTerrain3() {
