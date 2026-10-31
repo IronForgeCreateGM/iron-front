@@ -455,7 +455,7 @@ const wg76On = P => !!G.r76 && !!G.nt && !SIOFF.wg76 && !P.ntOff; // v7.6.5: eve
 const SION = (typeof globalThis !== 'undefined' && globalThis.SION) || {};
 const pw76On = P => !!G.r76 && !!G.nt && isV76(P) && !SIOFF.pw76 && !P.pwOff; // v7.6.5: counter-attack window ON for lobby Hard (si2) in games with the nt replay flag
 function style76(P) { const S = P.aiS; if (S.style76 !== undefined) return S.style76; let st = null;
-  if (SION.fp76 && !P.pwOff && G.r76 && isV76(P) && (P.fac === 'fra' || P.fac === 'chn')) { let h = ((G.opts.seed | 0) ^ Math.imul(P.team + 1, 0x9E3779B1)) >>> 0; h = Math.imul(h ^ (h >>> 15), 0x85EBCA6B) >>> 0; h ^= h >>> 13; if (SION.fp76 === 'all' || h % 3 === 0) st = 'fortress'; }
+  if (SION.fp76 && !P.pwOff && !P.m7Off && G.r76 && isV76(P) && (P.fac === 'fra' || P.fac === 'chn')) { let h = ((G.opts.seed | 0) ^ Math.imul(P.team + 1, 0x9E3779B1)) >>> 0; h = Math.imul(h ^ (h >>> 15), 0x85EBCA6B) >>> 0; h ^= h >>> 13; if (SION.fp76 === 'all' || h % 3 === 0) st = 'fortress'; }
   return (S.style76 = st); }
 const fort76 = P => style76(P) === 'fortress';
 const FP76_SHARE = { fra: +SION.fpShF || 0.3, chn: +SION.fpShC || 0.24 }, FP76_BAR = +SION.fpBar || 1.0; // fortress: static D capped at this share of everything mined (normal: fra 0.27, chn 0.18); normal-push bar x1.0 (1.1-1.4 starved the army in drills)
