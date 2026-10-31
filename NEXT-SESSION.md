@@ -1,3 +1,10 @@
+## RESUME NOTE 3:33 AM PT Sat Oct 31 (overnight run)
+- Live = v7.6.8 (8429b1f). master now has v7.6.9 candidates (not bumped yet), merged from wt-dev branch vis:
+  - 8056e27 desert darkening REAL cause (supersedes the 3:05 note): desert-only instanced meshes with instanceColor (mud walls, sandbags) shared PBR_MAT; three r149 keeps one program per material and does not re-check instanceColor, so once GLB rocks changed compile order, units went black. Fix: pbrMatIC() (own material, cache key 'pbrv2ic'); GLB desert rocks back on.
+  - 5cf890f endless703 loop-alive test gets 3 windows (flake).
+  - 1c84c08 + 4d9ac70 REAL phone bug: title changelog footer grew to cover TAP TO DEPLOY on phones (that was the ui7 timeout). Footer clamped to 2 lines + pointer-events:none; logo fits portrait. Shots /workspace/n1031/foot/cmp.png.
+- Next: gate (det, replays, v762 shots all maps, ui7, endless703, hellgate, mobile), bump v7.6.9, zip/shot/log, push by hash.
+
 # RESUME NOTE (3:20 AM PT Oct 31): v7.6.8 LIVE (8429b1f pushed 3:16:44 AM PT, verified 3:17:52 AM PT). Master = live + doc commits.
 - Next: the desert lighting fix (wt-dev, branch vis; see the 3:05 note), the endless703 loop-alive flake (make running() retry instead of using one 3 s window), stuck spots, a lighter test setup, then SC2 construction and infantry.
 # RESUME NOTE (3:05 AM PT Oct 31): v7.6.7 LIVE (47e23ab). v7.6.8 (a58bba9) gate almost done, NOT pushed yet.
