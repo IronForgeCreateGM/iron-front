@@ -1,3 +1,10 @@
+## RESUME NOTE 6:06 AM PT Sat Oct 31
+- Live = v7.6.10 (8748723). The NIGHTLY-LOG summary at the top is done.
+- Experiment: worktree /workspace/wt-slot, branch slot (791eef2), fs8 at opt-in replay level m7=4. Group moves now hand out formation slots in front-to-back, left-to-right order (instead of greedy nearest), so units stop crossing paths and jamming. m7g is now on only at level 3 exactly.
+  - Stuck drill: 2.04% -> 1.44% over hellgate 7/19 and volcano8 5/23 (3 seeds better, s5 worse). Logs: /workspace/n1031/stuck/s4-*.
+  - all20 bench at M7=4 running: /workspace/n1031/slot/b4.log. Baseline level 2 = 16W 2T 2L.
+  - This also changes how the PLAYER's group moves spread out. Hold it for Nicholas unless every gate is clean in time.
+
 ## RESUME NOTE 5:41 AM PT Sat Oct 31
 - Live = v7.6.10 (8748723). Stuck spots: the drill now counts units bunched within 3 tiles of their goal as "crowded", not stuck. That was about 40% of the old "stuck" count. Real stuck (16 min): volcano8 s5 1.0%, s23 2.1%; hellgate s7 3.4%, s19 1.9%. Hellgate hot spot is open ground at 40-48,56 (mid-map). Logs are in /workspace/n1031/stuck. Next: diagnose hellgate 40,56 (DUMP=all), no pushes unless fully gated.
 
