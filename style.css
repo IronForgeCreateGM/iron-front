@@ -272,3 +272,4 @@ body.mobile.mplay #waveHud .wvS{font-size:10px;margin-top:2px}body.mobile.mplay 
 .onErr b{color:#fff}.onErrBtns{margin-top:6px;display:flex;gap:8px;flex-wrap:wrap}.onErrBtns button{padding:6px 12px}
 #verBanner{position:fixed;top:0;left:0;right:0;z-index:9999;background:#7a5a10;color:#fff;padding:8px 12px;text-align:center;font:14px sans-serif;box-shadow:0 2px 8px #0008}
 #verBanner button{margin-left:10px;padding:4px 12px}
+#menu .sub{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden} /* v7.6.10: the NEW list grew to 20 lines on phones and pushed Play below the fold */
