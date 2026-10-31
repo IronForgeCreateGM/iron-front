@@ -252,3 +252,17 @@
   - Full suite: everything else passed. Run alone, endgame, mobile-play, slot and fogkeys pass. These also fail on live v7.6.7: ai71 (same 3 FAILs), ui7 (browser TimeoutError), endless703 (the "loop alive" check flakes 2 factions per run).
   - Screenshot /workspace/iron-front-v7.6.8.png (m7 2, pageErrors 0). App Store shots in /workspace/appstore-shots/. Zip /workspace/rts-game-v7.6.8-play.zip.
 - PUSHED 8429b1f -> main at 3:16:44 AM PT (fast-forward 47e23ab..8429b1f, no force; ls-remote checked first). LIVE VERIFIED 3:17:52 AM PT: version.json v7.6.8, 28 ?v=7.6.8 tags, NET_VERSION v7.6.8, privacy.html 200. v762-live-check: classic + hellgate, 0 page errors, 0 http fails.
+
+## 2026-10-31 (night, 3:20-4:30 AM PT) v7.6.9: phone title fix + desert rocks/team colours (AI identical to v7.6.8)
+- What changed for players:
+  - Phones: the update notes on the title screen had grown so long that they covered the TAP TO DEPLOY button, so taps on it could miss. The notes now stay to 2 lines at the bottom and never block taps. The IRON FRONT logo also fits on narrow portrait phones.
+  - Desert maps (hellgate, endless): the 3D desert rocks are back, and units and buildings keep their team colours. Before, loading those rocks could turn units black. Cause: desert mud walls and sandbags shared a material with units, and three.js r149 then picked the wrong shader. They now have their own material.
+  - AI and gameplay: no change (sim.js, ai.js and data.js are byte-identical to v7.6.8).
+- Tests (/workspace/n1031/g769):
+  - Full suite (40 tests, 6 at a time): pass apart from the known items below.
+  - Run alone: endless703 (loop-alive check now allows 3 windows), fogkeys, slot, ui7 (now passes; it used to time out because of the covered button) and endgame (718 s) all pass.
+  - Still failing, same as live: ai71 (same 3 timing FAILs as live). mobile-play "card tap -> ghost" flakes on live v7.6.8 too (checked side by side). v4 hits its 900 s timeout, same as v7.6.8.
+  - det73/det74 (glb on vs off) identical. Map shots on all 6 maps plus phone: 0 page errors, 0 http fails.
+  - Old replays (uploads.log): see the PUSHED line.
+- New tool: test/ai-bench.js runs the seat-swapped NEW-vs-OLD sets in parallel and prints one tally. Use quick4 as a quick check and all20 as the ship gate.
+- Artifacts: /workspace/rts-game-v7.6.9-play.zip, /workspace/iron-front-v7.6.9.png (hellgate), /workspace/iron-front-v7.6.9-phone-title.png (live vs new phone title).
