@@ -41,6 +41,7 @@ function aiStep(P) {
   for (const c in P.queues) for (const it of P.queues[c]) cnt[it.t] = (cnt[it.t] || 0) + 1;
   for (const c in P.ready) if (P.ready[c]) cnt[P.ready[c]] = (cnt[P.ready[c]] || 0) + 1;
   if (V6 && !SIOFF.k76) pre76(P, S, D, me, cnt, hq, foes, knownB);
+  if (m7On(P, 'c')) spend7(P, S, cnt, me, hq);
   // 1) place ready buildings
   for (const cat of ['bld', 'def']) if (P.ready[cat]) { const rt = P.ready[cat], spot = aiSpot(P, rt, hq, foes); if (spot) placeReady(P.team, cat, spot[0], spot[1]); else { cancel(P.team, rt); S.bad[rt] = G.time + 60; } }
   // 2) structures: power emergency, then order list (rebuild handled by counting)
@@ -365,8 +366,9 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
     if (!S.grpMark || G.time - S.grpMark.t > 12) {
       if (S.grpMark && dhypot(c.x - S.grpMark.x, c.y - S.grpMark.y) < 2.5 && !foes.some(f => f.kind === 'u' && dhypot(f.x - c.x, f.y - c.y) < 8)) {
         const dest = S.grpWp || knownB[0] || { x: estart[0], y: estart[1] };
-        S.grp.forEach(u => { u.path = []; u.stuckN = 0; }); oM71(P, S, S.grp, dest.x + (G.R() - 0.5) * 4, dest.y + (G.R() - 0.5) * 4, true);
-      }
+        if (m7On(P, 'b') && !S.grpWp) { S.grp.forEach(u => { u.path = []; u.stuckN = 0; }); S.regT = 0; S.st7 = (S.st7 || 0) + 1; if (S.st7 >= 3 && S.tg7) { S.bad7 = S.bad7 || {}; S.bad7[S.tg7.id] = G.time + 45; S.tg7 = null; S.st7 = 0; } } // v7.6.6: no random jitter; the field step re-issues, a target stuck on 3x is dropped
+        else { S.grp.forEach(u => { u.path = []; u.stuckN = 0; }); oM71(P, S, S.grp, dest.x + (G.R() - 0.5) * 4, dest.y + (G.R() - 0.5) * 4, true); }
+      } else if (S.grpMark) S.st7 = 0;
       S.grpMark = { x: c.x, y: c.y, t: G.time };
     }
     const near = foes.filter(f => f.kind === 'u' && UT[f.t].wpn && dhypot(f.x - c.x, f.y - c.y) < 10);
@@ -391,17 +393,18 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
       if (S.grpWp && !S.grpWp.hold && !near.length && (dhypot(c.x - S.grpWp.x, c.y - S.grpWp.y) < 4.5 || G.time > S.grpWp.t)) S.grpWp = null; // flank waypoint reached
       if (S.grpWp && S.grpWp.hold) { if (!near.length && dhypot(c.x - S.grpWp.x, c.y - S.grpWp.y) > 4) oM71(P, S, S.grp.filter(u => u.order !== 'attack'), S.grpWp.x, S.grpWp.y, true); } // v7.1: wait at the rally until the whole team is in place
       else if (S.grpWp && !near.length) oM71(P, S, S.grp, S.grpWp.x, S.grpWp.y, true);
-      else if (far.length > S.grp.length * 0.3 && !near.length && G.time > (S.regroupT || 0) && (S.regroupT = G.time + 12)) { oM71(P, S, S.grp, c.x, c.y, true); }
+      else if (far.length > S.grp.length * (m7On(P, 'b') ? 0.45 : 0.3) && !near.length && G.time > (S.regroupT || 0) && (S.regroupT = G.time + (m7On(P, 'b') ? 20 : 12))) { oM71(P, S, S.grp, c.x, c.y, true); }
       else {
         const tgts = knownB.slice(); const pref = S.towerHeavy ? ['turret', 'tesla', 'gatling', 'gcannon', 'aagun', 'wall', 'power', 'refinery', 'factory', 'barracks', 'cc', 'hq'] : D.si && !SIOFF.pref ? ['cc', 'factory', 'barracks', 'refinery', 'hq', 'airfield', 'turret', 'aagun', 'tech', 'power'] : ['turret', 'aagun', 'refinery', 'factory', 'barracks', 'power', 'airfield', 'tech', 'hq'];
         tgts.sort((a, b) => dhypot(a.x - c.x, a.y - c.y) * 0.3 + (pref.indexOf(a.t) + 1 || 9) - dhypot(b.x - c.x, b.y - c.y) * 0.3 - (pref.indexOf(b.t) + 1 || 9));
-        let t = tgts[0] || huntTarget(P, S, c, estart);
+        const M7 = m7On(P, 'b'); let t = (M7 && tgts.length ? tgt7(P, S, c, tgts) : null) || tgts[0] || huntTarget(P, S, c, estart);
         // v5.1 siege: break the weakest section of the wall/defence line in front of the pack (lowest hp, closest)
         if ((S.siege || S.doc && !SIOFF.commit) && (D.si || S.doc) && !SIOFF.siege) { const line = knownB.filter(b => (b.t === 'wall' || b.t === 'gate' || BT[b.t].wpn) && dhypot(b.x - c.x, b.y - c.y) < 13);
           if (line.length) { const real = line.map(b => byId(b.id) || b); real.sort((a, b) => (a.hp || 0) / 80 + dhypot(a.x - c.x, a.y - c.y) - (b.hp || 0) / 80 - dhypot(b.x - c.x, b.y - c.y)); const w = real[0];
             if (w && w.hp > 0 && G.time > (S.breachT || 0)) { S.breachT = G.time + 3; orderAttack(S.grp.filter(u => !u.tgt || u.tgt.kind !== 'u'), w); } } }
         const step = Math.min(8, dhypot(t.x - c.x, t.y - c.y)), a2 = datan2(t.y - c.y, t.x - c.x);
-        if (!near.length && step > 3) oM71(P, S, S.grp.filter(u => u.order !== 'attack'), c.x + dcos(a2) * step, c.y + dsin(a2) * step, true);
+        if (M7 && t.kind === 'b' && move7(P, S, c, t, near)) {}
+        else if (!near.length && step > 3) oM71(P, S, S.grp.filter(u => u.order !== 'attack'), c.x + dcos(a2) * step, c.y + dsin(a2) * step, true);
         else if (!near.length && tgts[0]) oM71(P, S, S.grp.filter(u => u.order !== 'attack'), t.x, t.y, true);
       }
     }
@@ -1021,7 +1024,9 @@ function army71(P, S, D, me, foes, knownB, idle, intruders, hq, estart) { // ret
   if (D.nick) { if (!(popOf(P.team) >= POP_CAP - 8 && idle.length >= 30)) return false; need = 0; }
   S.need71 = need; const timing = n76 ? G.time > 300 && av >= 2500 && G.time - S.lastAttack > 90 && (allies.length > 1 && !SIOFF.ts76 ? teamAv >= need * 1.05 && av >= Math.min(need * 0.3, 5000) : av >= need * 0.8 || teamAv >= need * 0.7 && G.time - S.lastAttack > 150) : G.time > 360 && av >= 3000 && G.time - S.lastAttack > 150 && av >= need * (SIOFF.x ? 0.7 : 0.9);
   if (G.time < (er76On(P) ? 420 : 300) && teamAv < Math.max(need, SIOFF.ea ? 0 : ((er76On(P) ? Math.max(eArmy, (G.time - 60) * 45) : eArmy) * 1.15 + Math.max(S.eDef71 || 0, 2400)) * 0.85) * (SIOFF.dp ? 2 : fortF > 1 && G.time < 300 ? 2.4 : 1.5)) return false; // no blind early all-ins into unscouted towers
-  if (!(teamAv >= need && av >= Math.min(need * 0.4, 6000)) && !(maxed && idle.length >= 10) && !timing) return false;
+  let lanGo = false; if (m7On(P, 'a') && n76 && n76.tgt && !fort76(P) && G.time > 300 && av >= 2500 && idle.length >= 6 && G.time - S.lastAttack > 60 && G.time >= (S.lan7T || 0)) { S.lan7T = G.time + 3; // v7.6.6: attack when the square law says we win with >~45% left
+    const tb0 = n76.silo || knownB.filter(b => b.team === n76.tgt.team).sort((a, b) => dhypot(a.x - hq.x, a.y - hq.y) - dhypot(b.x - hq.x, b.y - hq.y) || a.id - b.id)[0]; lanGo = lan7(P, S, idle, n76.tgt.team, knownB, tb0, teamAv, av, maxed) >= (+SION.lanR || 1.3); }
+  if (!(teamAv >= need && av >= Math.min(need * 0.4, 6000)) && !(maxed && idle.length >= 10) && !timing && !lanGo) return false;
   // target: the enemy player whose known army+defence is weakest relative to distance
   let tgt = null, bs = 1e18; for (const Q of G.players) if (foe(Q.team, P.team) && !Q.out) { let v = 0; for (const [, m] of S.mem || []) if (m.team === Q.team) v += UT[m.t].cost; for (const b of knownB) if (b.team === Q.team && BT[b.t].wpn) v += BT[b.t].cost * 0.5; const st = G.starts[Q.start], s = v + dhypot(st[0] - hq.x, st[1] - hq.y) * 60; if (s < bs) { bs = s; tgt = Q; } }
   if (n76) tgt = n76.tgt;
@@ -1113,19 +1118,23 @@ function warhead76(P, S, D, me, foes, knownB, intruders) {
     if (!s.mis && !s.mq) { // build: Titan for bases when the gas is there; a quick Viper when my base is hit; Hydra if the Titan is far off
       if (s.emptyT == null) s.emptyT = G.time; const wait = G.time - s.emptyT;
       const k = P.gas >= MIS.heavy.gas && P.cr >= MIS.heavy.cost + 300 ? 'heavy' : S.underAttack && armyVal(intruders) > 1200 && P.gas >= MIS.small.gas && P.cr >= MIS.small.cost ? 'small' : wait > 100 && P.gas >= MIS.cluster.gas && P.cr >= MIS.cluster.cost + 400 ? 'cluster' : wait > 160 && P.gas >= MIS.small.gas && P.cr >= MIS.small.cost + 600 ? 'small' : null;
-      if (k && siloBuild(s, k)) s.emptyT = null; continue; }
+      const k7 = m7On(P, 'd') ? mis7(P, S, s, knownB, wait, intruders) : k; // v7.6.6: never build a missile with nothing in its range
+      if (k7 && siloBuild(s, k7)) s.emptyT = null; continue; }
     if (!s.mis || G.time < (s.cdT || 0)) continue; const k = s.mis, m = MIS[k], R = m.r + (m.spread || 0) * 0.6;
+    const M7 = m7On(P, 'd'); if (M7) { if (s.rd7 == null) s.rd7 = G.time; const pp = plan71(P); // a Titan waits (<=45 s) for my push to reach its target, then lands with it
+      if (k === 'heavy' && pp && pp.go && S.grp.length >= 6 && G.time - s.rd7 < 45) { const c = S.grp[0]; if (dhypot(c.x - pp.x, c.y - pp.y) > 30) continue; } }
+    const lo7 = M7 ? (G.time - s.rd7 > 60 ? 0.4 : 1) : 1;
     let best = null, bv = 0;
     if (k !== 'heavy') { // armies: attackers at my base first (defense), then mid-range field armies
       for (const f of S.vis76) { if (dhypot(f.x - s.x, f.y - s.y) > m.rng || cover(f.x, f.y)) continue; const v = mass76(P, f, R), home = intruders.includes(f), fr = friendly76(P, f.x, f.y, R);
         if (fr > v * (home ? 0.3 : 0.15)) continue; const sc = v * (home ? 1.6 : 1); if (sc > bv) { bv = sc; best = f; } }
-      if (best && bv < (k === 'small' ? 900 : 1500)) best = null; }
-    if (!best && (k === 'heavy' || G.time - (s.lastLaunch || s.born) > 150)) { // bases: biggest cluster of buildings, never into SM-3 umbrellas with small ones
+      if (best && bv < (k === 'small' ? 900 : 1500) * lo7) best = null; }
+    if (!best && (k === 'heavy' || G.time - (s.lastLaunch || s.born) > 150 || lo7 < 1)) { // bases: biggest cluster of buildings, never into SM-3 umbrellas with small ones
       bv = 0; for (const b of knownB) { if (dhypot(b.x - s.x, b.y - s.y) > m.rng) continue; const c = cover(b.x, b.y); if (c && (k !== 'heavy' || c > 1)) continue; if (friendly76(P, b.x, b.y, R) > 0) continue;
         let v = 0; for (const o of knownB) { const d = dhypot(o.x - b.x, o.y - b.y); if (d < R + 1) v += BT[o.t].cost * (o.t === 'hq' || o.t === 'cc' || o.t === 'silo' || o.t === 'factory' ? 1.5 : BT[o.t].cat === 'def' || o.t === 'power' ? 1.3 : 1) * (1 - d / (R + 2)); }
         v *= c ? 0.5 : 1; if (v > bv) { bv = v; best = b; } }
-      if (best && bv < (k === 'heavy' ? 2500 : 1200)) best = null; }
-    if (best && siloLaunch(s, best.x, best.y)) { s.readyT = null; G.events.push({ e: 'aiWar', team: P.team, k }); }
+      if (best && bv < (k === 'heavy' ? 2500 : 1200) * lo7) best = null; }
+    if (best && siloLaunch(s, best.x, best.y)) { s.readyT = null; s.rd7 = null; G.events.push({ e: 'aiWar', team: P.team, k }); }
   }
 }
 function infMass76(S) { const c = S.comp || {}, tot = S.compTot || 0; if (tot < 3000) return false; let inf = 0; for (const k in c) { const u = d71(k); if (u && u.armor === 'inf') inf += c[k]; } return inf > tot * 0.55; }
@@ -1183,3 +1192,89 @@ function teamHome76(P, c) { // joint defence: the other bots' idle home armies t
     for (const e of G.ents) if (e.kind === 'u' && e.team === Q.team && e.hp > 0 && UT[e.t].wpn && e.t !== 'harv' && !UT[e.t].jet && !g.has(e.id) && dhypot(e.x - st[0], e.y - st[1]) < 22 && dhypot(e.x - c.x, e.y - c.y) < 45) o.push(e); }
   return o; }
 function pg76(P, V6) { return V6 && !SIOFF.pg76 && !G.end && peaceEnd76() >= 300 && G.time > 60 && G.time < peaceEnd76() - 90; } // v7.6.1 macro: a long peace is safe time -> extra refineries on the main before the expansion (SC2 bots go greedy when no attack can come)
+// ===================== v7.6.6 phase-1 math layer (replay flag m7; lobby Hard = si2 only) =====================
+// a) Lanchester launch gate   b) distance-field movement + target hysteresis   c) knapsack spend sink   d) expected-value silo use
+const m7On = (P, k) => !!G.r76 && !!G.nt && !!G.m7 && isV76(P) && !SIOFF.m7 && !P.m7Off && !(k && SIOFF['m7' + k]);
+// --- b) distance field (Dijkstra, integer costs 10/14, deterministic heap tie-break on tile index) ---
+function heap7() { const k = [], v = []; return { n: () => k.length,
+  push(key, val) { let i = k.length; k.push(key); v.push(val); while (i) { const p = (i - 1) >> 1; if (k[p] < key || (k[p] === key && v[p] <= val)) break; k[i] = k[p]; v[i] = v[p]; i = p; } k[i] = key; v[i] = val; },
+  pop() { const rk = k[0], rv = v[0], lk = k.pop(), lv = v.pop(); if (k.length) { let i = 0; for (;;) { let l = 2 * i + 1, r = l + 1, m = i, mk = lk, mv = lv; if (l < k.length && (k[l] < mk || (k[l] === mk && v[l] < mv))) { m = l; mk = k[l]; mv = v[l]; } if (r < k.length && (k[r] < mk || (k[r] === mk && v[r] < mv))) { m = r; mk = k[r]; mv = v[r]; } if (m === i) break; k[i] = k[m]; v[i] = v[m]; i = m; } k[i] = lk; v[i] = lv; } return [rk, rv]; } }; }
+function field7(P, S, tb) { // cost-to-target over the map; enemy walls/gates are breachable (high cost), everything else built is solid
+  const key = (tb.id || 0) + ':' + Math.floor(tb.x) + ',' + Math.floor(tb.y), f = S.f7;
+  if (f && f.key === key && (f.bv === G.bver || G.time - f.t < 6)) return f;
+  const g = getBlock(), N = MW * MH, D = new Int32Array(N).fill(1 << 30), own = new Int16Array(N).fill(-1), wl = new Uint8Array(N);
+  for (const e of G.ents) if (e.kind === 'b') for (let y = e.ty; y < e.ty + e.h; y++) for (let x = e.tx; x < e.tx + e.w; x++) { const i = idx(x, y); own[i] = e.team; if ((e.t === 'wall' || e.t === 'gate') && foe(e.team, P.team)) wl[i] = 1; }
+  const H = heap7(), tx = Math.floor(tb.x), ty = Math.floor(tb.y), bw = tb.w || (BT[tb.t] || {}).w || 1, bh = tb.h || (BT[tb.t] || {}).h || 1, x0 = tb.tx != null ? tb.tx : tx - (bw >> 1), y0 = tb.ty != null ? tb.ty : ty - (bh >> 1);
+  for (let y = y0; y < y0 + bh; y++) for (let x = x0; x < x0 + bw; x++) if (inb(x, y)) { const i = idx(x, y); D[i] = 0; H.push(0, i); }
+  if (!H.n() && inb(tx, ty)) { D[idx(tx, ty)] = 0; H.push(0, idx(tx, ty)); }
+  const pass = i => g[i] === 0 ? 0 : g[i] === 1 ? -1 : wl[i] ? 140 : g[i] === 3 && own[i] >= 0 && !foe(own[i], P.team) ? 0 : -1;
+  let pops = 0;
+  while (H.n() && pops < 30000) { const [d, i] = H.pop(); pops++; if (d > D[i]) continue; const x = i % MW, y = (i / MW) | 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const nx = x + dx, ny = y + dy; if (!inb(nx, ny)) continue; const j = idx(nx, ny), pj = pass(j); if (pj < 0) continue;
+      if (dx && dy && (pass(idx(x + dx, y)) !== 0 || pass(idx(x, y + dy)) !== 0)) continue; // no corner cutting
+      const nd = d + (dx && dy ? 14 : 10) + pj; if (nd < D[j]) { D[j] = nd; H.push(nd, j); } } }
+  return (S.f7 = { key, bv: G.bver, t: G.time, D, wl }); }
+function step7(P, S, f, c, grp, n) { // walk n tiles down the field from the pack (centroid snapped to the nearest reached tile)
+  const D = f.D; let si = -1, bd = 1e18;
+  const tryT = (x, y) => { if (!inb(x, y)) return; const i = idx(x, y); if (D[i] < bd && D[i] < (1 << 30)) { bd = D[i]; si = i; } };
+  for (let r = 0; r <= 3 && si < 0; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) === r) tryT(Math.floor(c.x) + dx, Math.floor(c.y) + dy);
+  if (si < 0) for (const u of grp) tryT(Math.floor(u.x), Math.floor(u.y)); // centroid sits in rock -> best member tile
+  if (si < 0) return null;
+  let i = si, wall = -1;
+  for (let s = 0; s < n && D[i] > 0; s++) { const x = i % MW, y = (i / MW) | 0; let bj = -1, bv = D[i];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const nx = x + dx, ny = y + dy; if (!inb(nx, ny)) continue; const j = idx(nx, ny); if (D[j] < bv) { bv = D[j]; bj = j; } }
+    if (bj < 0) break; if (f.wl[bj]) { wall = bj; break; } i = bj; }
+  let wb = null; if (wall >= 0) { const wx = wall % MW, wy = (wall / MW) | 0; wb = G.ents.find(e => e.kind === 'b' && e.hp > 0 && wx >= e.tx && wx < e.tx + e.w && wy >= e.ty && wy < e.ty + e.h) || null; }
+  return { x: (i % MW) + 0.5, y: ((i / MW) | 0) + 0.5, d: D[i] / 10, d0: D[si] / 10, wall: wb }; }
+function tgt7(P, S, c, tgts) { // target hysteresis: keep the current objective ~20 s unless it dies / turns unreachable / something far better shows up
+  const cur = S.tg7 && tgts.find(b => b.id === S.tg7.id);
+  if (cur && (byId(cur.id) || cur).hp > 0 && !S.tg7.bad && G.time < S.tg7.until) return cur;
+  const t = tgts.find(b => !(S.bad7 && S.bad7[b.id] > G.time)) || null;
+  if (t) S.tg7 = { id: t.id, until: G.time + 20 }; return t; }
+function move7(P, S, c, t, near) { // returns true if it issued (or deliberately held) the step order
+  if (!t || t.kind !== 'b' && !(BT[t.t])) return false; const f = field7(P, S, t), st = step7(P, S, f, c, S.grp, 8);
+  if (!st) { if (S.tg7 && S.tg7.id === t.id) { S.bad7 = S.bad7 || {}; S.bad7[t.id] = G.time + 45; S.tg7 = null; } return false; } // unreachable from here: drop it for 45 s
+  if (near.length) return true;
+  const free = S.grp.filter(u => u.order !== 'attack');
+  if (st.wall && G.time > (S.breachT || 0)) { S.breachT = G.time + 3; orderAttack(S.grp.filter(u => !u.tgt || u.tgt.kind !== 'u'), st.wall); return true; }
+  if (st.d0 > 4) oM71(P, S, free, st.x, st.y, true); else oM71(P, S, free, t.x, t.y, true);
+  return true; }
+// --- a) Lanchester launch: square law on the counter-aware dps table; survivors = sqrt(1 - 1/r) ---
+function lan7(P, S, idle, tgtTeam, knownB, tb, teamAv, av, maxed) {
+  const theirs = [];
+  for (const [, m] of S.mem || []) if (m.team === tgtTeam) { const u = UT[m.t === 'raijinJ' ? 'raijin' : m.t]; if (u && (u.wpn || u.kami)) theirs.push({ kind: 'u', t: m.t === 'raijinJ' ? 'raijin' : m.t, hp: u.hp * (G.time - m.ts < 75 ? 1 : 0.6) }); }
+  if (tb) for (const b of knownB) if (b.team === tgtTeam && BT[b.t] && BT[b.t].wpn && !b.offline && dhypot(b.x - tb.x, b.y - tb.y) < 22) theirs.push({ kind: 'b', t: b.t, hp: (byId(b.id) || b).hp || BT[b.t].hp });
+  let mv = 0; for (const e of theirs) if (e.kind === 'u') mv += UT[e.t].cost; // unseen prior: what they could have built that we never saw
+  const prior = G.opts.fog === false ? 0 : Math.max(0, Math.min(14000, (G.time - 150) * 22) - mv);
+  for (let k = Math.floor(prior / UT.heavy.cost); k > 0; k--) theirs.push({ kind: 'u', t: 'heavy', hp: UT.heavy.hp });
+  let r = sim71(idle, theirs); if (r >= 9) r = 9;
+  const sc = Math.min(2, teamAv / Math.max(1, av)); r *= sc * sc; // allied armies join the fight (square law: strength ~ N^2)
+  if (maxed) r *= 1 + Math.min(0.5, P.cr / 60000); // a banked max-pop army re-buys its losses at once
+  S.lan7 = Math.round(r * 100) / 100; return r; }
+// --- c) spend sink: 0/1 knapsack over what the bank can buy that still adds strength ---
+function spend7(P, S, cnt, me, hq) {
+  if (G.time < (S.sp7T || 0)) return; S.sp7T = G.time + 4;
+  const maxed = popOf(P.team) >= POP_CAP - 8, bank = P.cr - 2500; if (bank < 4000 && !(maxed && P.cr > 2500)) return;
+  const items = [], yards = me.filter(e => (e.t === 'hq' || e.t === 'cc') && e.hp > 0 && !e.con).length;
+  if (maxed && (cnt.silo || 0) < Math.min(3, 1 + yards) && P.gas > BT.silo.gas + 600 && avail(P.team, 'silo') && !P.queues.bld.length && !P.ready.bld) items.push({ k: 'silo', c: BT.silo.cost, v: 9 });
+  const lab = me.find(b => b.t === 'tech' && b.upT == null && b.sell < 0 && b.hp > 0 && !b.con && G.time - b.born > 2);
+  if (lab && maxed) for (const c of RES.cats) { const ri = researchInfo(P.team, c); if (ri && !ri.busy && !ri.lock && P.gas >= ri.gas + 300) { items.push({ k: 'rs', c: ri.cost, v: 6, cat: c }); break; } }
+  const dcap = (maxed ? 10 : 6) + (maxed ? 6 : 4) * yards, dn = me.filter(e => e.kind === 'b' && BT[e.t].wpn).length;
+  if (dn < dcap && !P.queues.def.length && !P.ready.def) for (const t of ['tesla', 'gcannon', 'gatling', 'aagun', 'turret']) if (avail(P.team, t)) { items.push({ k: 'def', t, c: BT[t].cost, v: 4 }); break; }
+  if (!items.length) return;
+  const U = 500, W = Math.floor(Math.max(0, P.cr - 2500) / U), n = items.length, w = items.map(i => Math.ceil(i.c / U)); // DP over bank in 500-credit units
+  const best = Array.from({ length: n + 1 }, () => new Int32Array(W + 1));
+  for (let i = 1; i <= n; i++) for (let x = 0; x <= W; x++) { best[i][x] = best[i - 1][x]; if (w[i - 1] <= x) best[i][x] = Math.max(best[i][x], best[i - 1][x - w[i - 1]] + items[i - 1].v); }
+  let x = W; const pick = []; for (let i = n; i >= 1; i--) if (best[i][x] !== best[i - 1][x]) { pick.push(items[i - 1]); x -= w[i - 1]; }
+  for (const it of pick) { if (it.k === 'rs') researchB(lab, it.cat);
+    else if (it.k === 'def') enqueue(P.team, it.t); else if (it.k === 'silo' && aiSpot(P, 'silo', hq, [])) enqueue(P.team, 'silo'); } }
+// --- d) missile choice by expected value: (value it can reach) / (credits + 2x gas); nothing in range -> do not build it
+function mis7(P, S, s, knownB, wait, intruders) {
+  let bk = null, be = 0;
+  for (const k of ['heavy', 'cluster', 'small']) { const m = MIS[k]; if (P.gas < m.gas + (k === 'heavy' ? 0 : 100) || P.cr < m.cost + 300) continue; let v = 0;
+    for (const b of knownB) if (dhypot(b.x - s.x, b.y - s.y) <= m.rng && BT[b.t]) v = Math.max(v, BT[b.t].cost * (b.t === 'cc' || b.t === 'hq' || b.t === 'silo' || b.t === 'factory' ? 1.5 : 1));
+    for (const f of S.vis76 || []) if (dhypot(f.x - s.x, f.y - s.y) <= m.rng) v = Math.max(v, mass76(P, f, m.r + (m.spread || 0) * 0.6) * (intruders.includes(f) ? 1.6 : 1));
+    if (!v) continue; const e = Math.min(v, m.dmg * (m.sub || 1)) / (m.cost + m.gas * 2) * (k === 'heavy' ? 1.2 : 1);
+    if (k !== 'heavy' && !(S.underAttack && k === 'small') && wait < (k === 'cluster' ? 100 : 160)) continue; // keep saving for a Titan unless it has waited
+    if (e > be) { be = e; bk = k; } }
+  return bk; }
