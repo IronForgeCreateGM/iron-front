@@ -1,3 +1,6 @@
+## RESUME NOTE 5:41 AM PT Sat Oct 31
+- Live = v7.6.10 (8748723). Stuck spots: the drill now counts units bunched within 3 tiles of their goal as "crowded", not stuck. That was about 40% of the old "stuck" count. Real stuck (16 min): volcano8 s5 1.0%, s23 2.1%; hellgate s7 3.4%, s19 1.9%. Hellgate hot spot is open ground at 40-48,56 (mid-map). Logs are in /workspace/n1031/stuck. Next: diagnose hellgate 40,56 (DUMP=all), no pushes unless fully gated.
+
 ## RESUME NOTE 5:22 AM PT Sat Oct 31
 - v7.6.10 (realistic infantry + phone menu clamp) PUSHED 5:19:03 AM PT as 8748723, live verified 5:21. master == live main.
 - Next: queue items (Hard AI math / France / bank / stuck), with A/B only and no pushes unless fully gated. NIGHTLY-LOG must be complete by 7:30, then delete .night-run-lock at 7:45 and report.
