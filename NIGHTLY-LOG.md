@@ -1,5 +1,15 @@
 # Iron Front nightly log
 
+## TONIGHT IN ONE SCREEN (night of Fri Oct 30 -> Sat Oct 31, 2026; all times PT). Full entries are at the bottom of this file.
+Five versions went live (each was a fast-forward push to main, never forced, and checked on the live page afterwards):
+1. v7.6.6 (22817c7, pushed 10:58:54 PM): Hard bots got smarter. They attack when the fight maths says they will win, walk smarter routes around walls, spend big banks on silo, research and towers, and aim silo missiles better. NOTE: this went out about 1 minute before the agreed 11:00 PM push window. Undoing it would have needed a force-push, so it was left in place.
+2. v7.6.7 (47e23ab, pushed 1:31:39 AM): Hard bots mine faster (refineries sit right next to the ore). For everyone, attack-moved units keep going after a fight instead of standing still. Hard bots no longer wall in a teammate's factory.
+3. v7.6.8 (8429b1f, pushed 3:16:44 AM): App Store pieces: a privacy page, a credits line, a 1024 px app icon and an App Store screenshot script. No AI change.
+4. v7.6.9 (105b825, pushed 4:22:33 AM): Phones: the title screen's update notes no longer cover TAP TO DEPLOY. Desert maps: the 3D rocks are back and units no longer lose their team colours. No AI change.
+5. v7.6.10 (8748723, pushed 5:19:03 AM): Infantry now look like realistic special-forces troops (camo, team-coloured plate carriers and helmets, headsets, eye protection). On phones the main menu's NEW list is cut to 3 lines, so Play is visible without scrolling. No AI change.
+Old replays still replay at every step (each AI change has its own replay level). No bot bonuses and no unit stat changes.
+Tried and held back (not live): m7g (spending the bank at max pop: even, because gas runs out first), m7h/m7i (France tweaks: made France worse), fp76 fortress doctrine (too small a gain), SC2-style construction (a big sim + AI change that needs a full A/B; not started), and the formation fix for stuck armies (see the end of this file).
+
 ## 2026-10-27: v7.2.0
 - Queue item 1: place-then-build construction. DONE.
 - What changed for players:
