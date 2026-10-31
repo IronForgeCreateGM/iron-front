@@ -253,7 +253,7 @@ function buildFoliage() {
     else if (G.map[i] === 0 && !G.oreMax[i] && R() < 0.02 && !nearBase(x, y)) rocks.push([x + R(), y + R(), 0.1 + R() * 0.12]); }
   const rm = new THREE.InstancedMesh(rgeo, pbrMaterial(), rocks.length); rm.castShadow = true; rm.receiveShadow = true; rm.frustumCulled = false;
   rocks.forEach((r, j) => { e.set(R() * 3, R() * 6, R() * 3); q.setFromEuler(e); m4.compose(new THREE.Vector3(r[0], heightAt(r[0], r[1]) + r[2] * 0.1, r[1]), q, new THREE.Vector3(r[2], r[2], r[2])); rm.setMatrixAt(j, m4); });
-  R3.scene.add(rm); R3.rocks = rm; if (rocks.length && TH !== 'desert') PR({ mesh: rm, file: 'rocks_' + TH, upright: true, sink: 0.08 });
+  R3.scene.add(rm); R3.rocks = rm; if (rocks.length) PR({ mesh: rm, file: 'rocks_' + TH, upright: true, sink: 0.08 });
 }
 function buildLandmarks() {
   // bridges: plank decks + rails over river causeways
@@ -382,7 +382,7 @@ function buildDesert() {
   // mud-brick walls: one crumbling block per wall tile + parapet bumps
   const mud = []; for (let i = 0; i < MW * MH; i++) if (G.mud && G.mud[i]) mud.push(i);
   if (mud.length) { const B = new MB(0); B.box('w', 1.0, 1.0, 1.0, 0xffffff, PBR.CONC, 0, 0.5, 0, { bevel: 0.06 });
-    const wm = new THREE.InstancedMesh(B.build().w, pbrMaterial(), mud.length * 2); let k = 0;
+    const wm = new THREE.InstancedMesh(B.build().w, pbrMatIC(), mud.length * 2); let k = 0;
     for (const i of mud) { const x = i % MW + 0.5, y = (i / MW | 0) + 0.5, h = heightAt(x, y) - 0.05, hh = 0.75 + R() * 0.65 * (R() < 0.8 ? 1 : 0.3);
       e.set(0, (R() - 0.5) * 0.08, 0); q.setFromEuler(e); m4.compose(v.set(x, h, y), q, sc.set(1.0, hh, 1.0)); wm.setMatrixAt(k, m4); cl.setRGB(0.58 + R() * 0.08, 0.42 + R() * 0.05, 0.27 + R() * 0.04); wm.setColorAt(k++, cl);
       if (R() < 0.45) { m4.compose(v.set(x + (R() - 0.5) * 0.5, h + hh, y + (R() - 0.5) * 0.5), q, sc.set(0.3, 0.22, 0.3)); wm.setMatrixAt(k, m4); cl.setRGB(0.52, 0.38, 0.24); wm.setColorAt(k++, cl); } }
@@ -406,7 +406,7 @@ function buildDesert() {
   const cyW = (G.canyon && G.canyon.y) || 64;
   if (G.deco && G.deco.nests) for (const n of G.deco.nests) nest(...n); else { nest(33.5, cyW - 4.6, 1.3, -0.2, 2.6, 2); nest(33.5, cyW + 4.6, 1.3, -2.6, 0.2, 2); nest(29.5, cyW, 1.6, -1.2, 1.2, 2);
   nest(55.5, cyW - 5, 1.2, 1.2, 3.6, 2); nest(55.5, cyW + 5.5, 1.2, -3.6, -1.2, 2); nest(86, 52.5, 1.4, 0, 3.1, 2); nest(86, 75.5, 1.4, -3.1, 0, 2); nest(102, 64, 1.3, 1.6, 4.6, 2); }
-  const bm = new THREE.InstancedMesh(SB.build().s, pbrMaterial(), bags.length);
+  const bm = new THREE.InstancedMesh(SB.build().s, pbrMatIC(), bags.length);
   bags.forEach(([x, y, a, row], k) => { e.set(0, -a, 0); q.setFromEuler(e); m4.compose(v.set(x, heightAt(x, y) + row * 0.2, y), q, sc.set(1, 1, 1)); bm.setMatrixAt(k, m4); cl.setRGB(0.62 + R() * 0.08, 0.52 + R() * 0.06, 0.34 + R() * 0.05); bm.setColorAt(k, cl); tag(x, y, bm, k); });
   bm.castShadow = bm.receiveShadow = true; bm.frustumCulled = false; S.add(bm);
   // ruined watchtowers on the ridge flanks of the Hellgate
