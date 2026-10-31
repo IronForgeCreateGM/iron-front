@@ -6,7 +6,7 @@ vm.runInThisContext(['data.js', 'sim.js', 'ai.js'].map(f => fs.readFileSync(path
 const [map = 'volcano8', seed = '5', mm = '12', old = '0'] = process.argv.slice(2);
 const facs = ['fra', 'chn', 'ger', 'rus', 'usa', 'fra', 'chn', 'ger'];
 const n = map === 'volcano8' ? 8 : 2, slots = [...Array(n)].map((_, i) => ({ ai: true, diff: 'si2', fac: facs[i], ally: i < n / 2 ? 0 : 1 }));
-newGame({ seed: +seed, map, slots }); if (old === '1') for (const P of G.players) { P.ntOff = true; P.pwOff = true; }
+newGame({ seed: +seed, map, slots }); if (old === '1') for (const P of G.players) { P.ntOff = true; P.pwOff = true; } if (old === 'm') for (const P of G.players) P.m7Off = true;
 const hist = new Map(), spots = new Map(); let samples = 0, stuck = 0, nearB = 0;
 const near = u => { let bd = 1e9, bt = 'open'; for (const e of G.ents) if (e.kind === 'b' && e.hp > 0) { const d = Math.hypot(e.x - u.x, e.y - u.y) - Math.max(BT[e.t].w, BT[e.t].h) / 2; if (d < bd) { bd = d; bt = (e.team === u.team ? 'own ' : G.players[e.team] && G.players[e.team].ally === G.players[u.team].ally ? 'ally ' : 'foe ') + e.t; } } return bd < 3 ? bt : 'open'; };
 for (let k = 0; k < +mm * 60 * 30 && !G.over; k++) { stepGame(); G.events.length = 0;
