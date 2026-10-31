@@ -1262,7 +1262,8 @@ function spend7(P, S, cnt, me, hq) {
   const lab = me.find(b => b.t === 'tech' && b.upT == null && b.sell < 0 && b.hp > 0 && !b.con && G.time - b.born > 2);
   if (lab && maxed) for (const c of RES.cats) { const ri = researchInfo(P.team, c); if (ri && !ri.busy && !ri.lock && P.gas >= ri.gas + 300) { items.push({ k: 'rs', c: ri.cost, v: 6, cat: c }); break; } }
   const rich = maxed && m7On(P, 'g') ? Math.max(0, Math.min(10, Math.floor((P.cr - 12000) / 4000))) : 0; // m7g (v7.6.8): maxed out and still banking -> turn the float into more towers and production
-  if (rich >= 2) { const prod = (cnt.factory || 0) + (cnt.barracks || 0); if (prod < 4 + 2 * yards && !P.queues.bld.length && !P.ready.bld) { const t = (cnt.factory || 0) <= (cnt.barracks || 0) ? 'factory' : 'barracks'; if (avail(P.team, t) && aiSpot(P, t, hq, [])) items.push({ k: 'bld', t, c: BT[t].cost, v: 5 }); } }
+  let ex7 = false; if (rich >= 1 && P.gas < 1500 && !P.queues.bld.length && !P.ready.bld && avail(P.team, 'extractor') && aiSpot(P, 'extractor', hq, [])) { items.push({ k: 'bld', t: 'extractor', c: BT.extractor.cost, v: 8 }); ex7 = true; } // m7g: credits pile up because gas runs dry - claim every free vent in reach
+  if (rich >= 2 && !ex7) { const prod = (cnt.factory || 0) + (cnt.barracks || 0); if (prod < 4 + 2 * yards && !P.queues.bld.length && !P.ready.bld) { const t = (cnt.factory || 0) <= (cnt.barracks || 0) ? 'factory' : 'barracks'; if (avail(P.team, t) && aiSpot(P, t, hq, [])) items.push({ k: 'bld', t, c: BT[t].cost, v: 5 }); } }
   const dcap = (maxed ? 10 : 6) + (maxed ? 6 : 4) * yards + rich * 2, dn = me.filter(e => e.kind === 'b' && BT[e.t].wpn).length;
   if (dn < dcap && !P.queues.def.length && !P.ready.def) for (const t of ['tesla', 'gcannon', 'gatling', 'aagun', 'turret']) if (avail(P.team, t)) { items.push({ k: 'def', t, c: BT[t].cost, v: 4 }); break; }
   if (!items.length) return;
