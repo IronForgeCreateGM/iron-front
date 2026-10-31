@@ -209,7 +209,8 @@ function aiSpot(P, t, hq, foes) {
   } else if (d.cat === 'def' && ef) { const a = datan2(ef.y - hq.y, ef.x - hq.x) + (G.R() - 0.5) * 1.6; ax = hq.x + dcos(a) * 7; ay = hq.y + dsin(a) * 7; }
   const cands = [];
   const y0 = Math.max(1, Math.floor(ay - d.h / 2 - 15)), y1 = Math.min(MH - d.h, Math.ceil(ay - d.h / 2 + 15)), x0 = Math.max(1, Math.floor(ax - d.w / 2 - 15)), x1 = Math.min(MW - d.w, Math.ceil(ax - d.w / 2 + 15)); // v7.1: same candidates, bounded scan
-  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const dd = dhypot(x + d.w / 2 - ax, y + d.h / 2 - ay); if (dd < 14) cands.push([dd + G.R() * 1.5, x, y]); }
+  const R7 = t === 'refinery' && m7On(P, 'e') ? ref7Tiles(ax, ay) : null; // v7.6.7 m7e: refinery dock faces the ore (shortest harvester round trip)
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const dd = dhypot(x + d.w / 2 - ax, y + d.h / 2 - ay); if (dd < 14) cands.push([(R7 && R7.length ? ref7Score(R7, x, y, d, dd) : dd) + G.R() * 1.5, x, y]); }
   cands.sort((a, b) => a[0] - b[0]);
   const g = getBlock(), NT = nt76On(P); let ntF = 0;
   for (const [, x, y] of cands) {
@@ -1194,7 +1195,7 @@ function teamHome76(P, c) { // joint defence: the other bots' idle home armies t
 function pg76(P, V6) { return V6 && !SIOFF.pg76 && !G.end && peaceEnd76() >= 300 && G.time > 60 && G.time < peaceEnd76() - 90; } // v7.6.1 macro: a long peace is safe time -> extra refineries on the main before the expansion (SC2 bots go greedy when no attack can come)
 // ===================== v7.6.6 phase-1 math layer (replay flag m7; lobby Hard = si2 only) =====================
 // a) Lanchester launch gate   b) distance-field movement + target hysteresis   c) knapsack spend sink   d) expected-value silo use
-const m7On = (P, k) => !!G.r76 && !!G.nt && !!G.m7 && isV76(P) && !SIOFF.m7 && !P.m7Off && !(k && SIOFF['m7' + k]);
+const m7On = (P, k) => !!G.r76 && !!G.nt && !!G.m7 && isV76(P) && !SIOFF.m7 && !P.m7Off && !(k && SIOFF['m7' + k]) && (k !== 'e' || G.m7 >= 2);
 // --- b) distance field (Dijkstra, integer costs 10/14, deterministic heap tie-break on tile index) ---
 function heap7() { const k = [], v = []; return { n: () => k.length,
   push(key, val) { let i = k.length; k.push(key); v.push(val); while (i) { const p = (i - 1) >> 1; if (k[p] < key || (k[p] === key && v[p] <= val)) break; k[i] = k[p]; v[i] = v[p]; i = p; } k[i] = key; v[i] = val; },
@@ -1278,3 +1279,11 @@ function mis7(P, S, s, knownB, wait, intruders) {
     if (k !== 'heavy' && !(S.underAttack && k === 'small') && wait < (k === 'cluster' ? 100 : 160)) continue; // keep saving for a Titan unless it has waited
     if (e > be) { be = e; bk = k; } }
   return bk; }
+
+// --- e) refinery placement (m7e): harvesters dock on the refinery's south side (sim.js harvest 'ret'), so score a spot by the
+// mean distance from its dock to the 12 nearest rich ore tiles, plus a small pull toward the planned spot (keeps it inside the base)
+function ref7Tiles(ax, ay) { const out = [], x0 = Math.max(0, Math.floor(ax - 16)), x1 = Math.min(MW - 1, Math.ceil(ax + 16)), y0 = Math.max(0, Math.floor(ay - 16)), y1 = Math.min(MH - 1, Math.ceil(ay + 16));
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (G.ore[y * MW + x] > 200) out.push([x + 0.5, y + 0.5, dhypot(x + 0.5 - ax, y + 0.5 - ay)]);
+  out.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]); return out.slice(0, 40); }
+function ref7Score(T, x, y, d, dd) { const dx = x + d.w / 2, dy = y + d.h + 0.5, ds = T.map(o => dhypot(o[0] - dx, o[1] - dy)).sort((a, b) => a - b); let s = 0; const k = Math.min(12, ds.length); for (let i = 0; i < k; i++) s += ds[i];
+  return s / k + dd * 0.35; }

@@ -38,7 +38,7 @@ const CMD = {
 };
 // v5.2 replay recorder: every executed command is logged with the tick it ran at (+ periodic state hashes for verification)
 const RPL = { on: false, data: null };
-function recStart() { RPL.on = !G.replay; RPL.data = RPL.on ? { v: 1, game: 'ironfront', ver: typeof NET_VERSION !== 'undefined' ? NET_VERSION : '', date: new Date().toISOString(), seed: G.opts.seed, r76: G.r76 ? 1 : 0, nt: G.nt ? 1 : 0, m7: G.m7 ? 1 : 0, map: G.opts.map || 'classic', peace: G.opts.peace, fog: G.opts.fog !== false, diff: G.opts.diff, me: typeof ME !== 'undefined' ? ME : 0,
+function recStart() { RPL.on = !G.replay; RPL.data = RPL.on ? { v: 1, game: 'ironfront', ver: typeof NET_VERSION !== 'undefined' ? NET_VERSION : '', date: new Date().toISOString(), seed: G.opts.seed, r76: G.r76 ? 1 : 0, nt: G.nt ? 1 : 0, m7: G.m7 | 0, map: G.opts.map || 'classic', peace: G.opts.peace, fog: G.opts.fog !== false, diff: G.opts.diff, me: typeof ME !== 'undefined' ? ME : 0,
   slots: G.opts.slots.map(s => ({ ai: !!s.ai, diff: s.diff, ally: s.ally, fac: s.fac, color: s.color, start: s.start, seat: s.seat ? 1 : undefined, name: s.name, horde: s.horde ? 1 : undefined })), mode: G.opts.mode, cmds: [], hash: [] } : null; }
 function recHash() { if (RPL.on && RPL.data && G.tick % 900 === 0 && typeof stateHash === 'function') { RPL.data.hash.push([G.tick, stateHash()]); if (G.tick % 1800 === 0 && typeof localStorage !== 'undefined') try { localStorage.setItem('ifLastReplay', replayFile()); } catch (e) {} } }
 function replayFeed() { const R = G.replay; while (R.i < R.cmds.length && R.cmds[R.i][0] <= G.tick) { const [, T, c] = R.cmds[R.i++]; execCmd(T, c); }

@@ -41,7 +41,7 @@ function newGame(opts) {
   else if (HG) { const pool = { 0: [0, 1, 2, 3, 4, 5, 6, 7], 1: [2, 3, 4, 5, 6, 7, 0, 1] }, taken = new Set(); slots.forEach(sl => { sl.start = (pool[sl.ally ? 1 : 0]).find(k => !taken.has(k)); taken.add(sl.start); }); } // v6.0: Team A takes the valley seats 1-2, Team B the six warlord bases
   else { const taken = new Set(); slots.forEach(sl => { if (sl.start == null || sl.start < 0 || sl.start > 7 || taken.has(sl.start)) sl.start = null; else taken.add(sl.start); });
     slots.forEach(sl => { if (sl.start == null) { sl.start = (slots.length > 6 ? (sl.ally ? [3, 1, 5, 7, 2, 0, 4, 6] : [0, 2, 4, 6, 1, 3, 5, 7]) : (sl.ally ? [3, 1, 5, 2, 0, 4] : [0, 2, 4, 1, 3, 5])).find(k => !taken.has(k)); taken.add(sl.start); } }); }
-  G = { R, opts, r76: opts.r76 !== 0, nt: opts.nt !== 0, m7: opts.m7 !== 0 && opts.nt !== 0, tick: 0, time: 0, ents: [], projs: [], events: [], nid: 1, over: null, bver: 1, blockVer: 0, block: null,
+  G = { R, opts, r76: opts.r76 !== 0, nt: opts.nt !== 0, m7: opts.m7 === 0 || opts.nt === 0 ? 0 : opts.m7 == null ? 2 : opts.m7 | 0, /* level: 1 = v7.6.6 m7 a-d, 2 = + m7e (v7.6.7) */ tick: 0, time: 0, ents: [], projs: [], events: [], nid: 1, over: null, bver: 1, blockVer: 0, block: null,
     map: new Uint8Array(MW * MH), ore: new Float32Array(MW * MH), elev: new Float32Array(MW * MH), rich: new Uint8Array(MW * MH), bridge: new Uint8Array(MW * MH), forest: new Uint8Array(MW * MH), lvl: new Float32Array(MW * MH), tier: new Uint8Array(MW * MH), lava: new Uint8Array(MW * MH), ice: new Uint8Array(MW * MH),
     visT: [], seenT: [], oreVer: 0, players: [], hist: [] };
   G.dens = new Uint8Array(MW * MH);
