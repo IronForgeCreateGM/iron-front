@@ -53,7 +53,7 @@ chk('infinite: wave 60 still composes (capped count, tougher units)', comp(60).q
 // --- boss rewards
 const boss = (clean) => { solo(11); G = A.G; G.end.wave = 9; G.end.next = G.time; run(0.1); chk('wave 10 announced as boss', G.end.boss && G.end.wave === 10);
   run(3); const col = G.ents.find(u => u.t === 'colossus'); chk('boss: a giant Colossus spawns', col && col.boss && col.mhp > 8000, col && 'hp ' + col.mhp);
-  if (!clean) { run(95); const b = G.ents.find(e => e.team === 0 && e.t === 'power'); }
+  if (!clean) { for (let i = 0; i < 95; i++) { run(1); const hq = G.ents.find(e => e.team === 0 && e.t === 'hq'); if (hq) hq.hp = Math.max(hq.hp, hq.mhp * 0.5); } } // v7.6.7: attack-move units keep pushing after a fight, so an undefended HQ no longer survives 95 s; keep it alive (the test is about the slow-clear reward)
   if (!clean) for (const e of G.ents) if (e.team === 0 && e.kind === 'b' && e.t !== 'hq') { e.hp = 0; break; }
   run(0.5); killHorde(); const cr = G.players[0].cr; run(1); return { r: G.end.lastReward, d: G.players[0].cr - cr }; };
 let br = boss(true); chk('clean, fast boss clear -> free elite unit', br.r && br.r.kind === 'elite' && G.ents.some(u => u.team === 0 && u.elite), br.r && br.r.units.join(','));

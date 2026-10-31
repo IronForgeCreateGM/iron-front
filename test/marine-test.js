@@ -9,7 +9,7 @@ function fight(mix, seed, defs) {
   A.newGame({ seed, diff: 'normal', aiTeams: [], fog: false, slots: [{ fac: 'bra', ally: 0 }, { fac: 'ger', ally: 1 }] }); const G = A.G;
   G.ents = G.ents.filter(e => e.kind === 'b' && e.t === 'hq'); G.derricks = [];
   const X0 = 40, X1 = 52, Y = 40, mk = (list, team, x, dir) => { const out = []; let i = 0;
-    for (const t of list) { const u = A.addU(t, team, x - dir * ((i / 6) | 0) * 0.9, Y - 2.5 + (i % 6) * 0.9); u.order = 'amove'; u.dest = { x: dir > 0 ? X1 + 4 : X0 - 4, y: Y }; A.setPath(u, u.dest.x, u.dest.y); out.push(u); i++; } return out; };
+    for (const t of list) { const u = A.addU(t, team, x - dir * ((i / 6) | 0) * 0.9, Y - 2.5 + (i % 6) * 0.9); u.order = 'amove'; u.dest = { x: dir > 0 ? X1 + 4 : X0 - 4, y: Y }; u.anchor = { x: u.dest.x, y: u.dest.y }; A.setPath(u, u.dest.x, u.dest.y); out.push(u); i++; } return out; };
   const fill = (types, bud) => { const l = []; let c = 0, k = 0; while (true) { const t = types[k % types.length]; if (c + UT[t].cost > bud + 1) break; l.push(t); c += UT[t].cost; k++; } while (c + 100 <= bud + 1) { l.push('rifle'); c += 100; } return l; };
   const a = mk(fill(['marine'], BUD), 0, X0, 1), b = mk(fill(mix, BUD - (defs || []).reduce((s, d) => s + BT[d[0]].cost, 0)), 1, X1, -1);
   for (const u of b) if (UT[u.t].siege) { u.path = []; u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; u.sg = 2; u.sgT = -9; } // v6.2: Howlers defend pre-deployed in Siege Mode

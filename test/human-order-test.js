@@ -19,7 +19,8 @@ execCmd(HUM, { c: 'derrick', u: [eng.id], k: dk.id }); execCmd(HUM, { c: 'move',
 let maxOff = 0;
 for (let i = 0; i < 60 * 30 && dk.owner !== HUM; i++) { A.stepGame(); A.G.events.length = 0; if (eng.hp > 0 && eng.order !== 'derrick') { ok(false, 'engineer order hijacked -> ' + eng.order); break; } }
 ok(dk.owner === HUM, `ordered engineer captured derrick ${dk.id} (${Math.hypot(dk.x - hq.x, dk.y - hq.y).toFixed(0)} tiles from base) at t=${(A.G.time | 0)}`);
-for (let i = 0; i < 15 * 30; i++) { A.stepGame(); A.G.events.length = 0; }
+let hij = 0; for (let i = 0; i < 15 * 30; i++) { A.stepGame(); A.G.events.length = 0; for (const u of rif) if (u.hp > 0 && u.order !== 'idle' && u.order !== 'move') hij++; }
+// v7.6.7: bot armies on attack-move now keep pushing after a fight, so the riflemen can be killed by an enemy all-in at the base; dying is not a hijack -> check every tick they were alive
 const live = rif.filter(u => u.hp > 0); for (const u of live) maxOff = Math.max(maxOff, Math.hypot(u.x - tx, u.y - ty));
-ok(live.length && maxOff < 4 && live.every(u => u.order === 'idle' || u.order === 'move'), `human riflemen stay where ordered (max ${maxOff.toFixed(1)} tiles off, orders ${live.map(u => u.order)})`);
+ok(!hij && maxOff < 4 && live.every(u => u.order === 'idle' || u.order === 'move'), `human riflemen stay where ordered (max ${maxOff.toFixed(1)} tiles off, orders ${live.map(u => u.order)}, alive ${live.length}/3)`);
 console.log(fail ? 'HUMAN-ORDER FAIL' : 'HUMAN-ORDER OK'); process.exit(fail ? 1 : 0);
