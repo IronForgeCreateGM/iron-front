@@ -205,3 +205,17 @@
   - Old replays: Oct 30 bot1v1 volcano8 49/49 bad 0 (defeat at the recorded tick). Oct 29 1v1 32/32 + 3-Hard 56/56 bad 0, victory at the recorded tick.
 - All checks passed -> pushed master by hash as v7.6.5 (no force, fast-forward from 6b692e2); push time and live check: see the next line.
 - PUSHED 089269f -> main at 3:51 PM PT (fast-forward 6b692e2..089269f, no force). LIVE VERIFIED 3:52 PM PT: version.json v7.6.5, 28 ?v=7.6.5 tags, NET_VERSION v7.6.5, live ai.js has sf2. This log line is a local docs-only commit on top (not pushed).
+
+## 2026-10-30 (night, 9:20 PM PT -) v7.6.6: Hard AI math layer m7 (replay flag m7; si2 lobby Hard only; old replays have no m7 key -> old brain)
+- What Hard bots do differently:
+  - (a) Lanchester attack timing: every 3 s the idle army is fought against the remembered enemy army + defences near the target (square law, survivors = sqrt(1-1/r)); it attacks when r >= 1.3 instead of waiting for a fixed army size.
+  - (b) Distance-field movement: armies walk a Dijkstra cost map to the target (enemy walls/gates are expensive, no corner cutting), keep a target for 20 s (no flip-flopping) and drop a target they cannot reach for 45 s. No random jitter when stuck; after 3 stuck checks the target is dropped.
+  - (c) Knapsack spending: once the bank is 6500+ (or the bot is maxed out) it spends on the best mix of silo, research and defence towers instead of floating money.
+  - (d) Smart silo: picks the missile with the best expected damage, never builds one with no target in range, and holds a loaded heavy missile up to 45 s so its army arrives with it.
+- Tests:
+  - 12 seat-games vs live Hard (v7.6.5 brain) from the replay study + open items (/workspace/n1031/r5-full): NEW 7 wins (4 by kill), 2 ties, 3 losses. All 3 losses are seats that also lose in the live-vs-live mirror. Brazil scenario seat now kills at 16.4 min (live: points only). Volcano 77 China seat: seeds 78-81 4/4 wins.
+  - det73: browser hash ca37914941ee identical for live v7.6.5, new m7=0 and new m7=1 (x2). replay-test OK, nt76 drill OK, stall OK.
+  - Old replays: Oct 29 1v1 32/32, 3-Hard 56/56, Oct 30 bot1v1 volcano8 49/49, bad 0, results at the recorded tick.
+  - Stuck drill volcano8 seeds 5/7/9: 165 stuck samples new vs 176 old (no regression).
+  - Unit tests: sim, units, factions7, endless, net, gate, tesla, transport, marine, medevac, engcc76, place701 OK. fogkeys OK alone (one ArrowRight flake under 14 parallel tests). reach-test needs a local server on :8765 (not run).
+  - Browser: test/v766-shot.js, 9 min Hard vs Hard, 0 page errors. Screenshot /workspace/iron-front-v7.6.6.png.

@@ -1,3 +1,8 @@
+# v7.6.6 (night Oct 30-31): Hard AI math layer m7 (replay flag m7; SIOFF.m7 / m7a-d turn parts off; P.m7Off = live v7.6.5 brain)
+- Code: js/ai.js m7On/field7/step7/tgt7/move7/lan7/spend7/mis7. Test harness: node test/m7-vs.js map seed facA facB swap maxMin [startA startB] (NEW = slot0, or slot1 when swap=1).
+- Open: blue (USA) economy in the vs8-943 scenario (mines ~half of Brazil), bank floats at max pop when winning big, stuck spots (volcano8 32,80 / 48,104 open ground), France/China fortress-punish (fp76 still opt-in).
+- Flaky: fogkeys ArrowRight check under heavy parallel load; reach-test needs a server on :8765.
+
 # v7.6.5 LIVE (pushed 089269f at 3:51 PM PT, verified 3:52 PM PT): Hard AI 4c. Master = live + local docs-only commits.
 - PUSH RULE: never push master blindly. Before any push, compare `git ls-remote https://github.com/IronForgeCreateGM/iron-front.git refs/heads/main` with what you mean to ship, bump the version (next is v7.6.6), and respect game-night windows (nothing after 4:30 PM PT on game nights).
 - Shipped (all behind replay flag nt; old replays use the old brain): nt76 no-trap, wg76 wall gates, pw76 counter window (si2), cl76 open-ground gather points (never further from the HQ than before, nor past own defences), er76 early rush response, sf2 safe76 v2 (threat = enemy army within 40 s of the HQ, 6-min cap, never caps harvesters or blocks the first CC). Fortress (SION.fp76) is still opt-in.
