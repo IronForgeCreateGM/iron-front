@@ -1,4 +1,4 @@
-## RESUME NOTE 6:06 AM PT Sat Oct 31
+## RESUME NOTE 5:40 AM PT Sat Oct 31 (header first written as 6:06 by mistake; box clock said ~5:40)
 - Live = v7.6.10 (8748723). The NIGHTLY-LOG summary at the top is done.
 - Experiment: worktree /workspace/wt-slot, branch slot (791eef2), fs8 at opt-in replay level m7=4. Group moves now hand out formation slots in front-to-back, left-to-right order (instead of greedy nearest), so units stop crossing paths and jamming. m7g is now on only at level 3 exactly.
   - Stuck drill: 2.04% -> 1.44% over hellgate 7/19 and volcano8 5/23 (3 seeds better, s5 worse). Logs: /workspace/n1031/stuck/s4-*.
