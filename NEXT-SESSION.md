@@ -313,3 +313,6 @@ Also earlier backlog: wall gate.
 
 ## Note from Nicholas (Oct 31, 7:59 AM PT)
 France is fine for humans (he can beat ~5 Hard AIs with it). NO France stat changes. Treat France weakness as a bot-play problem: improve how Hard plays France (strategy, defenses, timing), not unit stats.
+
+## Stuck-army test idea from Nicholas (Oct 31, 8:02 AM PT)
+Try the human way: select the whole army, one plain attack-move (F) to the enemy base center, no extra bot steering/reissued orders on top. Compare stuck units vs live, alongside the refinery/building spacing fix.
