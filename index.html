@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Iron Front"><meta name="theme-color" content="#0c1420"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png"><link rel="icon" type="image/png" href="icons/icon-192.png">
 <title>Iron Front</title>
-<link rel="stylesheet" href="style.css?v=7.6.9">
+<link rel="stylesheet" href="style.css?v=7.6.10">
 </head><body>
 <div id="app">
   <div id="view"><canvas id="ov"></canvas><div id="msg"></div><div id="fps"></div>
@@ -30,9 +30,9 @@
   <div class="tsIn"><div class="tsKick">REAL-TIME STRATEGY</div><h1 class="tsLogo">IRON<span>FRONT</span></h1><div class="tsTag">Command · Conquer · Endure</div>
   <div class="tsFlags" id="tsFlags"></div>
   <button id="tsGo" class="tsGo">TAP TO DEPLOY</button><div class="tsKey">or press any key</div></div>
-  <div class="tsFoot"><span>v7.6.9</span><span>NEW · 📱 Phones: the TAP TO DEPLOY button is no longer covered by the update notes · 🏜 Desert: 3D rocks are back and units keep their team colours · 🔒 Privacy page &amp; credits in Settings (no data collected) · 🧠 Hard AI builds refineries right next to the ore (faster mining) · 🎯 Attack-move units carry on to their target after a fight instead of standing still · 🧠 Hard AI attacks when the math says it wins, finds the open way into your base, spends its whole bank &amp; aims its missiles · 🧠 Hard AI: armies no longer jam between buildings, hold under turrets vs early rushes, counter-attack after a failed push · 🇮🇷 Bigger, clearer Shahed drones (classic design, team colours) · 🌐 Online play fix: relay fallback when a direct connection is blocked · 🗺 Textured ground &amp; 3D map props · ⛶ Full screen &amp; home-screen app · 🧠 Smarter Hard AI (team pushes, joint defence) · 🛠 Engineers can found a new Command Center · 🎞 Last game replay on the menu · 🎲 Fresh random map seed each game · 🚶 Fewer stuck armies · 📍 Lobby spot = map spot · 🪖 Blender-built 3D infantry, Titan, Raijin &amp; Colossus · 🛩 3D buildings, tanks &amp; aircraft · 🏗 Animated construction sites · Place-then-build · 🧠 Easy / Medium / Hard AI · 🏯 Great Wall squad towers · ⛑ smart Medevac · ♾ Endless mode · 🇮🇷 Iran · 🇨🇳 China · 🇯🇵 Japan</span></div></div>
+  <div class="tsFoot"><span>v7.6.10</span><span>NEW · 🪖 Realistic special-forces infantry: camo uniforms, team-coloured plate carriers &amp; helmets, headsets, eye-pro · 📱 Phones: the TAP TO DEPLOY button is no longer covered by the update notes · 🏜 Desert: 3D rocks are back and units keep their team colours · 🔒 Privacy page &amp; credits in Settings (no data collected) · 🧠 Hard AI builds refineries right next to the ore (faster mining) · 🎯 Attack-move units carry on to their target after a fight instead of standing still · 🧠 Hard AI attacks when the math says it wins, finds the open way into your base, spends its whole bank &amp; aims its missiles · 🧠 Hard AI: armies no longer jam between buildings, hold under turrets vs early rushes, counter-attack after a failed push · 🇮🇷 Bigger, clearer Shahed drones (classic design, team colours) · 🌐 Online play fix: relay fallback when a direct connection is blocked · 🗺 Textured ground &amp; 3D map props · ⛶ Full screen &amp; home-screen app · 🧠 Smarter Hard AI (team pushes, joint defence) · 🛠 Engineers can found a new Command Center · 🎞 Last game replay on the menu · 🎲 Fresh random map seed each game · 🚶 Fewer stuck armies · 📍 Lobby spot = map spot · 🪖 Blender-built 3D infantry, Titan, Raijin &amp; Colossus · 🛩 3D buildings, tanks &amp; aircraft · 🏗 Animated construction sites · Place-then-build · 🧠 Easy / Medium / Hard AI · 🏯 Great Wall squad towers · ⛑ smart Medevac · ♾ Endless mode · 🇮🇷 Iran · 🇨🇳 China · 🇯🇵 Japan</span></div></div>
 <div id="menu" class="screen"><div class="panel">
-  <h1>IRON<span>FRONT</span></h1><p class="sub">Real-time strategy · v7.6.9 · NEW: Phone title fix · Desert 3D rocks &amp; team colours fix · Privacy page &amp; credits · Faster Hard AI mining · Attack-move keeps going after a fight · Sharper Hard AI (well-timed attacks, smarter missiles) · Smarter Hard AI (no stuck armies, rush defence) · Bigger, clearer Iran drones · Online play fix (relay fallback, clear errors + Retry) · Textured maps &amp; 3D props · Full screen · Smarter Hard AI · Engineer Command Center · Last game replay · 3D infantry &amp; super-units · Animated construction · Easy / Medium / Hard AI · ♾ Endless · Iran · China · Japan</p>
+  <h1>IRON<span>FRONT</span></h1><p class="sub">Real-time strategy · v7.6.10 · NEW: Realistic special-forces infantry · Phone title fix · Desert 3D rocks &amp; team colours fix · Privacy page &amp; credits · Faster Hard AI mining · Attack-move keeps going after a fight · Sharper Hard AI (well-timed attacks, smarter missiles) · Smarter Hard AI (no stuck armies, rush defence) · Bigger, clearer Iran drones · Online play fix (relay fallback, clear errors + Retry) · Textured maps &amp; 3D props · Full screen · Smarter Hard AI · Engineer Command Center · Last game replay · 3D infantry &amp; super-units · Animated construction · Easy / Medium / Hard AI · ♾ Endless · Iran · China · Japan</p>
   <div id="homeBtns">
     <button id="playBotsBtn" class="big">▶ Play vs Bots</button>
     <button id="playEndlessBtn" class="big endl">♾ Endless</button>
@@ -85,29 +85,29 @@
 </div></div>
 <div id="end" class="screen" style="display:none"><div class="panel"><h1 id="endTitle"></h1><div id="endRun" style="display:none"></div><p id="endStats"></p><button id="saveRepBtn">💾 Save replay</button> <button class="quitBtn big">Play again</button></div></div>
 <pre id="err"></pre>
-<script src="vendor/three.min.js?v=7.6.9"></script>
-<script src="js/data.js?v=7.6.9"></script>
-<script src="js/sim.js?v=7.6.9"></script>
-<script src="js/ai.js?v=7.6.9"></script>
-<script src="js/endless.js?v=7.6.9"></script>
-<script src="js/net.js?v=7.6.9"></script>
-<script src="js/audio.js?v=7.6.9"></script>
-<script src="js/gfx/models.js?v=7.6.9"></script>
-<script src="js/gfx/terrain.js?v=7.6.9"></script>
-<script src="js/gfx/groundtex.js?v=7.6.9"></script>
-<script src="js/gfx/props.js?v=7.6.9"></script>
-<script src="js/gfx/fx.js?v=7.6.9"></script>
-<script src="js/gfx/post.js?v=7.6.9"></script>
-<script src="js/render.js?v=7.6.9"></script>
-<script src="js/gfx/construct.js?v=7.6.9"></script>
-<script src="vendor/GLTFLoader.js?v=7.6.9"></script>
-<script src="js/gfx/glb.js?v=7.6.9"></script>
-<script src="js/ui.js?v=7.6.9"></script>
-<script src="js/net-config.js?v=7.6.9"></script>
-<script src="vendor/trystero-nostr.js?v=7.6.9"></script><script src="vendor/trystero-mqtt.js?v=7.6.9"></script><script src="vendor/trystero-torrent.js?v=7.6.9"></script>
-<script src="js/relay.js?v=7.6.9"></script>
-<script src="js/online.js?v=7.6.9"></script>
-<script src="js/main.js?v=7.6.9"></script>
-<script src="js/mobile.js?v=7.6.9"></script>
-<script src="js/fullscreen.js?v=7.6.9"></script>
+<script src="vendor/three.min.js?v=7.6.10"></script>
+<script src="js/data.js?v=7.6.10"></script>
+<script src="js/sim.js?v=7.6.10"></script>
+<script src="js/ai.js?v=7.6.10"></script>
+<script src="js/endless.js?v=7.6.10"></script>
+<script src="js/net.js?v=7.6.10"></script>
+<script src="js/audio.js?v=7.6.10"></script>
+<script src="js/gfx/models.js?v=7.6.10"></script>
+<script src="js/gfx/terrain.js?v=7.6.10"></script>
+<script src="js/gfx/groundtex.js?v=7.6.10"></script>
+<script src="js/gfx/props.js?v=7.6.10"></script>
+<script src="js/gfx/fx.js?v=7.6.10"></script>
+<script src="js/gfx/post.js?v=7.6.10"></script>
+<script src="js/render.js?v=7.6.10"></script>
+<script src="js/gfx/construct.js?v=7.6.10"></script>
+<script src="vendor/GLTFLoader.js?v=7.6.10"></script>
+<script src="js/gfx/glb.js?v=7.6.10"></script>
+<script src="js/ui.js?v=7.6.10"></script>
+<script src="js/net-config.js?v=7.6.10"></script>
+<script src="vendor/trystero-nostr.js?v=7.6.10"></script><script src="vendor/trystero-mqtt.js?v=7.6.10"></script><script src="vendor/trystero-torrent.js?v=7.6.10"></script>
+<script src="js/relay.js?v=7.6.10"></script>
+<script src="js/online.js?v=7.6.10"></script>
+<script src="js/main.js?v=7.6.10"></script>
+<script src="js/mobile.js?v=7.6.10"></script>
+<script src="js/fullscreen.js?v=7.6.10"></script>
 </body></html>

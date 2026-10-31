@@ -1,6 +1,6 @@
 {
   "name": "iron-front",
-  "version": "7.6.9",
+  "version": "7.6.10",
   "private": true,
   "description": "Iron Front RTS: browser game, PWA and Capacitor (iOS/iPadOS/macOS) shell",
   "scripts": {
