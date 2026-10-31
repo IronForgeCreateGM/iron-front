@@ -251,3 +251,4 @@
   - Old replays (uploads.log): v7.6.7 m7 24/24, v7.6.6 24/24, Oct 29 1v1 32/32, 3-Hard 56/56, Oct 30 bot1v1 volcano8 49/49. All bad 0.
   - Full suite: everything else passed. Run alone, endgame, mobile-play, slot and fogkeys pass. These also fail on live v7.6.7: ai71 (same 3 FAILs), ui7 (browser TimeoutError), endless703 (the "loop alive" check flakes 2 factions per run).
   - Screenshot /workspace/iron-front-v7.6.8.png (m7 2, pageErrors 0). App Store shots in /workspace/appstore-shots/. Zip /workspace/rts-game-v7.6.8-play.zip.
+- PUSHED 8429b1f -> main at 3:16:44 AM PT (fast-forward 47e23ab..8429b1f, no force; ls-remote checked first). LIVE VERIFIED 3:17:52 AM PT: version.json v7.6.8, 28 ?v=7.6.8 tags, NET_VERSION v7.6.8, privacy.html 200. v762-live-check: classic + hellgate, 0 page errors, 0 http fails.
