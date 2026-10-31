@@ -1,3 +1,6 @@
+## RESUME NOTE 6:53 AM PT (box clock)
+- Live = v7.6.10 (8748723). Nothing to push. fs8 v3 and gap5 both held (on branch slot). Docs final pass next, lock deleted at the end.
+
 ## RESUME NOTE 6:31 AM PT (box clock)
 - Live = v7.6.10 (8748723), checked with git ls-remote. Nothing to push.
 - Running: fs8 v3 (2-opt only for groups of 12+, uncommitted in wt-slot), bench in /workspace/n1031/slot/b4g.log. Stuck drills: 3.0/2.5/1.8% vs baseline 3.4/2.1/1.0%, so no better; it will be held.
@@ -5,7 +8,7 @@
 
 ## NEXT SESSION PRIORITIES (written 6:26 AM PT Sat Oct 31)
 1. SC2-style construction: follow docs/sc2-construction-plan.md (new replay level, full A/B, player test).
-2. Stuck armies: branch slot (wt-slot) has fs8 v1 (791eef2) and v2 2-opt (34975cf), both gated m7>=4. v3 (2-opt for groups of 12+, 8c9b3ec on slot) benched 17W 1L 2T vs 16W 2L 2T but stuck drills were not better. None shipped. Like-for-like 12-min drills (n1031/stuck12 vs stuck3) show v3 equal or worse on all 6 seeds; old baselines were 16-min runs, so always compare at the same length. Better lead (NIGHTLY-LOG, end): about 59% of stuck units sit next to their OWN buildings (power plants first). Check the bot's building gaps around the factory/barracks rally first (volcano8 s23, bot 7, about 3 min, around 58,90). Older idea: only re-slot when the group's path goes through a choke (narrow corridor) instead of on every move, so open-field moves stay as they are now.
+2. Stuck armies: branch slot (wt-slot) has fs8 v1 (791eef2) and v2 2-opt (34975cf), both gated m7>=4. v3 (2-opt for groups of 12+, 8c9b3ec on slot) benched 17W 1L 2T vs 16W 2L 2T but stuck drills were not better. None shipped. Like-for-like 12-min drills (n1031/stuck12 vs stuck3) show v3 equal or worse on all 6 seeds; old baselines were 16-min runs, so always compare at the same length. Better lead (NIGHTLY-LOG, end): about 59% of stuck units sit next to their OWN buildings (power plants first). Check the bot's building gaps around the factory/barracks rally first (volcano8 s23, bot 7, about 3 min, around 58,90). Tried gap5 (2-tile building gap, dc4e8e5 on slot): no gain (1.48% vs 1.44% stuck, bench 16W 3L 1T). Next: move rally points out of the base onto open ground. Older idea: only re-slot when the group's path goes through a choke (narrow corridor) instead of on every move, so open-field moves stay as they are now.
 3. Bank floating at max pop: m7g (level 3) is even because gas runs out first. Next idea: a minerals-only sink (walls/basic towers) or more gas extractors earlier.
 4. France: weakest faction at parity; anything more needs a stat change, which needs Nicholas's OK.
 5. Housekeeping: many old worktrees under /workspace (wt-*, base53, v53b). wt-inf has untracked files, so check them before removing.

@@ -333,3 +333,9 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
   So the bigger stuck problem looks like bots placing buildings with too-narrow gaps between them and their
   rally point, not formation slots. That fits with the SC2-construction work (building spacing).
   (The drill's 'blk' debug field prints junk; fix it before relying on it.)
+
+- 6:53 AM PT: tried that lead quickly: 'gap5' = Hard bots leave a 2-tile gap (instead of 1) around their non-defense
+  buildings (opt-in replay level 5, branch slot dc4e8e5). NOT shipped. Stuck units over the same 6 twelve-minute drills:
+  1.48% vs 1.44% live (fewer next to buildings, 135 vs 158, but more in the open). Bench 16W 3L 1T vs live 16W 2L 2T.
+  No gain, so it stays on the branch. The jams likely need smarter rally points or the SC2 construction rework,
+  not just wider gaps.
