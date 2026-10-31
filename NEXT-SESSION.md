@@ -1,3 +1,15 @@
+## FINAL NOTE 7:19 AM PT Sat Oct 31 (end of the overnight run)
+- Live = v7.6.10 (8748723). git ls-remote and the live page both confirm it at 7:19 AM PT (classic + hellgate, 0 page errors, 0 http fails).
+- Pushed tonight: v7.6.6 22817c7 (10:58:54 PM), v7.6.7 47e23ab (1:31:39 AM), v7.6.8 8429b1f (3:16:44 AM), v7.6.9 105b825 (4:22:33 AM), v7.6.10 8748723 (5:19:03 AM). Master has local docs/test-only commits on top (not pushed).
+- CARRIES OVER (details below):
+  1. SC2-style construction (docs/sc2-construction-plan.md), not started.
+  2. Stuck armies: refinery-spacing lead (see STUCK-UNIT LEADS). Branch slot (/workspace/wt-slot) has all experiments, gated at opt-in levels: fs8 level 4, gap5/gap5b level 5, rl6 level 6, dr7 level 7+.
+  3. Bank floating at max pop: m7g (level 3) is even because gas runs out first; try a minerals-only sink or earlier extra extractors.
+  4. France at parity: needs a stat change, which needs Nicholas's OK.
+  5. Known failures unchanged: ai71 (3 FAILs, same as live), v4 900 s timeout.
+  6. Housekeeping: old worktrees under /workspace (wt-inf has untracked files; check before removing).
+- .night-run-lock deleted at the end of this run.
+
 ## RESUME NOTE 6:53 AM PT (box clock)
 - Live = v7.6.10 (8748723). Nothing to push. fs8 v3 and gap5 both held (on branch slot). Docs final pass next, lock deleted at the end.
 
