@@ -930,7 +930,7 @@ function stepUnit(u) {
     else if (G.time >= (u.anchT || 0)) { u.anchT = G.time + 1; setPath(u, u.anchor.x, u.anchor.y); const e = u.path[u.path.length - 1], thr = u.stance === 'hold' ? 0.5 : 2.5; // v7.6: an unreachable / occupied anchor no longer re-paths every tick (stuck idle armies + huge A* cost): settle on the nearest reachable point
       if (!e) { u.anchor = { x: u.x, y: u.y }; u.path = []; } else if (dhypot(e.x - u.anchor.x, e.y - u.anchor.y) > thr) u.anchor = { x: e.x, y: e.y }; } }
   if (!engaged && u.order === 'idle' && !u.path.length && u.face != null && u.stance === 'hold') { u.ang = turnTo(u.ang, u.face, 2 * DT); u.tang = turnTo(u.tang, u.face, 2 * DT); }
-  { const ad = u.amDest || u.dest; if (!engaged && u.order === 'amove' && !u.path.length && ad && dhypot(u.x - ad.x, u.y - ad.y) > 1.5) setPath(u, ad.x, ad.y); } // v5.9: marines resume their original move destination after a fight
+  { const am7 = G.m7 >= 2 && u.order === 'amove' && !u.amDest && u.anchor, ad = u.amDest || (am7 ? u.anchor : u.dest); if (!engaged && u.order === 'amove' && !u.path.length && ad && dhypot(u.x - ad.x, u.y - ad.y) > 1.5) { setPath(u, ad.x, ad.y); if (am7 && !u.path.length) { u.order = 'idle'; u.anchor = { x: u.x, y: u.y }; } } } // v7.6.7 (replay level m7>=2): a non-marine attack-move resumes to its goal after a kite/fight cleared its path (was: stood still forever), and gives up (idle) when the goal is unreachable // v5.9: marines resume their original move destination after a fight
   // movement
   if (u.path.length) {
     const p = u.path[0], dx = p.x - u.x, dy = p.y - u.y, dist = dhypot(dx, dy);
