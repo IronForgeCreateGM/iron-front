@@ -1,9 +1,8 @@
-# RESUME NOTE (1:52 AM PT Oct 31): v7.6.7 LIVE (47e23ab pushed 1:31:39 AM PT, verified 1:32:57). v7.6.8 in progress on master (not pushed).
-- In v7.6.8 so far: m7g (a0fab7c, 5baa8a8, replay level m7=3): at max pop with a big bank, build more towers and production, and extractors on free vents when gas runs dry. The App Store pieces (0c3e36b) are icons/icon-1024.png, privacy.html, a credits line in Settings, test/appstore-shots.js and build-www copying privacy.html.
-- m7g battery 1 (towers and production only) vs the v7.6.7 brain (OLDSKIP=g): even, with mirror results decided by seat. The bank still floats (220-300k) because gas is the limit, not credits. That led to the extractor rule. Battery 2 is running: /workspace/n1031/j-set12, then j-fresh8.
-- Gate v7.6.8 only if m7g is no worse than v7.6.7. If it is neutral, the App Store pieces can still ship alone with m7g left on (or off). Before any push, ls-remote must show 47e23ab.
-- Queue after that: France army / defence overbuild, stuck spots, lighter AI test setup, flaky tests, visuals.
-
+# RESUME NOTE (2:27 AM PT Oct 31): v7.6.7 LIVE (47e23ab). v7.6.8 bumped on master (a58bba9), gating now, NOT pushed.
+- v7.6.8 = App Store pieces (privacy.html, credits line in Settings, 1024 icon, appstore-shots.js). The AI is identical to v7.6.7: the default stays at m7=2, and the browser already passes m7:2. Headless hashes of 3 games x 12 min match wt-767 exactly.
+- m7g (towers, production and extractors when rich at max pop) is built but stays opt-in at level 3. It was even vs v7.6.7 over 20 seat games, because the bank is gas-limited. A maxed army takes about 1 base/min against 3-base rebuilders (volcano 77 diag). m7h (snipers vs marines for France) made France worse and was reverted.
+- France vs Brazil (volcano 93): France mines less from 4 min, overbuilds gatlings (def$ about equal to army$), and loses its army by 8 min to marine mass. Rifles score highest in score71 even though marines outrange them (6.1 vs 4.5): score71 has no range term. That is the next AI item.
+- Gate in progress: /workspace/n1031/g768/all (full suite), g768/uploads.log (v767/v766/uploads replays). Then the screenshot, appstore shots, zip, ls-remote = 47e23ab, and push.
 # v7.6.6 (night Oct 30-31): Hard AI math layer m7 (replay flag m7; SIOFF.m7 / m7a-d turn parts off; P.m7Off = live v7.6.5 brain)
 - Code: js/ai.js m7On/field7/step7/tgt7/move7/lan7/spend7/mis7. Test harness: node test/m7-vs.js map seed facA facB swap maxMin [startA startB] (NEW = slot0, or slot1 when swap=1).
 - Open: blue (USA) economy in the vs8-943 scenario (mines ~half of Brazil), bank floats at max pop when winning big, stuck spots (volcano8 32,80 / 48,104 open ground), France/China fortress-punish (fp76 still opt-in).
