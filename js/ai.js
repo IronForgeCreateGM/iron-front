@@ -1196,7 +1196,7 @@ function teamHome76(P, c) { // joint defence: the other bots' idle home armies t
 function pg76(P, V6) { return V6 && !SIOFF.pg76 && !G.end && peaceEnd76() >= 300 && G.time > 60 && G.time < peaceEnd76() - 90; } // v7.6.1 macro: a long peace is safe time -> extra refineries on the main before the expansion (SC2 bots go greedy when no attack can come)
 // ===================== v7.6.6 phase-1 math layer (replay flag m7; lobby Hard = si2 only) =====================
 // a) Lanchester launch gate   b) distance-field movement + target hysteresis   c) knapsack spend sink   d) expected-value silo use
-const m7On = (P, k) => !!G.r76 && !!G.nt && !!G.m7 && isV76(P) && !SIOFF.m7 && !P.m7Off && !(k && SIOFF['m7' + k]) && (k !== 'e' && k !== 'f' || G.m7 >= 2); // e, f: replay level 2 (v7.6.7)
+const m7On = (P, k) => !!G.r76 && !!G.nt && !!G.m7 && isV76(P) && !SIOFF.m7 && !P.m7Off && !(k && SIOFF['m7' + k]) && (k !== 'e' && k !== 'f' || G.m7 >= 2) && (k !== 'g' || G.m7 >= 3) && !(k && P.m7Skip && P.m7Skip.includes(k)); // e, f: replay level 2 (v7.6.7); g: level 3 (v7.6.8); P.m7Skip = test-only per-bot part switch
 // --- b) distance field (Dijkstra, integer costs 10/14, deterministic heap tie-break on tile index) ---
 function heap7() { const k = [], v = []; return { n: () => k.length,
   push(key, val) { let i = k.length; k.push(key); v.push(val); while (i) { const p = (i - 1) >> 1; if (k[p] < key || (k[p] === key && v[p] <= val)) break; k[i] = k[p]; v[i] = v[p]; i = p; } k[i] = key; v[i] = val; },
@@ -1261,7 +1261,9 @@ function spend7(P, S, cnt, me, hq) {
   if (maxed && (cnt.silo || 0) < Math.min(3, 1 + yards) && P.gas > BT.silo.gas + 600 && avail(P.team, 'silo') && !P.queues.bld.length && !P.ready.bld) items.push({ k: 'silo', c: BT.silo.cost, v: 9 });
   const lab = me.find(b => b.t === 'tech' && b.upT == null && b.sell < 0 && b.hp > 0 && !b.con && G.time - b.born > 2);
   if (lab && maxed) for (const c of RES.cats) { const ri = researchInfo(P.team, c); if (ri && !ri.busy && !ri.lock && P.gas >= ri.gas + 300) { items.push({ k: 'rs', c: ri.cost, v: 6, cat: c }); break; } }
-  const dcap = (maxed ? 10 : 6) + (maxed ? 6 : 4) * yards, dn = me.filter(e => e.kind === 'b' && BT[e.t].wpn).length;
+  const rich = maxed && m7On(P, 'g') ? Math.max(0, Math.min(10, Math.floor((P.cr - 12000) / 4000))) : 0; // m7g (v7.6.8): maxed out and still banking -> turn the float into more towers and production
+  if (rich >= 2) { const prod = (cnt.factory || 0) + (cnt.barracks || 0); if (prod < 4 + 2 * yards && !P.queues.bld.length && !P.ready.bld) { const t = (cnt.factory || 0) <= (cnt.barracks || 0) ? 'factory' : 'barracks'; if (avail(P.team, t) && aiSpot(P, t, hq, [])) items.push({ k: 'bld', t, c: BT[t].cost, v: 5 }); } }
+  const dcap = (maxed ? 10 : 6) + (maxed ? 6 : 4) * yards + rich * 2, dn = me.filter(e => e.kind === 'b' && BT[e.t].wpn).length;
   if (dn < dcap && !P.queues.def.length && !P.ready.def) for (const t of ['tesla', 'gcannon', 'gatling', 'aagun', 'turret']) if (avail(P.team, t)) { items.push({ k: 'def', t, c: BT[t].cost, v: 4 }); break; }
   if (!items.length) return;
   const U = 500, W = Math.floor(Math.max(0, P.cr - 2500) / U), n = items.length, w = items.map(i => Math.ceil(i.c / U)); // DP over bank in 500-credit units
@@ -1269,7 +1271,7 @@ function spend7(P, S, cnt, me, hq) {
   for (let i = 1; i <= n; i++) for (let x = 0; x <= W; x++) { best[i][x] = best[i - 1][x]; if (w[i - 1] <= x) best[i][x] = Math.max(best[i][x], best[i - 1][x - w[i - 1]] + items[i - 1].v); }
   let x = W; const pick = []; for (let i = n; i >= 1; i--) if (best[i][x] !== best[i - 1][x]) { pick.push(items[i - 1]); x -= w[i - 1]; }
   for (const it of pick) { if (it.k === 'rs') researchB(lab, it.cat);
-    else if (it.k === 'def') enqueue(P.team, it.t); else if (it.k === 'silo' && aiSpot(P, 'silo', hq, [])) enqueue(P.team, 'silo'); } }
+    else if (it.k === 'def' || it.k === 'bld') enqueue(P.team, it.t); else if (it.k === 'silo' && aiSpot(P, 'silo', hq, [])) enqueue(P.team, 'silo'); } }
 // --- d) missile choice by expected value: (value it can reach) / (credits + 2x gas); nothing in range -> do not build it
 function mis7(P, S, s, knownB, wait, intruders) {
   let bk = null, be = 0;

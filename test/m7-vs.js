@@ -7,7 +7,7 @@ Object.assign(SIOFF, OFF);
 const [map, seed, fa, fb, swap, mm, sa, sb] = process.argv.slice(2), sw = swap === '1';
 const s0 = sa != null ? +sa : 0, s1 = sb != null ? +sb : 1;
 const slots = [{ ai: true, diff: 'si2', fac: fa, start: s0, ally: 0 }, { ai: true, diff: 'si2', fac: fb, start: s1, ally: 1 }]; // swap=1 -> NEW plays slot 1 (fb at start s1)
-newGame({ seed: +seed, map, slots, r76: 1, peace: +(process.env.PEACE || 0) || undefined, fog: process.env.FOG !== '0' }); const newT = sw ? 1 : 0; G.players[1 - newT].m7Off = true; if (process.env.BOTHOLD) G.players[newT].m7Off = true;
+newGame({ seed: +seed, map, slots, r76: 1, peace: +(process.env.PEACE || 0) || undefined, fog: process.env.FOG !== '0' }); const newT = sw ? 1 : 0; if (process.env.OLDSKIP) G.players[1 - newT].m7Skip = process.env.OLDSKIP; else G.players[1 - newT].m7Off = true; if (process.env.BOTHOLD) G.players[newT].m7Off = true;
 const maxT = (+mm || 25) * 60 * 30, t0 = Date.now(); const marks = [];
 for (let n = 0; n < maxT && !G.over; n++) { stepGame(); G.events.length = 0; if (G.players.filter(P => !P.out).length < 2) break; if (n % (180 * 30) === 0 && n) marks.push(`${n / 30 | 0}s:${[newT, 1 - newT].map(t => { const P = G.players[t]; return `${(P.cr / 1000) | 0}k/${G.ents.filter(e => e.team === t && e.kind === 'u' && e.hp > 0).length}u`; }).join('v')}`); }
 const v = t => G.ents.filter(e => e.team === t && e.hp > 0).reduce((s, e) => s + ((UT[e.t] || BT[e.t]).cost || 0), 0);
