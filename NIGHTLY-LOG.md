@@ -362,3 +362,10 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
   1.60% vs 1.61% live over the same 6 drills, no gain. Summary of tonight's like-for-like 12-minute drills
   (6 seeds, % of moving units stuck): live 1.61, fs8 v3 1.91, gap5 1.48, rl6 1.63, dr7 1.60. Only gap5 helped a
   little, and its bench was not better, so nothing shipped.
+
+- 7:05 AM PT: retested gap5 on 6 NEW seeds (hellgate 3/11, volcano8 7/9/13/15, 12 min): live 1.67% vs gap5 1.38%.
+  Over all 12 seeds: live 574 stuck / 34,928 samples = 1.64%, gap5 515 / 35,958 = 1.43% (about 13% fewer stuck
+  units). Its Hard bench was 16W 3L 1T vs 16W 2L 2T (about even). Not pushed tonight: it still needs the no-trap
+  and build drills (a wider gap could starve bot building spots), the volcano8 943231385 scenario, the old-replay
+  checks and its own replay level on master, and that does not fit safely before 7:30. It is the best lead for next
+  session. Logs: /workspace/n1031/gx (live, gap5), /workspace/n1031/gap5, /workspace/n1031/stuck12.
