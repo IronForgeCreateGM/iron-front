@@ -8,7 +8,7 @@ Five versions went live (each was a fast-forward push to main, never forced, and
 4. v7.6.9 (105b825, pushed 4:22:33 AM): Phones: the title screen's update notes no longer cover TAP TO DEPLOY. Desert maps: the 3D rocks are back and units no longer lose their team colours. No AI change.
 5. v7.6.10 (8748723, pushed 5:19:03 AM): Infantry now look like realistic special-forces troops (camo, team-coloured plate carriers and helmets, headsets, eye protection). On phones the main menu's NEW list is cut to 3 lines, so Play is visible without scrolling. No AI change.
 Old replays still replay at every step (each AI change has its own replay level). No bot bonuses and no unit stat changes.
-Tried and held back (not live): m7g (spending the bank at max pop: even, because gas runs out first), m7h/m7i (France tweaks: made France worse), fp76 fortress doctrine (too small a gain), SC2-style construction (a big sim + AI change that needs a full A/B; not started), and three formation fixes for stuck armies: fs8 v1, v2 (2-opt) and v3 (2-opt for groups of 12+) (benches 15W 2L 3T, 15W 2L 3T, 17W 1L 2T vs 16W 2L 2T; stuck drills not clearly better), plus gap5 (wider gaps between bot buildings: no gain) and rl6 (bot rally point outside the base: no gain) and dr7 (wider spread at the factory door: no gain); see the end of this file.
+Tried and held back (not live): m7g (spending the bank at max pop: even, because gas runs out first), m7h/m7i (France tweaks: made France worse), fp76 fortress doctrine (too small a gain), SC2-style construction (a big sim + AI change that needs a full A/B; not started), and three formation fixes for stuck armies: fs8 v1, v2 (2-opt) and v3 (2-opt for groups of 12+) (benches 15W 2L 3T, 15W 2L 3T, 17W 1L 2T vs 16W 2L 2T; stuck drills not clearly better), plus gap5 (wider gaps between bot buildings: no gain) and rl6 (bot rally point outside the base: no gain) dr7 (wider spread at the factory door: no gain) and gap5b (no gain; gap5 itself failed the no-trap drill); see the end of this file.
 
 ## 2026-10-27: v7.2.0
 - Queue item 1: place-then-build construction. DONE.
@@ -374,3 +374,8 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
   but the no-trap drill FAILS at gap5: "volcano 77: harvesters keep mining every minute" (a bot's mining stalls for
   a minute). Live passes the same drill. So gap5 is NOT shippable as is; the wider gap probably pushes a refinery
   or production building somewhere awkward on volcano 77. Fix that first next session. Logs: /workspace/n1031/gap5g.
+
+- 7:18 AM PT: 'gap5b' = gap5 but refineries keep the 1-tile gap (branch slot c22719d). The no-trap drill passes again and the
+  stall test passes, but the stuck gain is gone: 1.66% vs live 1.64% over the 12 seeds, and the bench was 15W 2L 3T vs 16W 2L 2T.
+  So gap5's gain came from spacing refineries, which is the same change that broke mining on volcano 77.
+  Dead end for now; NOT shipped. Final word on stuck units tonight: live v7.6.10 stays as is.

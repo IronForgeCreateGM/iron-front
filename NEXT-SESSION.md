@@ -6,10 +6,8 @@
 - Running: fs8 v3 (2-opt only for groups of 12+, uncommitted in wt-slot), bench in /workspace/n1031/slot/b4g.log. Stuck drills: 3.0/2.5/1.8% vs baseline 3.4/2.1/1.0%, so no better; it will be held.
 - Then: log v3, final docs check, delete .night-run-lock by 7:45, report.
 
-## TOP LEAD (7:05 AM PT): gap5 = Hard bots leave a 2-tile gap around non-defense buildings (branch slot dc4e8e5, js/ai.js aiSpot; level 5 there).
-- 12-seed 12-min stuck drills: 1.43% vs live 1.64% (13% fewer stuck). Bench all20 16W 3L 1T vs 16W 2L 2T (about even).
-- BLOCKER (7:08 AM): nt76 no-trap drill FAILS at gap5 (volcano 77: harvesters stop mining for a minute; live passes). Stall test passes. Likely keep the 1-tile gap for refineries or near ore. Logs /workspace/n1031/gap5g.
-- To ship: port onto master as replay level 3+ (careful: m7g owns level 3 exactly; use a new level), run the nt76 no-trap drill + build/stall tests (wider gaps might starve build spots), the volcano8 943231385 scenario, 6+ vs live Hard (all20), det73/74, old replays, then the normal version/zip/screenshot/push steps.
+## STUCK-UNIT LEADS (final, 7:18 AM PT)
+- gap5 (2-tile bot building gap, slot dc4e8e5) cut stuck units 1.64% -> 1.43% over 12 seeds but FAILS the nt76 no-trap drill (volcano 77 mining stalls). gap5b (refineries keep the 1-tile gap, slot c22719d) passes nt76 and stall but loses the gain (1.66%) and benched 15W 2L 3T. So the gain comes from refinery spacing. Next: space refineries so that harvester lanes stay open (a 2-tile gap on the side away from the ore only).
 
 ## NEXT SESSION PRIORITIES (written 6:26 AM PT Sat Oct 31)
 1. SC2-style construction: follow docs/sc2-construction-plan.md (new replay level, full A/B, player test).
