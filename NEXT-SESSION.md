@@ -1,4 +1,4 @@
-# RESUME NOTE (2:27 AM PT Oct 31): v7.6.7 LIVE (47e23ab). v7.6.8 bumped on master (a58bba9), gating now, NOT pushed.
+# RESUME NOTE (2:08 AM PT Oct 31): v7.6.7 LIVE (47e23ab). v7.6.8 bumped on master (a58bba9), gating now, NOT pushed.
 - v7.6.8 = App Store pieces (privacy.html, credits line in Settings, 1024 icon, appstore-shots.js). The AI is identical to v7.6.7: the default stays at m7=2, and the browser already passes m7:2. Headless hashes of 3 games x 12 min match wt-767 exactly.
 - m7g (towers, production and extractors when rich at max pop) is built but stays opt-in at level 3. It was even vs v7.6.7 over 20 seat games, because the bank is gas-limited. A maxed army takes about 1 base/min against 3-base rebuilders (volcano 77 diag). m7h (snipers vs marines for France) made France worse and was reverted.
 - France vs Brazil (volcano 93): France mines less from 4 min, overbuilds gatlings (def$ about equal to army$), and loses its army by 8 min to marine mass. Rifles score highest in score71 even though marines outrange them (6.1 vs 4.5): score71 has no range term. That is the next AI item.
