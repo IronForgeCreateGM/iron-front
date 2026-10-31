@@ -6,8 +6,8 @@ const MODE = process.argv[2] || 'all';
 if (process.env.NT === '0') globalThis.SIOFF = { nt76: 1 };
 vm.runInThisContext(['data.js', 'sim.js', 'ai.js'].map(f => fs.readFileSync(path.join(__dirname, '../js', f), 'utf8')).join('\n') + '\nglobalThis.A={newGame,stepGame,get G(){return G}};');
 let fail = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fail++; };
-// full-map reach from a goal tile, own gates open
-function reach(team, gx, gy) { const g = getBlock(), r = new Uint8Array(MW * MH), q = []; const open = i => g[i] === 0 || (g[i] === 3 && !foe(G.gateT[i], team));
+// full-map reach from a goal tile, gates open
+function reach(team, gx, gy) { const g = getBlock(), r = new Uint8Array(MW * MH), q = []; const open = i => g[i] === 0 || g[i] === 3; // v7.6.7: every gate counts as a door (an enemy that walls its own base with gates is not an si2 trap; seen on volcano 77 at 7 min)
   const s = nearFree(Math.floor(gx), Math.floor(gy), 8), si = idx(s[0], s[1]); r[si] = 1; q.push(si);
   for (let h = 0; h < q.length; h++) { const i = q[h], x = i % MW, y = (i / MW) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (!inb(nx, ny)) continue; const n = idx(nx, ny); if (!r[n] && open(n)) { r[n] = 1; q.push(n); } } } return r; }
 const near1 = (r, x, y) => { x = Math.floor(x); y = Math.floor(y); for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (inb(x + dx, y + dy) && r[idx(x + dx, y + dy)]) return true; return false; };
