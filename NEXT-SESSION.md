@@ -1,3 +1,9 @@
+## RESUME NOTE 6:11 AM PT Sat Oct 31
+- Live = v7.6.10 (8748723). Nothing new is gated for a push.
+- fs8 formation fix: HELD BACK. The all20 bench at level 4 went 15W 2L 3T vs 16W 2L 2T at level 2, with slower kills. See the NIGHTLY-LOG section "Stuck armies". Branch slot is in /workspace/wt-slot.
+- lanR sweep (SION lanR 1.15 and 1.45, all20) gave byte-identical results to 1.3; even lanR 9 is identical on frost 33. The square-law ratio is almost always far from the threshold (about 0.01 or 9+), so tuning it does nothing. No change.
+- Next: wrap-up by 7:30 (NIGHTLY-LOG is complete; check it again), delete the lock at the end, final report.
+
 ## RESUME NOTE 5:40 AM PT Sat Oct 31 (header first written as 6:06 by mistake; box clock said ~5:40)
 - Live = v7.6.10 (8748723). The NIGHTLY-LOG summary at the top is done.
 - Experiment: worktree /workspace/wt-slot, branch slot (791eef2), fs8 at opt-in replay level m7=4. Group moves now hand out formation slots in front-to-back, left-to-right order (instead of greedy nearest), so units stop crossing paths and jamming. m7g is now on only at level 3 exactly.
