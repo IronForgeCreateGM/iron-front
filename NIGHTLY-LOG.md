@@ -8,7 +8,7 @@ Five versions went live (each was a fast-forward push to main, never forced, and
 4. v7.6.9 (105b825, pushed 4:22:33 AM): Phones: the title screen's update notes no longer cover TAP TO DEPLOY. Desert maps: the 3D rocks are back and units no longer lose their team colours. No AI change.
 5. v7.6.10 (8748723, pushed 5:19:03 AM): Infantry now look like realistic special-forces troops (camo, team-coloured plate carriers and helmets, headsets, eye protection). On phones the main menu's NEW list is cut to 3 lines, so Play is visible without scrolling. No AI change.
 Old replays still replay at every step (each AI change has its own replay level). No bot bonuses and no unit stat changes.
-Tried and held back (not live): m7g (spending the bank at max pop: even, because gas runs out first), m7h/m7i (France tweaks: made France worse), fp76 fortress doctrine (too small a gain), SC2-style construction (a big sim + AI change that needs a full A/B; not started), and two formation fixes for stuck armies, fs8 v1 and fs8 v2 with 2-opt (bench 15W 2L 3T and 15W 2L 3T vs 16W 2L 2T, stuck drills mixed; see the end of this file).
+Tried and held back (not live): m7g (spending the bank at max pop: even, because gas runs out first), m7h/m7i (France tweaks: made France worse), fp76 fortress doctrine (too small a gain), SC2-style construction (a big sim + AI change that needs a full A/B; not started), and two formation fixes for stuck armies, fs8 v1, v2 (2-opt) and v3 (2-opt for groups of 12+) (benches 15W 2L 3T, 15W 2L 3T, 17W 1L 2T vs 16W 2L 2T; stuck drills not clearly better; see the end of this file).
 
 ## 2026-10-27: v7.2.0
 - Queue item 1: place-then-build construction. DONE.
@@ -313,3 +313,9 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
   Stuck drills mixed (hellgate7 3.4->2.8%, volcano8-23 2.1->1.2%, volcano8-5 1.0->1.9% worse);
   Hard bench 15W 2L 3T vs live level 16W 2L 2T. Not clearly better, and it changes how player
   group moves spread out, so it stays on branch slot for a future session.
+
+- 6:39 AM PT: fs8 v3 (2-opt only for groups of 12 or more; branch slot) also NOT shipped.
+  Hard bench 17W 1L 2T vs live level 16W 2L 2T (one game better, within noise), but the stuck
+  drills were not better (hellgate7 3.0%, volcano8-23 2.5%, volcano8-5 1.8% vs baseline 3.4/2.1/1.0%).
+  The whole point was fewer stuck units, and it changes how big player groups spread out, so it
+  needs a proper look next session rather than a last-hour push.

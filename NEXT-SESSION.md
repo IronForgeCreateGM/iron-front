@@ -5,7 +5,7 @@
 
 ## NEXT SESSION PRIORITIES (written 6:26 AM PT Sat Oct 31)
 1. SC2-style construction: follow docs/sc2-construction-plan.md (new replay level, full A/B, player test).
-2. Stuck armies: branch slot (wt-slot) has fs8 v1 (791eef2) and v2 2-opt (34975cf), both gated m7>=4. Neither beat level 2 on all20 (15W 2L 3T each vs 16W 2L 2T). Next idea: only re-slot when the group's path goes through a choke (narrow corridor) instead of on every move, so open-field moves stay as they are now.
+2. Stuck armies: branch slot (wt-slot) has fs8 v1 (791eef2) and v2 2-opt (34975cf), both gated m7>=4. v3 (2-opt for groups of 12+, commit on slot) benched 17W 1L 2T vs 16W 2L 2T but stuck drills were not better. None shipped. Next idea: only re-slot when the group's path goes through a choke (narrow corridor) instead of on every move, so open-field moves stay as they are now.
 3. Bank floating at max pop: m7g (level 3) is even because gas runs out first. Next idea: a minerals-only sink (walls/basic towers) or more gas extractors earlier.
 4. France: weakest faction at parity; anything more needs a stat change, which needs Nicholas's OK.
 5. Housekeeping: many old worktrees under /workspace (wt-*, base53, v53b). wt-inf has untracked files, so check them before removing.
