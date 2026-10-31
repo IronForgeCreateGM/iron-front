@@ -332,7 +332,7 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
   own power plant while walking a short path to its rally near (50,95); none of them are in an attack group.
   So the bigger stuck problem looks like bots placing buildings with too-narrow gaps between them and their
   rally point, not formation slots. That fits with the SC2-construction work (building spacing).
-  (The drill's 'blk' debug field printed junk; fixed in test/stuck76-drill.js at 6:58 AM: it now prints the 4 neighbour tiles right,left,down,up, 0 = free, 2 = building.)
+  (The drill's 'blk' debug field printed junk; fixed in test/stuck76-drill.js at 6:56 AM PT: it now prints the 4 neighbour tiles right,left,down,up, 0 = free, 2 = building.)
 
 - 6:53 AM PT: tried that lead quickly: 'gap5' = Hard bots leave a 2-tile gap (instead of 1) around their non-defense
   buildings (opt-in replay level 5, branch slot dc4e8e5). NOT shipped. Stuck units over the same 6 twelve-minute drills:
