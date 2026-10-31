@@ -287,3 +287,4 @@
 - Tried and NOT shipped tonight (France AI):
   - m7i, a leaner France tower plan (branch fra, e507235): France went 1W 2T 5L vs 3W 0T 5L at baseline over 8 France matchups. Rejected.
   - Fortress doctrine for France/China on (SION fp76 'all'): France 3W 1T 4L vs 3W 0T 5L. Too small a gain to justify a new replay level tonight. Stays off.
+- PUSHED/LIVE: v7.6.10 = 8748723, pushed 5:19:03 AM PT (live main was 105b825 = v7.6.9 before the push), live check 5:21:17 AM PT: footer reads v7.6.10, 0 page errors, 0 http fails, all 23 models load. Zip: /workspace/rts-game-v7.6.10-play.zip. Screenshots: /workspace/iron-front-v7.6.10.png (old vs new troopers), /workspace/iron-front-v7.6.10-phone-title.png.

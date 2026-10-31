@@ -1,3 +1,8 @@
+## RESUME NOTE 5:22 AM PT Sat Oct 31
+- v7.6.10 (realistic infantry + phone menu clamp) PUSHED 5:19:03 AM PT as 8748723, live verified 5:21. master == live main.
+- Next: queue items (Hard AI math / France / bank / stuck), with A/B only and no pushes unless fully gated. NIGHTLY-LOG must be complete by 7:30, then delete .night-run-lock at 7:45 and report.
+- Worktrees: /workspace/wt-inf (merged, can be removed), /workspace/wt-fra (branch fra, France experiments, rejected).
+
 ## RESUME NOTE 4:53 AM PT Sat Oct 31
 - v7.6.9 LIVE (105b825). Infantry v7.6.10 is in /workspace/wt-inf (branch inf, 2233a7b). Full suite done apart from v4 (known 900 s timeout). Load flakes are being rerun alone -> /workspace/n1031/g7610/re (done.txt = REDONE). Then bump to v7.6.10, zip, shot and push.
 - France AI: tried m7i (lean France static D, branch fra in /workspace/wt-fra, e507235). On fra8 (8 France matchups, both seats) France went 1W 2T 5L vs 3W 0T 5L at baseline. REJECTED. Baseline France loses 5/8 matchups in brain mirrors, so the faction AI is weak. Testing SION fp76=all (fortress for fra/chn) on fra8 -> /workspace/n1031/fra/fp.log; compare France seats vs /workspace/n1031/fra/b2.log.
