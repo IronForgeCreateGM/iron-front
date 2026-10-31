@@ -1,8 +1,8 @@
-# RESUME NOTE (11:15 PM PT Oct 30): v7.6.6 LIVE (22817c7, pushed 10:58:54 PM PT, verified 11:01 PM PT). Working on v7.6.7 = m7e:
-- m7e = refinery spot scored by dock-to-ore distance (replay flag m7 is a level: 1 = v7.6.6, 2 = + m7e). Gate vs live v7.6.5 brain: set12 10W 1T 1L, fresh8 6W 2L (/workspace/n1031/e-set12, e-fresh8).
-- DONE: a v7.6.6 replay recorded with the live code (worktree /workspace/wt-766 @22817c7, test/rec-old.js) replays 24/24 under m7e code (/workspace/n1031/rep/v766-m7.json).
-- RUNNING: gate logs in /workspace/n1031/g767 (det73, uploads, nt76, stall, replay, stuck5/7/9) + France traces tr93/tr63 with and without m7e (SIOFF='{"m7e":1}').
-- Next: if gates green -> bump v7.6.7, shot, zip, log, ls-remote must show 22817c7, push by hash, verify live.
+# RESUME NOTE (11:31 PM PT Oct 30): v7.6.6 LIVE (22817c7, pushed 10:58:54 PM PT). Working on v7.6.7 = m7e + attack-move resume fix (both replay level m7>=2):
+- m7e = refinery spot scored by dock-to-ore distance. Gate vs live brain: set12 10W 1T 1L, fresh8 6W 2L. Old v7.6.6 replay (m7=1, recorded by test/rec-old.js from /workspace/wt-766) replays 24/24 under new code.
+- Gates green before the sim fix: det73, nt76, stall, replay-test. replay-uploads (4 files) running -> /workspace/n1031/g767/uploads.log.
+- Stuck drill: m7e alone was worse (377 vs 292 stuck samples, seeds 5-15). Root cause found: a non-marine attack-move whose path was cleared by kiting (sim.js combat kite setPath overwrote u.dest) stood still forever in 'amove'. Fix in sim.js (line ~933, `am7`): resume to u.anchor; idle when unreachable or arrived. Seeds 5/7/9 -> 154 (was 211). Re-running all 6 seeds (stuckG*.txt), then re-run e-set12/e-fresh8 gate (set12.sh / fresh8.sh), det73, replay-test, then bump v7.6.7.
+- France (volcano 93 fra@0) loses more army early (spend7-trace: lost 56k vs 28k at 8 min) and overbuilds defences; not caused by m7e. Open item.
 
 # v7.6.6 (night Oct 30-31): Hard AI math layer m7 (replay flag m7; SIOFF.m7 / m7a-d turn parts off; P.m7Off = live v7.6.5 brain)
 - Code: js/ai.js m7On/field7/step7/tgt7/move7/lan7/spend7/mis7. Test harness: node test/m7-vs.js map seed facA facB swap maxMin [startA startB] (NEW = slot0, or slot1 when swap=1).
