@@ -1,6 +1,8 @@
-# RESUME NOTE (11:02 PM PT Oct 30): v7.6.6 LIVE (22817c7, pushed 10:58:54 PM PT, verified 11:01 PM PT). Working on v7.6.7 = m7e (91e5682+):
-- m7e = refinery spot scored by dock-to-ore distance (replay flag m7 is now a level: 1 = v7.6.6, 2 = + m7e). Gate so far vs live v7.6.5 brain: set12 10W 1T 1L, fresh8 6W 2L (/workspace/n1031/e-set12, e-fresh8). v7.6.6 alone was 11W 2T 7L on the same 20.
-- Next: check v7.6.6 (m7=1) replays still replay under m7e code, det73, drills, stuck drill, then bump v7.6.7 and push by hash after ls-remote. Look at the France seats (v63 fra@3, v93 fra@0) that got worse.
+# RESUME NOTE (11:15 PM PT Oct 30): v7.6.6 LIVE (22817c7, pushed 10:58:54 PM PT, verified 11:01 PM PT). Working on v7.6.7 = m7e:
+- m7e = refinery spot scored by dock-to-ore distance (replay flag m7 is a level: 1 = v7.6.6, 2 = + m7e). Gate vs live v7.6.5 brain: set12 10W 1T 1L, fresh8 6W 2L (/workspace/n1031/e-set12, e-fresh8).
+- DONE: a v7.6.6 replay recorded with the live code (worktree /workspace/wt-766 @22817c7, test/rec-old.js) replays 24/24 under m7e code (/workspace/n1031/rep/v766-m7.json).
+- RUNNING: gate logs in /workspace/n1031/g767 (det73, uploads, nt76, stall, replay, stuck5/7/9) + France traces tr93/tr63 with and without m7e (SIOFF='{"m7e":1}').
+- Next: if gates green -> bump v7.6.7, shot, zip, log, ls-remote must show 22817c7, push by hash, verify live.
 
 # v7.6.6 (night Oct 30-31): Hard AI math layer m7 (replay flag m7; SIOFF.m7 / m7a-d turn parts off; P.m7Off = live v7.6.5 brain)
 - Code: js/ai.js m7On/field7/step7/tgt7/move7/lan7/spend7/mis7. Test harness: node test/m7-vs.js map seed facA facB swap maxMin [startA startB] (NEW = slot0, or slot1 when swap=1).
