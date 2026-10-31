@@ -310,3 +310,6 @@ Also earlier backlog: wall gate.
   - silo placement/swap/targeting
 - Put everything behind a new replay flag. A/B against the current Hard; Hard must not get weaker, no bonuses or stat changes.
 - Box tools: `/workspace/r1030/` (ex.js extractor, probe*.js, heat-*.png).
+
+## Note from Nicholas (Oct 31, 7:59 AM PT)
+France is fine for humans (he can beat ~5 Hard AIs with it). NO France stat changes. Treat France weakness as a bot-play problem: improve how Hard plays France (strategy, defenses, timing), not unit stats.
