@@ -352,3 +352,8 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
   buildings themselves. Fixing this needs better unit-vs-unit avoidance (pushing past / swapping with blocked
   friends), which is a sim movement change for players too. A full session, with player-feel testing.
   Logs: /workspace/n1031/blk.
+
+- 6:59 AM PT: who gets stuck (same 188 samples): about 45% are units on a plain move that are NOT in an attack
+  group (riflemen 34, heavies 19, rocketeers 16, artillery 12), i.e. fresh units walking out of the factory or
+  regrouping in base. About 30% are attack-group units on attack-move. So the next fix should start with
+  how fresh units leave the factory door and spread out (unit-vs-unit), not with the attack army.
