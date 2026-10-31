@@ -308,3 +308,8 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
   - Hard vs live Hard over the same 20 seat games: 15 W 2 L 3 T at level 4 vs 16 W 2 L 2 T at level 2, and several kills came later (for example classic 61 China 16.0 -> 24.5 min, volcano 93 Brazil 15.2 -> 24.6 min).
   - Not shipped: it does not beat the current version. It would also change how the PLAYER's own group moves spread out, which Nicholas should try first.
 - Also checked (5:55-6:05 AM PT): the Hard AI "attack when the square law says we win" threshold. Moving it from 1.3 to 1.15 or 1.45 changed none of the 20 bench games; even 9 changed nothing in a spot check. The computed odds are almost always lopsided (well under 1 or far over 1), so this knob does not need tuning. No change made.
+
+- 6:21 AM PT: fs8 v2 (greedy + 2-opt slot order, branch slot commit above) also NOT shipped.
+  Stuck drills mixed (hellgate7 3.4->2.8%, volcano8-23 2.1->1.2%, volcano8-5 1.0->1.9% worse);
+  Hard bench 15W 2L 3T vs live level 16W 2L 2T. Not clearly better, and it changes how player
+  group moves spread out, so it stays on branch slot for a future session.

@@ -1,3 +1,7 @@
+## RESUME NOTE 6:21 AM PT (box clock)
+- Live = v7.6.10 (8748723). Nothing new to push. fs8 v1 and v2 (2-opt) both held, on branch slot in /workspace/wt-slot.
+- Remaining: final NIGHTLY-LOG check by 7:30, delete .night-run-lock by 7:45, report.
+
 ## RESUME NOTE 6:05 AM PT Sat Oct 31
 - Live = v7.6.10 (8748723). Nothing new is gated for a push.
 - fs8 formation fix: HELD BACK. The all20 bench at level 4 went 15W 2L 3T vs 16W 2L 2T at level 2, with slower kills. See the NIGHTLY-LOG section "Stuck armies". Branch slot is in /workspace/wt-slot.
