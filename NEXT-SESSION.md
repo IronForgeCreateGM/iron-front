@@ -1,3 +1,14 @@
+## RESUME NOTE 4:53 AM PT Sat Oct 31
+- v7.6.9 LIVE (105b825). Infantry v7.6.10 is in /workspace/wt-inf (branch inf, 2233a7b). Full suite done apart from v4 (known 900 s timeout). Load flakes are being rerun alone -> /workspace/n1031/g7610/re (done.txt = REDONE). Then bump to v7.6.10, zip, shot and push.
+- France AI: tried m7i (lean France static D, branch fra in /workspace/wt-fra, e507235). On fra8 (8 France matchups, both seats) France went 1W 2T 5L vs 3W 0T 5L at baseline. REJECTED. Baseline France loses 5/8 matchups in brain mirrors, so the faction AI is weak. Testing SION fp76=all (fortress for fra/chn) on fra8 -> /workspace/n1031/fra/fp.log; compare France seats vs /workspace/n1031/fra/b2.log.
+- ai-bench.js on branch fra has a fra8 set and m7-vs.js has env M7=<level> (cherry-pick if useful).
+
+## RESUME NOTE 4:31 AM PT Sat Oct 31
+- v7.6.9 LIVE: 105b825 pushed 4:22:33 AM PT, live verified 4:24:40 AM PT.
+- Infantry v7.6.10 in progress: worktree /workspace/wt-inf (branch inf, commit 2233a7b, models only, made with humans.py). det74 OK, shots /workspace/n1031/inf (cmp.png old vs new). Full suite running -> /workspace/n1031/g7610/all (done.txt when finished). Then merge master into inf, bump to v7.6.10, zip, shot, push.
+- vs8-943 NEWT=both now: usa mined 917k vs bra 984k (the USA "half economy" gap is gone); army 43k vs 83k at 14 min from fight losses.
+- SC2-style construction (a builder unit walks out and builds) is a sim + AI change. Held for a session with full A/B.
+
 ## RESUME NOTE 4:17 AM PT Sat Oct 31
 - v7.6.9 gated (see NIGHTLY-LOG). Push hash = 936ca97 once uploads.log (/workspace/n1031/g769) shows all 5 old replays bad 0. Live main expected 8429b1f.
 - After push: realistic infantry in /workspace/blender-iron-front/scripts/humans.py (backup humans_v75.py). Plan: multicam shirt/pants, team-coloured plate carrier + helmet (high-cut, Comtac, eye-pro, beard). Render with blender -b --python make.py -- u_rifle quick hero, then export and copy to models/, det74 check.

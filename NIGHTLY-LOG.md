@@ -263,6 +263,7 @@
   - Run alone: endless703 (loop-alive check now allows 3 windows), fogkeys, slot, ui7 (now passes; it used to time out because of the covered button) and endgame (718 s) all pass.
   - Still failing, same as live: ai71 (same 3 timing FAILs as live). mobile-play "card tap -> ghost" flakes on live v7.6.8 too (checked side by side). v4 hits its 900 s timeout, same as v7.6.8.
   - det73/det74 (glb on vs off) identical. Map shots on all 6 maps plus phone: 0 page errors, 0 http fails.
-  - Old replays (uploads.log): see the PUSHED line.
+  - Old replays: v767 24/24, v766 24/24, Oct 29 nicholas 32/32, Oct 29b vs 3 Hard 56/56, Oct 30 volcano8 49/49; all bad 0.
+- PUSHED: 105b825 to main at 4:22:33 AM PT; live page showed v7.6.9 at 4:24:40 AM PT (classic + hellgate, 0 page errors, 0 http fails, 23/23 GLBs).
 - New tool: test/ai-bench.js runs the seat-swapped NEW-vs-OLD sets in parallel and prints one tally. Use quick4 as a quick check and all20 as the ship gate.
 - Artifacts: /workspace/rts-game-v7.6.9-play.zip, /workspace/iron-front-v7.6.9.png (hellgate), /workspace/iron-front-v7.6.9-phone-title.png (live vs new phone title).
