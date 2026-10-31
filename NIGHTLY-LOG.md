@@ -343,3 +343,10 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
 - 6:56 AM PT: 'rl6' = new bot units walk to a gathering spot 9 tiles from their HQ toward the map centre instead of
   waiting right outside the factory door (opt-in level 6, branch slot fb43473). NOT shipped: stuck units went UP,
   1.63% vs 1.44% live over the same 6 drills (the walk out of the base adds more moving through gaps). No bench run.
+
+- 6:59 AM PT: why wider gaps didn't help. With the fixed debug field (3 live drills, 12 min, about 180 stuck
+  samples): about 70% (126) of stuck units have all 4 neighbouring tiles free, and only 5 sit in a 1-tile corridor
+  between two buildings. So units are mostly blocked by OTHER UNITS (crowd jams, often near buildings), not by
+  buildings themselves. Fixing this needs better unit-vs-unit avoidance (pushing past / swapping with blocked
+  friends), which is a sim movement change for players too. A full session, with player-feel testing.
+  Logs: /workspace/n1031/blk.
