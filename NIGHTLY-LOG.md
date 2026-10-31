@@ -298,3 +298,12 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
   - m7i, a leaner France tower plan (branch fra, e507235): France went 1W 2T 5L vs 3W 0T 5L at baseline over 8 France matchups. Rejected.
   - Fortress doctrine for France/China on (SION fp76 'all'): France 3W 1T 4L vs 3W 0T 5L. Too small a gain to justify a new replay level tonight. Stays off.
 - PUSHED/LIVE: v7.6.10 = 8748723, pushed 5:19:03 AM PT (live main was 105b825 = v7.6.9 before the push), live check 5:21:17 AM PT: footer reads v7.6.10, 0 page errors, 0 http fails, all 23 models load. Zip: /workspace/rts-game-v7.6.10-play.zip. Screenshots: /workspace/iron-front-v7.6.10.png (old vs new troopers), /workspace/iron-front-v7.6.10-phone-title.png.
+
+## 2026-10-31 (5:20-6:00 AM PT) Stuck armies: measured, one fix tried, NOT shipped (live stays v7.6.10)
+- Better measurement: the stuck drill (test/stuck76-drill.js) used to count an army bunched up at its rally point as "stuck". It now counts those units separately as "crowded at goal". That was about 40% of the old stuck count.
+- Real stuck rate on v7.6.10 over 16-minute bot games: volcano8 (4v4) seeds 5/11/23/37 = 1.0% / 1.3% / 2.1% / about 1%; hellgate (1v1) seeds 7/19 = 3.4% / 1.9%. The main hellgate hot spot is open ground in mid-map (40-48,56) while the army forms up.
+- Cause found: when a group is ordered to move, each formation spot is handed to whichever unit is nearest to it, one spot after another. The last spots go to leftover units on the far side, so units swap sides through the crowd and jam.
+- Fix tried (branch slot, /workspace/wt-slot, 791eef2; opt-in replay level m7=4, OFF): spots are handed out in front-to-back, then left-to-right order, so paths do not cross.
+  - Stuck samples fell 2.04% -> 1.44% (hellgate 7: 3.4 -> 2.0%, hellgate 19: 1.9 -> 1.4%, volcano8 23: 2.1 -> 1.3%, volcano8 11: 1.3 -> 1.1%, but volcano8 5: 1.0 -> 1.3% worse).
+  - Hard vs live Hard over the same 20 seat games: 15 W 2 L 3 T at level 4 vs 16 W 2 L 2 T at level 2, and several kills came later (for example classic 61 China 16.0 -> 24.5 min, volcano 93 Brazil 15.2 -> 24.6 min).
+  - Not shipped: it does not beat the current version. It would also change how the PLAYER's own group moves spread out, which Nicholas should try first.
