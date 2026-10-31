@@ -1,4 +1,4 @@
-## RESUME NOTE 6:11 AM PT Sat Oct 31
+## RESUME NOTE 6:05 AM PT Sat Oct 31
 - Live = v7.6.10 (8748723). Nothing new is gated for a push.
 - fs8 formation fix: HELD BACK. The all20 bench at level 4 went 15W 2L 3T vs 16W 2L 2T at level 2, with slower kills. See the NIGHTLY-LOG section "Stuck armies". Branch slot is in /workspace/wt-slot.
 - lanR sweep (SION lanR 1.15 and 1.45, all20) gave byte-identical results to 1.3; even lanR 9 is identical on frost 33. The square-law ratio is almost always far from the threshold (about 0.01 or 9+), so tuning it does nothing. No change.

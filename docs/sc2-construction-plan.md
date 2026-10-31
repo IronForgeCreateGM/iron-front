@@ -1,4 +1,4 @@
-# SC2-style construction: plan (written 6:15 AM PT, Oct 31 2026; NOT started in code)
+# SC2-style construction: plan (written 6:06 AM PT, Oct 31 2026; NOT started in code)
 
 ## What players would see
 - Place a building. A worker (the Engineer, or a new cheap "Builder" from the yard) walks to the spot and builds it. Scaffolding rises only while a worker is on site.
