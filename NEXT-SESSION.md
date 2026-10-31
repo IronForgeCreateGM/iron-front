@@ -1,6 +1,8 @@
-# RESUME NOTE (1:35 AM PT Oct 31): v7.6.7 LIVE (47e23ab pushed 1:31:39 AM PT, verified 1:32:57). Next version v7.6.8.
-- Queue next: France army trading / defence overbuild (volcano 93 fra@0), bank floating at max pop, stuck spots (own factory exits 88,16), lighter AI test setup, flaky tests (endless703 loop-alive, ui7 timeout, fogkeys under load, reach-test needs :8765), App Store steps, visuals (SC2 construction, infantry, desert rocks).
-- Push rule: ls-remote must show 47e23ab before the next push.
+# RESUME NOTE (1:52 AM PT Oct 31): v7.6.7 LIVE (47e23ab pushed 1:31:39 AM PT, verified 1:32:57). v7.6.8 in progress on master (not pushed).
+- In v7.6.8 so far: m7g (a0fab7c, 5baa8a8, replay level m7=3): at max pop with a big bank, build more towers and production, and extractors on free vents when gas runs dry. The App Store pieces (0c3e36b) are icons/icon-1024.png, privacy.html, a credits line in Settings, test/appstore-shots.js and build-www copying privacy.html.
+- m7g battery 1 (towers and production only) vs the v7.6.7 brain (OLDSKIP=g): even, with mirror results decided by seat. The bank still floats (220-300k) because gas is the limit, not credits. That led to the extractor rule. Battery 2 is running: /workspace/n1031/j-set12, then j-fresh8.
+- Gate v7.6.8 only if m7g is no worse than v7.6.7. If it is neutral, the App Store pieces can still ship alone with m7g left on (or off). Before any push, ls-remote must show 47e23ab.
+- Queue after that: France army / defence overbuild, stuck spots, lighter AI test setup, flaky tests, visuals.
 
 # v7.6.6 (night Oct 30-31): Hard AI math layer m7 (replay flag m7; SIOFF.m7 / m7a-d turn parts off; P.m7Off = live v7.6.5 brain)
 - Code: js/ai.js m7On/field7/step7/tgt7/move7/lan7/spend7/mis7. Test harness: node test/m7-vs.js map seed facA facB swap maxMin [startA startB] (NEW = slot0, or slot1 when swap=1).
