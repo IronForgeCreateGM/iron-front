@@ -8,6 +8,7 @@
 
 ## TOP LEAD (7:05 AM PT): gap5 = Hard bots leave a 2-tile gap around non-defense buildings (branch slot dc4e8e5, js/ai.js aiSpot; level 5 there).
 - 12-seed 12-min stuck drills: 1.43% vs live 1.64% (13% fewer stuck). Bench all20 16W 3L 1T vs 16W 2L 2T (about even).
+- BLOCKER (7:08 AM): nt76 no-trap drill FAILS at gap5 (volcano 77: harvesters stop mining for a minute; live passes). Stall test passes. Likely keep the 1-tile gap for refineries or near ore. Logs /workspace/n1031/gap5g.
 - To ship: port onto master as replay level 3+ (careful: m7g owns level 3 exactly; use a new level), run the nt76 no-trap drill + build/stall tests (wider gaps might starve build spots), the volcano8 943231385 scenario, 6+ vs live Hard (all20), det73/74, old replays, then the normal version/zip/screenshot/push steps.
 
 ## NEXT SESSION PRIORITIES (written 6:26 AM PT Sat Oct 31)

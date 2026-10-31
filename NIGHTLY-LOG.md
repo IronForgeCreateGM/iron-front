@@ -369,3 +369,8 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
   and build drills (a wider gap could starve bot building spots), the volcano8 943231385 scenario, the old-replay
   checks and its own replay level on master, and that does not fit safely before 7:30. It is the best lead for next
   session. Logs: /workspace/n1031/gx (live, gap5), /workspace/n1031/gap5, /workspace/n1031/stuck12.
+
+- 7:08 AM PT: early gate check for gap5 (branch slot, test files now read an M7 setting): the stall test passes,
+  but the no-trap drill FAILS at gap5: "volcano 77: harvesters keep mining every minute" (a bot's mining stalls for
+  a minute). Live passes the same drill. So gap5 is NOT shippable as is; the wider gap probably pushes a refinery
+  or production building somewhere awkward on volcano 77. Fix that first next session. Logs: /workspace/n1031/gap5g.
