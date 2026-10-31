@@ -240,3 +240,14 @@
   - Also OK: sim, factions7, endless, net, net4, gate, fogkeys, tesla, transport, marine, medevac702, engcc76, place701, defense, build72, diff73, det74 (browser, glb on, 0 errors), eight, six, hellgate, v59, v62, v63, wall-exit, warhead, mobile, slot, ai71-human, chief (4/5 vs Hard), v4 (si vs hard 10/10).
   - Fails that already fail on the live v7.6.6 too: ai71-test (fortress/wall counts, special peaks, AI call time under load; new also has chn special peak 4 < 6), ui7-test (browser timeout), endless703 (the "loop alive" timing check flakes 1-3 factions per run on live as well).
 - PUSHED 47e23ab -> main at 1:31:39 AM PT (fast-forward 22817c7..47e23ab, no force; ls-remote checked first). LIVE VERIFIED 1:32:57 AM PT: version.json v7.6.7, 28 ?v=7.6.7 tags, NET_VERSION v7.6.7, live sim.js has the am7 fix. Zip /workspace/rts-game-v7.6.7-play.zip, screenshot /workspace/iron-front-v7.6.7.png.
+
+## 2026-10-31 (night, 2:00-3:30 AM PT) v7.6.8: App Store pieces (AI identical to v7.6.7)
+- What changed for players:
+  - New privacy page (privacy.html, linked from Settings), plus a credits line in Settings.
+  - 1024x1024 app icon and an App Store screenshot script (test/appstore-shots.js: iPhone 6.9" and iPad 13", title, base and battle shots).
+  - Hard AI: no change. m7g (spend a bank that floats at max pop on towers, production and extractors) is built in but only runs at replay level 3, which is off by default. It was even vs v7.6.7 over 20 seat games because the float is gas-limited. m7h (range term in score71) made France worse and was reverted.
+- Tests (/workspace/n1031/g768):
+  - AI hash check: 3 headless games x 12 min match wt-767 (v7.6.7) exactly, so the vs-live-Hard games and the volcano8 943 scenario play out exactly as they do in v7.6.7.
+  - Old replays (uploads.log): v7.6.7 m7 24/24, v7.6.6 24/24, Oct 29 1v1 32/32, 3-Hard 56/56, Oct 30 bot1v1 volcano8 49/49. All bad 0.
+  - Full suite: everything else passed. Run alone, endgame, mobile-play, slot and fogkeys pass. These also fail on live v7.6.7: ai71 (same 3 FAILs), ui7 (browser TimeoutError), endless703 (the "loop alive" check flakes 2 factions per run).
+  - Screenshot /workspace/iron-front-v7.6.8.png (m7 2, pageErrors 0). App Store shots in /workspace/appstore-shots/. Zip /workspace/rts-game-v7.6.8-play.zip.
