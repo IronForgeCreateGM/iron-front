@@ -325,3 +325,11 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
   hellgate7 2.7 vs 3.0, hellgate19 1.5 vs 1.5, volcano8-5 0.9 vs 1.8, volcano8-11 1.5 vs 1.6, volcano8-23 2.4 vs 2.5,
   volcano8-37 1.0 vs 1.3. v3 is equal or worse on every seed, so the hold is right. Logs: /workspace/n1031/stuck12 (live)
   and /workspace/n1031/stuck3 (v3). Next session: use 12-minute drills for both sides.
+
+- 6:46 AM PT: lead for next session (no code change). In the 12-minute live drills, about 59% of stuck units
+  (158 of 269) sit within 3 tiles of their own buildings, most often power plants, extractors and turrets.
+  Example: volcano8 seed 23 at about 3 minutes, bot 7 has 8 fresh infantry jammed at about (58,90) beside its
+  own power plant while walking a short path to its rally near (50,95); none of them are in an attack group.
+  So the bigger stuck problem looks like bots placing buildings with too-narrow gaps between them and their
+  rally point, not formation slots. That fits with the SC2-construction work (building spacing).
+  (The drill's 'blk' debug field prints junk; fix it before relying on it.)
