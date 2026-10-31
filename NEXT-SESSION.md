@@ -1,8 +1,7 @@
-# RESUME NOTE (11:31 PM PT Oct 30): v7.6.6 LIVE (22817c7, pushed 10:58:54 PM PT). Working on v7.6.7 = m7e + attack-move resume fix (both replay level m7>=2):
-- m7e = refinery spot scored by dock-to-ore distance. Gate vs live brain: set12 10W 1T 1L, fresh8 6W 2L. Old v7.6.6 replay (m7=1, recorded by test/rec-old.js from /workspace/wt-766) replays 24/24 under new code.
-- Gates green before the sim fix: det73, nt76, stall, replay-test. replay-uploads (4 files) running -> /workspace/n1031/g767/uploads.log.
-- Stuck drill: m7e alone was worse (377 vs 292 stuck samples, seeds 5-15). Root cause found: a non-marine attack-move whose path was cleared by kiting (sim.js combat kite setPath overwrote u.dest) stood still forever in 'amove'. Fix in sim.js (line ~933, `am7`): resume to u.anchor; idle when unreachable or arrived. Seeds 5/7/9 -> 154 (was 211). Re-running all 6 seeds (stuckG*.txt), then re-run e-set12/e-fresh8 gate (set12.sh / fresh8.sh), det73, replay-test, then bump v7.6.7.
-- France (volcano 93 fra@0) loses more army early (spend7-trace: lost 56k vs 28k at 8 min) and overbuilds defences; not caused by m7e. Open item.
+# RESUME NOTE (12:00 AM PT Oct 31): v7.6.6 LIVE (22817c7). v7.6.7 candidate = c402799 + UNCOMMITTED version bump (index.html 28 tags + tsFoot/sub, package.json, version.json, NET_VERSION) in the working tree.
+- v7.6.7 = (1) m7e refinery next to ore, (2) sim.js attack-move resumes to its goal after a kite/fight cleared the path (all units, replay level m7>=2), (3) m7f no-trap check protects ally barracks/factory mouths. nt76 drill fixed to count every gate as a door.
+- Gate so far (before m7f): vs live brain set12 9W 2T 1L, fresh8 7W 1L (f-set12/f-fresh8). Stuck drill 6 seeds 1.68% vs 1.93% v7.6.6. det73/replay/stall/units OK, v7.6.6 replay 24/24, old uploads OK.
+- RUNNING: h-set12 + h-fresh8 (with m7f) -> /workspace/n1031/h-*.log. Then: det73, replay-test, stall, uploads again, shot (node test/v766-shot.js /workspace/iron-front-v7.6.7.png), zip, NIGHTLY-LOG, commit bump, ls-remote == 22817c7, push by hash.
 
 # v7.6.6 (night Oct 30-31): Hard AI math layer m7 (replay flag m7; SIOFF.m7 / m7a-d turn parts off; P.m7Off = live v7.6.5 brain)
 - Code: js/ai.js m7On/field7/step7/tgt7/move7/lan7/spend7/mis7. Test harness: node test/m7-vs.js map seed facA facB swap maxMin [startA startB] (NEW = slot0, or slot1 when swap=1).
