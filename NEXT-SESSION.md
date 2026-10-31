@@ -1,7 +1,6 @@
-# RESUME NOTE (12:00 AM PT Oct 31): v7.6.6 LIVE (22817c7). v7.6.7 candidate = c402799 + UNCOMMITTED version bump (index.html 28 tags + tsFoot/sub, package.json, version.json, NET_VERSION) in the working tree.
-- v7.6.7 = (1) m7e refinery next to ore, (2) sim.js attack-move resumes to its goal after a kite/fight cleared the path (all units, replay level m7>=2), (3) m7f no-trap check protects ally barracks/factory mouths. nt76 drill fixed to count every gate as a door.
-- Gate so far (before m7f): vs live brain set12 9W 2T 1L, fresh8 7W 1L (f-set12/f-fresh8). Stuck drill 6 seeds 1.68% vs 1.93% v7.6.6. det73/replay/stall/units OK, v7.6.6 replay 24/24, old uploads OK.
-- RUNNING: h-set12 + h-fresh8 (with m7f) -> /workspace/n1031/h-*.log. Then: det73, replay-test, stall, uploads again, shot (node test/v766-shot.js /workspace/iron-front-v7.6.7.png), zip, NIGHTLY-LOG, commit bump, ls-remote == 22817c7, push by hash.
+# RESUME NOTE (12:42 AM PT Oct 31): v7.6.6 LIVE (22817c7). v7.6.7 candidate = master 842ee21 + UNCOMMITTED version bump (index.html, package.json, version.json, NET_VERSION) + NIGHTLY-LOG v7.6.7 entry (working tree).
+- Gate done: h-set12 9W 2T 1L, h-fresh8 7W 1L; det73/replay/stall/units/nt76 OK; uploads v766 24/24, 49/49, 32/32, 56/56 bad 0; stuck 6 seeds 335/20.0k 1.67%; shot /workspace/iron-front-v7.6.7.png 0 errors.
+- Found by unit tests: amove-resume changed 3 tests (endless slow-boss: undefended HQ now dies; marine harness set amove without anchor; human-order riflemen get killed by a real all-in). Tests fixed in 842ee21 (not game code). Remaining: run the rest of test/*-test.js (/workspace/n1031/g767g/all), then commit bump, zip, ls-remote == 22817c7, push by hash.
 
 # v7.6.6 (night Oct 30-31): Hard AI math layer m7 (replay flag m7; SIOFF.m7 / m7a-d turn parts off; P.m7Off = live v7.6.5 brain)
 - Code: js/ai.js m7On/field7/step7/tgt7/move7/lan7/spend7/mis7. Test harness: node test/m7-vs.js map seed facA facB swap maxMin [startA startB] (NEW = slot0, or slot1 when swap=1).
