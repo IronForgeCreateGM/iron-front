@@ -319,3 +319,9 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
   drills were not better (hellgate7 3.0%, volcano8-23 2.5%, volcano8-5 1.8% vs baseline 3.4/2.1/1.0%).
   The whole point was fewer stuck units, and it changes how big player groups spread out, so it
   needs a proper look next session rather than a last-hour push.
+
+- 6:44 AM PT: like-for-like stuck check (all 12-minute drills, same 6 seeds). Earlier baselines were 16-minute
+  runs, so the v1/v2 drill comparisons above were not exactly fair. Live level 2 vs fs8 v3, % of moving units stuck:
+  hellgate7 2.7 vs 3.0, hellgate19 1.5 vs 1.5, volcano8-5 0.9 vs 1.8, volcano8-11 1.5 vs 1.6, volcano8-23 2.4 vs 2.5,
+  volcano8-37 1.0 vs 1.3. v3 is equal or worse on every seed, so the hold is right. Logs: /workspace/n1031/stuck12 (live)
+  and /workspace/n1031/stuck3 (v3). Next session: use 12-minute drills for both sides.
