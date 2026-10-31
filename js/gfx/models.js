@@ -46,6 +46,10 @@ function pbrMaterial() {
   m.customProgramCacheKey = () => 'pbrv2';
   return PBR_MAT = m;
 }
+// instanced meshes WITH per-instance colour need their own material: three r149 keeps one program per material and does not
+// re-check instanceColor, so sharing PBR_MAT let them flip it to the instanceColor program and units (no instanceColor) went black
+let PBR_IC = null;
+function pbrMatIC() { if (PBR_IC) return PBR_IC; const b = pbrMaterial(), m = b.clone(); m.onBeforeCompile = b.onBeforeCompile; m.customProgramCacheKey = () => 'pbrv2ic'; return PBR_IC = m; }
 const _geoCache = {};
 function bevelBoxGeo(w, h, d, b) {
   b = Math.min(b, w / 2.2, h / 2.2, d / 2.2);

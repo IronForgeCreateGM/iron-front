@@ -46,7 +46,8 @@ let fail = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); i
   const toBoss = pg => pg.evaluate(() => { G.end.wave = 9; G.end.next = G.time; for (let i = 0; i < 30 * 7; i++) stepGame(); const c = G.ents.find(u => u.t === 'colossus'), hq = G.ents.find(e => e.team === ME && e.t === 'hq');
     if (c) { const f = nearFree(Math.floor(hq.x + 6), Math.floor(hq.y - 1), 8); c.x = f[0] + 0.5; c.y = f[1] + 0.5; c.path = []; } R3.cam.td = R3.cam.d = 22; jumpTo(hq.x + 4, hq.y, true); return !!c; });
   const clock = pg => pg.evaluate(() => ({ lf: R3.lastFrame || 0, tick: G.tick }));
-  const running = async (pg, ms) => { const a = await clock(pg); await pg.waitForTimeout(ms); const b = await clock(pg); return b.lf > a.lf && b.tick > a.tick; };
+  // software GL: one heavy frame (boss + elite death FX) can take longer than the window, so allow 3 windows before calling the loop dead (a real freeze never recovers)
+  const running = async (pg, ms) => { const a = await clock(pg); for (let i = 0; i < 3; i++) { await pg.waitForTimeout(ms); const b = await clock(pg); if (b.lf > a.lf && b.tick > a.tick) return true; } return false; };
   for (const [name, vp] of (process.env.FACS ? [] : [['landscape', { width: 844, height: 390 }], ['portrait', { width: 390, height: 844 }]])) {
     const pg = await start('China', vp); const nw = await wall(pg); const boss = await toBoss(pg);
     ok(nw > 60 && boss, `${name}: China walled base (${nw} pieces) + Colossus inside it on boss wave 10`);
