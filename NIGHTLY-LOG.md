@@ -8,7 +8,7 @@ Five versions went live (each was a fast-forward push to main, never forced, and
 4. v7.6.9 (105b825, pushed 4:22:33 AM): Phones: the title screen's update notes no longer cover TAP TO DEPLOY. Desert maps: the 3D rocks are back and units no longer lose their team colours. No AI change.
 5. v7.6.10 (8748723, pushed 5:19:03 AM): Infantry now look like realistic special-forces troops (camo, team-coloured plate carriers and helmets, headsets, eye protection). On phones the main menu's NEW list is cut to 3 lines, so Play is visible without scrolling. No AI change.
 Old replays still replay at every step (each AI change has its own replay level). No bot bonuses and no unit stat changes.
-Tried and held back (not live): m7g (spending the bank at max pop: even, because gas runs out first), m7h/m7i (France tweaks: made France worse), fp76 fortress doctrine (too small a gain), SC2-style construction (a big sim + AI change that needs a full A/B; not started), and three formation fixes for stuck armies: fs8 v1, v2 (2-opt) and v3 (2-opt for groups of 12+) (benches 15W 2L 3T, 15W 2L 3T, 17W 1L 2T vs 16W 2L 2T; stuck drills not clearly better), plus gap5 (wider gaps between bot buildings: no gain) and rl6 (bot rally point outside the base: worse); see the end of this file.
+Tried and held back (not live): m7g (spending the bank at max pop: even, because gas runs out first), m7h/m7i (France tweaks: made France worse), fp76 fortress doctrine (too small a gain), SC2-style construction (a big sim + AI change that needs a full A/B; not started), and three formation fixes for stuck armies: fs8 v1, v2 (2-opt) and v3 (2-opt for groups of 12+) (benches 15W 2L 3T, 15W 2L 3T, 17W 1L 2T vs 16W 2L 2T; stuck drills not clearly better), plus gap5 (wider gaps between bot buildings: no gain) and rl6 (bot rally point outside the base: no gain) and dr7 (wider spread at the factory door: no gain); see the end of this file.
 
 ## 2026-10-27: v7.2.0
 - Queue item 1: place-then-build construction. DONE.
@@ -338,13 +338,13 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
 
 - 6:53 AM PT: tried that lead quickly: 'gap5' = Hard bots leave a 2-tile gap (instead of 1) around their non-defense
   buildings (opt-in replay level 5, branch slot dc4e8e5). NOT shipped. Stuck units over the same 6 twelve-minute drills:
-  1.48% vs 1.44% live (fewer next to buildings, 135 vs 158, but more in the open). Bench 16W 3L 1T vs live 16W 2L 2T.
-  No gain, so it stays on the branch. The jams likely need smarter rally points or the SC2 construction rework,
+  1.48% vs 1.61% live [corrected at 7:01 AM PT; first written as 1.44% because of an adding mistake] (fewer next to buildings, 135 vs 158). Bench 16W 3L 1T vs live 16W 2L 2T.
+  A small drill gain but no bench gain, so it stays on the branch (worth retesting next session). The jams likely need smarter rally points or the SC2 construction rework,
   not just wider gaps.
 
 - 6:56 AM PT: 'rl6' = new bot units walk to a gathering spot 9 tiles from their HQ toward the map centre instead of
-  waiting right outside the factory door (opt-in level 6, branch slot fb43473). NOT shipped: stuck units went UP,
-  1.63% vs 1.44% live over the same 6 drills (the walk out of the base adds more moving through gaps). No bench run.
+  waiting right outside the factory door (opt-in level 6, branch slot fb43473). NOT shipped: no gain,
+  1.63% vs 1.61% live over the same 6 drills [corrected at 7:01; first written as 'worse vs 1.44%']. No bench run.
 
 - 6:59 AM PT: why wider gaps didn't help. With the fixed debug field (3 live drills, 12 min, about 180 stuck
   samples): about 70% (126) of stuck units have all 4 neighbouring tiles free, and only 5 sit in a 1-tile corridor
@@ -357,3 +357,8 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
   group (riflemen 34, heavies 19, rocketeers 16, artillery 12), i.e. fresh units walking out of the factory or
   regrouping in base. About 30% are attack-group units on attack-move. So the next fix should start with
   how fresh units leave the factory door and spread out (unit-vs-unit), not with the attack army.
+
+- 7:01 AM PT: 'dr7' = bots spread fresh units wider outside the factory door (opt-in level 7, branch slot). NOT shipped:
+  1.60% vs 1.61% live over the same 6 drills, no gain. Summary of tonight's like-for-like 12-minute drills
+  (6 seeds, % of moving units stuck): live 1.61, fs8 v3 1.91, gap5 1.48, rl6 1.63, dr7 1.60. Only gap5 helped a
+  little, and its bench was not better, so nothing shipped.
