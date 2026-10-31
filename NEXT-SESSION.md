@@ -1,3 +1,8 @@
+## RESUME NOTE 4:17 AM PT Sat Oct 31
+- v7.6.9 gated (see NIGHTLY-LOG). Push hash = 936ca97 once uploads.log (/workspace/n1031/g769) shows all 5 old replays bad 0. Live main expected 8429b1f.
+- After push: realistic infantry in /workspace/blender-iron-front/scripts/humans.py (backup humans_v75.py). Plan: multicam shirt/pants, team-coloured plate carrier + helmet (high-cut, Comtac, eye-pro, beard). Render with blender -b --python make.py -- u_rifle quick hero, then export and copy to models/, det74 check.
+- Stuck drill volcano8 s5 now: 1.4% stuck. Top spots 72,32 open; 16,88 own barracks. Not changed.
+
 ## RESUME NOTE 3:33 AM PT Sat Oct 31 (overnight run)
 - Live = v7.6.8 (8429b1f). master now has v7.6.9 candidates (not bumped yet), merged from wt-dev branch vis:
   - 8056e27 desert darkening REAL cause (supersedes the 3:05 note): desert-only instanced meshes with instanceColor (mud walls, sandbags) shared PBR_MAT; three r149 keeps one program per material and does not re-check instanceColor, so once GLB rocks changed compile order, units went black. Fix: pbrMatIC() (own material, cache key 'pbrv2ic'); GLB desert rocks back on.
