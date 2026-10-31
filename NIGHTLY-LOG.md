@@ -217,7 +217,9 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
 - PUSHED 089269f -> main at 3:51 PM PT (fast-forward 6b692e2..089269f, no force). LIVE VERIFIED 3:52 PM PT: version.json v7.6.5, 28 ?v=7.6.5 tags, NET_VERSION v7.6.5, live ai.js has sf2. This log line is a local docs-only commit on top (not pushed).
 
 ## 2026-10-30 (night, 9:20 PM PT -) v7.6.6: Hard AI math layer m7 (replay flag m7; si2 lobby Hard only; old replays have no m7 key -> old brain)
-- What Hard bots do differently:
+- In plain English: Hard bots got smarter, with no bonuses. They attack when a quick fight calculation says they will win (not at a fixed army size), take smarter routes around walls and stop dithering between targets, spend big banks on silo, research and towers instead of hoarding, and pick and time silo missiles better. Only Hard (si2) bots change; Easy and Medium and old replays are untouched.
+- Zip /workspace/rts-game-v7.6.6-play.zip, screenshot /workspace/iron-front-v7.6.6.png.
+- What Hard bots do differently (technical):
   - (a) Lanchester attack timing: every 3 s the idle army is fought against the remembered enemy army + defences near the target (square law, survivors = sqrt(1-1/r)); it attacks when r >= 1.3 instead of waiting for a fixed army size.
   - (b) Distance-field movement: armies walk a Dijkstra cost map to the target (enemy walls/gates are expensive, no corner cutting), keep a target for 20 s (no flip-flopping) and drop a target they cannot reach for 45 s. No random jitter when stuck; after 3 stuck checks the target is dropped.
   - (c) Knapsack spending: once the bank is 6500+ (or the bot is maxed out) it spends on the best mix of silo, research and defence towers instead of floating money.
@@ -299,7 +301,7 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
   - Fortress doctrine for France/China on (SION fp76 'all'): France 3W 1T 4L vs 3W 0T 5L. Too small a gain to justify a new replay level tonight. Stays off.
 - PUSHED/LIVE: v7.6.10 = 8748723, pushed 5:19:03 AM PT (live main was 105b825 = v7.6.9 before the push), live check 5:21:17 AM PT: footer reads v7.6.10, 0 page errors, 0 http fails, all 23 models load. Zip: /workspace/rts-game-v7.6.10-play.zip. Screenshots: /workspace/iron-front-v7.6.10.png (old vs new troopers), /workspace/iron-front-v7.6.10-phone-title.png.
 
-## 2026-10-31 (5:20-5:55 AM PT) Stuck armies: measured, one fix tried, NOT shipped (live stays v7.6.10)
+## 2026-10-31 (5:20-5:55 AM PT) Stuck armies: measured, several fixes tried (fs8 v1-v3, gap5, rl6), NOT shipped (live stays v7.6.10)
 - Better measurement: the stuck drill (test/stuck76-drill.js) used to count an army bunched up at its rally point as "stuck". It now counts those units separately as "crowded at goal". That was about 40% of the old stuck count.
 - Real stuck rate on v7.6.10 over 16-minute bot games: volcano8 (4v4) seeds 5/11/23/37 = 1.0% / 1.3% / 2.1% / about 1%; hellgate (1v1) seeds 7/19 = 3.4% / 1.9%. The main hellgate hot spot is open ground in mid-map (40-48,56) while the army forms up.
 - Cause found: when a group is ordered to move, each formation spot is handed to whichever unit is nearest to it, one spot after another. The last spots go to leftover units on the far side, so units swap sides through the crowd and jam.
