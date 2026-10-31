@@ -267,3 +267,23 @@
 - PUSHED: 105b825 to main at 4:22:33 AM PT; live page showed v7.6.9 at 4:24:40 AM PT (classic + hellgate, 0 page errors, 0 http fails, 23/23 GLBs).
 - New tool: test/ai-bench.js runs the seat-swapped NEW-vs-OLD sets in parallel and prints one tally. Use quick4 as a quick check and all20 as the ship gate.
 - Artifacts: /workspace/rts-game-v7.6.9-play.zip, /workspace/iron-front-v7.6.9.png (hellgate), /workspace/iron-front-v7.6.9-phone-title.png (live vs new phone title).
+
+## 2026-10-31 (night, 4:10-5:30 AM PT) v7.6.10: realistic special-forces infantry (render only; AI and gameplay identical to v7.6.9)
+- What changed for players:
+  - Riflemen, rocketeers, snipers, engineers and Kommandos look like modern special-forces troops instead of toy robots:
+    - camo (multicam) uniforms and coyote-tan boots and knee pads
+    - a plate carrier in your team colour, with magazine pouches, a radio and antenna, and an assault pack
+    - a high-cut helmet in your team colour, with Comtac headset ear cups, an NVG mount and a counterweight pouch
+    - eye protection, a beard and a rounder body with smoother arms and legs
+  - Kommandos stay all black. Engineers keep their hard hat.
+  - Team colour can still be read at normal zoom from the helmet and vest. See /workspace/n1031/inf/d26/hellgate-base.png.
+  - Phones: the long "NEW" list under the IRON FRONT logo on the main menu is cut to 3 lines, so Play vs Bots is on screen without scrolling.
+- How: new body parts in /workspace/blender-iron-front/scripts/humans.py (torso2/head2; the old file is humans_v75.py), exported to models/u_{rifle,rocketeer,engineer,sniper,kommando}(.glb, _lod1.glb). Detail model is about 3.4k-4.2k triangles.
+- Tests (/workspace/n1031/g7610):
+  - sim.js, ai.js, data.js and js/gfx are byte-identical to v7.6.9, so AI games, Nicholas's volcano8 943 scenario and every old replay play out exactly as on v7.6.9.
+  - det74 (GLB on vs off) OK. Map shots on all 6 maps plus 2 phone shots: 0 page errors, 0 http fails. Title shots at 390x844, 844x390 and 1280x800: 0 errors.
+  - Full suite (4 at a time while AI benches ran): every load flake passed when run alone (ui7, mobile, place701, slot, fogkeys, endless703, mobile-play). ai71 has the same 3 FAILs as live. v4 hits its 900 s timeout as on live.
+  - Old vs new close-up: /workspace/n1031/inf/cmp.png (top = v7.6.9, bottom = v7.6.10).
+- Tried and NOT shipped tonight (France AI):
+  - m7i, a leaner France tower plan (branch fra, e507235): France went 1W 2T 5L vs 3W 0T 5L at baseline over 8 France matchups. Rejected.
+  - Fortress doctrine for France/China on (SION fp76 'all'): France 3W 1T 4L vs 3W 0T 5L. Too small a gain to justify a new replay level tonight. Stays off.
