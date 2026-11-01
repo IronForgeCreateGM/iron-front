@@ -330,3 +330,13 @@ France is fine for humans (he can beat ~5 Hard AIs with it). NO France stat chan
 
 ## Stuck-army test idea from Nicholas (Oct 31, 8:02 AM PT)
 Try the human way: select the whole army, one plain attack-move (F) to the enemy base center, no extra bot steering/reissued orders on top. Compare stuck units vs live, alongside the refinery/building spacing fix.
+
+## MAP BUILDER spec from Nicholas (Sun Nov 1, 9:15 AM PT) — plan with him before building
+- Personal map builder (editor) for Iron Front, reachable from the menu/lobby.
+- Up to 8 spawn points per map.
+- Lobby team modes beyond Team A vs Team B: Free-for-all plus more team layouts (details TBD with Nicholas).
+- Pick map size when creating, including maps quite a bit bigger than today's.
+- Terrain themes: grass, desert, space, futuristic/mechanical, and similar.
+- Placeable: ore fields with different potency (richness), gas deposits, oil derricks, and the other existing map objects (outposts, rocks, cliffs, etc.).
+- Save maps and play them in skirmish; bots must handle custom maps (pathing, expansions).
+- Same rules as always: no bot bonuses, Hard must not get weaker, keep phone/touch working.
