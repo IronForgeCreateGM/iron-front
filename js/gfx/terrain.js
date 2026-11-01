@@ -20,7 +20,7 @@ function heightAt(x, y) {
 function buildHeightfield() {
   HW = MW * HR + 1; HH = MH * HR + 1; const R = mkRng(G.opts.seed + 11); HF = new Float32Array(HW * HH);
   const tileAt = (x, y) => G.map[Math.max(0, Math.min(MH - 1, y)) * MW + Math.max(0, Math.min(MW - 1, x))];
-  for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { const t = tileAt(Math.floor((x - 0.5) / HR + 0.0001), Math.floor((y - 0.5) / HR + 0.0001)); const tx = Math.max(0, Math.min(MW - 1, Math.floor((x - 0.5) / HR + 0.0001))), ty = Math.max(0, Math.min(MH - 1, Math.floor((y - 0.5) / HR + 0.0001))), L = G.lvl[ty * MW + tx] * LVL_H; HF[y * HW + x] = (t === 1 ? (G.desert ? (G.mud && G.mud[ty * MW + tx] ? 0.15 : G.rim && G.rim[ty * MW + tx] ? 0.35 : 2.7) : 2.0) : t === 2 ? -1.1 : G.desert && G.wadi && G.wadi[ty * MW + tx] ? -0.45 : 0) + L; }
+  for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { const t = tileAt(Math.floor((x - 0.5) / HR + 0.0001), Math.floor((y - 0.5) / HR + 0.0001)); const tx = Math.max(0, Math.min(MW - 1, Math.floor((x - 0.5) / HR + 0.0001))), ty = Math.max(0, Math.min(MH - 1, Math.floor((y - 0.5) / HR + 0.0001))), L = G.lvl[ty * MW + tx] * LVL_H; HF[y * HW + x] = (t === 1 ? (G.lpit && G.lpit[ty * MW + tx] ? -0.15 : G.desert ? (G.mud && G.mud[ty * MW + tx] ? 0.15 : G.rim && G.rim[ty * MW + tx] ? 0.35 : 2.7) : 2.0) : t === 2 ? -1.1 : G.desert && G.wadi && G.wadi[ty * MW + tx] ? -0.45 : 0) + L; }
   const blur = (r) => { const tmp = new Float32Array(HF.length);
     for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { let s = 0, n = 0; for (let k = -r; k <= r; k++) { const xx = Math.max(0, Math.min(HW - 1, x + k)); s += HF[y * HW + xx]; n++; } tmp[y * HW + x] = s / n; }
     for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { let s = 0, n = 0; for (let k = -r; k <= r; k++) { const yy = Math.max(0, Math.min(HH - 1, y + k)); s += tmp[yy * HW + x]; n++; } HF[y * HW + x] = s / n; } };
@@ -65,6 +65,14 @@ function terrainMaterial() {
         #endif
         #endif
         ` + TEX_GLSL_COLOR + `
+        #if THEME == 4
+          { float lu = dot(diffuseColor.rgb, vec3(0.3, 0.55, 0.15)); diffuseColor.rgb = mix(vec3(lu) * vec3(0.78, 0.74, 1.15), diffuseColor.rgb * vec3(0.6, 0.55, 0.9), 0.35) * 0.85;
+            diffuseColor.rgb += vec3(0.25, 0.45, 0.9) * step(0.992, hash12(floor(q * 5.0))) * w.x * 0.6; }
+        #elif THEME == 5
+          { float lu = dot(diffuseColor.rgb, vec3(0.3, 0.55, 0.15)); diffuseColor.rgb = mix(vec3(lu) * vec3(0.9, 0.95, 1.02), diffuseColor.rgb, 0.15);
+            vec2 pg = abs(fract(q * 0.5) - 0.5); float sm = fwidth(q.x) * 0.5 + 0.01, seam = 1.0 - smoothstep(0.0, sm + 0.02, 0.5 - max(pg.x, pg.y));
+            diffuseColor.rgb *= 1.0 - seam * 0.45 * (1.0 - w.z); diffuseColor.rgb += vec3(0.1, 0.55, 0.65) * seam * step(0.86, hash12(floor(q * 0.5))) * (1.0 - w.z) * 0.5; }
+        #endif
         float tRock = w.z; float tGrass = w.x;`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(0.95, 0.72, tRock) - n4*0.08;')
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
@@ -76,7 +84,7 @@ function terrainMaterial() {
         #endif` + TEX_GLSL_NORMAL);
     fowPatch(sh);
   };
-  m.defines = { THEME: G.mapName === 'frost' ? 1 : G.mapName === 'volcano' ? 2 : G.desert ? 3 : 0, TEXQ: 0 }; m.customProgramCacheKey = () => 'terrain3_' + m.defines.THEME + '_' + m.defines.TEXQ;
+  m.defines = { THEME: { grass: 0, frost: 1, volcano: 2, desert: 3, space: 4, mech: 5 }[mapTh()] || 0, TEXQ: 0 }; m.customProgramCacheKey = () => 'terrain3_' + m.defines.THEME + '_' + m.defines.TEXQ;
   TEX.mats = [m]; TEX.ready = ''; texLoad(); // v7.6.2: swap in the texture set when it arrives
   return m;
 }
@@ -92,7 +100,7 @@ function wearMap() { // v7.6.2 render-only: BFS tracks start->centre / start->ne
     for (const [gx, gy] of goals) { let c = near(gx, gy), guard = N; if (par[c] < 0) continue; while (c !== par[c] && guard--) { W[c] = 1; c = par[c]; } } }
   for (let i = 0; i < N; i++) { const l = G.lvl ? G.lvl[i] % 1 : 0; if (l > 0.05 && l < 0.95 && ok(i)) W[i] = Math.max(W[i], 0.9); } // ramps
   const T = new Float32Array(N); for (let pass = 0; pass < 2; pass++) { for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { let s = 0, c = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= MW || yy >= MH) continue; s += W[yy * MW + xx]; c++; } T[y * MW + x] = s / c; } W.set(T); }
-  for (let i = 0; i < N; i++) W[i] = Math.min(1, W[i] * (1.5 + R() * 0.9)) * (G.mapName === 'frost' ? 0.75 : 0.85);
+  for (let i = 0; i < N; i++) W[i] = Math.min(1, W[i] * (1.5 + R() * 0.9)) * (mapTh() === 'frost' ? 0.75 : 0.85);
   return W; }
 function buildTerrain3() {
   buildHeightfield();
@@ -127,10 +135,10 @@ function buildTerrain3() {
   geo.setAttribute('splat', new THREE.BufferAttribute(spl, 4)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   const mesh = new THREE.Mesh(geo, terrainMaterial()); mesh.receiveShadow = true; R3.scene.add(mesh); R3.terrain = mesh;
   // outside skirt
-  const sk = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: G.desert ? 0x4a3a28 : 0x1c2416, roughness: 1 }));
+  const sk = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: { space: 0x0c0b16, mech: 0x26292d }[G.theme] || (G.desert ? 0x4a3a28 : 0x1c2416), roughness: 1 }));
   sk.position.set(MW / 2, -0.6, MH / 2); R3.scene.add(sk);
   const edge = new THREE.Mesh(new THREE.BoxGeometry(MW + 0.6, 0.6, MH + 0.6), new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.9 })); edge.position.set(MW / 2, -0.62, MH / 2); R3.scene.add(edge);
-  if (typeof propsReset === 'function') propsReset(); buildFogOverlay(); buildWater(); buildOre(); buildFoliage(); buildVents(); buildLandmarks(); buildSurfaces(); if (G.desert) buildDesert(); if (typeof propsBuildScatter === 'function') propsBuildScatter();
+  if (typeof propsReset === 'function') propsReset(); buildFogOverlay(); buildWater(); buildOre(); buildFoliage(); buildVents(); buildLandmarks(); buildSurfaces(); if (G.desert) buildDesert(); if (G.theme === 'space' || G.theme === 'mech') buildThemeSky(); if (typeof propsBuildScatter === 'function') propsBuildScatter();
 }
 function buildWater() {
   // height texture for shoreline foam (bytes)
@@ -233,14 +241,14 @@ function buildFoliage() {
     const s = 0.45 + R() * 0.5; e.set(0, R() * 6.28, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(x, h, y), q, new THREE.Vector3(s, s * (0.8 + R() * 0.6), s)); gm.setMatrixAt(k, m4);
     cl.setRGB(0.8 + R() * 0.4, 0.85 + R() * 0.3, 0.7 + R() * 0.3); gm.setColorAt(k, cl); (R3.grassTile[ti] = R3.grassTile[ti] || []).push(k); k++;
   }
-  gm.count = k; R3.grassMax = k; R3.grass = gm; if (G.mapName === 'frost' || G.mapName === 'volcano' || G.desert) { gm.material = gm.material.clone(); gm.material.color.set(G.mapName === 'frost' ? 0x9aa4ad : G.desert ? 0x8a6c3c : 0x3a2e26); } R3.scene.add(gm);
+  gm.count = k; R3.grassMax = k; R3.grass = gm; if (mapTh() !== 'grass') { gm.material = gm.material.clone(); gm.material.color.set({ frost: 0x9aa4ad, desert: 0x8a6c3c, volcano: 0x3a2e26, space: 0x2c2440, mech: 0x4a5056 }[mapTh()]); } R3.scene.add(gm);
   // trees (pine) near cliffs and scattered
   const B = new MB(0); B.cyl('t', 0.05, 0.4, 0x4a3524, PBR.RUB, 0, 0.2, 0, { seg: 6 });
   for (let i = 0; i < 3; i++) B.cone('t', 0.36 - i * 0.09, 0.5, 0x2f5a26 + i * 0x061006, [0, 0.85, 0], 0, 0.45 + i * 0.27, 0, { seg: 8 });
   const treeGeo = B.build().t; const trees = [];
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x; if (G.map[i] !== 0 || G.oreMax[i] > 0 || nearBase(x + 0.5, y + 0.5)) continue;
     const nearRock = [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [0, 2], [-2, 0], [0, -2]].some(([a, b]) => inb(x + a, y + b) && G.map[(y + b) * MW + x + a] === 1);
-    if (R() < (G.desert ? 0 : G.forest && G.forest[i] ? 0.6 : nearRock ? 0.45 : 0.012)) trees.push([x + 0.2 + R() * 0.6, y + 0.2 + R() * 0.6, 0.7 + R() * 0.7]); }
+    if (R() < (G.desert && !G.custom ? 0 : G.forest && G.forest[i] ? 0.6 : G.custom && (G.desert || G.theme === 'space' || G.theme === 'mech') ? 0 : nearRock ? 0.45 : 0.012)) trees.push([x + 0.2 + R() * 0.6, y + 0.2 + R() * 0.6, 0.7 + R() * 0.7]); }
   const tm = new THREE.InstancedMesh(treeGeo, windMat(false, 0.8), trees.length); tm.castShadow = true; tm.receiveShadow = true; tm.frustumCulled = false;
   trees.forEach((t, j) => { e.set((R() - 0.5) * 0.1, R() * 6.28, (R() - 0.5) * 0.1); q.setFromEuler(e); m4.compose(new THREE.Vector3(t[0], heightAt(t[0], t[1]) - 0.05, t[1]), q, new THREE.Vector3(t[2], t[2] * (0.9 + R() * 0.4), t[2])); tm.setMatrixAt(j, m4);
     cl.setRGB(0.8 + R() * 0.4, 0.8 + R() * 0.4, 0.8 + R() * 0.3); tm.setColorAt(j, cl); (R3.treeTile = R3.treeTile || {})[Math.floor(t[1]) * MW + Math.floor(t[0])] = j; });
@@ -249,7 +257,7 @@ function buildFoliage() {
   // boulders on cliffs: displaced icosahedra
   const rg = new THREE.IcosahedronGeometry(0.5, 1); { const p = rg.attributes.position; for (let i = 0; i < p.count; i++) { const v = new THREE.Vector3().fromBufferAttribute(p, i); v.multiplyScalar(0.8 + 0.35 * Math.sin(v.x * 7 + v.y * 5) * Math.cos(v.z * 6)); p.setXYZ(i, v.x, v.y * 0.75, v.z); } rg.computeVertexNormals(); }
   const RB = new MB(0); RB.add('r', rg, G.desert ? 0x9a7652 : 0x77706a, [0, 0.85, 0], 0, 0, 0); const rgeo = RB.build().r; const rocks = [];
-  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x; if (G.map[i] === 1 && !(G.mud && G.mud[i]) && R() < 0.3) rocks.push([x + R(), y + R(), 0.25 + R() * 0.55]);
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x; if (G.map[i] === 1 && !(G.mud && G.mud[i]) && !(G.lpit && G.lpit[i]) && R() < 0.3) rocks.push([x + R(), y + R(), 0.25 + R() * 0.55]);
     else if (G.map[i] === 0 && !G.oreMax[i] && R() < 0.02 && !nearBase(x, y)) rocks.push([x + R(), y + R(), 0.1 + R() * 0.12]); }
   const rm = new THREE.InstancedMesh(rgeo, pbrMaterial(), rocks.length); rm.castShadow = true; rm.receiveShadow = true; rm.frustumCulled = false;
   rocks.forEach((r, j) => { e.set(R() * 3, R() * 6, R() * 3); q.setFromEuler(e); m4.compose(new THREE.Vector3(r[0], heightAt(r[0], r[1]) + r[2] * 0.1, r[1]), q, new THREE.Vector3(r[2], r[2], r[2])); rm.setMatrixAt(j, m4); });
@@ -374,6 +382,9 @@ function buildSurfaces() {
 
 // v6.0 Hindu Kush Hellgate desert dressing: mud-brick compound walls (on blocking G.mud tiles), burnt-out wrecks,
 // sandbag nests at the canyon mouths, warm dust haze. All visual-only and seeded locally (never touches the sim RNG).
+function buildThemeSky() { // v7.7 custom-map themes: space (dark violet haze) and mech (cool steel haze); render-only
+  const S = R3.scene, sp = G.theme === 'space', fc = sp ? 0x141228 : 0x7d868e; if (S.fog) { S.fog.color.set(fc); if (S.fog.density != null) S.fog.density *= sp ? 0.8 : 1; } if (S.background && S.background.isColor) S.background.set(fc);
+  if (R3.hemi) { R3.hemi.color.set(sp ? 0xb8b0ff : 0xdde8f0); R3.hemi.groundColor.set(sp ? 0x201a40 : 0x3a4048); } if (R3.sun) R3.sun.color.lerp(new THREE.Color(sp ? 0xc8c0ff : 0xe8f0ff), 0.4); }
 function buildDesert() {
   const R = mkRng((G.opts.seed | 0) + 606), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3(), cl = new THREE.Color();
   R3.propTile = {}; const tag = (x, y, mesh, k) => { const i = Math.floor(y) * MW + Math.floor(x); (R3.propTile[i] = R3.propTile[i] || []).push([mesh, k]); };
