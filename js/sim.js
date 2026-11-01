@@ -411,6 +411,7 @@ function canPlace(t, team, tx, ty) {
   for (let y = ty; y < ty + d.h; y++) for (let x = tx; x < tx + d.w; x++) if (g[idx(x, y)] || G.ore[idx(x, y)] > 0) return false;
   const onVent = (G.vents || []).some(([vx, vy]) => vx >= tx && vx < tx + d.w && vy >= ty && vy < ty + d.h);
   if ((t === 'extractor') !== onVent) return false;
+  if (G.custom && t === 'refinery') { const dx = Math.floor(tx + d.w / 2), dy = ty + d.h; if (!inb(dx, dy) || g[idx(dx, dy)]) return false; } // v7.7 custom maps only: painted water/rock can sit right under a refinery, keep its harvester dock open
   for (const e of G.ents) if (e.kind === 'u' && !isAir(e) && foe(e.team, team) && e.x > tx && e.x < tx + d.w && e.y > ty && e.y < ty + d.h) return false;
   if (t === 'cc') { const cx = tx + 1.5, cy = ty + 1.5; if (G.ents.some(e => e.kind === 'b' && foe(e.team, team) && dhypot(e.x - cx, e.y - cy) < 12)) return false; if (G.ents.some(e => e.kind === 'b' && (e.t === 'cc' || e.t === 'hq') && dhypot(e.x - cx, e.y - cy) < 9)) return false; if (G.r76 && noYard(team)) return !!engNear(team, cx, cy); return !!G.seenT[team][idx(Math.floor(cx), Math.floor(cy))] || G.ents.some(e => e.kind === 'b' && e.team === team && dhypot(e.x - cx, e.y - cy) < 26); }
   if (G.derricks && G.derricks.some(o => o.x > tx && o.x < tx + d.w && o.y > ty && o.y < ty + d.h)) return false; // v6.0: never build on top of a derrick/outpost post
