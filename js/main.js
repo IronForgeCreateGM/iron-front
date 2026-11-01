@@ -24,12 +24,15 @@ const PRESETS = {
   w1:     { n: 'Watch: Medium vs Hard', slots: [['normal', 'A'], ['si', 'B']] },
   w2:     { n: 'Watch: Hard vs Hard', slots: [['si', 'A'], ['si', 'B']] },
 };
+const TEAM_LET = 'ABCDEFGH', teamIdx = t => Math.max(0, TEAM_LET.indexOf(t || 'A')); // v7.7: lobby team values A-H = ally 0-7 (A/B unchanged, so presets + replays are as before)
+const TEAM_CSS = ['#3d9cff', '#ff5040', '#3fcf6a', '#e8c840', '#b070ff', '#2cc8c8', '#ff9030', '#d8d8d8'];
+function lobbyNs(map) { return map === 'custom' && typeof CM_SEL !== 'undefined' && CM_SEL ? CM_SEL.starts.length : undefined; } // spawn count of the selected custom map
 function buildSlots(list, names, map) { // list rows: [type, team, fac, color]; names: row -> player name; map: lobby map (seats: row N -> spot N, see seatPlan in sim.js)
   const RF = () => FAC_KEYS[(Math.random() * FAC_KEYS.length) | 0], act = list.map((r, row) => [r, row]).filter(([r]) => r[0] !== 'off');
-  const st = seatPlan(map || 'classic', act.map(([r, row]) => ({ row, ally: r[1] === 'A' ? 0 : 1 })));
-  return act.map(([[type, team, fac, color], row], i) => ({ row, ai: type !== 'human' && type !== 'remote', local: type === 'human', diff: type === 'human' || type === 'remote' ? 'normal' : liveDiff(normDiff(type)), ally: team === 'A' ? 0 : 1, fac: fac && fac !== 'rand' ? fac : RF(), color: color && color !== 'auto' ? color : undefined, start: st[i], seat: 1, smap: map || 'classic', name: (names && names[row]) || (type === 'human' ? 'You' : type === 'remote' ? 'Remote ' + (row + 1) : SLOT_TYPES[type]) }));
+  const st = seatPlan(map || 'classic', act.map(([r, row]) => ({ row, ally: teamIdx(r[1]) })), lobbyNs(map));
+  return act.map(([[type, team, fac, color], row], i) => ({ row, ai: type !== 'human' && type !== 'remote', local: type === 'human', diff: type === 'human' || type === 'remote' ? 'normal' : liveDiff(normDiff(type)), ally: teamIdx(team), fac: fac && fac !== 'rand' ? fac : RF(), color: color && color !== 'auto' ? color : undefined, start: st[i], seat: 1, smap: map || 'classic', name: (names && names[row]) || (type === 'human' ? 'You' : type === 'remote' ? 'Remote ' + (row + 1) : SLOT_TYPES[type]) }));
 }
-function seatFix(slots, map) { if (slots.length && slots.every(s => s.seat && s.row != null && !s.horde) && slots.some(s => s.smap !== map)) { const st = seatPlan(map, slots.map(s => ({ row: s.row, ally: s.ally }))); slots.forEach((s, i) => { s.start = st[i]; s.smap = map; }); } return slots; }
+function seatFix(slots, map, ns) { if (slots.length && slots.every(s => s.seat && s.row != null && !s.horde) && slots.some(s => s.smap !== map)) { const st = seatPlan(map, slots.map(s => ({ row: s.row, ally: s.ally })), ns); slots.forEach((s, i) => { s.start = st[i]; s.smap = map; }); } return slots; }
 function startGame(diff, opts) {
   opts = opts || {};
   try { if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); } catch (e) {} // v5.7.2: no focus left in the lobby form
@@ -40,10 +43,10 @@ function startGame(diff, opts) {
     else slots = buildSlots([[opts.demo ? 'normal' : 'human', 'A', MENU.fac], [diff, 'B', MENU.aiFac]], null, map0);
   }
   // v7.5.1: seats follow the map the game actually starts on (buildSlots may have been called without it); deterministic, so online peers agree
-  seatFix(slots, map0);
+  seatFix(slots, map0, opts.cmap && opts.cmap.starts ? opts.cmap.starts.length : undefined);
   if (QS.get('fac')) slots[0].fac = QS.get('fac'); if (QS.get('aifac') && slots[1]) slots[1].fac = QS.get('aifac');
   ME = opts.me != null ? opts.me : Math.max(0, slots.findIndex(s => s.local));
-  newGame({ diff, fog: opts.fog !== false, seed: opts.seed != null ? opts.seed : opts.replay ? undefined : ((Math.random() * 1e9) | 0) || 1, r76: opts.r76 != null ? opts.r76 : 1, nt: opts.nt != null ? opts.nt : 1, m7: opts.m7 != null ? opts.m7 : 2, slots, mode: opts.mode || QS.get('mode') || undefined, map: opts.map || QS.get('map') || 'classic', peace: opts.peace != null ? opts.peace : QS.get('peace') != null ? +QS.get('peace') : 180 });
+  newGame({ diff, fog: opts.fog !== false, seed: opts.seed != null ? opts.seed : opts.replay ? undefined : ((Math.random() * 1e9) | 0) || 1, r76: opts.r76 != null ? opts.r76 : 1, nt: opts.nt != null ? opts.nt : 1, m7: opts.m7 != null ? opts.m7 : 2, slots, mode: opts.mode || QS.get('mode') || undefined, map: opts.map || QS.get('map') || 'classic', cmap: opts.cmap, peace: opts.peace != null ? opts.peace : QS.get('peace') != null ? +QS.get('peace') : 180 });
   if (QS.get('dbg')) setTimeout(() => document.title = 'DBG map=' + G.mapName + ' np=' + G.players.length + ' t=' + (G.time | 0) + ' starts=' + G.players.map(P => P.start).join(''), 500);
   G.vis = G.visT[ME]; G.seen = G.seenT[ME];
   G.players.forEach((P, i) => P.name = (G.opts.slots[i] || {}).name || (P.ai ? DIFF_NAME(P.diff) : 'You'));
@@ -125,7 +128,7 @@ addEventListener('pagehide', keepLastReplay); addEventListener('visibilitychange
 function saveReplay() { const s = replayFile(); if (!s) { uiMsg && uiMsg('No replay recorded for this game'); return; } try { localStorage.setItem('ifLastReplay', s); } catch (e) {}
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([s], { type: 'application/json' })); a.download = 'ironfront-replay-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.json'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
 function loadReplay(d) { if (!d || d.game !== 'ironfront' || !d.slots) { alert('Not an Iron Front replay file'); return; } audioInit && audioInit();
-  startGame(d.diff || 'normal', { replay: d, r76: d.r76 ? 1 : 0, nt: d.nt ? 1 : 0, m7: d.m7 | 0, seed: d.seed, map: d.map, peace: d.peace, fog: d.fog, me: d.me || 0, slots: d.slots.map((s, i) => Object.assign({}, s, { local: i === (d.me || 0) && !s.ai })) }); }
+  startGame(d.diff || 'normal', { replay: d, r76: d.r76 ? 1 : 0, nt: d.nt ? 1 : 0, m7: d.m7 | 0, seed: d.seed, map: d.map, cmap: d.cmap, peace: d.peace, fog: d.fog, me: d.me || 0, slots: d.slots.map((s, i) => Object.assign({}, s, { local: i === (d.me || 0) && !s.ai })) }); }
 window.addEventListener('DOMContentLoaded', () => {
   { const rb = document.getElementById('replayBtn'), rf = document.getElementById('replayFile'); if (rb && rf) { rb.onclick = () => rf.click(); rf.onchange = () => { const f = rf.files[0]; if (!f) return; f.text().then(t => loadReplay(JSON.parse(t))).catch(e => alert('Could not read replay: ' + e.message)); }; }
     const lb = document.getElementById('lastReplayBtn'); if (lb) { let has = false; try { has = !!localStorage.getItem('ifLastReplay'); } catch (e) {} lb.style.display = has ? '' : 'none'; const ld = document.getElementById('lastReplayDl'); if (ld) { ld.style.display = has ? '' : 'none'; ld.onclick = () => { const s = localStorage.getItem('ifLastReplay'); if (!s) return alert('No saved replay'); let d = ''; try { d = (JSON.parse(s).date || '').slice(0, 16).replace(/[:T]/g, '-'); } catch (e) {} dlReplay(s, 'ironfront-replay-' + (d || 'last') + '.json'); }; } lb.onclick = () => { try { loadReplay(JSON.parse(localStorage.getItem('ifLastReplay'))); } catch (e) { alert('No saved replay'); } }; }
@@ -141,7 +144,7 @@ window.addEventListener('DOMContentLoaded', () => {
     for (const f in FACTIONS) { const c = document.createElement('div'); c.className = 'fcard'; c.dataset.f = f; c.innerHTML = `<div class="fl">${FACTIONS[f].flag}</div>${FACTIONS[f].n}`; c.onclick = () => sel(f); box.appendChild(c); }
     sel('usa'); }
   lobbyInit(); if (QS.get('lobbytest')) setTimeout(lobbySelfTest, 0);
-  document.getElementById('startBtn').onclick = () => { audioInit(); if (ONL.room && ONL.host) { onlStartHost(); return; } const rows = lobbyRead(); if (rows.some(r => r[0] === 'remote')) { uiMsgMenu('Remote slots need an online game: press “Host online game”.'); return; } startGame('normal', Object.assign({ slots: buildSlots(rows, null, lobbyOpts().map), fog: document.getElementById('fogChk').checked }, lobbyOpts())); };
+  document.getElementById('startBtn').onclick = () => { audioInit(); if (ONL.room && ONL.host) { onlStartHost(); return; } const rows = lobbyRead(); if (rows.some(r => r[0] === 'remote')) { uiMsgMenu('Remote slots need an online game: press “Host online game”.'); return; } { const lo = lobbyOpts(), na = rows.filter(r => r[0] !== 'off').length; if (lo.cmap && na > lo.cmap.starts.length) { uiMsgMenu(`“${lo.cmap.name}” has ${lo.cmap.starts.length} spawn points — close ${na - lo.cmap.starts.length} slot(s) or add spawns in the Map Builder.`); return; } } startGame('normal', Object.assign({ slots: buildSlots(rows, null, lobbyOpts().map), fog: document.getElementById('fogChk').checked }, lobbyOpts())); };
   onlInitUI();
   document.getElementById('surrBtn').onclick = () => { if (!started || G.over) return; if (confirm('Surrender this match?')) { NET.issue({ c: 'surrender' }); document.getElementById('pause').style.display = 'none'; paused = false; } };
   document.getElementById('resumeBtn').onclick = () => togglePause();
@@ -267,7 +270,7 @@ function lobbyInit() {
   const facOpt = '<option value="rand">Random</option>' + Object.keys(FACTIONS).map(f => `<option value="${f}">${FACTIONS[f].flag} ${FACTIONS[f].n}</option>`).join('');
   box.innerHTML = '<div class="lrow lh"><span title="Slot N starts at spot N on the map preview">Spot</span><span>Player</span><span>Team</span><span>Faction</span><span>Colour</span></div>' + [0, 1, 2, 3, 4, 5, 6, 7].map(i => `<div class="lrow"><span class="lnum">${i + 1}</span>
     <select class="lt">${Object.keys(SLOT_TYPES).map(k => `<option value="${k}">${SLOT_TYPES[k]}</option>`).join('')}</select>
-    <select class="la"><option value="A">Team A</option><option value="B">Team B</option></select><select class="lf">${facOpt}</select><select class="lc"><option value="auto">Auto</option>${Object.keys(TEAM_COLORS).map(c => `<option value="${c}">${TEAM_COLORS[c].n}</option>`).join('')}</select></div>`).join('');
+    <select class="la">${[...TEAM_LET].map((t, k) => `<option value="${t}">Team ${k + 1}</option>`).join('')}</select><select class="lf">${facOpt}</select><select class="lc"><option value="auto">Auto</option>${Object.keys(TEAM_COLORS).map(c => `<option value="${c}">${TEAM_COLORS[c].n}</option>`).join('')}</select></div>`).join('');
   box.querySelectorAll('.lc').forEach(sel => sel.onchange = () => { if (sel.value === 'auto') return; box.querySelectorAll('.lc').forEach(o => { if (o !== sel && o.value === sel.value) o.value = 'auto'; }); if (typeof lobbyChanged === 'function') lobbyChanged(); });
   // v5.7.1: "You" can be any slot; only one row can be You (the previous one becomes a Hard AI = 'si')
   box.querySelectorAll('.lt').forEach(sel => sel.addEventListener('change', () => { if (sel.value !== 'human') return; box.querySelectorAll('.lt').forEach(o => { if (o !== sel && o.value === 'human') o.value = 'si'; }); }));
@@ -309,7 +312,8 @@ function endlessEndScreen() { const box = document.getElementById('endRun'); if 
   box.style.display = ''; box.innerHTML = `<div class="runStats"><div><b>${E.wave}</b><span>waves</span></div><div><b>${E.score.toLocaleString()}</b><span>score</span></div><div><b>${E.kills}</b><span>kills</span></div><div><b>${(G.time / 60).toFixed(1)}</b><span>minutes</span></div></div>` +
     (E.rank === 1 ? '<div class="newBest">★ NEW ' + (k === 'solo' ? 'SOLO' : 'CO-OP') + ' HIGH SCORE ★</div>' : E.rank ? `<div class="rankTxt">#${E.rank} on the ${k === 'solo' ? 'solo' : 'co-op'} board</div>` : '') + endlessHSHTML(k, E.rank);
 }
-function lobbyOpts() { const m = document.getElementById('mapSel'), p = document.getElementById('peaceSel'), f = document.getElementById('fogChk'); return { map: m ? m.value : 'classic', peace: p ? +p.value : 180, fog: f ? !!f.checked : true }; }
+function lobbyOpts() { const m = document.getElementById('mapSel'), p = document.getElementById('peaceSel'), f = document.getElementById('fogChk'), o = { map: m ? m.value : 'classic', peace: p ? +p.value : 180, fog: f ? !!f.checked : true };
+  if (o.map.startsWith('cm:')) { const cm = typeof cmGet === 'function' ? cmGet(o.map.slice(3)) : null; if (cm) { o.map = 'custom'; o.cmap = cm; } else o.map = 'classic'; } return o; } // v7.7: 'cm:<id>' = a saved map-builder map
 function lobbyRead() { return [...document.querySelectorAll('#lobby .lrow:not(.lh)')].map(r => [r.querySelector('.lt').value, r.querySelector('.la').value, r.querySelector('.lf').value, r.querySelector('.lc').value]); }
 
 
@@ -319,11 +323,11 @@ function lobbySelfTest() {
   const setSel = (el, v) => { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); };
   const facs = ['rand', ...FAC_KEYS], cols = ['auto', ...Object.keys(TEAM_COLORS)], R = mkRng(99); let n = 0, exact = 0, moved = 0;
   const check = (label, map) => {
-    const list = lobbyRead(), en = map === 'endless', slots = buildSlots(list, null, map), me = Math.max(0, slots.findIndex(s => s.local));
+    const list = lobbyRead(), en = map === 'endless', slots = buildSlots(list, null, map), cm = map === 'custom' ? CM_SEL : undefined, me = Math.max(0, slots.findIndex(s => s.local));
     if (slots.length < (en ? 1 : 2)) return;
-    { const s0 = seatFix(buildSlots(list, null, 'classic'), map); if (s0.map(s => s.start).join() !== slots.map(s => s.start).join()) errs.push(label + ' seatFix differs from lobby seats'); }
+    { const s0 = seatFix(buildSlots(list, null, 'classic'), map, lobbyNs(map)); if (s0.map(s => s.start).join() !== slots.map(s => s.start).join()) errs.push(label + ' seatFix differs from lobby seats'); }
     const prev = lobbySeats(); // what the map preview + Slot badges show
-    newGame({ seed: 7, slots: slots.map(s => Object.assign({}, s)), map, mode: en ? 'endless' : undefined }); n++;
+    newGame({ seed: 7, slots: slots.map(s => Object.assign({}, s)), map, cmap: cm, mode: en ? 'endless' : undefined }); n++;
     const eff = en ? 'endless' : seatMap(map, slots.length), order = SEAT_ORDER[eff], hum = G.players.filter(P => !P.horde);
     const starts = G.players.map(P => P.start);
     if (new Set(starts).size !== starts.length) errs.push(label + ' dup starts ' + starts);
@@ -338,7 +342,7 @@ function lobbySelfTest() {
       const sideOk = own != null && (seatSide(eff, own) == null || seatSide(eff, own) === P.ally);
       if (sideOk) { if (P.start !== own || seatLabel(eff, slots.length, P.start) !== sl.row + 1) errs.push(label + ` row ${sl.row + 1} (${sl.ai ? 'bot' : 'human'}) at spot ${seatLabel(eff, slots.length, P.start)}`); else exact++; }
       else { moved++; if (eff === 'hellgate' && slots.filter(s => s.ally === P.ally).length <= (P.ally ? 6 : 2) && seatSide(eff, P.start) !== P.ally) errs.push(label + ' moved row ' + (sl.row + 1) + ' landed on the wrong side'); } });
-    slots.forEach((sl, t) => { const row = list.filter(r => r[0] !== 'off')[t]; if (!en && (row[1] === 'A' ? 0 : 1) !== hum[t].ally) errs.push(label + ' team mismatch p' + t);
+    slots.forEach((sl, t) => { const row = list.filter(r => r[0] !== 'off')[t]; if (!en && teamIdx(row[1]) !== hum[t].ally) errs.push(label + ' team mismatch p' + t);
       if (row[2] !== 'rand' && hum[t].fac !== row[2]) errs.push(label + ' fac mismatch p' + t); if (row[3] !== 'auto' && !en && hum[t].color !== row[3]) errs.push(label + ' color mismatch p' + t); });
     if (new Set(G.players.map(P => P.color)).size !== G.players.length) errs.push(label + ' dup colours');
     if (list[0][0] === 'human' && !(hum[me] && !hum[me].ai && slots[me].row === 0)) errs.push(label + ' ME wrong');
@@ -363,7 +367,7 @@ function lobbySelfTest() {
 
 // ===== end-game stats + army graph =====
 function endStatsHTML() {
-  const rows = G.players.map(P => `<tr style="color:${MMCOL[P.team]}"><td>${FACTIONS[P.fac].flag} ${P.name}</td><td>${P.ally ? 'B' : 'A'}</td><td>${P.stats.kills}</td><td>${P.stats.lost}</td><td>$${Math.floor(P.stats.mined)}</td><td>${P.stats.built || 0}</td><td>${P.out ? 'eliminated' : 'alive'}</td></tr>`).join('');
+  const rows = G.players.map(P => `<tr style="color:${MMCOL[P.team]}"><td>${FACTIONS[P.fac].flag} ${P.name}</td><td>${P.ally + 1}</td><td>${P.stats.kills}</td><td>${P.stats.lost}</td><td>$${Math.floor(P.stats.mined)}</td><td>${P.stats.built || 0}</td><td>${P.out ? 'eliminated' : 'alive'}</td></tr>`).join('');
   return `Time ${Math.floor(G.time / 60)}:${String(Math.floor(G.time % 60)).padStart(2, '0')}<table class="est"><tr><th>Player</th><th>Team</th><th>Kills</th><th>Lost</th><th>Mined</th><th>Built</th><th></th></tr>${rows}</table><canvas id="endGraph" width="520" height="150"></canvas><div style="font-size:11px;color:#9ab">Army value over time</div>`;
 }
 function drawEndGraph() {
@@ -400,9 +404,9 @@ function homeShow(mode) { // mode: null = home, 'bots', 'online'
 // v7.5.1: the preview shows the CURRENT lobby: each active row's number sits on the exact spot that player starts at (seatPlan),
 // filled with its team colour (A blue, B red) and ringed in its player colour; free spots are dim, tinted by the side they suit.
 function lobbySeats() { // -> { map, rows: [{ row, ally, color, start }] } for the current lobby (same rule startGame uses)
-  const sel = document.getElementById('mapSel'), map = MENU.mode === 'endless' ? 'endless' : sel ? sel.value : 'classic', list = lobbyRead();
-  const act = list.map((r, row) => ({ row, ally: MENU.mode === 'endless' ? 0 : r[1] === 'A' ? 0 : 1, color: r[3], type: r[0] })).filter(r => r.type !== 'off' && (MENU.mode !== 'endless' || r.row < 4));
-  const st = act.length ? seatPlan(map, act) : []; act.forEach((r, i) => r.start = st[i]);
+  const sel = document.getElementById('mapSel'), map = MENU.mode === 'endless' ? 'endless' : sel ? (sel.value.startsWith('cm:') ? 'custom' : sel.value) : 'classic', list = lobbyRead();
+  const act = list.map((r, row) => ({ row, ally: MENU.mode === 'endless' ? 0 : teamIdx(r[1]), color: r[3], type: r[0] })).filter(r => r.type !== 'off' && (MENU.mode !== 'endless' || r.row < 4));
+  const st = act.length ? seatPlan(map, act, lobbyNs(map)) : []; act.forEach((r, i) => r.start = st[i]);
   return { map: map === 'endless' ? 'endless' : seatMap(map, act.length), n: act.length, rows: act };
 }
 function lobbySeatUI(S) { // row number badges: team colour + "N→M" when a row had to move (spot on the other side / not on this map)
@@ -410,24 +414,25 @@ function lobbySeatUI(S) { // row number badges: team colour + "N→M" when a row
   rs.forEach((el, i) => { const b = el.querySelector('.lnum'); if (!b) return; const r = S.rows.find(x => x.row === i);
     if (!r) { b.textContent = i + 1; b.className = 'lnum'; b.title = 'Closed'; return; }
     const lab = r.start === 4 && S.map === 'endless' ? 'C' : seatLabel(S.map, S.n, r.start), moved = String(lab) !== String(i + 1);
-    b.textContent = moved ? (i + 1) + '→' + lab : i + 1; b.className = 'lnum ' + (r.ally ? 'tB' : 'tA') + (moved ? ' moved' : '');
-    b.title = moved ? (lab === 'C' ? 'Solo: you start at the centre base' : `Spot ${i + 1} ${seatSide(S.map, SEAT_ORDER[S.map][i]) != null ? 'belongs to the other team' : 'does not exist on this map'}, so this player starts at spot ${lab}`) : `Starts at spot ${i + 1} on the map`; });
+    b.textContent = moved ? (i + 1) + '→' + lab : i + 1; b.className = 'lnum ' + (r.ally ? 'tB' : 'tA') + (moved ? ' moved' : ''); if (r.ally > 1) b.style.background = TEAM_CSS[r.ally]; else b.style.background = '';
+    b.title = moved ? (lab === 'C' ? 'Solo: you start at the centre base' : `Spot ${i + 1} ${seatSide(S.map, SEAT_ORDER[S.map][i]) != null ? 'belongs to the other team' : 'does not exist on this map'}, so this player starts at spot ${lab}`) + (lab == null || lab < 1 ? ' — this map has too few spawns: close a slot' : '') : `Starts at spot ${i + 1} on the map`; });
 }
 function mapPreview() {
   const cv = document.getElementById('mapPrev'), sel = document.getElementById('mapSel'); if (!cv || !sel || started) return;
-  const S = lobbySeats(), map = S.map, six = map === 'classic' && (S.n > 4 || S.rows.some(r => r.start > 3)), key = map + (six ? '6' : '');
+  const S = lobbySeats(), map = S.map, six = map === 'classic' && (S.n > 4 || S.rows.some(r => r.start > 3)), CU = map === 'custom' && typeof CM_SEL !== 'undefined' && CM_SEL, key = CU ? 'cm:' + CM_SEL.id + ':' + (CM_SEL.rev || 0) : map + (six ? '6' : '');
+  if (map === 'custom' && !CU) return;
   if (!MP_CACHE[key]) {
-    const n = map === 'volcano8' || map === 'hellgate' ? 8 : six || map === 'volcano' || map === 'frost' ? 6 : 4, slots = []; for (let i = 0; i < n; i++) slots.push({ ai: true, diff: 'easy', ally: map === 'hellgate' ? (i < 2 ? 0 : 1) : i % 2 });
+    const n = CU ? CM_SEL.starts.length : map === 'volcano8' || map === 'hellgate' ? 8 : six || map === 'volcano' || map === 'frost' ? 6 : 4, slots = []; for (let i = 0; i < n; i++) slots.push({ ai: true, diff: 'easy', ally: map === 'hellgate' ? (i < 2 ? 0 : 1) : i % 2 });
     const G0 = typeof G !== 'undefined' ? G : null, MW0 = MW, MH0 = MH;
-    try { newGame({ seed: 1, map, slots }); } catch (e) { G = G0; MW = MW0; MH = MH0; return; }
+    try { newGame({ seed: 1, map, slots, cmap: CU ? CM_SEL : undefined }); } catch (e) { G = G0; MW = MW0; MH = MH0; return; }
     const x = cv.getContext('2d'), W = cv.width, s = W / MW, img = x.createImageData(W, W), d = img.data;
     for (let py = 0; py < W; py++) for (let px = 0; px < W; px++) { const tx = Math.floor(px / s), ty = Math.floor(py / s), i = ty * MW + tx, t = G.map[i], l = G.lvl[i];
-      let r, g, b; if (t === 1) { r = G.mud && G.mud[i] ? 150 : G.desert ? 112 : 88; g = G.mud && G.mud[i] ? 106 : G.desert ? 88 : 82; b = G.mud && G.mud[i] ? 68 : G.desert ? 66 : 74; } else if (t === 2) { r = 28; g = 80; b = 120; } else if (G.lava[i]) { r = 230; g = 90; b = 30; } else if (G.ore[i] > 0) { r = 230; g = 190; b = 60; } else if (G.ice[i]) { r = 170; g = 210; b = 230; } else { const base = map === 'frost' ? [190, 205, 215] : map.startsWith('volcano') ? [70, 62, 58] : (map === 'hellgate' || map === 'endless') ? (G.wadi && G.wadi[i] ? [205, 180, 130] : [172, 138, 92]) : [70, 110, 60]; r = base[0] + l * 22; g = base[1] + l * 22; b = base[2] + l * 18; if (G.forest[i]) { r *= 0.7; g *= 0.85; b *= 0.7; } }
+      let r, g, b; if (t === 1) { r = G.mud && G.mud[i] ? 150 : G.desert ? 112 : 88; g = G.mud && G.mud[i] ? 106 : G.desert ? 88 : 82; b = G.mud && G.mud[i] ? 68 : G.desert ? 66 : 74; } else if (t === 2) { r = 28; g = 80; b = 120; } else if (G.lava[i]) { r = 230; g = 90; b = 30; } else if (G.ore[i] > 0) { r = 230; g = 190; b = 60; } else if (G.ice[i]) { r = 170; g = 210; b = 230; } else { const th = CU ? CM_SEL.theme : '', base = CU ? cmBaseRGB(th) : map === 'frost' ? [190, 205, 215] : map.startsWith('volcano') ? [70, 62, 58] : (map === 'hellgate' || map === 'endless') ? (G.wadi && G.wadi[i] ? [205, 180, 130] : [172, 138, 92]) : [70, 110, 60]; r = base[0] + l * 22; g = base[1] + l * 22; b = base[2] + l * 18; if (G.forest[i]) { r *= 0.7; g *= 0.85; b *= 0.7; } }
       const o = (py * W + px) * 4; d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255; }
     x.putImageData(img, 0, 0);
     x.fillStyle = '#4fe8dc'; for (const [vx, vy] of G.vents || []) { x.beginPath(); x.arc((vx + 0.5) * s, (vy + 0.5) * s, 2.6, 0, 7); x.fill(); }
     if (G.derricks) { x.fillStyle = '#ffffff'; x.strokeStyle = '#000'; for (const d of G.derricks) { if (d.op) { x.save(); x.fillStyle = '#ffd060'; x.beginPath(); x.moveTo(d.x * s, d.y * s - 6); x.lineTo(d.x * s + 6, d.y * s); x.lineTo(d.x * s, d.y * s + 6); x.lineTo(d.x * s - 6, d.y * s); x.closePath(); x.fill(); x.stroke(); x.restore(); continue; } x.fillRect(d.x * s - 2, d.y * s - 2, 4, 4); x.strokeRect(d.x * s - 2, d.y * s - 2, 4, 4); } }
-    const txt = `${MW}×${MH} · ${map === 'endless' ? 4 : G.starts.length} spots · ${(G.vents || []).length} gas vents · ${(G.derricks || []).length} derricks` + (map === 'endless' ? ' · 4 mountain passes · Horde (H) spawns east · solo = centre base (C)' : '') + (map === 'hellgate' ? ` · ${G.derricks.filter(d => d.op).length} outposts (◆ capture = build radius) · Team A spots 1-2 vs 6 warlords (3-8) — one canyon in` : '');
+    const txt = `${MW}×${MH} · ${map === 'endless' ? 4 : G.starts.length} spots · ${(G.vents || []).length} gas vents · ${(G.derricks || []).length} derricks` + (map === 'endless' ? ' · 4 mountain passes · Horde (H) spawns east · solo = centre base (C)' : '') + (CU ? ` · ${G.derricks.filter(d => d.op).length} outposts · ${CM_SEL.theme} · “${String(CM_SEL.name || '').replace(/[<>]/g, '')}”` : '') + (map === 'hellgate' ? ` · ${G.derricks.filter(d => d.op).length} outposts (◆ capture = build radius) · Team A spots 1-2 vs 6 warlords (3-8) — one canyon in` : '');
     MP_CACHE[key] = { img: x.getImageData(0, 0, W, W), txt, starts: G.starts.map(p => p.slice()), MW };
     G = G0; MW = MW0; MH = MH0;
   }
@@ -435,11 +440,11 @@ function mapPreview() {
   x.font = 'bold 12px system-ui'; x.textAlign = 'center'; x.textBaseline = 'middle';
   const dot = (sx, sy, fill, ring, lab, a) => { x.globalAlpha = a; x.fillStyle = fill; x.beginPath(); x.arc(sx * s, sy * s, 8, 0, 7); x.fill(); if (ring) { x.lineWidth = 2.5; x.strokeStyle = ring; x.stroke(); } x.fillStyle = '#fff'; x.fillText(String(lab), sx * s, sy * s + 0.5); x.globalAlpha = 1; };
   const used = new Set(S.rows.map(r => r.start)), order = SEAT_ORDER[map];
-  C.starts.forEach(([sx, sy], k) => { if (used.has(k) || order.indexOf(k) < 0) return; const side = map === 'hellgate' ? seatSide(map, k) : map === 'endless' ? 0 : order.indexOf(k) % 2; dot(sx, sy, side ? '#7a3a34' : '#34506e', null, order.indexOf(k) + 1, 0.75); });
+  C.starts.forEach(([sx, sy], k) => { if (used.has(k) || order.indexOf(k) < 0) return; const side = map === 'hellgate' ? seatSide(map, k) : map === 'endless' || map === 'custom' ? 0 : order.indexOf(k) % 2; dot(sx, sy, side ? '#7a3a34' : '#34506e', null, order.indexOf(k) + 1, 0.75); });
   if (map === 'endless' && C.starts[5]) dot(C.starts[5][0], C.starts[5][1], '#ff5040', '#300', 'H', 1);
-  for (const r of S.rows) { const p = C.starts[r.start]; if (!p) continue; const col = r.color && r.color !== 'auto' && TEAM_COLORS[r.color] ? TEAM_COLORS[r.color].css : null; dot(p[0], p[1], r.ally ? '#ff5040' : '#3d9cff', col || '#fff', r.row + 1, 1); }
+  for (const r of S.rows) { const p = C.starts[r.start]; if (!p) continue; const col = r.color && r.color !== 'auto' && TEAM_COLORS[r.color] ? TEAM_COLORS[r.color].css : null; dot(p[0], p[1], TEAM_CSS[r.ally] || '#3d9cff', col || '#fff', r.row + 1, 1); }
   const moved = S.rows.filter(r => String(r.start === 4 && map === 'endless' ? 'C' : seatLabel(map, S.n, r.start)) !== String(r.row + 1) && !(map === 'endless' && S.n === 1)).length;
-  document.getElementById('mapPrevTxt').textContent = C.txt + ' · number = lobby slot, blue = Team A, red = Team B' + (moved ? ` · ${moved} slot${moved > 1 ? 's' : ''} moved to a free spot on their side (see Slot column)` : '');
+  document.getElementById('mapPrevTxt').textContent = C.txt + ' · number = lobby slot, dot colour = team (1 blue, 2 red, 3 green, 4 yellow…)' + (map === 'custom' && S.rows.some(r => r.start == null) ? ` · ⚠ ${S.rows.filter(r => r.start == null).length} slot(s) have no spawn on this map — close them` : '') + (moved ? ` · ${moved} slot${moved > 1 ? 's' : ''} moved to a free spot on their side (see Slot column)` : '');
   lobbySeatUI(S);
 }
 const MP_CACHE = {};
@@ -451,7 +456,7 @@ window.addEventListener('load', () => {
   homeRecords();
   if ($$('playOnlineBtn')) $$('playOnlineBtn').onclick = () => { audioInit && audioInit(); homeShow('online'); };
   if ($$('backBtn')) $$('backBtn').onclick = () => homeShow(null);
-  if ($$('mapSel')) $$('mapSel').addEventListener('change', () => { if ($$('mapSel').value === 'hellgate') hellgateSetup(); mapPreview(); });
+  if ($$('mapSel')) $$('mapSel').addEventListener('change', () => { if (typeof cmSelChanged === 'function') cmSelChanged(); if ($$('mapSel').value === 'hellgate') hellgateSetup(); mapPreview(); });
   if (new URLSearchParams(location.search).get('room')) homeShow('online');
   if (QS.get('lobbytest') || QS.get('home')) homeShow(QS.get('home') === 'online' ? 'online' : 'bots');
   if (QS.get('home') === 'endless') setMode('endless');
