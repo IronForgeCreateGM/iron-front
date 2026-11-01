@@ -1,3 +1,8 @@
+## RESUME NOTE 8:20 AM PT Sun Nov 1 (results of runs left going at 12:55; nightly run ended early)
+- Control mirror (live vs live, /workspace/n1101/ctl): 3-3, and every game is won by the same seat/faction whichever brain sits there, so 6-game h2h results are dominated by seat bias.
+- h2h v2 level 4 (am8 plain attack-move) vs live Hard (/workspace/n1101/h2h2): 2W 2L 2T, same as v1. Versus the control it flipped classic s5 rus@3 to a TIE and volcano s77 ger@0 to a TIE, otherwise matched seat outcomes. No clear edge yet; stuck-drill rates are all noise-level (~1.6-1.8%).
+- Next: use more seeds/maps (and swap seats) before judging am8; keep ref8 test-only; nothing pushed, live stays v7.6.10.
+
 ## RESUME NOTE 12:55 AM PT Sun Nov 1
 - Live = v7.6.10. Master (local, not pushed): m7 level 4 = 'h' am8 plain attack-move (v2 keeps field read for walls/unreachable). Refinery lanes 'i' is test-only (SION.ref8): it cost volcano 77 games.
 - Results so far: stuck drills (12 seeds) live 1.64%, h+i 1.59%, i only 1.65%, h only 1.78% (all noise-level). all20 vs old brain: live-level2 16W2L2T, h+i 14W3L3T, h 14W2L4T (wins come much faster), i 16W3L1T. h2h vs live Hard (6 games): 2W 2L 2T. nt76 + stall PASS at level 4.
