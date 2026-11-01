@@ -1201,7 +1201,7 @@ function teamHome76(P, c) { // joint defence: the other bots' idle home armies t
 function pg76(P, V6) { return V6 && !SIOFF.pg76 && !G.end && peaceEnd76() >= 300 && G.time > 60 && G.time < peaceEnd76() - 90; } // v7.6.1 macro: a long peace is safe time -> extra refineries on the main before the expansion (SC2 bots go greedy when no attack can come)
 // ===================== v7.6.6 phase-1 math layer (replay flag m7; lobby Hard = si2 only) =====================
 // a) Lanchester launch gate   b) distance-field movement + target hysteresis   c) knapsack spend sink   d) expected-value silo use
-const m7On = (P, k) => !!G.r76 && !!G.nt && !!G.m7 && isV76(P) && !SIOFF.m7 && !P.m7Off && !(k && SIOFF['m7' + k]) && (k !== 'e' && k !== 'f' || G.m7 >= 2) && (k !== 'g' || G.m7 === 3) && (k !== 'h' && k !== 'i' || G.m7 >= 4) && !(k && P.m7Skip && P.m7Skip.includes(k)); // e, f: replay level 2 (v7.6.7); g: level 3 only (v7.6.8, off by default); h, i: level 4 (v7.6.11 plain attack-move + refinery lanes); P.m7Skip = test-only per-bot part switch
+const m7On = (P, k) => !!G.r76 && !!G.nt && !!G.m7 && isV76(P) && !SIOFF.m7 && !P.m7Off && !(k && SIOFF['m7' + k]) && (k !== 'e' && k !== 'f' || G.m7 >= 2) && (k !== 'g' || G.m7 === 3) && (k !== 'h' || G.m7 >= 4) && (k !== 'i' || G.m7 >= 4 && !!SION.ref8) && !(k && P.m7Skip && P.m7Skip.includes(k)); // e, f: replay level 2 (v7.6.7); g: level 3 only (v7.6.8, off by default); h: level 4 (v7.6.11 plain attack-move); i: refinery lanes, test-only (SION.ref8), not shipped; P.m7Skip = test-only per-bot part switch
 // --- b) distance field (Dijkstra, integer costs 10/14, deterministic heap tie-break on tile index) ---
 function heap7() { const k = [], v = []; return { n: () => k.length,
   push(key, val) { let i = k.length; k.push(key); v.push(val); while (i) { const p = (i - 1) >> 1; if (k[p] < key || (k[p] === key && v[p] <= val)) break; k[i] = k[p]; v[i] = v[p]; i = p; } k[i] = key; v[i] = val; },
@@ -1302,6 +1302,9 @@ function ref7Score(T, x, y, d, dd) { const dx = x + d.w / 2, dy = y + d.h + 0.5,
 //    pathing do the rest. No 8-tile stepping or field steering; re-issued only when the target base changes, every 30 s, or for idle units.
 function am8(P, S, c, t, near) {
   if (!t || near.length) return !!t && near.length > 0;
+  if (t.kind === 'b' && !SION.am8raw) { const st = step7(P, S, field7(P, S, t), c, S.grp, 8); // still read the field 8 tiles ahead: an unreachable target is dropped, a wall in the way is breached
+    if (!st) { if (S.tg7 && S.tg7.id === t.id) { S.bad7 = S.bad7 || {}; S.bad7[t.id] = G.time + 45; S.tg7 = null; } S.am8 = null; return false; }
+    if (st.wall && G.time > (S.breachT || 0)) { S.breachT = G.time + 3; orderAttack(S.grp.filter(u => !u.tgt || u.tgt.kind !== 'u'), st.wall); S.am8 = null; return true; } }
   const bs = G.ents.filter(e => e.kind === 'b' && e.team === t.team && e.hp > 0 && e.t !== 'wall' && e.t !== 'gate' && dhypot(e.x - t.x, e.y - t.y) < 14);
   let bx = t.x, by = t.y; if (bs.length) { bx = 0; by = 0; for (const b of bs) { bx += b.x; by += b.y; } bx /= bs.length; by /= bs.length; }
   const f = nearFree(Math.floor(bx), Math.floor(by), 6) || [Math.floor(bx), Math.floor(by)], x = f[0] + 0.5, y = f[1] + 0.5;
