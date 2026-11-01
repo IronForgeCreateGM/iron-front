@@ -213,13 +213,17 @@ function aiSpot(P, t, hq, foes) {
   for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const dd = dhypot(x + d.w / 2 - ax, y + d.h / 2 - ay); if (dd < 14) cands.push([(R7 && R7.length ? ref7Score(R7, x, y, d, dd) : dd) + G.R() * 1.5, x, y]); }
   cands.sort((a, b) => a[0] - b[0]);
   const g = getBlock(), NT = nt76On(P); let ntF = 0;
+  const RL = d.cat !== 'def' && m7On(P, 'i') ? G.ents.filter(e => e.kind === 'b' && e.t === 'refinery' && e.hp > 0) : null; // v7.6.11 m7i: refinery lanes
+  for (let pass = RL ? 0 : 1; pass < 2; pass++) { ntF = 0;
   for (const [, x, y] of cands) {
     if (!canPlace(t, P.team, x, y)) continue;
+    if (!pass && !ref8Ok(t, x, y, d, g, RL)) continue;
     if (P.aiS && P.aiS.lanes && t !== 'wall' && P.aiS.lanes.some(l => dhypot(l.x - x - d.w / 2, l.y - y - d.h / 2) < 1.4 + d.w * 0.5)) continue; // keep entrance lanes open
     // keep 1-tile gap around non-defense buildings so units can flow
     if (d.cat !== 'def') { let ok = true; for (let yy = y - 1; yy <= y + d.h && ok; yy++) for (let xx = x - 1; xx <= x + d.w; xx++) if (inb(xx, yy) && g[idx(xx, yy)] === 2) { ok = false; break; } if (!ok) continue; }
     if (NT && !nt76Ok(P, x + d.w / 2, y + d.h / 2, nt76Foot(t, x, y), null, false /* 2-wide lane check off: it starved builds in drills */, nt76Src(P, t, x, y))) { if (++ntF >= 8) return null; continue; } // v7.6.5 no-trap
     return [x, y];
+  }
   }
   if (d.cat === 'bld' && !aiSpot.inner) { aiSpot.inner = true; try { return aiSpotWide(P, t, hq); } finally { aiSpot.inner = false; } }
   return null;
@@ -367,7 +371,7 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
     if (!S.grpMark || G.time - S.grpMark.t > 12) {
       if (S.grpMark && dhypot(c.x - S.grpMark.x, c.y - S.grpMark.y) < 2.5 && !foes.some(f => f.kind === 'u' && dhypot(f.x - c.x, f.y - c.y) < 8)) {
         const dest = S.grpWp || knownB[0] || { x: estart[0], y: estart[1] };
-        if (m7On(P, 'b') && !S.grpWp) { S.grp.forEach(u => { u.path = []; u.stuckN = 0; }); S.regT = 0; S.st7 = (S.st7 || 0) + 1; if (S.st7 >= 3 && S.tg7) { S.bad7 = S.bad7 || {}; S.bad7[S.tg7.id] = G.time + 45; S.tg7 = null; S.st7 = 0; } } // v7.6.6: no random jitter; the field step re-issues, a target stuck on 3x is dropped
+        if (m7On(P, 'b') && !S.grpWp) { S.grp.forEach(u => { u.path = []; u.stuckN = 0; }); S.regT = 0; S.am8 = null; S.st7 = (S.st7 || 0) + 1; if (S.st7 >= 3 && S.tg7) { S.bad7 = S.bad7 || {}; S.bad7[S.tg7.id] = G.time + 45; S.tg7 = null; S.st7 = 0; } } // v7.6.6: no random jitter; the field step re-issues, a target stuck on 3x is dropped
         else { S.grp.forEach(u => { u.path = []; u.stuckN = 0; }); oM71(P, S, S.grp, dest.x + (G.R() - 0.5) * 4, dest.y + (G.R() - 0.5) * 4, true); }
       } else if (S.grpMark) S.st7 = 0;
       S.grpMark = { x: c.x, y: c.y, t: G.time };
@@ -404,7 +408,8 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
           if (line.length) { const real = line.map(b => byId(b.id) || b); real.sort((a, b) => (a.hp || 0) / 80 + dhypot(a.x - c.x, a.y - c.y) - (b.hp || 0) / 80 - dhypot(b.x - c.x, b.y - c.y)); const w = real[0];
             if (w && w.hp > 0 && G.time > (S.breachT || 0)) { S.breachT = G.time + 3; orderAttack(S.grp.filter(u => !u.tgt || u.tgt.kind !== 'u'), w); } } }
         const step = Math.min(8, dhypot(t.x - c.x, t.y - c.y)), a2 = datan2(t.y - c.y, t.x - c.x);
-        if (M7 && t.kind === 'b' && move7(P, S, c, t, near)) {}
+        if (m7On(P, 'h') && am8(P, S, c, t, near)) {}
+        else if (M7 && t.kind === 'b' && move7(P, S, c, t, near)) {}
         else if (!near.length && step > 3) oM71(P, S, S.grp.filter(u => u.order !== 'attack'), c.x + dcos(a2) * step, c.y + dsin(a2) * step, true);
         else if (!near.length && tgts[0]) oM71(P, S, S.grp.filter(u => u.order !== 'attack'), t.x, t.y, true);
       }
@@ -1196,7 +1201,7 @@ function teamHome76(P, c) { // joint defence: the other bots' idle home armies t
 function pg76(P, V6) { return V6 && !SIOFF.pg76 && !G.end && peaceEnd76() >= 300 && G.time > 60 && G.time < peaceEnd76() - 90; } // v7.6.1 macro: a long peace is safe time -> extra refineries on the main before the expansion (SC2 bots go greedy when no attack can come)
 // ===================== v7.6.6 phase-1 math layer (replay flag m7; lobby Hard = si2 only) =====================
 // a) Lanchester launch gate   b) distance-field movement + target hysteresis   c) knapsack spend sink   d) expected-value silo use
-const m7On = (P, k) => !!G.r76 && !!G.nt && !!G.m7 && isV76(P) && !SIOFF.m7 && !P.m7Off && !(k && SIOFF['m7' + k]) && (k !== 'e' && k !== 'f' || G.m7 >= 2) && (k !== 'g' || G.m7 >= 3) && !(k && P.m7Skip && P.m7Skip.includes(k)); // e, f: replay level 2 (v7.6.7); g: level 3 (v7.6.8); P.m7Skip = test-only per-bot part switch
+const m7On = (P, k) => !!G.r76 && !!G.nt && !!G.m7 && isV76(P) && !SIOFF.m7 && !P.m7Off && !(k && SIOFF['m7' + k]) && (k !== 'e' && k !== 'f' || G.m7 >= 2) && (k !== 'g' || G.m7 === 3) && (k !== 'h' && k !== 'i' || G.m7 >= 4) && !(k && P.m7Skip && P.m7Skip.includes(k)); // e, f: replay level 2 (v7.6.7); g: level 3 only (v7.6.8, off by default); h, i: level 4 (v7.6.11 plain attack-move + refinery lanes); P.m7Skip = test-only per-bot part switch
 // --- b) distance field (Dijkstra, integer costs 10/14, deterministic heap tie-break on tile index) ---
 function heap7() { const k = [], v = []; return { n: () => k.length,
   push(key, val) { let i = k.length; k.push(key); v.push(val); while (i) { const p = (i - 1) >> 1; if (k[p] < key || (k[p] === key && v[p] <= val)) break; k[i] = k[p]; v[i] = v[p]; i = p; } k[i] = key; v[i] = val; },
@@ -1291,3 +1296,23 @@ function ref7Tiles(ax, ay) { const out = [], x0 = Math.max(0, Math.floor(ax - 16
   out.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]); return out.slice(0, 40); }
 function ref7Score(T, x, y, d, dd) { const dx = x + d.w / 2, dy = y + d.h + 0.5, ds = T.map(o => dhypot(o[0] - dx, o[1] - dy)).sort((a, b) => a - b); let s = 0; const k = Math.min(12, ds.length); for (let i = 0; i < k; i++) s += ds[i];
   return s / k + dd * 0.35; }
+
+// --- v7.6.11 (replay level m7>=4, Hard only) ---
+// h) Nicholas's plain attack-move: select the army, attack-move (F) to the CENTRE of the target enemy base, and let the game's own
+//    pathing do the rest. No 8-tile stepping or field steering; re-issued only when the target base changes, every 30 s, or for idle units.
+function am8(P, S, c, t, near) {
+  if (!t || near.length) return !!t && near.length > 0;
+  const bs = G.ents.filter(e => e.kind === 'b' && e.team === t.team && e.hp > 0 && e.t !== 'wall' && e.t !== 'gate' && dhypot(e.x - t.x, e.y - t.y) < 14);
+  let bx = t.x, by = t.y; if (bs.length) { bx = 0; by = 0; for (const b of bs) { bx += b.x; by += b.y; } bx /= bs.length; by /= bs.length; }
+  const f = nearFree(Math.floor(bx), Math.floor(by), 6) || [Math.floor(bx), Math.floor(by)], x = f[0] + 0.5, y = f[1] + 0.5;
+  const free = S.grp.filter(u => u.order !== 'attack');
+  if (!S.am8 || dhypot(S.am8.x - x, S.am8.y - y) > 6 || G.time > S.am8.t) { S.am8 = { x, y, t: G.time + 30 }; if (free.length) oM71(P, S, free, x, y, true); return true; }
+  const idl = free.filter(u => u.order === 'idle' && dhypot(u.x - x, u.y - y) > 4); if (idl.length) orderMove(idl, x, y, true);
+  return true; }
+// i) refinery lanes: keep 2 free tiles on a refinery's north, east and west sides (1 on the south dock side, which faces the ore),
+//    so harvesters and fresh units have a 2-wide lane around it. Applies to the refinery itself and to buildings placed near one.
+//    Only a preference: if no spot passes, the old 1-tile rule is used (never starves a build).
+function ref8Ok(t, x, y, d, g, RL) {
+  if (t === 'refinery') { for (let yy = y - 2; yy < y + d.h; yy++) for (let xx = x - 2; xx < x + d.w + 2; xx++) if (inb(xx, yy) && g[idx(xx, yy)] === 2) return false; return true; }
+  for (const r of RL) { const rx = r.tx, ry = r.ty; if (x < rx + 5 && x + d.w > rx - 2 && y < ry + 3 && y + d.h > ry - 2) return false; }
+  return true; }

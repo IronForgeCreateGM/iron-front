@@ -52,7 +52,7 @@ if (MODE === 'game' || MODE === 'all') {
   for (const [map, seed] of games) {
     const slots = [{ ai: true, diff: 'si2', fac: 'fra', start: 0, ally: 0 }, { ai: true, diff: 'si2', fac: 'chn', start: 1, ally: 0 }, { ai: true, diff: 'si', fac: 'bra', start: 2, ally: 1 }, { ai: true, diff: 'si', fac: 'ger', start: 3, ally: 1 }].slice(0, map === 'classic' ? 2 : 4);
     if (map === 'classic') slots[1] = { ai: true, diff: 'si', fac: 'chn', start: 1, ally: 1 };
-    newGame({ seed: +seed, map, slots }); const t0 = Date.now(); const rows = []; let prevMined = {};
+    newGame({ seed: +seed, map, slots, m7: process.env.M7 != null ? +process.env.M7 : undefined }); const t0 = Date.now(); const rows = []; let prevMined = {};
     for (let n = 0; n < (+process.env.MIN || 10) * 60 * 30 && !G.over; n++) { stepGame(); G.events.length = 0;
       if (n % (60 * 30) === 0 && n >= 4 * 60 * 30) for (const P of G.players) if (P.diff === 'si2' && !P.out) { const a = audit(P); if (!a) continue; a.t = G.time | 0; a.team = P.team; a.mineGain = a.mined - (prevMined[P.team] || 0); prevMined[P.team] = a.mined; rows.push(a); } }
     const last = {}; for (const r of rows) last[r.team] = r;

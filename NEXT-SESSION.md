@@ -1,3 +1,7 @@
+## RESUME NOTE 12:12 AM PT Sun Nov 1 (nightly run, lock = .night-run-lock)
+- Live = v7.6.10 (8748723). Working on master: replay level m7=4 (opt-in, default still 2): h = Nicholas's plain attack-move to the enemy base centre (am8), i = refinery lanes (2 free tiles on N/E/W of refineries, 1 on the dock side, falls back to the old rule). m7g is now level 3 ONLY.
+- Stuck drills (12 seeds, 12 min) running: /workspace/n1101/stuck/{live,l4} (done.txt when finished). Runner /workspace/n1101/stuck.sh TAG M7 [OFF].
+
 ## FINAL NOTE 7:19 AM PT Sat Oct 31 (end of the overnight run)
 - Live = v7.6.10 (8748723). git ls-remote and the live page both confirm it at 7:19 AM PT (classic + hellgate, 0 page errors, 0 http fails).
 - Pushed tonight: v7.6.6 22817c7 (10:58:54 PM), v7.6.7 47e23ab (1:31:39 AM), v7.6.8 8429b1f (3:16:44 AM), v7.6.9 105b825 (4:22:33 AM), v7.6.10 8748723 (5:19:03 AM). Master has local docs/test-only commits on top (not pushed).
