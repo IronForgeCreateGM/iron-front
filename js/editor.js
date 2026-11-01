@@ -14,7 +14,7 @@ async function mbCheckKey() {
 }
 // ---- saved maps ----
 function cmAll() { if (!mbUnlocked()) return {}; try { return JSON.parse(localStorage.getItem(CM_LS) || '{}') || {}; } catch (e) { return {}; } }
-function cmGet(id) { const m = cmAll()[id]; return m && cmValid(m) ? m : null; }
+function cmGet(id) { const m = (typeof CM_BUILTIN !== 'undefined' && CM_BUILTIN[id]) || cmAll()[id]; return m && cmValid(m) ? m : null; }
 function cmPut(m) { const all = cmAll(); all[m.id] = m; try { localStorage.setItem(CM_LS, JSON.stringify(all)); return true; } catch (e) { alert('Could not save: browser storage is full. Export some maps and delete them.'); return false; } }
 function cmDel(id) { const all = cmAll(); delete all[id]; try { localStorage.setItem(CM_LS, JSON.stringify(all)); } catch (e) {} }
 function cmValid(m) { return m && typeof m === 'object' && CMAP_SIZES.includes(m.w) && m.h === m.w && typeof m.t === 'string' && Array.isArray(m.starts) && m.starts.length >= 1 && m.starts.length <= 8; }
@@ -23,6 +23,7 @@ function cmSelChanged() { const s = document.getElementById('mapSel'); CM_SEL = 
 function cmRefreshSel(pick) { // list saved maps in the skirmish map picker (unlocked devices only)
   const s = document.getElementById('mapSel'); if (!s) return; const cur = pick || s.value; let og = document.getElementById('cmGroup'); if (og) og.remove();
   const all = Object.values(cmAll()).filter(cmValid).sort((a, b) => (b.saved || 0) - (a.saved || 0));
+  { let fg = document.getElementById('cmFeat'); if (fg) fg.remove(); const fe = typeof CM_BUILTIN !== 'undefined' ? Object.values(CM_BUILTIN).filter(cmValid) : []; if (fe.length) { fg = document.createElement('optgroup'); fg.id = 'cmFeat'; fg.label = '🗺 Featured maps'; for (const m of fe) { const o = document.createElement('option'); o.value = 'cm:' + m.id; o.textContent = `${m.name} (${m.starts.length}) · ${m.w}²`; fg.appendChild(o); } s.appendChild(fg); } }
   if (all.length) { og = document.createElement('optgroup'); og.id = 'cmGroup'; og.label = '🛠 My maps';
     for (const m of all) { const o = document.createElement('option'); o.value = 'cm:' + m.id; o.textContent = `${m.name} (${m.starts.length}) · ${m.w}²`; og.appendChild(o); } s.appendChild(og); }
   if ([...s.options].some(o => o.value === cur)) s.value = cur; else if (cur && cur.startsWith('cm:')) s.value = 'classic';
