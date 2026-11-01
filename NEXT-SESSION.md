@@ -1,3 +1,12 @@
+## MAP BUILDER STATUS 10:15 AM PT Sun Nov 1 (local master, NOT pushed; live = v7.6.10)
+- Done (commits a08a358, 4746059, c899b27, 5c6bd16, c7aca05): the editor (js/editor.js), custom maps in the sim/render/lobby/replays/online start,
+  teams A-H per lobby slot on all maps, and the custom-only refinery dock rule. Tests: test/mapbuilder-test.js and test/custom-map-test.js.
+- PRIVATE: the editor and "My maps" are hidden unless unlocked. Unlock with https://<site>/?key=<contents of /workspace/.mapbuilder-key> (chmod 600, never commit it);
+  relock with ?key=lock. Only the SHA-256 hash is in code (MB_HASH). The unlock is client-side only, so someone reading the source could bypass it.
+- Known gaps: online play on custom maps is wired but untested in a real 2-device game. No "cramped base" warning. lobbySelfTest has no custom coverage.
+  Version strings are still 7.6.10 (the zip is marked 7.7.0-dev). reach-test's joiner check is failing environmentally (it fails on the base too); update its regex.
+- The midnight run moves to the stuck-army work (see the notes below) and polishes map builder leftovers when there is time. Nicholas OKs any push.
+
 ## RESUME NOTE 8:20 AM PT Sun Nov 1 (results of runs left going at 12:55; nightly run ended early)
 - Control mirror (live vs live, /workspace/n1101/ctl): 3-3, and every game is won by the same seat/faction whichever brain sits there, so 6-game h2h results are dominated by seat bias.
 - h2h v2 level 4 (am8 plain attack-move) vs live Hard (/workspace/n1101/h2h2): 2W 2L 2T, same as v1. Versus the control it flipped classic s5 rus@3 to a TIE and volcano s77 ger@0 to a TIE, otherwise matched seat outcomes. No clear edge yet; stuck-drill rates are all noise-level (~1.6-1.8%).

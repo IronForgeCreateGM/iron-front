@@ -379,3 +379,14 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
   stall test passes, but the stuck gain is gone: 1.66% vs live 1.64% over the 12 seeds, and the bench was 15W 2L 3T vs 16W 2L 2T.
   So gap5's gain came from spacing refineries, which is the same change that broke mining on volcano 77.
   Dead end for now; NOT shipped. Final word on stuck units tonight: live v7.6.10 stays as is.
+
+- 10:15 AM PT Sun Nov 1: MAP BUILDER (first playable, local master only, NOT pushed; live stays v7.6.10).
+  Nicholas's private map editor: hidden by default and unlocked on a device only with a secret ?key= link (the code holds only
+  the SHA-256 hash; the key file is /workspace/.mapbuilder-key, outside the repo). Once it is unlocked, a purple "Map Builder" button appears on the home screen.
+  The editor offers sizes 64-224 and themes grass/desert/space/mech/frost/volcano. You can paint terrain, water, lava, ice, rocks and cliffs, height, and ore at 4 levels,
+  and place up to 8 spawns plus vents, derricks, outposts and a monument. Tools: brush size, fill, eraser, mirror modes, undo/redo, save to the browser,
+  JSON export/import, and "Play this map". Saved maps show up as "My maps" in the skirmish picker, for him only. The lobby now allows teams A-H per slot
+  on every map. Bots build and mine on custom maps: 15-minute 8-bot runs at 224 and 160 had no errors. One custom-only sim rule was added: a refinery
+  needs an open harvester dock tile. Existing maps are unchanged: det73/det74/spawn-det are IDENTICAL to the base, and all 24 node tests pass.
+  Browser tests passed: lobby, slot, place701, diff73, mobile-play, mapbuilder, custom224. reach-test fails the same way on the base commit
+  (the matchmaking relay message changed), so the failure is environmental. Commits a08a358..c7aca05 plus docs.
