@@ -1,3 +1,8 @@
+## RESUME NOTE 12:55 AM PT Sun Nov 1
+- Live = v7.6.10. Master (local, not pushed): m7 level 4 = 'h' am8 plain attack-move (v2 keeps field read for walls/unreachable). Refinery lanes 'i' is test-only (SION.ref8): it cost volcano 77 games.
+- Results so far: stuck drills (12 seeds) live 1.64%, h+i 1.59%, i only 1.65%, h only 1.78% (all noise-level). all20 vs old brain: live-level2 16W2L2T, h+i 14W3L3T, h 14W2L4T (wins come much faster), i 16W3L1T. h2h vs live Hard (6 games): 2W 2L 2T. nt76 + stall PASS at level 4.
+- Running: control mirror /workspace/n1101/ctl (live vs live, seat bias) + h2h v2 /workspace/n1101/h2h2.
+
 ## RESUME NOTE 12:12 AM PT Sun Nov 1 (nightly run, lock = .night-run-lock)
 - Live = v7.6.10 (8748723). Working on master: replay level m7=4 (opt-in, default still 2): h = Nicholas's plain attack-move to the enemy base centre (am8), i = refinery lanes (2 free tiles on N/E/W of refineries, 1 on the dock side, falls back to the old rule). m7g is now level 3 ONLY.
 - Stuck drills (12 seeds, 12 min) running: /workspace/n1101/stuck/{live,l4} (done.txt when finished). Runner /workspace/n1101/stuck.sh TAG M7 [OFF].
