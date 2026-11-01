@@ -15,14 +15,14 @@ function foe(a, b) { if (a === b) return false; if (a == null || b == null) retu
 // Hellgate is the one team-sided map: spots 1-2 are Team A's valley seats, 3-8 the Team B warlord bases. A row whose spot is on the other
 // team's side (or whose spot does not exist on the map) takes the lowest free spot on its own side instead; the lobby shows "N→M" for it.
 // Endless: defenders sit at spots 1-4 by row (solo = the centre base), the Horde is east. Pure + deterministic (host computes it, peers get the result).
-const SEAT_ORDER = { classic: [0, 3, 2, 1, 4, 5], frost: [0, 3, 2, 1, 4, 5], volcano: [0, 3, 2, 1, 4, 5], volcano8: [0, 3, 2, 1, 4, 5, 6, 7], hellgate: [0, 1, 2, 3, 4, 5, 6, 7], endless: [0, 1, 2, 3] };
-function seatMap(map, n) { return map !== 'hellgate' && map !== 'endless' && n > 6 ? 'volcano8' : SEAT_ORDER[map] ? map : 'classic'; }
+const SEAT_ORDER = { classic: [0, 3, 2, 1, 4, 5], frost: [0, 3, 2, 1, 4, 5], volcano: [0, 3, 2, 1, 4, 5], volcano8: [0, 3, 2, 1, 4, 5, 6, 7], hellgate: [0, 1, 2, 3, 4, 5, 6, 7], endless: [0, 1, 2, 3], custom: [0, 1, 2, 3, 4, 5, 6, 7] }; // v7.7 custom (map builder) maps: spot N = the builder's spawn N
+function seatMap(map, n) { return map !== 'hellgate' && map !== 'endless' && map !== 'custom' && n > 6 ? 'volcano8' : SEAT_ORDER[map] ? map : 'classic'; }
 function seatSide(map, k) { return map === 'hellgate' ? (k < 2 ? 0 : 1) : null; } // start index -> required ally (null = any team may sit there)
-function seatPlan(map, rows) { // rows: [{ row, ally }] (active lobby rows, in order) -> start index per row
-  map = seatMap(map, rows.length); const order = SEAT_ORDER[map], taken = new Set(), out = rows.map(() => null);
+function seatPlan(map, rows, ns) { // rows: [{ row, ally }] (active lobby rows, in order) -> start index per row (ns = spawn count of a custom map)
+  map = seatMap(map, rows.length); const order = map === 'custom' ? SEAT_ORDER.custom.slice(0, ns || 8) : SEAT_ORDER[map], taken = new Set(), out = rows.map(() => null);
   if (map === 'endless') { if (rows.length === 1) return [4]; }
   rows.forEach((r, i) => { const k = order[r.row]; if (k == null || taken.has(k)) return; const sd = seatSide(map, k); if (sd != null && sd !== (r.ally ? 1 : 0)) return; out[i] = k; taken.add(k); });
-  rows.forEach((r, i) => { if (out[i] != null) return; const a = r.ally ? 1 : 0, pref = map === 'endless' ? order : map === 'hellgate' ? (a ? [2, 3, 4, 5, 6, 7, 0, 1] : [0, 1, 2, 3, 4, 5, 6, 7]) : order.filter((k, n) => n % 2 === a).concat(order.filter((k, n) => n % 2 !== a));
+  rows.forEach((r, i) => { if (out[i] != null) return; const a = r.ally ? 1 : 0, pref = map === 'endless' || map === 'custom' ? order : map === 'hellgate' ? (a ? [2, 3, 4, 5, 6, 7, 0, 1] : [0, 1, 2, 3, 4, 5, 6, 7]) : order.filter((k, n) => n % 2 === a).concat(order.filter((k, n) => n % 2 !== a));
     out[i] = pref.find(k => !taken.has(k)); taken.add(out[i]); });
   return out;
 }
@@ -33,10 +33,13 @@ function newGame(opts) {
   if ((opts.mode === 'endless' || opts.map === 'endless') && typeof endlessSlots === 'function') { opts.map = 'endless'; opts.mode = 'endless'; if (!(opts.slots || []).some(s => s.horde)) opts.slots = endlessSlots(opts.slots); } // v7.0 Endless: defenders (ally 0) + the Horde (ally 1)
   // slots: [{ ai, diff, ally, fac, start }]; default 1v1 from legacy opts
   const slots = opts.slots || [0, 1].map(t => ({ ai: opts.aiTeams.includes(t), diff: t === 0 && opts.p0diff ? opts.p0diff : opts.diff, ally: t, fac: (opts.facs || [])[t], start: t ? 3 : 0 }));
-  const HG = opts.map === 'hellgate', EN = opts.map === 'endless'; MW = MH = HG ? 128 : EN ? 96 : (opts.map === 'volcano8' || slots.length > 6) ? 112 : 96; if (slots.length > 6 && !HG) opts.map = 'volcano8';
+  if (opts.map === 'custom' && !(opts.cmap && opts.cmap.w && Array.isArray(opts.cmap.starts) && opts.cmap.starts.length)) opts.map = 'classic'; // v7.7 map builder: a custom map travels inside opts (replays/online carry it)
+  const HG = opts.map === 'hellgate', EN = opts.map === 'endless', CU = opts.map === 'custom'; MW = MH = CU ? cmapSize(opts.cmap) : HG ? 128 : EN ? 96 : (opts.map === 'volcano8' || slots.length > 6) ? 112 : 96; if (slots.length > 6 && !HG && !CU) opts.map = 'volcano8';
   const NP = slots.length;
   // every player gets its own start corner (guards against duplicate/missing starts from any lobby path)
   if (EN) { /* endlessSlots() already seated everyone */ }
+  else if (CU) { const ns = Math.min(8, opts.cmap.starts.length), taken = new Set(); slots.forEach(sl => { if (sl.start == null || sl.start < 0 || sl.start >= ns || taken.has(sl.start)) sl.start = null; else taken.add(sl.start); });
+    slots.forEach((sl, i) => { if (sl.start == null) { sl.start = [0, 1, 2, 3, 4, 5, 6, 7].find(k => k < ns && !taken.has(k)) ?? (i % ns); taken.add(sl.start); } }); }
   else if (HG && slots.length && slots.every(sl => sl.seat) && new Set(slots.map(sl => sl.start)).size === slots.length && slots.every(sl => sl.start >= 0 && sl.start < 8)) { /* v7.5.1: lobby seats (seatPlan) are kept as-is */ }
   else if (HG) { const pool = { 0: [0, 1, 2, 3, 4, 5, 6, 7], 1: [2, 3, 4, 5, 6, 7, 0, 1] }, taken = new Set(); slots.forEach(sl => { sl.start = (pool[sl.ally ? 1 : 0]).find(k => !taken.has(k)); taken.add(sl.start); }); } // v6.0: Team A takes the valley seats 1-2, Team B the six warlord bases
   else { const taken = new Set(); slots.forEach(sl => { if (sl.start == null || sl.start < 0 || sl.start > 7 || taken.has(sl.start)) sl.start = null; else taken.add(sl.start); });
@@ -51,7 +54,9 @@ function newGame(opts) {
   G.vis = G.visT[0]; G.seen = G.seenT[0];
   // colours by alliance order
   // colours: each slot's chosen colour (unique), defaults blue/green for team A, red/yellow for team B
-  { const used = new Set(slots.map(sl => sl.color).filter(Boolean)), def = { 0: ['blue', 'green', 'purple', 'teal', 'yellow', 'red', 'orange', 'white'], 1: ['red', 'yellow', 'orange', 'white', 'green', 'blue', 'purple', 'teal'] };
+  { const used = new Set(slots.map(sl => sl.color).filter(Boolean)), def = { 0: ['blue', 'green', 'purple', 'teal', 'yellow', 'red', 'orange', 'white'], 1: ['red', 'yellow', 'orange', 'white', 'green', 'blue', 'purple', 'teal'],
+      2: ['green', 'yellow', 'teal', 'purple', 'orange', 'white', 'blue', 'red'], 3: ['yellow', 'orange', 'white', 'green', 'teal', 'purple', 'blue', 'red'], 4: ['purple', 'teal', 'white', 'orange', 'green', 'yellow', 'blue', 'red'],
+      5: ['teal', 'white', 'orange', 'purple', 'green', 'yellow', 'blue', 'red'], 6: ['orange', 'white', 'teal', 'purple', 'yellow', 'green', 'blue', 'red'], 7: ['white', 'orange', 'teal', 'purple', 'yellow', 'green', 'blue', 'red'] }; // v7.7: teams 3-8 (only reachable from the per-slot team picker)
     slots.forEach((sl, t) => { let c = sl.color; if (!c || !TEAM_COLORS[c]) { c = (def[sl.ally] || def[0]).find(k => !used.has(k)) || 'blue'; used.add(c); } sl.color = c; const C = TEAM_COLORS[c]; TEAMPAINT[t] = C.paint; TEAMCOL[t] = C.acc; MMCOL[t] = C.css; }); }
   if (typeof MODEL_CACHE !== 'undefined') for (const k in MODEL_CACHE) delete MODEL_CACHE[k];
   for (let t = 0; t < NP; t++) { const sl = slots[t]; G.players.push({ team: t, color: sl.color, name: sl.name || (sl.ai ? sl.diff : 'Player ' + (t + 1)), ally: sl.ally, start: sl.start, cr: 5000, pow: 0, gen: 0, use: 0, ai: !!sl.ai, diff: sl.diff || opts.diff,
@@ -76,7 +81,7 @@ function newGame(opts) {
 // 96x96 four-fold mirrored map: mains in corners (cliff ring + 2 ramps), two naturals each,
 // contested mid bases with rich (gold) fields, central monument, river with 4 bridges, forests.
 function genMap(R) {
-  G.mapName = G.opts.map || 'classic'; G.v8 = G.mapName === 'volcano8'; if (G.v8) G.mapName = 'volcano'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R); if (G.mapName === 'hellgate') return genHellgate(R); if (G.mapName === 'endless') return genEndless(R);
+  G.mapName = G.opts.map || 'classic'; G.v8 = G.mapName === 'volcano8'; if (G.v8) G.mapName = 'volcano'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R); if (G.mapName === 'hellgate') return genHellgate(R); if (G.mapName === 'endless') return genEndless(R); if (G.mapName === 'custom') return genUserMap(R);
   const N = MW * MH, Q = MW / 2, gs = 8, gw = MW / gs + 2;
   const mk = () => { const a = []; for (let i = 0; i < gw * gw; i++) a.push(R()); return a; };
   const g1 = mk(), g2 = mk(), g3 = mk();
@@ -536,6 +541,47 @@ function spawnUnit(team, t, b) {
   if (b.rally) orderMove([u], b.rally.x, b.rally.y, true);
   else if (!UT[t].air) orderMove([u], x + (G.R() - 0.5) * 2, y + 1.5 + G.R(), true);
   return u;
+}
+// ===== v7.7 map builder: custom maps (opts.map === 'custom', opts.cmap = the map object; nothing here runs for built-in maps) =====
+// cmap: { v: 1, name, w, h (square, 64-224), theme, t: terrain RLE, h2: height RLE, o: ore RLE, starts: [[x,y]] (<= 8), vents: [[x,y]], derricks: [[x,y]], outposts: [[x,y,name]], monument: [x,y] | null }
+// terrain codes: 0 ground, 1 rock/cliff, 2 water, 3 lava (walkable, cosmetic), 4 lava pool (blocked), 5 ice (walkable), 6 forest (walkable, cosmetic)
+// ore codes: 0 none, 1 sparse, 2 normal, 3 rich (gold), 4 very rich (gold)
+const CMAP_SIZES = [64, 96, 128, 160, 192, 224], CMAP_THEMES = ['grass', 'desert', 'frost', 'volcano', 'space', 'mech'], CMAP_ORE = [0, 250, 400, 520, 800];
+function cmapSize(c) { const w = Math.round(+c.w || 96); return Math.max(32, Math.min(224, w)); } // 224 max: spatial hash keys pack y in 8 bits
+function cmapRle(arr) { const out = []; let i = 0; while (i < arr.length) { const v = arr[i]; let n = 1; while (i + n < arr.length && arr[i + n] === v) n++; out.push(n > 1 ? v.toString(36) + ':' + n.toString(36) : v.toString(36)); i += n; } return out.join(','); }
+function cmapLayer(str, N) { const a = new Uint8Array(N); if (!str) return a; let k = 0; for (const run of String(str).split(',')) { const [v, n] = run.split(':'); const val = parseInt(v, 36) || 0, cnt = n ? parseInt(n, 36) : 1; for (let j = 0; j < cnt && k < N; j++) a[k++] = val; } return a; }
+function genUserMap(R) {
+  const C = G.opts.cmap, N = MW * MH, T = cmapLayer(C.t, N), H = cmapLayer(C.h2, N), O = cmapLayer(C.o, N);
+  G.theme = CMAP_THEMES.includes(C.theme) ? C.theme : 'grass'; G.desert = G.theme === 'desert'; G.custom = true;
+  G.monument = null; G.weather = null; G.ruins = null; G.crown = null; G.lpit = new Uint8Array(N);
+  const cl = (v, a, b) => Math.max(a, Math.min(b, Math.floor(+v || 0)));
+  const each = (cx, cy, r, f) => { for (let y = Math.max(0, Math.floor(cy - r - 1)); y <= Math.min(MH - 1, Math.ceil(cy + r)); y++) for (let x = Math.max(0, Math.floor(cx - r - 1)); x <= Math.min(MW - 1, Math.ceil(cx + r)); x++) if (dhypot(x + 0.5 - cx, y + 0.5 - cy) <= r) f(idx(x, y)); };
+  for (let i = 0; i < N; i++) { const t = T[i]; G.map[i] = t === 1 || t === 4 ? 1 : t === 2 ? 2 : 0; G.lava[i] = t === 3 || t === 4 ? 1 : 0; G.lpit[i] = t === 4 ? 1 : 0; G.ice[i] = t === 5 ? 1 : 0; G.forest[i] = t === 6 ? 1 : 0; G.lvl[i] = Math.min(2, H[i]); }
+  for (let i = 0; i < N; i++) { const o = Math.min(4, O[i]); if (o && G.map[i] === 0) { G.ore[i] = CMAP_ORE[o] * ORE_MULT * (0.8 + 0.4 * R()); if (o >= 3) G.rich[i] = 1; } }
+  G.starts = (C.starts || []).slice(0, 8).map(([x, y]) => [cl(x, 3, MW - 4) + 0.5, cl(y, 3, MH - 4) + 0.5]);
+  for (const [sx, sy] of G.starts) { const L = G.lvl[idx(Math.floor(sx), Math.floor(sy))]; each(sx, sy, 5, i => { G.map[i] = 0; G.lava[i] = 0; G.lpit[i] = 0; G.forest[i] = 0; G.lvl[i] = L; }); each(sx, sy, 3.6, i => { G.ore[i] = 0; G.rich[i] = 0; }); }
+  G.vents = []; for (const [x0, y0] of C.vents || []) { const x = cl(x0, 1, MW - 2), y = cl(y0, 1, MH - 2); each(x + 0.5, y + 0.5, 1.6, i => { G.map[i] = 0; G.ore[i] = 0; G.rich[i] = 0; G.lpit[i] = 0; }); G.vents.push([x, y]); }
+  if (C.monument) { const mx = cl(C.monument[0], 3, MW - 3), my = cl(C.monument[1], 3, MH - 3); for (let y = my - 2; y < my + 2; y++) for (let x = mx - 2; x < mx + 2; x++) { const i = idx(x, y); G.map[i] = 1; G.ore[i] = 0; G.lava[i] = 0; G.lpit[i] = 0; } G.monument = [mx, my]; }
+  G.dkPos = []; for (const [x, y] of C.derricks || []) G.dkPos.push([cl(x, 1, MW - 2), cl(y, 1, MH - 2)]);
+  (C.outposts || []).forEach(([x, y, nm], k) => G.dkPos.push([cl(x, 1, MW - 2), cl(y, 1, MH - 2), String(nm || ('Outpost ' + (k + 1))).slice(0, 24)]));
+  // flood fill from every spawn: open tiles nobody can walk to become rock
+  const seen = new Uint8Array(N), st = []; for (const [sx, sy] of G.starts) { const s0 = idx(Math.floor(sx), Math.floor(sy)); if (!seen[s0]) { seen[s0] = 1; st.push(s0); } }
+  while (st.length) { const c = st.pop(), x = c % MW, y = (c / MW) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (!inb(nx, ny)) continue; const n = idx(nx, ny); if (!seen[n] && G.map[n] === 0) { seen[n] = 1; st.push(n); } } }
+  for (let i = 0; i < N; i++) { if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.ore[i] = 0; G.rich[i] = 0; G.forest[i] = 0; } if (G.map[i] !== 0) G.forest[i] = 0; G.tier[i] = Math.round(G.lvl[i]); }
+  // expansion sites: one per ore field away from the spawns (bots expand to these)
+  G.sites = G.starts.map(s => ({ x: s[0], y: s[1], k: 'main' }));
+  const fid = new Int32Array(N).fill(-1);
+  for (let s = 0; s < N; s++) { if (!(G.ore[s] > 0) || fid[s] >= 0) continue; const tiles = [], q = [s]; fid[s] = s;
+    while (q.length) { const i = q.pop(); tiles.push(i); const x = i % MW, y = (i / MW) | 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const nx = x + dx, ny = y + dy; if (!inb(nx, ny)) continue; const j = idx(nx, ny); if (G.ore[j] > 0 && fid[j] < 0) { fid[j] = s; q.push(j); } } }
+    if (tiles.length < 4) continue; let cx = 0, cy = 0; for (const i of tiles) { cx += i % MW + 0.5; cy += ((i / MW) | 0) + 0.5; } cx /= tiles.length; cy /= tiles.length;
+    let sd = 1e9; for (const [sx, sy] of G.starts) sd = Math.min(sd, dhypot(sx - cx, sy - cy)); if (sd < 13) continue;
+    let best = null, bs = 1e9; for (let y = Math.max(2, Math.floor(cy - 9)); y <= Math.min(MH - 3, Math.ceil(cy + 9)); y++) for (let x = Math.max(2, Math.floor(cx - 9)); x <= Math.min(MW - 3, Math.ceil(cx + 9)); x++) {
+      const d = dhypot(x + 0.5 - cx, y + 0.5 - cy); if (d < 3 || d > 9) continue; let ok = true;
+      for (let b = -2; b <= 2 && ok; b++) for (let a = -2; a <= 2; a++) { const j = idx(x + a, y + b); if (G.map[j] !== 0 || G.ore[j] > 0 || !seen[j]) { ok = false; break; } }
+      if (!ok) continue; const sc = Math.abs(d - 5.5) + dhypot(x + 0.5 - MW / 2, y + 0.5 - MH / 2) * 0.01; if (sc < bs) { bs = sc; best = [x + 0.5, y + 0.5]; } }
+    if (best && !G.sites.some(o => dhypot(o.x - best[0], o.y - best[1]) < 9)) G.sites.push({ x: best[0], y: best[1], k: sd < 32 ? 'nat' : 'mid' }); }
+  G.six = G.starts.length > 4; G.oreMax = Float32Array.from(G.ore);
 }
 function nearFree(x, y, maxR) {
   const g = getBlock();
