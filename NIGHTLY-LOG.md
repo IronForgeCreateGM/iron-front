@@ -390,3 +390,7 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
   needs an open harvester dock tile. Existing maps are unchanged: det73/det74/spawn-det are IDENTICAL to the base, and all 24 node tests pass.
   Browser tests passed: lobby, slot, place701, diff73, mobile-play, mapbuilder, custom224. reach-test fails the same way on the base commit
   (the matchmaking relay message changed), so the failure is environmental. Commits a08a358..c7aca05 plus docs.
+
+## v7.7.1 (Sun Nov 1, ~2:40 PM PT) LIVE
+- Nicholas's 8-player 224 mech map added as featured map "Iron Foundry" (js/featured-maps.js), selectable by everyone under "🗺 Featured maps" in the skirmish map list. Locked-browser test: found, 8 Hard FFA starts in spectate, no errors. Commit fce81af.
+- TODO tonight: spectator bar shows only teams 1 and 2; make it list all teams in FFA.
