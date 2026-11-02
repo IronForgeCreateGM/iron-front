@@ -1,3 +1,9 @@
+## RESUME NOTE 12:58 AM PT Mon Nov 2 (nightly run, lock = .night-run-lock)
+- v7.7.2 LIVE (1c148f2, pushed 12:39 AM PT, verified 0 errors). Log entry committed (e09340f).
+- r9 (refinery 2-tile gap away from ore) = no gain (1.73% vs 1.64% stuck), held back, branch r9 4995198.
+- Local master v7.7.3 candidate (1531de1): App Store app (Capacitor shell) pauses + mutes offline games when backgrounded; browsers unchanged.
+  New test/apppause-test.js. Gates running in /workspace/n1102/g773 (det vs base logs /workspace/n1102/det*-base771.log, node, browser).
+
 ## RESUME NOTE 12:25 AM PT Mon Nov 2 (nightly run, lock = .night-run-lock)
 - Live = v7.7.1 (fce81af). Local master has v7.7.2 candidate (8b0c6c5): spectator bar lists every team in FFA/multi-team games (UI only),
   reach-test polls for the post-relay error, lobbySelfTest covers custom maps (featured Iron Foundry), map builder cramped-base + spawns-too-close warnings,
