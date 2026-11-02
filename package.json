@@ -1,10 +1,11 @@
 {
   "name": "iron-front",
-  "version": "7.7.1",
+  "version": "7.7.2",
   "private": true,
   "description": "Iron Front RTS: browser game, PWA and Capacitor (iOS/iPadOS/macOS) shell",
   "scripts": {
     "build:www": "node scripts/build-www.js",
+    "check:www": "node scripts/build-www.js && node scripts/check-www.js",
     "cap:add:ios": "npx cap add ios",
     "cap:sync": "npm run build:www && npx cap sync ios",
     "cap:open": "npx cap open ios",
