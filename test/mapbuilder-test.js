@@ -18,6 +18,11 @@ const KEY = process.env.MB_KEY || (fs.existsSync('/workspace/.mapbuilder-key') ?
   await pg.click('#mapBuilderBtn'); await pg.waitForTimeout(400); ok(!!(await pg.$('#mbEd')), 'editor opens');
   await pg.click('#mbNew'); await pg.selectOption('#nS', '224'); await pg.selectOption('#nT', 'space'); await pg.selectOption('#nP', '8'); await pg.click('#nOk'); await pg.waitForTimeout(300);
   let st = await pg.evaluate(() => ({ w: MBE.m.w, n: MBE.m.starts.length, v: MBE.m.vents.length, th: MBE.m.theme })); ok(st.w === 224 && st.n === 8 && st.v === 8 && st.th === 'space', '224 space starter with 8 spawns + 8 vents ' + JSON.stringify(st));
+  { const cr = await pg.evaluate(() => { const keep = MBE.m, r = {}; r.starter = mbCheck().filter(c => /cramped|apart/.test(c[1])).map(c => c[1]);
+      const m = mbBlank(64, 'grass', 'cramp'); MBE.m = m; m.starts.push([20, 20], [44, 44]); r.open = mbCheck().filter(c => /cramped|apart/.test(c[1])).length;
+      mbDisc(m, 20.5, 20.5, 12, i => { const x = i % 64, y = (i / 64) | 0; if (Math.hypot(x - 20, y - 20) > 6) m.t[i] = 1; }); m.starts.push([50, 46]);
+      const c = mbCheck(); r.cramped = c.some(x => /Spawn 1 base is cramped/.test(x[1])); r.apart = c.some(x => /Spawns 2 and 3 are only/.test(x[1])); MBE.m = keep; return r; });
+    ok(cr.open === 0 && cr.cramped && cr.apart, 'v7.7.2 cramped-base + spawns-too-close warnings ' + JSON.stringify(cr)); }
   await pg.fill('#mbName', 'Eight Ring'); await pg.selectOption('#mbMirror', '4');
   const box = await (await pg.$('#mbCv')).boundingBox(), T = (tx, ty) => pg.evaluate(([tx, ty]) => { const V = MBE.view, r = MBE.cv.getBoundingClientRect(); return [r.left + (V.ox + (tx + 0.5) * V.s) / MBE.dpr, r.top + (V.oy + (ty + 0.5) * V.s) / MBE.dpr]; }, [tx, ty]);
   const drag = async (pts) => { let p = await T(...pts[0]); await pg.mouse.move(...p); await pg.mouse.down(); for (const q of pts.slice(1)) { p = await T(...q); await pg.mouse.move(...p, { steps: 8 }); } await pg.mouse.up(); };
@@ -60,6 +65,6 @@ const KEY = process.env.MB_KEY || (fs.existsSync('/workspace/.mapbuilder-key') ?
   ok(g.t >= 100 && !g.over && g.ents > 150, 'in-browser sim runs 2 game-minutes on the 224 map, bots building ' + JSON.stringify(g));
   if (SHOTS) { await pg.evaluate(() => { const P = G.players.find(p => p.ally === 1) || G.players[1]; const s = G.starts[P.start]; if (typeof camGoto === 'function') camGoto(s[0], s[1]); }).catch(() => {}); await pg.waitForTimeout(800); await pg.screenshot({ path: SHOTS + '/3-custom-map-in-play.png' }); }
   // relock
-  await pg.goto(URL0 + '?q=low&key=lock'); await pg.waitForTimeout(1200); ok(!(await vis()) && !(await pg.evaluate(() => [...document.querySelectorAll('#mapSel option')].some(o => o.value.startsWith('cm:')))), '?key=lock hides the builder and the custom maps again');
+  await pg.goto(URL0 + '?q=low&key=lock'); await pg.waitForTimeout(1200); ok(!(await vis()) && !(await pg.evaluate(() => [...document.querySelectorAll('#mapSel option')].some(o => o.value.startsWith('cm:') && !o.value.startsWith('cm:feat-')))), '?key=lock hides the builder and the custom maps again (v7.7.1 featured maps stay for everyone)');
   ok(!errs.length, 'no page errors ' + errs.slice(0, 3).join(' | ')); console.log(fail ? 'MAPBUILDER FAIL' : 'MAPBUILDER OK'); await br.close(); process.exit(fail ? 1 : 0);
 })();
