@@ -394,3 +394,13 @@ Tried and held back (not live): m7g (spending the bank at max pop: even, because
 ## v7.7.1 (Sun Nov 1, ~2:40 PM PT) LIVE
 - Nicholas's 8-player 224 mech map added as featured map "Iron Foundry" (js/featured-maps.js), selectable by everyone under "🗺 Featured maps" in the skirmish map list. Locked-browser test: found, 8 Hard FFA starts in spectate, no errors. Commit fce81af.
 - TODO tonight: spectator bar shows only teams 1 and 2; make it list all teams in FFA.
+
+## v7.7.2 (Mon Nov 2, pushed 12:39 AM PT) LIVE
+Nightly run started 12:03 AM PT. Pushed commit 1c148f2 to main; live page verified at 12:40 AM PT: version v7.7.2 (title + NET_VERSION), manifest 200, classic and volcano8 skirmishes load with 0 page errors and 0 failed requests. Featured map Iron Foundry unchanged and still listed.
+- (a) DONE: when spectating a free-for-all or multi-team game, the top bar now lists every team (A: side, B: side, ... up to H) instead of only teams 1 and 2. It wraps neatly on wide screens and phones. 2-team games look exactly as before.
+- (b) DONE (map builder stays private, key never committed): the private Map Builder now warns when a spawn is cramped (fewer than 200 buildable tiles within 12 tiles) or when two spawns are closer than 20 tiles. Advisory only; it doesn't block saving or playing. reach-test fixed (it now waits for the error that appears after the relay fallback). The lobby self-test now covers custom/featured maps (presets, FFA 8, 2v2v2v2, FFA 3, You in any row): 740 lobby combos OK.
+- (8) App Store step: new `npm run check:www` checks the app bundle: every referenced file exists, no remote scripts, all version strings agree, map-builder key not in the bundle, icon/privacy/manifest present (189 files, 18.3 MB, OK).
+- Bot changes: none. Hard plays exactly as in v7.7.1.
+- Tests: det73 / det74 / spawn-det IDENTICAL to live v7.7.1 (node and browser). Node suite 27/27 pass (ai71 and v4 are excluded as known). Browser: lobby, reach, mapbuilder (19 PASS), place701, diff73, mobile, ui7, endless703, stall, endgame pass. slot, fogkeys and mobile-play flaked under load (mobile-play also fails on live v7.7.1 under load) and all pass when run alone. replay-test passes (old replays still replay).
+- (c) stuck armies, held back: 'r9' (test-only level, branch r9 4995198) = refineries keep a 2-tile gap only on the side away from the ore. Over 12 seeds x 12 min it gave 1.73% stuck vs 1.64% live, so no gain and NOT shipped.
+- Screenshot: /workspace/iron-front-v7.7.2.png (8 Hard FFA spectate on volcano8). Zip: /workspace/iron-front-v7.7.2.zip.
