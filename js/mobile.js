@@ -267,9 +267,10 @@ function mobAuto() {
   if (A.repair && P.cr > 600) { const hurt = mine.filter(e => e.kind === 'b' && !e.con && !e.repair && e.hp < e.mhp * 0.6 && e.sell < 0 && e.t !== 'wall'); for (const b of hurt.slice(0, 2)) NET.issue({ c: 'repair', b: b.id, on: true }); }
 }
 // ---------- lifecycle: pause offline on hide, context loss, rejoin hint ----------
+function mobIsApp() { try { return !!(window.Capacitor && (typeof window.Capacitor.isNativePlatform === 'function' ? window.Capacitor.isNativePlatform() : window.Capacitor.isNative)); } catch (e) { return false; } } // v7.7.3: running inside the Capacitor (App Store) shell
 function mobLifecycle() {
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { MOB.hiddenAt = performance.now(); if (started && !NET.online && !G.over && !paused && MOB.on) togglePause(); return; }
+    if (document.hidden) { MOB.hiddenAt = performance.now(); const app = mobIsApp(); if (started && !NET.online && !G.over && !paused && (MOB.on || app)) togglePause(); if (app && !NET.online && typeof AU !== 'undefined' && AU.ctx && AU.ctx.state === 'running') try { AU.ctx.suspend(); } catch (e) {} return; } // v7.7.3: the App Store app (iPhone, iPad, Mac) always pauses offline games and mutes when sent to the background (call, home swipe, Cmd-Tab)
     const away = performance.now() - (MOB.hiddenAt || performance.now()); if (typeof AU !== 'undefined' && AU.ctx && AU.ctx.state !== 'running') try { AU.ctx.resume(); } catch (e) {}
     if (started && NET.online && away > 3000 && typeof ONL !== 'undefined' && !ONL.host) setTimeout(() => { const peers = ONL.room && ONL.room.getPeers ? Object.keys(ONL.room.getPeers()).length : 1; if (!peers || (G.players[ME] && G.players[ME].ai)) mobRejoinBanner(); }, 2500);
   });
