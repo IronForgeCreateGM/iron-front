@@ -1,3 +1,10 @@
+## RESUME NOTE 12:25 AM PT Mon Nov 2 (nightly run, lock = .night-run-lock)
+- Live = v7.7.1 (fce81af). Local master has v7.7.2 candidate (8b0c6c5): spectator bar lists every team in FFA/multi-team games (UI only),
+  reach-test polls for the post-relay error, lobbySelfTest covers custom maps (featured Iron Foundry), map builder cramped-base + spawns-too-close warnings,
+  App Store bundle check (scripts/check-www.js, npm run check:www). Featured map untouched.
+- Gates running: node suite /workspace/n1102/node, det73/det74/spawn-det base771 vs master /workspace/n1102/det*, browser tests /workspace/n1102/br.
+- Experiment (worktree /workspace/wt-r9, branch r9): m7j test-only SION.ref9 = 2-tile lane on refinery north side only. Stuck drills /workspace/n1102/stuck/{live,r9}.
+
 ## MAP BUILDER STATUS 10:15 AM PT Sun Nov 1 (local master, NOT pushed; live = v7.6.10)
 - Done (commits a08a358, 4746059, c899b27, 5c6bd16, c7aca05): the editor (js/editor.js), custom maps in the sim/render/lobby/replays/online start,
   teams A-H per lobby slot on all maps, and the custom-only refinery dock rule. Tests: test/mapbuilder-test.js and test/custom-map-test.js.
