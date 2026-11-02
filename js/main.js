@@ -249,7 +249,7 @@ const DIR = { auto: false, t: 0, hot: [], cur: null, hold: 0 };
 function director(dt) {
   for (const ev of G.events) if (ev.e === 'hit' || ev.e === 'die') DIR.hot.push({ x: ev.x != null ? ev.x : ev.ent.x, y: ev.y != null ? ev.y : ev.ent.y, t: G.time, w: ev.e === 'die' ? (ev.ent.kind === 'b' ? 8 : 3) : 1 });
   DIR.hot = DIR.hot.filter(h => G.time - h.t < 5);
-  const wt = document.getElementById('watchTag'); if (wt && G.time - (DIR.tagT || -9) > 0.5) { DIR.tagT = G.time; const av = t => Math.round(G.ents.filter(e => e.team === t && e.kind === 'u' && e.t !== 'harv').reduce((a, e) => a + UT[e.t].cost, 0) / 100) / 10; const side = al => G.players.filter(P => P.ally === al).map(P => `${P.name} ${FACTIONS[P.fac].flag} ${P.out ? '✖' : av(P.team) + 'k'}`).join(' + '); wt.textContent = `${side(0)}  ·  ${Math.floor(G.time / 60)}:${String(Math.floor(G.time % 60)).padStart(2, '0')}  ·  ${side(1)}  ·  [C] auto-cam ${DIR.auto ? 'ON' : 'OFF'}`; }
+  const wt = document.getElementById('watchTag'); if (wt && G.time - (DIR.tagT || -9) > 0.5) { DIR.tagT = G.time; const av = t => Math.round(G.ents.filter(e => e.team === t && e.kind === 'u' && e.t !== 'harv').reduce((a, e) => a + UT[e.t].cost, 0) / 100) / 10; const side = al => G.players.filter(P => P.ally === al).map(P => `${P.name} ${FACTIONS[P.fac].flag} ${P.out ? '✖' : av(P.team) + 'k'}`).join(' + '); const clk = `${Math.floor(G.time / 60)}:${String(Math.floor(G.time % 60)).padStart(2, '0')}`, als = [...new Set(G.players.map(P => P.ally))].sort((a, b) => a - b); wt.classList.toggle('multi', als.length > 2); wt.textContent = als.length > 2 ? `${clk}  ·  ${als.map(al => (TEAM_LET[al] || '?') + ': ' + side(al)).join('  ·  ')}  ·  [C] auto-cam ${DIR.auto ? 'ON' : 'OFF'}` : `${side(als[0] != null ? als[0] : 0)}  ·  ${clk}  ·  ${side(als[1] != null ? als[1] : 1)}  ·  [C] auto-cam ${DIR.auto ? 'ON' : 'OFF'}`; } // v7.7.2: FFA / multi-team games list every team (2-team games unchanged)
   DIR.t -= dt; DIR.hold -= dt;
   if (DIR.t <= 0) {
     DIR.t = 0.8; let best = null, bs = 0;
@@ -358,6 +358,16 @@ function lobbySelfTest() {
     for (let m = 0; m < 16; m++) { lobbySet([['human', m & 1 ? 'B' : 'A', 'fra', 'green'], ['si', m & 2 ? 'B' : 'A', 'rus'], ['normal', m & 4 ? 'B' : 'A', 'rand', 'blue'], ['hard', m & 8 ? 'B' : 'A']]); check('split' + m + '@' + map, map); }
     for (let h = 0; h < 8; h++) { const L = [0, 1, 2, 3, 4, 5, 6, 7].map(i => [i === h ? 'human' : i < 6 || map === 'volcano8' || map === 'hellgate' ? 'si' : 'off', map === 'hellgate' ? (i < 2 ? 'A' : 'B') : i % 2 ? 'B' : 'A']); lobbySet(L); check('you@row' + (h + 1) + '@' + map, map); }
   }
+  // v7.7.2 custom maps (featured 'Iron Foundry', 8 spawns): presets, FFA teams A-H, 2v2v2v2, You on every row
+  { const cmv = 'cm:feat-iron-foundry'; if ([...ms.options].some(o => o.value === cmv)) { setSel(ms, cmv);
+      if (!CM_SEL || CM_SEL.id !== 'feat-iron-foundry') errs.push('custom: featured map not selected');
+      else { const TL = 'ABCDEFGH';
+        for (const pk of Object.keys(PRESETS)) { lobbySet(PRESETS[pk].slots); check(pk + '@custom', 'custom'); }
+        lobbySet([0, 1, 2, 3, 4, 5, 6, 7].map(i => [i ? 'si' : 'human', TL[i]])); check('ffa8@custom', 'custom');
+        lobbySet([0, 1, 2, 3, 4, 5, 6, 7].map(i => [i ? 'si' : 'human', TL[i >> 1]])); check('2v2v2v2@custom', 'custom');
+        lobbySet([0, 1, 2].map(i => [i ? 'si' : 'human', TL[i]])); check('ffa3@custom', 'custom');
+        for (let h = 0; h < 8; h++) { lobbySet([0, 1, 2, 3, 4, 5, 6, 7].map(i => [i === h ? 'human' : 'si', TL[i % 4]])); check('you@row' + (h + 1) + '@custom', 'custom'); } }
+      setSel(ms, 'classic'); } else errs.push('custom: featured map missing from the map list'); }
   // Endless: up to 4 defenders on rows 1-4 (any subset), solo -> centre base
   setMode('endless');
   for (let m = 1; m < 16; m++) { lobbySet([0, 1, 2, 3].map(i => [m & (1 << i) ? (i === 0 ? 'human' : 'remote') : 'off', 'A'])); check('endless' + m, 'endless'); }

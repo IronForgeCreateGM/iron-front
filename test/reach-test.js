@@ -19,7 +19,9 @@ const URL0 = process.argv[2] || 'http://localhost:8765/index.html';
   await h.evaluate(() => document.getElementById('startBtn').click()); await h.waitForTimeout(4000);
   const g = await h.evaluate(() => ({ me: ME, n: G.players.length, ai: G.players.filter(p => p.ai).length, start: G.players[ME].start }));
   ok(g.me === 7 && g.start === 7 && g.n === 8 && g.ai === 7, 'solo-hosted start: empty remotes became AI ' + JSON.stringify(g));
-  await j.waitForTimeout(Math.max(0, 22000 - 8000));
-  const t = await j.textContent('#onStatus'); ok(/Can't (reach|find) the host/.test(t) && /same version/.test(t), 'joiner sees: ' + t.slice(0, 120));
+  // v7.7.2: since the relay fallback (v7.6.3) the joiner first shows "no direct route ... trying the relay server" for up to 30 s,
+  // then the final "Can't find the host" error; poll for it (up to ~50 s) instead of reading at a fixed 22 s.
+  let t = ''; for (let k = 0; k < 50; k++) { t = await j.textContent('#onStatus'); if (/Can't (reach|find)|could not connect/.test(t)) break; await j.waitForTimeout(1000); }
+  ok(/Can't (reach|find) the host/.test(t) && /same version/.test(t), 'joiner sees: ' + t.slice(0, 120));
   console.log(fail ? 'REACH FAIL' : 'REACH OK'); await br.close(); process.exit(fail ? 1 : 0);
 })();
