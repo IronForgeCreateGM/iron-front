@@ -68,6 +68,6 @@ In Xcode (target **App**):
 - **1024 icon:** `icons/icon-1024.png` (RGB, no transparency, as Apple requires). Drop it into `Assets.xcassets/AppIcon` in Xcode.
 - **Privacy policy URL:** `privacy.html` ships with the game. Once pushed it lives at https://ironforgecreategm.github.io/iron-front/privacy.html. Use it for both the Privacy Policy URL and the Support URL fields (it links to GitHub issues). App Privacy answer: "Data Not Collected".
 - **Credits:** Settings now shows the no-data note and the three.js / Trystero (MIT) credits.
-- **Screenshots:** `node test/appstore-shots.js /workspace/appstore-shots` renders the title, a battle and a base at 2868x1320 (6.9" iPhone landscape) and 2752x2064 (13" iPad landscape). Upload them in App Store Connect, or retake them on the simulators if Apple asks for that.
+- **Screenshots:** `node test/appstore-shots.js /workspace/appstore-shots` renders the title, a battle and a base at 2868x1320 (6.9" iPhone landscape), 2752x2064 (13" iPad landscape) and, since v7.7.4, 2880x1800 (Mac App Store, desktop mouse/keyboard layout). Upload them in App Store Connect, or retake them on the simulators if Apple asks for that.
 - **www/:** `npm run build:www` now also copies `privacy.html`.
 - Still Nicholas-only: the Apple Developer account ($99/yr), choosing the bundle id (change `appId` in `capacitor.config.json`), Xcode signing, archive/upload, TestFlight, and the review submission.

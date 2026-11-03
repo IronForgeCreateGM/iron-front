@@ -15,6 +15,53 @@ function csMerge(list) { const pos = [], nor = [], M = new THREE.Matrix4(), Q = 
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); return g; }
 const csWall = t => t === 'wall' || t === 'gate' || t === 'gtower';
 function csLite() { return !R3.q || R3.q.quiet || R3.qName === 'mobile' || R3.qName === 'low'; }
+// ===== v7.7.4 SC2-style builder bots (RENDER ONLY, like the rest of this file) =====
+// 1-3 small team-coloured builder mechs drive in, circle the site, stop and weld the rising wall edge with a torch arm,
+// idle (torch off) while the site waits for power or money, and drive off when it is done. No sim state is read beyond e.con.
+const CSB_R = (a, b) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
+function csBots(e, s, cs) {
+  const n = csLite() ? 1 : cs.sz >= 2.6 ? 3 : cs.sz >= 1.7 ? 2 : 1, tc = TEAMCOL[e.team] != null ? TEAMCOL[e.team] : 0xffd060, out = [];
+  const steel = [[0.30, 0.07, 0.20, 0, 0.055, -0.13], [0.30, 0.07, 0.20, 0, 0.055, 0.13], [0.05, 0.20, 0.05, 0.02, 0.24, 0.0], [0.03, 0.03, 0.22, 0.09, 0.30, 0.10]];
+  const paint = [[0.28, 0.13, 0.22, -0.02, 0.17, 0], [0.12, 0.08, 0.16, -0.08, 0.27, 0]];
+  const gS = csMerge(steel), gP = csMerge(paint); cs.own.push(gS, gP);
+  for (let i = 0; i < n; i++) {
+    const g = new THREE.Group(), body = new THREE.Mesh(gS, csMat(0x50565e)), shell = new THREE.Mesh(gP, csMat(tc, 0.25)); body.castShadow = shell.castShadow = true; g.add(body, shell);
+    const glass = new THREE.Mesh(CS_BOX, csMat(0x9fd8ff, 0.6)); glass.scale.set(0.03, 0.06, 0.12); glass.position.set(0.055, 0.27, 0); g.add(glass);
+    const arm = new THREE.Group(); arm.position.set(0.1, 0.22, -0.06); const am = new THREE.Mesh(CS_BOX, csMat(0xf2c230)); am.scale.set(0.2, 0.035, 0.035); am.position.x = 0.1; arm.add(am);
+    const tip = new THREE.Mesh(CS_BOX, csMat(0xbfe6ff, 0.9)); tip.scale.setScalar(0.045); tip.position.x = 0.21; arm.add(tip); g.add(arm);
+    g.scale.setScalar(cs.sz >= 1.7 ? 1.15 : 0.9); g.visible = false; s.add(g);
+    out.push({ g, arm, tip, ph: CSB_R(e.id, i) * 9, s0: (i / n + CSB_R(i, e.id) * 0.2) % 1, x: 0, z: 0, yaw: 0, inT: -1 });
+  }
+  return out;
+}
+// point on the walk loop round the site (s in [0,1)), plus the outward normal
+function csLoop(cs, s) { const a = cs.W / 2 + 0.32, b = cs.D / 2 + 0.32, L = 4 * (a + b); let d = ((s % 1) + 1) % 1 * L;
+  if (d < 2 * a) return [-a + d, -b, 0, -1]; d -= 2 * a; if (d < 2 * b) return [a, -b + d, 1, 0]; d -= 2 * b; if (d < 2 * a) return [a - d, b, 0, 1]; d -= 2 * a; return [-a, b - d, -1, 0]; }
+function csBotsAnim(e, o, cs, p, wait, T, dt, done) {
+  const m = FX.mul * (csLite() ? 0.5 : 1), wx = e.x, wz = e.y, gy = o.g.position.y;
+  for (const b of cs.bots) {
+    if (done) { // drive straight out and shrink away
+      const u = Math.min(1, (T - cs.doneT) / 0.85), q = csLoop(cs, b.sNow || b.s0); b.g.position.set(q[0] + q[2] * 1.4 * u, 0, q[1] + q[3] * 1.4 * u); b.g.rotation.y = -Math.atan2(q[3], q[2]); b.g.scale.setScalar(Math.max(0.05, b.g.scale.x * (1 - dt * 2.5))); b.tip.visible = false; continue; }
+    if (p < 0.02) { b.g.visible = false; continue; }
+    if (b.inT < 0) b.inT = T; const vin = Math.min(1, (T - b.inT) / 0.6);
+    b.g.visible = true;
+    // cycle: drive ~1.1 s to the next spot, weld ~1.7 s
+    const cyc = 2.8, t = (T + b.ph) / cyc, k = Math.floor(t), f = t - k;
+    const sA = (b.s0 + CSB_R(k, e.id + b.ph) * 0.45) % 1, sB = (b.s0 + CSB_R(k + 1, e.id + b.ph) * 0.45) % 1;
+    const mv = wait ? 1 : csS(0, 0.4, f), sNow = b.sNow = sA + (sB - sA) * mv, q = csLoop(cs, sNow);
+    const out = (1 - vin) * 1.5; b.g.position.set(q[0] + q[2] * out, 0, q[1] + q[3] * out);
+    const moving = !wait && f < 0.4 && Math.abs(sB - sA) > 0.002;
+    // face the building when welding, along the loop when driving
+    let yaw; if (moving) { const q2 = csLoop(cs, sNow + Math.sign(sB - sA) * 0.01); yaw = -Math.atan2(q2[1] - q[1], q2[0] - q[0]); } else yaw = -Math.atan2(-q[3], -q[2]);
+    let dy = yaw - b.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); b.yaw += dy * Math.min(1, dt * 10); b.g.rotation.y = b.yaw;
+    b.g.position.y = moving ? Math.abs(Math.sin(T * 18 + b.ph)) * 0.012 : 0;
+    const weld = !wait && !moving && p < 0.93, cutY = cs.bh != null ? cs.bh * Math.min(1, csS(0.22, 0.88, p)) : 0.3;
+    b.arm.rotation.z = weld ? Math.min(1.2, Math.max(-0.2, Math.atan2(cutY - 0.25, 0.4))) + Math.sin(T * 11 + b.ph) * 0.08 : -0.35; b.tip.visible = weld;
+    if (weld && Math.random() < dt * 7 * m) { // torch sparks on the wall edge in front of the bot
+      const x = Math.max(cs.x0, Math.min(cs.x1, q[0])), z = Math.max(cs.z0, Math.min(cs.z1, q[1])); csSpark(wx + x, wz + z, gy + Math.max(0.08, cutY), 2, 0.9);
+      if (!csLite() && Math.random() < 0.25 && CS.budget-- > 0) flash(wx + x, wz + z, gy + Math.max(0.1, cutY), 0.16, 0.7, 0.85, 1); }
+  }
+}
 function makeSite(e, o) {
   if (!R3.renderer.localClippingEnabled) R3.renderer.localClippingEnabled = true;
   const s = new THREE.Group(), wall = csWall(e.t), W = e.w * 0.98, D = e.h * 0.98, sz = Math.sqrt(e.w * e.h), cs = { s, wall, sz, W, D, own: [], snap: [], course: -1, p: 0, doneT: -1 };
@@ -70,6 +117,7 @@ function makeSite(e, o) {
     const base = pbrMaterial(), cm = base.clone(); cm.onBeforeCompile = base.onBeforeCompile; cm.customProgramCacheKey = base.customProgramCacheKey; cs.plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0); cm.clippingPlanes = [cs.plane]; cm.clipShadows = true;
     cs.cm = cm; cs.base = base; o.body.traverse(m => { if (m.isMesh && m.material === base) m.material = cm; });
     cs.courses = Math.max(3, Math.min(9, Math.round(bh / 0.22)));
+    cs.bots = csBots(e, s, cs); // v7.7.4 SC2-style builder bots
   }
   o.g.add(s); return cs;
 }
@@ -87,7 +135,7 @@ function conAnim(e, o, dt) {
     const t = (T - cs.doneT) / 0.85; if (t >= 1) { csDispose(o); return; }
     const f = t * t; cs.scaf.position.y = -cs.ht * 1.1 * f; cs.scaf.scale.set(1 + 0.08 * t, 1 - 0.5 * f, 1 + 0.08 * t);
     if (cs.crane) { cs.crane.rotation.z = -1.1 * f; cs.crane.position.y = -0.6 * f; cs.crane.scale.setScalar(Math.max(0.05, 1 - 0.7 * f)); cs.crane.visible = t < 0.85; }
-    cs.slab.position.y = 0.05 - 0.12 * t; return;
+    cs.slab.position.y = 0.05 - 0.12 * t; if (cs.bots) csBotsAnim(e, o, cs, 1, false, T, dt, true); return;
   }
   const p = cs.p = cs.p + (e.con.p - cs.p) * Math.min(1, dt * 8), wait = !!e.con.w;
   if (cs.wall) { // cheap walls: tape -> slab -> low scaffold, the wall block rises
@@ -120,6 +168,7 @@ function conAnim(e, o, dt) {
       if (u >= 1 && !pn.userData.lk) { pn.userData.lk = 1; csSpark(wx + pn.position.x, wz + pn.position.z, gy + pn.position.y, Math.round(6 * m), 1.2); if (e.team === ME && inView(wx, wz)) sfx('clank', wx, wz); } } }
   // lamp blink; welding sparks + blue-white arc flashes along the rising edge; dust off the slab while pouring
   cs.lampM.color.setHex(wait ? 0x6a5020 : Math.sin(T * 9 + e.id) > 0 ? 0xffe070 : 0xff8a20);
+  if (cs.bots) csBotsAnim(e, o, cs, p, wait, T, dt, false);
   if (wait) return;
   if (p > 0.22 && p < 0.9 && Math.random() < dt * 9 * cs.sz * m) { const side = Math.random() * 4 | 0, u = Math.random(), x = side < 2 ? cs.x0 + (cs.x1 - cs.x0) * u : side === 2 ? cs.x0 : cs.x1, z = side >= 2 ? cs.z0 + (cs.z1 - cs.z0) * u : side === 0 ? cs.z0 : cs.z1;
     csSpark(wx + x, wz + z, gy + cutY + 0.02, 3, 1.1); if (!lite && Math.random() < 0.3 && CS.budget-- > 0) flash(wx + x, wz + z, gy + cutY + 0.04, 0.22, 0.75, 0.85, 1); }
