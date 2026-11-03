@@ -109,7 +109,8 @@ function frameBody(t, once) {
 // a sim error that repeats every tick triggers a sanitize pass that drops broken entities/projectiles so the game can carry on.
 const ERR = { n: 0, sim: 0, last: '', shown: false };
 function safeErr(where, e) {
-  ERR.n++; const msg = where + ': ' + (e && e.message || e); if (ERR.n <= 5 || msg !== ERR.last) console.error('[v7.0.3 recovered]', msg, e && e.stack); ERR.last = msg;
+  ERR.n++; try { window.IF_DIAG && IF_DIAG.recovered(where, e); } catch (x) {} // v7.7.4: anonymous crash report (js/sentry.js; no-op when off)
+  const msg = where + ': ' + (e && e.message || e); if (ERR.n <= 5 || msg !== ERR.last) console.error('[v7.0.3 recovered]', msg, e && e.stack); ERR.last = msg;
   if (where === 'sim' && ++ERR.sim % 10 === 0) simSanitize();
   if (!ERR.shown && ERR.n >= 3 && typeof uiMsg === 'function') { ERR.shown = true; try { uiMsg('Recovered from a game error — play continues'); } catch (e2) {} }
 }
