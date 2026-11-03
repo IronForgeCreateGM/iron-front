@@ -407,7 +407,7 @@ Nightly run started 12:03 AM PT. Pushed commit 1c148f2 to main; live page verifi
 
 ## v7.7.3 (Tue Nov 3, pushed 12:19 AM PT) LIVE
 Nightly run started 12:03 AM PT. Pushed commit 8793b7b (v7.7.3 = 1531de1 + resume note) to main; live page verified at 12:22 AM PT: v7.7.3 (title + NET_VERSION + version.json), manifest 200, classic and hellgate skirmishes load with 0 page errors and 0 failed requests.
-- (8) App Store step DONE: in the App Store app (Capacitor shell) an offline game now pauses and the sound mutes when the app goes to the background (home button, app switcher, incoming call), and it stays paused when you come back so you don't lose a fight while away. Browsers are unchanged (no auto-pause). Online games are not paused (the other player keeps going).
+- (8) App Store step DONE: in the App Store app (Capacitor shell) an offline game now pauses and the sound mutes when the app goes to the background (home button, app switcher, incoming call), and it stays paused when you come back so you do not lose a fight while away; sound comes back on return. Browsers are unchanged (phone browsers already auto-paused; desktop browsers do not). Online games are not paused (the other player keeps going).
 - Bot changes: none. Hard plays exactly as in v7.7.2.
 - Tests: det73 / det74 / spawn-det IDENTICAL to live (node + browser, models on). Node suite 28/28 pass (endgame timed out once under load and passed alone: ENDGAME OK 852 s). Browser: apppause, slot, diff73, mobile-play, mobile, ui7, fogkeys, mapbuilder, reach, replay, lobby (740 combos) pass; place701 and endless703 crashed once under load (browser closed) and pass alone. npm run check:www OK (189 files). Old replays still replay.
 - Logs: /workspace/n1102/g773, re-runs /workspace/n1103/re.
