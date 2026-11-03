@@ -363,3 +363,5 @@ Try the human way: select the whole army, one plain attack-move (F) to the enemy
 - Save maps and play them in skirmish; bots must handle custom maps (pathing, expansions).
 - Same rules as always: no bot bonuses, Hard must not get weaker, keep phone/touch working.
 - Nicholas's choices (9:16 AM PT Nov 1): lobby lets him set ANY team number per slot (covers FFA, 2v2v2v2, 4v4, uneven); biggest map ~3x today's; editor built primarily for Mac (mouse/keyboard), phone just needs to play the maps; START TONIGHT, FIRST, before stuck-army work. Ship a playable v1 (editor + save/load + 8 spawns + per-slot teams + size picker + themes + resources) if gates pass, otherwise leave it on master with a play zip and notes.
+
+- [Nov 3] v7.7.4 local (6b60699, builder bots at construction sites, render only) is committed but UNTESTED and NOT pushed; the Nov 3 run was interrupted. Test then push tonight before other items.
