@@ -46,7 +46,7 @@ function onlJoinRoom(code) {
   const subs = []; for (const s of want) { try { const T = window.Trystero[s]; subs.push({ s, T, room: T.joinRoom(onlStrategyConf(s, cfg, q), 'room-' + code) }); } catch (e) { console.warn('strategy ' + s + ' failed to start', e); } }
   if (!subs.length) { onlStatus('Online play unavailable (no matchmaking strategy could start).'); return; }
   const host = ONL.host, via = {}; let chosen = null; ONL.strategies = subs.map(x => x.s); ONL.selfId = subs[0].T.selfId; ONL.code = code;
-  const commit = sub => { if (chosen) return; chosen = sub; ONL.selfId = sub.T.selfId; ONL.strategy = sub.s; setTimeout(() => { for (const o of subs) if (o !== sub) { try { o.room.leave(); } catch (e) {} } }, 1500); };
+  const commit = sub => { if (chosen) return; chosen = sub; ONL.selfId = sub.T.selfId; ONL.strategy = sub.s; try { window.IF_AN && IF_AN.mpConnect(true, sub.s); } catch (e) {} setTimeout(() => { for (const o of subs) if (o !== sub) { try { o.room.leave(); } catch (e) {} } }, 1500); };
   const live = sub => host || !chosen || chosen === sub;
   const room = { getPeers: () => { const o = {}; for (const x of subs) if (live(x)) Object.assign(o, x.room.getPeers()); return o; }, leave: () => subs.forEach(x => { try { x.room.leave(); } catch (e) {} }), subs };
   ONL.room = room;
@@ -153,6 +153,7 @@ function onlJoin(code) {
     if (sec < 30) { onlStatus(relayOn ? `Room <b>${code}</b>: ${sig ? 'found the host, but a direct connection is blocked by one of your networks' : 'no direct route to the host yet'} — trying the relay server (${relayUp ? relayUp + ' relay server' + (relayUp > 1 ? 's' : '') + ' connected' : 'connecting'})… (${sec | 0}s)`
         : sig ? `Room <b>${code}</b>: host found via matchmaking — opening a direct connection… (${sec | 0}s)` : `Joining room <b>${code}</b>… looking for the host (${sec | 0}s)`); return; }
     clearInterval(ONL.reachI);
+    try { window.IF_AN && IF_AN.mpConnect(false, relayOn ? 'relay' : 'direct', rs && !relayUp ? 'no_servers' : sig ? 'connect_blocked' : 'host_not_found'); } catch (e) {} // v7.7.4: anonymous analytics
     if (rs && !relayUp) onlError(`Can't reach any matchmaking or relay server for room <b>${code}</b>. Your network or an ad-blocker/firewall is blocking WebSocket servers. Turn off VPN / ad-blocker for this site or try mobile data, then press Retry.`);
     else if (sig) onlError(`Found the host of room <b>${code}</b> but could not connect (direct connection blocked and the relay got no answer). Make sure the host is still on the lobby screen with this room open and that you both have the same version (both reload), then press Retry.`);
     else onlError(`Can't find the host of room <b>${code}</b>. Check: 1) the code is right and the host still has the lobby open (if they closed it, they need to host again and send the new code); 2) you both have the same version — both reload the page / reopen the home-screen app. Then press Retry.`); }, 1000);

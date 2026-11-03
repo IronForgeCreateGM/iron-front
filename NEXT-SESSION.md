@@ -1,3 +1,24 @@
+## TONIGHT (Tue Nov 3 nightly run) — added 9:25 AM PT Tue Nov 3. Local master, NOT pushed.
+- Verify Sentry + PostHog together with the v7.7.4 (builder bots) test, then push them TOGETHER with v7.7.4 (no force-push).
+  - Sentry (js/sentry.js): org iron-forge-up, project iron-front. Errors only (no tracing/replay/feedback), release iron-front@<ver>,
+    env production on ironforgecreategm.github.io, dev elsewhere. Off on file:// (offline zip), in the App Store app, under webdriver; dev opt-in ?sentry=1, kill ?sentry=0.
+  - PostHog (js/analytics.js): project "Iron Front" (id 707699, the org's one allowed project, renamed from "Default project"), host us.i.posthog.com.
+    Events only: menu_view, game_start, game_end, mp_connect (+version, env). No autocapture/pageviews/recording/exceptions/surveys/site apps/
+    web experiments/toolbar/remote code (disable_external_dependency_loading), no identify, IP anonymized. Same gating; dev opt-in ?analytics=1, kill ?analytics=0; honours DNT/GPC.
+  - Both SDKs are pinned (Sentry 11.10.0, posthog-js 1.445.1) with SRI, injected from local JS (check:www still bans remote <script> tags).
+    URL query strings, ?key= and 64-hex strings are scrubbed from every payload, so the map builder unlock link never leaves the page.
+  - After pushing: load the live site once, check Sentry gets no noise and PostHog shows a production menu_view (filter env = production; dev events have env = dev).
+  - If a test needs real events in headless Chrome: PostHog drops navigator.webdriver/HeadlessChrome UAs as bots (prod behaviour, intended).
+
+## HIGH PRIORITY (tonight): Multiplayer security audit
+Do not change gameplay or AI. Report the findings in the morning note.
+- (a) Validate and whitelist every incoming peer/relay message (js/online.js onlDispatch, js/net.js): check types, ranges and unit ownership,
+  drop unknown commands, never eval or innerHTML peer data. Player names go in with textContent and a length cap.
+- (b) Rate-limit and size-cap incoming messages, per peer.
+- (c) A malformed message must not crash the game: try/catch around each handler and drop the message.
+- (d) Add an optional "Hide my IP (always use relay)" setting that forces relay-only (or ICE relay-only when TURN is used). Keep the current default.
+- (e) Report the findings (what was unsafe, what was fixed, what still needs work).
+
 ## RESUME NOTE 12:58 AM PT Mon Nov 2 (nightly run, lock = .night-run-lock)
 - v7.7.2 LIVE (1c148f2, pushed 12:39 AM PT, verified 0 errors). Log entry committed (e09340f).
 - r9 (refinery 2-tile gap away from ore) = no gain (1.73% vs 1.64% stuck), held back, branch r9 4995198.

@@ -72,6 +72,7 @@ function startGame(diff, opts) {
     setSel(u0.filter(u => best && Math.hypot(u.x - best.x, u.y - best.y) < 8));
   }
   started = true; lastT = performance.now(); requestAnimationFrame(frame);
+  if (!opts.demo) try { window.IF_AN && IF_AN.gameStart(); } catch (e) {} // v7.7.4: anonymous analytics (js/analytics.js; no-op when off)
 }
 const REC = QS.get('rec');
 window.__rec = n => { for (let i = 0; i < n && !G.over; i++) stepGame(); director(n * DT); uiFrame(n * DT); r3Render(n * DT); if (G.over && !UI.endShown) frame(performance.now(), true); return { t: G.time, tick: G.tick, over: G.over || null }; };
@@ -98,6 +99,7 @@ function frameBody(t, once) {
   if (G.watch && !paused) try { director(dt); } catch (e) { safeErr('director', e); }
   try { uiFrame(dt); r3Render(dt); } catch (e) { safeErr('render', e); if (QS.get('stk')) document.title = 'STK ' + e.stack; } // v7.0.3: never rethrow — a throw here used to skip requestAnimationFrame and freeze the game for good
   if (G.over && !UI.endShown) { UI.endShown = true; const P = G.players[ME];
+    try { window.IF_AN && IF_AN.gameEnd(); } catch (e) {} // v7.7.4: anonymous analytics
     document.getElementById('end').style.display = 'flex';
     document.getElementById('endTitle').textContent = G.end && !G.watch ? `GAME OVER — WAVE ${G.end.wave}` : G.watch ? (G.over === 'victory' ? 'BLUE TEAM WINS' : 'RED TEAM WINS') + ` · ${(G.time / 60).toFixed(1)} min` : G.over === 'victory' ? 'VICTORY' : 'DEFEAT';
     document.getElementById('endTitle').className = G.over + (G.end && !G.watch ? ' endl' : '');
