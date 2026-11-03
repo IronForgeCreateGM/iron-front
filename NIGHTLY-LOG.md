@@ -404,3 +404,10 @@ Nightly run started 12:03 AM PT. Pushed commit 1c148f2 to main; live page verifi
 - Tests: det73 / det74 / spawn-det IDENTICAL to live v7.7.1 (node and browser). Node suite 27/27 pass (ai71 and v4 are excluded as known). Browser: lobby, reach, mapbuilder (19 PASS), place701, diff73, mobile, ui7, endless703, stall, endgame pass. slot, fogkeys and mobile-play flaked under load (mobile-play also fails on live v7.7.1 under load) and all pass when run alone. replay-test passes (old replays still replay).
 - (c) stuck armies, held back: 'r9' (test-only level, branch r9 4995198) = refineries keep a 2-tile gap only on the side away from the ore. Over 12 seeds x 12 min it gave 1.73% stuck vs 1.64% live, so no gain and NOT shipped.
 - Screenshot: /workspace/iron-front-v7.7.2.png (8 Hard FFA spectate on volcano8). Zip: /workspace/iron-front-v7.7.2.zip.
+
+## v7.7.3 (Tue Nov 3, pushed 12:19 AM PT) LIVE
+Nightly run started 12:03 AM PT. Pushed commit 8793b7b (v7.7.3 = 1531de1 + resume note) to main; live page verified at 12:22 AM PT: v7.7.3 (title + NET_VERSION + version.json), manifest 200, classic and hellgate skirmishes load with 0 page errors and 0 failed requests.
+- (8) App Store step DONE: in the App Store app (Capacitor shell) an offline game now pauses and the sound mutes when the app goes to the background (home button, app switcher, incoming call), and it stays paused when you come back so you don't lose a fight while away. Browsers are unchanged (no auto-pause). Online games are not paused (the other player keeps going).
+- Bot changes: none. Hard plays exactly as in v7.7.2.
+- Tests: det73 / det74 / spawn-det IDENTICAL to live (node + browser, models on). Node suite 28/28 pass (endgame timed out once under load and passed alone: ENDGAME OK 852 s). Browser: apppause, slot, diff73, mobile-play, mobile, ui7, fogkeys, mapbuilder, reach, replay, lobby (740 combos) pass; place701 and endless703 crashed once under load (browser closed) and pass alone. npm run check:www OK (189 files). Old replays still replay.
+- Logs: /workspace/n1102/g773, re-runs /workspace/n1103/re.
