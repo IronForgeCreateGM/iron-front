@@ -148,7 +148,7 @@ window.addEventListener('DOMContentLoaded', () => {
     sel('usa'); }
   lobbyInit(); if (QS.get('lobbytest')) setTimeout(lobbySelfTest, 0);
   document.getElementById('startBtn').onclick = () => { audioInit(); if (ONL.room && ONL.host) { onlStartHost(); return; } const rows = lobbyRead(); if (rows.some(r => r[0] === 'remote')) { uiMsgMenu('Remote slots need an online game: press “Host online game”.'); return; } { const lo = lobbyOpts(), na = rows.filter(r => r[0] !== 'off').length; if (lo.cmap && na > lo.cmap.starts.length) { uiMsgMenu(`“${lo.cmap.name}” has ${lo.cmap.starts.length} spawn points — close ${na - lo.cmap.starts.length} slot(s) or add spawns in the Map Builder.`); return; } } startGame('normal', Object.assign({ slots: buildSlots(rows, null, lobbyOpts().map), fog: document.getElementById('fogChk').checked }, lobbyOpts())); };
-  onlInitUI();
+  onlInitUI(); if (typeof qmInitUI === 'function') qmInitUI(); // v7.7.7 Quick Match (iPhone app only)
   document.getElementById('surrBtn').onclick = () => { if (!started || G.over) return; if (confirm('Surrender this match?')) { NET.issue({ c: 'surrender' }); document.getElementById('pause').style.display = 'none'; paused = false; } };
   document.getElementById('resumeBtn').onclick = () => togglePause();
   document.querySelectorAll('.quitBtn').forEach(b => b.onclick = () => { keepLastReplay(); location.href = location.pathname; });

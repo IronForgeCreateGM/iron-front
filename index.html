@@ -52,7 +52,7 @@
     </div><div class="setupR">
   <div id="onWrap" style="display:none">
   <div id="onBox"><input id="pname" placeholder="Your name" maxlength="16"> <button id="hostBtn">🌐 Host online game</button> <input id="joinCode" placeholder="CODE" maxlength="200" size="6"> <button id="joinBtn">Join</button> <label id="hideIpL" title="Relay-only: no direct peer-to-peer connection, so other players never see your IP address. Games may be a little slower."><input type="checkbox" id="hideIp"> 🛡 Hide my IP (always use relay)</label></div>
-  
+  <div id="qmBox" style="display:none"><button id="qmBtn">⚡ Quick Match (Game Center)</button> <button id="qmCancel" style="display:none">Cancel</button> <span class="dim">2-8 players · empty seats = Hard bots</span><div id="qmStatus"></div></div>
   <div id="onStatus"></div>
   <div id="onPanel" style="display:none"><div id="onPeers"></div><div id="chatLog"></div><input id="chatIn" placeholder="Chat… (Enter)" maxlength="140"> <button id="readyBtn" style="display:none">Ready</button></div>
   </div>
@@ -112,6 +112,7 @@
 <script src="vendor/trystero-nostr.js?v=7.7.7"></script><script src="vendor/trystero-mqtt.js?v=7.7.7"></script><script src="vendor/trystero-torrent.js?v=7.7.7"></script>
 <script src="js/relay.js?v=7.7.7"></script>
 <script src="js/online.js?v=7.7.7"></script>
+<script src="js/quickmatch.js?v=7.7.7"></script>
 <script src="js/main.js?v=7.7.7"></script>
 <script src="js/featured-maps.js?v=7.7.7"></script>
 <script src="js/editor.js?v=7.7.7"></script>
