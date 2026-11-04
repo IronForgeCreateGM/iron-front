@@ -415,3 +415,6 @@ Nightly run started 12:03 AM PT. Pushed commit 8793b7b (v7.7.3 = 1531de1 + resum
 ## Tue Nov 3 run interrupted (~12:25 AM PT) — noted 6:21 AM PT
 - v7.7.3 is LIVE (above). The run then committed v7.7.4 locally (6b60699: SC2-style builder bots shown at construction sites, render only, + builders-test; App Store Mac 2880x1800 shots) but was interrupted before testing/pushing. Live stays v7.7.3. Stuck-army work, France bot play and backlog did not run.
 - Tonight: test v7.7.4 (det73/det74/spawn-det identical, builders-test, browser suite) and push if clean, then continue stuck-army math + attack-move test, Hard France play, backlog.
+
+## Wed Nov 4 run interrupted (~12:54 AM PT) — backup run resumed at 3:01 AM PT
+- v7.7.5 is LIVE (77580d8, pushed 12:45 AM PT). Local master a74b538 = v7.7.6 (multiplayer security + Hide my IP), not pushed; its gate was cut off at ~12:54 AM PT (node suite 28/28 passed, det base logs done, online e2e OK). Backup run is finishing the gate (det/master, endgame, browser suite) and will push only if it is clean.
