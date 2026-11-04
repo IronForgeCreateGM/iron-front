@@ -10,6 +10,8 @@
   - After pushing: load the live site once, check Sentry gets no noise and PostHog shows a production menu_view (filter env = production; dev events have env = dev).
   - If a test needs real events in headless Chrome: PostHog drops navigator.webdriver/HeadlessChrome UAs as bots (prod behaviour, intended).
 
+- RESUME 12:50 AM PT Nov 4: v7.7.5 LIVE (77580d8, pushed 12:45 AM PT; live check classic+frostline 0 errors; PostHog production menu_view v7.7.5 seen; Sentry no production issues). Next: sec776 rebase (fixed rejoin desync 61827d0) -> v7.7.6.
+
 ## RESUME NOTE (Wed Nov 4 night run, 00:25 PT)
 - master ea5d82d = v7.7.4 + Sentry 11 IP fix (dataCollection off -> infer_ip never) + test/privacy-test.js (PRIVACY OK). Gate /workspace/n1104/g775 running (det vs /workspace/base773, node, browser). If clean -> bump v7.7.5 + push.
 - Security work is on branch sec776 in worktree /workspace/rts-sec (commit 6ad7026, test/netsec-test.js NETSEC OK). After v7.7.5 is live: rebase sec776 on master, bump v7.7.6, run det + net/net4/replay/reach/online-e2e/lobby, push.
