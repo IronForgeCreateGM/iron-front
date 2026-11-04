@@ -95,8 +95,9 @@ function makeBuildingObj(b) {
   const ao = new THREE.Mesh(new THREE.PlaneGeometry(b.w * 1.5, b.h * 1.5).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: R3.aoTex, transparent: true, depthWrite: false, fog: false })); ao.position.y = 0.03; ao.renderOrder = 1; g.add(ao);
   const sc = new THREE.Mesh(new THREE.BoxGeometry(b.w * 0.96, 1.4, b.h * 0.96), new THREE.MeshBasicMaterial({ color: 0xffc94d, wireframe: true, transparent: true, opacity: 0.55, fog: false })); sc.position.y = 0.7; sc.visible = false; g.add(sc);
   g.position.set(b.x, heightAt(b.x, b.y), b.y);
+  const flag = typeof makeHqFlag === 'function' ? makeHqFlag(b) : null; if (flag) g.add(flag); // v7.7.7 country flag on HQs (render only)
   R3.scene.add(g); clearFoliage(b);
-  return { g, body, parts, sc, team: b.team, piv: model.piv, mk: bkey(b) };
+  return { g, body, parts, sc, team: b.team, piv: model.piv, mk: bkey(b), flag };
 }
 // v7.3: construction sites are drawn by js/gfx/construct.js (makeSite / conAnim / conBurst)
 function disposeObj(id) { const o = R3.objs.get(id); if (!o) return; if (o.cs) csDispose(o); R3.scene.remove(o.g); R3.objs.delete(id); }
@@ -269,6 +270,7 @@ function r3Render(dt) {
       if ((e.sel || e.id === R3.hoverId) && BT[e.t].wpn && nRange < 6) { const rg = R3.rangeRings[nRange++], r = defW(e).rng; rg.visible = true; rg.scale.set(r, 1, r); rg.position.set(e.x, heightAt(e.x, e.y) + 0.15, e.y); rg.material.color.set(e.team === ME ? 0xffd060 : 0xff6050); }
       if (o.parts.glow) o.parts.glow.visible = Math.sin(R3.time * 4 + e.id) > -0.3;
       if (typeof glbSync === 'function') glbSync(o, e); // blender-trial: .glb building models (visual only)
+      if (o.flag) flagUpdate(o, e, dt); // v7.7.7 country flag
       if (o.piv.smoke && Math.random() < dt * 4 * FX.mul) puff(e.x + o.piv.smoke[0], e.y + o.piv.smoke[2], o.piv.smoke[1] + heightAt(e.x, e.y), 0.2, 2.5, 0.45, 0.35, 0.8);
       const f = e.hp / e.mhp;
       if (f < 0.5 && Math.random() < dt * (f < 0.25 ? 14 : 6) * FX.mul) puff(e.tx + Math.random() * e.w, e.ty + Math.random() * e.h, 0.9, 0.35, 2.4, 0.09, 0.75, 1.0);
