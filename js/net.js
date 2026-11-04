@@ -58,7 +58,7 @@ function netValidCmd(c, fromHost) {
   if (!c || typeof c !== 'object' || Array.isArray(c) || typeof c.c !== 'string' || !Object.prototype.hasOwnProperty.call(CMD, c.c)) return false;
   if (NET_HOSTONLY[c.c] && !fromHost) return false;
   if (!netCleanVal(c, 0, { n: 20000 })) return false;
-  if (c.n != null && !(Number.isInteger(c.n) && c.n >= 0 && c.n <= 50)) return false; // enq/cancel repeat count (UI sends 1 or 5)
+  if ((c.c === 'enq' || c.c === 'cancel') && c.n != null && !(Number.isInteger(c.n) && c.n >= 0 && c.n <= 50)) return false; // enq/cancel repeat count (UI sends 1 or 5)
   if (c.p != null && !(Number.isInteger(c.p) && c.p >= 0 && c.p < 16)) return false;
   return true;
 }

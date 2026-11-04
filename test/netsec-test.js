@@ -17,6 +17,7 @@ const honest = [{ c: 'attack', u: [1, 2], t: 9 }, { c: 'bcancel', b: 3 }, { c: '
 ok(honest.every(valid), 'all ' + honest.length + ' honest command shapes pass (' + honest.filter(h => !valid(h)).map(h => h.c).join(',') + ')');
 const bad = [null, 5, 'x', [], { c: 'nope' }, { c: '__proto__' }, { c: 'constructor' }, { c: 'drop', p: 0 }, { c: 'retake', p: 2 }, { c: 'enq', t: 'rifle', n: 1e9 }, { c: 'cancel', t: 'rifle', n: -1 }, { c: 'move', u: Array(5000).fill(1), x: 1, y: 1 },
   { c: 'move', u: [1], x: 1e12, y: 1 }, { c: 'enq', t: '__proto__' }, JSON.parse('{"c":"move","u":[1],"x":1,"y":1,"__proto__":{"polluted":1}}'), { c: 'move', u: [[[[1]]]], x: 1, y: 1 }, { c: 'chat', m: 'x'.repeat(100) }];
+ok([{ c: 'retake', p: 2, n: 'P2' }, { c: 'drop', p: 1, diff: 'normal' }].every(c => ev(A.c, 'netValidCmd')(c, true)), 'host-made drop/retake pass when they come from the host');
 ok(bad.every(b => !valid(b)), 'all ' + bad.length + ' hostile commands rejected (' + bad.filter(valid).map(b => JSON.stringify(b).slice(0, 40)).join(' | ') + ')');
 // host: hostile 'in' messages from guest g1
 const H = A.H; let threw = 0; const call = (f, ...a) => { try { f(...a); } catch (e) { threw++; console.log('  threw', e.message); } };
