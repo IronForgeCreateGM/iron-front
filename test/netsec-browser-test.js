@@ -1,7 +1,7 @@
 // v7.7.6 multiplayer security in the page: escaped names, dispatch filter (host lock, host-only types, rate, size, try/catch),
 // and "Hide my IP" = relay-only (no WebRTC strategy is started).  NODE_PATH=/workspace/pwlib/node_modules node test/netsec-browser-test.js [url]
 const { chromium } = require('playwright-core');
-const URL0 = process.argv[2] || 'http://localhost:8766/index.html';
+const URL0 = process.argv[2] || 'http://localhost:8765/index.html';
 (async () => {
   const br = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'] });
   let fail = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fail++; };
