@@ -36,6 +36,34 @@ const CMD = {
   xform(T, c) { let n = 0; for (const id of c.u || []) { const u = byId(id); if (u && u.team === T && xform(u)) n++; } return n; }, // v7.0 Raijin mech <-> jet
   surrender(T, c) { const P = G.players[T]; if (!P || P.out) return; for (const e of G.ents) if (e.team === T && e.kind === 'b') e.hp = 0; },
 };
+// v7.7.6 multiplayer security: everything that arrives from another player is checked before it can touch the game.
+// Commands must be a known type with plain JSON values (finite numbers, short safe strings, small arrays, no __proto__ keys);
+// 'drop'/'retake' may only come from the host itself. Honest clients never send anything that fails these checks, so
+// lockstep/determinism and old replays are unchanged (replays are not filtered).
+const NET_HOSTONLY = { drop: 1, retake: 1 };
+const NET_BADKEY = { __proto__: 1, constructor: 1, prototype: 1 };
+function netSafeName(s, d) { s = String(s == null ? '' : s).replace(/[<>&"'`\\\u0000-\u001f\u007f\u2028\u2029]/g, '').trim().slice(0, 16); return s || (d == null ? 'Guest' : d); }
+function netEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]); }
+function netCleanVal(v, depth, budget) {
+  if (budget.n-- <= 0) return false; const t = typeof v;
+  if (v === null || t === 'boolean') return true;
+  if (t === 'number') return isFinite(v) && Math.abs(v) <= 1e7;
+  if (t === 'string') return v.length <= 48 && !NET_BADKEY[v];
+  if (depth >= 3 || t !== 'object') return false;
+  if (Array.isArray(v)) { if (v.length > 4000) return false; for (const x of v) if (!netCleanVal(x, depth + 1, budget)) return false; return true; }
+  const ks = Object.keys(v); if (ks.length > 16) return false;
+  for (const k of ks) if (NET_BADKEY[k] || k.length > 16 || !netCleanVal(v[k], depth + 1, budget)) return false; return true;
+}
+function netValidCmd(c, fromHost) {
+  if (!c || typeof c !== 'object' || Array.isArray(c) || typeof c.c !== 'string' || !Object.prototype.hasOwnProperty.call(CMD, c.c)) return false;
+  if (NET_HOSTONLY[c.c] && !fromHost) return false;
+  if (!netCleanVal(c, 0, { n: 20000 })) return false;
+  if (c.n != null && !(Number.isInteger(c.n) && c.n >= 0 && c.n <= 50)) return false; // enq/cancel repeat count (UI sends 1 or 5)
+  if (c.p != null && !(Number.isInteger(c.p) && c.p >= 0 && c.p < 16)) return false;
+  return true;
+}
+const netInt = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+const NET_SEC = { dropped: 0, errors: 0 };
 // v5.2 replay recorder: every executed command is logged with the tick it ran at (+ periodic state hashes for verification)
 const RPL = { on: false, data: null };
 function recStart() { RPL.on = !G.replay; RPL.data = RPL.on ? { v: 1, game: 'ironfront', ver: typeof NET_VERSION !== 'undefined' ? NET_VERSION : '', date: new Date().toISOString(), seed: G.opts.seed, r76: G.r76 ? 1 : 0, nt: G.nt ? 1 : 0, m7: G.m7 | 0, map: G.opts.map || 'classic', cmap: G.opts.map === 'custom' ? G.opts.cmap : undefined, peace: G.opts.peace, fog: G.opts.fog !== false, diff: G.opts.diff, me: typeof ME !== 'undefined' ? ME : 0,
@@ -86,17 +114,22 @@ const NET = {
     this.maxTurn = this.DELAY;
     if (this.host) { this.lastSent = this.DELAY; for (const h of this.humans) this.upto[h] = this.DELAY; }
     const R = () => this.stats.recv++;
-    tr.on('in', (d, from) => { R(); if (!this.host) return; const team = this.peerTeam[from]; if (team == null || this.dropped.has(team)) return; this.lastHeard[team] = this.now();
-      if (d.h) this._checkHash(d.h[0], d.h[1], team); this._addInput(team, d.t, d.c || []); });
-    tr.on('turn', d => { R(); if (this.host) return; for (let i = 0; i < (d.n || 1); i++) if (d.t + i > G.tick) this.turns.set(d.t + i, []);
+    tr.on('in', (d, from) => { R(); if (!this.host || !d || typeof d !== 'object') return; const team = this.peerTeam[from]; if (team == null || this.dropped.has(team)) return;
+      if (!netInt(d.t, 0, this.lastSent + 600) || (d.c != null && (!Array.isArray(d.c) || d.c.length > 256))) { NET_SEC.dropped++; return; } // v7.7.6
+      const cmds = (d.c || []).filter(c => netValidCmd(c, false)); NET_SEC.dropped += (d.c || []).length - cmds.length; this.lastHeard[team] = this.now();
+      if (Array.isArray(d.h) && netInt(d.h[0], 0, 1e8) && netInt(d.h[1], 0, 4294967295)) this._checkHash(d.h[0], d.h[1], team); this._addInput(team, d.t, cmds); });
+    tr.on('turn', (d, from) => { R(); if (this.host || (from != null && this.hostPeer && from !== this.hostPeer)) return; // v7.7.6: only the host's turns count
+      if (!d || !netInt(d.t, 0, 1e8) || (d.n != null && !netInt(d.n, 1, 600)) || (d.c != null && (!Array.isArray(d.c) || d.c.length > 5000))) { NET_SEC.dropped++; return; }
+      d.c = (d.c || []).filter(x => Array.isArray(x) && x.length === 3 && netInt(x[0], 0, 600) && netInt(x[1], 0, 15) && netValidCmd(x[2], true));
+      for (let i = 0; i < (d.n || 1); i++) if (d.t + i > G.tick) this.turns.set(d.t + i, []);
       for (const [dt, team, c] of d.c || []) { const a = this.turns.get(d.t + dt); if (a) a.push([team, c]); } this.maxTurn = Math.max(this.maxTurn, d.t + (d.n || 1) - 1); });
-    tr.on('pg', (d, from) => { R(); if (this.host) return; this._send('po', { s: d.s }, from); if (d.d) this.DELAY = d.d; });
-    tr.on('po', (d, from) => { R(); if (!this.host) return; const team = this.peerTeam[from]; if (team == null) return; const s = this.now() - d.s, r = this.rtt[team];
+    tr.on('pg', (d, from) => { R(); if (this.host || !d || (from != null && this.hostPeer && from !== this.hostPeer) || typeof d.s !== 'number' || !isFinite(d.s)) return; this._send('po', { s: d.s }, from); if (netInt(d.d, 1, 30)) this.DELAY = d.d; });
+    tr.on('po', (d, from) => { R(); if (!this.host) return; const team = this.peerTeam[from]; if (team == null || !d || typeof d.s !== 'number' || !isFinite(d.s)) return; const s = Math.max(0, Math.min(10000, this.now() - d.s)), r = this.rtt[team];
       if (!r) this.rtt[team] = { m: s, j: s * 0.2 }; else { r.j = r.j * 0.75 + Math.abs(s - r.m) * 0.25; r.m = r.m * 0.75 + s * 0.25; if (s > r.m + 2 * r.j) r.m = s * 0.5 + r.m * 0.5; } });
-    tr.on('hash', (d, from) => { R(); if (this.host) this._checkHash(d.t, d.h, this.peerTeam[from]); });
-    tr.on('desync', d => { R(); if (!this.host) this.desync = d; });
-    tr.on('sync', d => { R(); if (!this.host) this._applySync(d); });
-    tr.on('rejoin', (d, from) => { R(); if (this.host) this.rejoinReq(from, d.name); });
+    tr.on('hash', (d, from) => { R(); if (this.host && d && netInt(d.t, 0, 1e8) && netInt(d.h, 0, 4294967295)) this._checkHash(d.t, d.h, this.peerTeam[from]); });
+    tr.on('desync', (d, from) => { R(); if (!this.host && d && (from == null || !this.hostPeer || from === this.hostPeer) && netInt(d.t, 0, 1e8) && netInt(d.team, 0, 15)) this.desync = { t: d.t, team: d.team }; });
+    tr.on('sync', (d, from) => { R(); if (!this.host && (!this.hostPeer || from == null || from === this.hostPeer)) this._applySync(d); });
+    tr.on('rejoin', (d, from) => { R(); if (this.host && d) this.rejoinReq(from, netSafeName(d.name)); });
     tr.onLeave(pid => {
       if (this.host) { const team = this.peerTeam[pid]; if (team != null && this.teamPeer[team] === pid) this._drop(team, 'disconnected'); }
       else if (this.hostPeer === pid) this.goOffline('Host disconnected — continuing offline vs AI');
@@ -148,10 +181,11 @@ const NET = {
     this.dropQ.push({ c: 'retake', p: team, n: name || base(G.players[team].name) }); this._sendSync(team, true); return true;
   },
   _applySync(d) { // client: rebuild the exact state by re-simulating the host's command log from the seed
+    if (!netValidSync(d)) { NET_SEC.dropped++; return; } // v7.7.6
     if (d.full) { this.me = d.me; if (typeof ME !== 'undefined') ME = d.me; this.humans = d.humans.slice(); this.peerTeam = Object.assign({}, d.peerTeam); this.teamPeer = {}; for (const pid in this.peerTeam) this.teamPeer[this.peerTeam[pid]] = pid; }
     if (d.d) this.DELAY = d.d; if (d.opts) this.gopts = d.opts;
     const L = new Map(d.log), recOn = RPL.on; RPL.on = false;
-    newGame(JSON.parse(JSON.stringify(this.gopts))); G.players.forEach((P, i) => { if (d.names[i] != null) P.name = d.names[i]; });
+    newGame(JSON.parse(JSON.stringify(this.gopts))); G.players.forEach((P, i) => { if (d.names[i] != null) P.name = netSafeName(d.names[i], P.name); });
     const log = [];
     for (let t = 1; t <= d.last; t++) { const c = L.get(t) || []; for (const [team, cmd] of c) execCmd(team, cmd); log.push([t, c]); stepGame(); if (G.events.length > 500) G.events.length = 0; }
     G.events.length = 0; RPL.on = recOn; this.log = log; for (const t of [...this.turns.keys()]) if (t <= d.last) this.turns.delete(t);
@@ -174,7 +208,7 @@ const NET = {
     if (!this.online) { stepGame(); return true; }
     const t = G.tick + 1; if (!this.turns.has(t)) return false;
     const tgt = t + this.DELAY;
-    if (this.host) { this._addInput(this.me, tgt, this.pending); this.pending = []; }
+    if (this.host) { this._addInput(this.me, tgt, this.pending.filter(c => netValidCmd(c, true))); this.pending = []; } // v7.7.6: host's own input passes the same check its guests apply
     else { for (const c of this.pending) this.batch.push(c); this.pending = [];
       if (t % this.B === 0 || this.batch.length && t % this.B === 0) { const m = { t: tgt, c: this.batch }; if (this._hq) { m.h = this._hq; this._hq = null; } this._send('in', m, this.hostPeer); this.batch = []; } }
     const cmds = this.turns.get(t); this.turns.delete(t);
@@ -191,4 +225,15 @@ const NET = {
     for (const c of this.pending.concat(this.batch || [])) execCmd(ME, c); this.pending = []; this.batch = [];
   },
 };
-if (typeof module !== 'undefined') module.exports = { NET, CMD, execCmd, stateHash };
+// v7.7.6: a resync/rejoin package from the host: bounded tick count, well-formed log, every command valid
+function netValidSync(d) {
+  if (!d || typeof d !== 'object' || !netInt(d.last, 0, 2e6) || !Array.isArray(d.log) || d.log.length > 2e6 || !Array.isArray(d.names) || d.names.length > 16) return false;
+  if (d.d != null && !netInt(d.d, 1, 30)) return false;
+  if (d.full && (!netInt(d.me, 0, 15) || !Array.isArray(d.humans) || !d.humans.every(h => netInt(h, 0, 15)) || !d.peerTeam || typeof d.peerTeam !== 'object')) return false;
+  if (d.full) for (const k in d.peerTeam) if (NET_BADKEY[k] || !netInt(d.peerTeam[k], 0, 15)) return false;
+  if (d.opts != null && (typeof d.opts !== 'object' || !Array.isArray(d.opts.slots) || d.opts.slots.length > 16)) return false;
+  for (const e of d.log) { if (!Array.isArray(e) || e.length !== 2 || !netInt(e[0], 1, 2e6) || !Array.isArray(e[1])) return false;
+    for (const x of e[1]) if (!Array.isArray(x) || x.length !== 2 || !netInt(x[0], 0, 15) || !netValidCmd(x[1], true)) return false; }
+  return true;
+}
+if (typeof module !== 'undefined') module.exports = { NET, CMD, execCmd, stateHash, netValidCmd, netValidSync, netSafeName, netEsc };

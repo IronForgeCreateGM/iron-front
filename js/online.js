@@ -35,24 +35,25 @@ function onlStrategyConf(s, cfg, q) {
   if (cfg.turnConfig) conf.turnConfig = cfg.turnConfig;
   if (s === 'nostr') { const u = q.get('relays') ? urls(q.get('relays')) : cfg.relayUrls; if (u) conf.relayConfig = { urls: u }; }
   if (s === 'mqtt') { const u = q.get('mqtt') ? urls(q.get('mqtt')) : cfg.mqttUrls; if (u) conf.relayConfig = { urls: u }; }
-  if (s === 'relay') conf.startDelay = ONL.host ? 0 : (q.get('strategies') === 'relay' ? 0 : +(q.get('relaydelay') || 8000)); // guests give direct WebRTC 8s to win first
+  if (s === 'relay') conf.startDelay = ONL.host || onlHideIP() ? 0 : (q.get('strategies') === 'relay' ? 0 : +(q.get('relaydelay') || 8000)); // guests give direct WebRTC 8s to win first
   if (s === 'torrent') { const u = q.get('trackers') ? urls(q.get('trackers')) : cfg.trackerUrls; if (u) conf.relayConfig = { urls: u }; }
   return conf;
 }
 function onlJoinRoom(code) {
   const cfg = window.IRONFRONT_NET || {}, q = new URLSearchParams(location.search);
   if (q.get('turn')) { const [u, n, c] = q.get('turn').split(','); cfg.turnConfig = [{ urls: [u], username: n, credential: c }].concat(cfg.turnConfig || []); }
-  onlEnsureRelay(); const want = (q.get('strategies') || (cfg.strategies || ['nostr', 'mqtt', 'torrent', 'relay']).join(',')).split(',').filter(s => window.Trystero[s]);
+  onlEnsureRelay(); let want = (q.get('strategies') || (cfg.strategies || ['nostr', 'mqtt', 'torrent', 'relay']).join(',')).split(',').filter(s => window.Trystero[s]);
+  if (onlHideIP() && q.get('transport') !== 'local') { want = window.Trystero.relay ? ['relay'] : []; if (!want.length) { onlError('“Hide my IP” needs the relay server, which is turned off or unavailable. Untick “Hide my IP” to connect directly.', false); return; } }
   const subs = []; for (const s of want) { try { const T = window.Trystero[s]; subs.push({ s, T, room: T.joinRoom(onlStrategyConf(s, cfg, q), 'room-' + code) }); } catch (e) { console.warn('strategy ' + s + ' failed to start', e); } }
   if (!subs.length) { onlStatus('Online play unavailable (no matchmaking strategy could start).'); return; }
   const host = ONL.host, via = {}; let chosen = null; ONL.strategies = subs.map(x => x.s); ONL.selfId = subs[0].T.selfId; ONL.code = code;
-  const commit = sub => { if (chosen) return; chosen = sub; ONL.selfId = sub.T.selfId; ONL.strategy = sub.s; try { window.IF_AN && IF_AN.mpConnect(true, sub.s); } catch (e) {} setTimeout(() => { for (const o of subs) if (o !== sub) { try { o.room.leave(); } catch (e) {} } }, 1500); };
+  const commit = (sub, pid) => { if (chosen) return; chosen = sub; if (!host && pid) ONL.hostLock = pid; ONL.selfId = sub.T.selfId; ONL.strategy = sub.s; try { window.IF_AN && IF_AN.mpConnect(true, sub.s); } catch (e) {} setTimeout(() => { for (const o of subs) if (o !== sub) { try { o.room.leave(); } catch (e) {} } }, 1500); };
   const live = sub => host || !chosen || chosen === sub;
   const room = { getPeers: () => { const o = {}; for (const x of subs) if (live(x)) Object.assign(o, x.room.getPeers()); return o; }, leave: () => subs.forEach(x => { try { x.room.leave(); } catch (e) {} }), subs };
   ONL.room = room;
   for (const name of ['lobby', 'hello', 'ready', 'pref', 'chat', 'start', 'kick', 'in', 'turn', 'hash', 'desync', 'pg', 'po', 'sync', 'rejoin']) {
     const sends = subs.map(sub => { const a = sub.room.makeAction(name); const send = Array.isArray(a) ? (d, to) => a[0](d, to || null) : (d, to) => a.send(d, to ? { target: to } : undefined);
-      const onm = (d, pid) => { if (!host && !chosen && name === 'lobby' && d && d.peers && d.peers[sub.T.selfId]) commit(sub); if (!live(sub)) return; via[pid] = via[pid] || sub; onlDispatch(name, d, pid); };
+      const onm = (d, pid) => { if (!host && !chosen && name === 'lobby' && d && d.peers && typeof d.peers === 'object' && Object.prototype.hasOwnProperty.call(d.peers, sub.T.selfId)) commit(sub, pid); if (!live(sub)) return; via[pid] = via[pid] || sub; onlDispatch(name, d, pid); };
       if (Array.isArray(a)) a[1]((d, pid) => onm(d, pid)); else a.onMessage = (d, meta) => onm(d, meta && meta.peerId || meta);
       return { sub, send }; });
     ONL.acts[name] = (d, to) => { if (to) { const v = via[to]; const t = v ? sends.find(x => x.sub === v) : null; (t ? [t] : sends.filter(x => live(x.sub))).forEach(x => x.send(d, to)); } else sends.filter(x => live(x.sub)).forEach(x => x.send(d)); };
@@ -61,7 +62,32 @@ function onlJoinRoom(code) {
     const pj = pid => { if (!live(sub)) return; via[pid] = sub; ONL.stratSeen = sub.s; onlPeerJoin(pid, sub); }, pl = pid => { if (via[pid] !== sub) return; delete via[pid]; onlPeerLeave(pid); };
     if (typeof r.onPeerJoin === 'function' && r.onPeerJoin.length) { try { r.onPeerJoin(pj); r.onPeerLeave(pl); } catch (e) { r.onPeerJoin = pj; r.onPeerLeave = pl; } } else { r.onPeerJoin = pj; r.onPeerLeave = pl; } }
 }
-function onlDispatch(name, d, pid) { if (ONL.handlers[name]) ONL.handlers[name](d, pid); }
+// v7.7.6 multiplayer security: every message from another player passes through here.
+//  - only known message types; size cap per type; per-player rate limit (token bucket) per type
+//  - on a guest, once the host is known, messages from anyone else are ignored (other guests can't impersonate the host)
+//  - the host never accepts host-only messages (lobby/start/turn/sync/…) from guests
+//  - each handler runs inside try/catch: a malformed message is dropped and never crashes the game
+// limits: [max JSON chars, refill per second, burst, 'H' = host-only]
+const ONL_LIMITS = { lobby: [65536, 20, 40, 'H'], hello: [2048, 2, 6], ready: [256, 5, 10], pref: [512, 5, 10], chat: [1024, 3, 6], start: [4194304, 2, 4, 'H'], kick: [4096, 2, 4, 'H'],
+  in: [262144, 60, 150], turn: [1048576, 90, 300, 'H'], hash: [512, 10, 20], desync: [512, 2, 4, 'H'], pg: [256, 5, 10, 'H'], po: [256, 5, 10], sync: [33554432, 2, 4, 'H'], rejoin: [1024, 2, 4] };
+const ONL_SEC = { dropped: 0, errors: 0, rate: {}, why: {} };
+function onlSecDrop(why) { ONL_SEC.dropped++; ONL_SEC.why[why] = (ONL_SEC.why[why] || 0) + 1; return false; }
+function onlAccept(name, d, pid) {
+  const L = ONL_LIMITS[name]; if (!L || !Object.prototype.hasOwnProperty.call(ONL_LIMITS, name)) return onlSecDrop('type');
+  if (d == null || typeof d !== 'object' || Array.isArray(d)) return onlSecDrop('shape');
+  if (ONL.host) { if (L[3] === 'H') return onlSecDrop('hostonly'); }
+  else if (ONL.hostLock) { if (pid !== ONL.hostLock) return onlSecDrop('nothost'); } // locked once the host admitted us (or the match started)
+  else if (!(name === 'lobby' || name === 'kick' || name === 'sync' || (name === 'chat' && pid === ONL.hostId))) return onlSecDrop('nohost');
+  const now = Date.now(), k = pid + '|' + name, b = ONL_SEC.rate[k] || (ONL_SEC.rate[k] = { t: now, v: L[2] });
+  b.v = Math.min(L[2], b.v + (now - b.t) / 1000 * L[1]); b.t = now; if (b.v < 1) return onlSecDrop('rate'); b.v -= 1;
+  let n = 0; try { n = JSON.stringify(d).length; } catch (e) { return onlSecDrop('json'); } if (n > L[0]) return onlSecDrop('size');
+  return true;
+}
+function onlDispatch(name, d, pid) { const h = ONL.handlers[name]; if (!h || !onlAccept(name, d, pid)) return;
+  try { h(d, pid); } catch (e) { ONL_SEC.errors++; console.warn('[online] dropped a malformed ' + name + ' message', e && e.message); } }
+// v7.7.6: "Hide my IP" = relay-only. No WebRTC (direct peer-to-peer) connection is ever opened, so other players never see
+// your IP address; game traffic goes through the WebSocket relay server instead (it can be a little slower). Off by default.
+function onlHideIP() { try { return localStorage.getItem('if_hideip') === '1'; } catch (e) { return false; } }
 const onlTransport = { send(type, data, to) { ONL.acts[type] && ONL.acts[type](data, to); }, on(type, cb) { ONL.handlers[type] = cb; }, onLeave(cb) { ONL.leaveCbs.push(cb); } };
 function onlPeerJoin(pid, sub) { if (!ONL.host) { onlStatus('Connected to a peer' + (sub ? ' via ' + sub.s : '') + ' — asking the host for a slot…'); ONL.cid = ONL.cid || Math.random().toString(36).slice(2, 12); ONL.acts.hello({ name: ONL.name, ver: codeHash(), nv: NET_VERSION, cid: ONL.cid }, pid); } else onlChatLine('* a player is connecting' + (sub ? (sub.s === 'relay' ? ' via the relay server' : ' directly (via ' + sub.s + ' matchmaking)') : '') + '…'); }
 function onlPeerLeave(pid) {
@@ -75,7 +101,7 @@ function onlParseCode(v) { v = String(v || '').trim(); const m = /[?&#]room=([A-
 // v7.6.3: errors are shown in red on screen with Retry + Reload buttons (never silent)
 function onlError(html, retry) { const code = ONL.code; onlStatus(`<div class="onErr">❌ ${html}</div><div class="onErrBtns">${retry !== false && code ? '<button id="onRetry">↻ Retry</button> ' : ''}<button id="onReload">⟳ Reload page</button> <span class="dim">[${typeof NET_VERSION !== 'undefined' ? NET_VERSION : ''}${ONL.strategy ? ' · ' + ONL.strategy : ''}]</span></div>`);
   const r = document.getElementById('onRetry'); if (r) r.onclick = () => onlRetry(); const l = document.getElementById('onReload'); if (l) l.onclick = () => onlHardReload(); console.warn('[online] ' + String(html).replace(/<[^>]+>/g, '')); }
-function onlLeaveRoom() { clearInterval(ONL.reachI); clearTimeout(ONL.reachT); try { ONL.room && ONL.room.leave(); } catch (e) {} ONL.room = null; ONL.peers = {}; ONL.hostId = null; ONL.started = false; ONL.ready = false; ONL.acts = {}; ONL.handlers = {}; ONL.strategy = null; ONL.kicked = null;
+function onlLeaveRoom() { clearInterval(ONL.reachI); clearTimeout(ONL.reachT); try { ONL.room && ONL.room.leave(); } catch (e) {} ONL.room = null; ONL.peers = {}; ONL.hostId = null; ONL.hostLock = null; ONL_SEC.rate = {}; ONL.started = false; ONL.ready = false; ONL.acts = {}; ONL.handlers = {}; ONL.strategy = null; ONL.kicked = null;
   if (typeof RTCDIAG !== 'undefined') Object.keys(RTCDIAG).forEach(k => RTCDIAG[k] = 0); const rb = document.getElementById('readyBtn'); if (rb) rb.textContent = 'Ready'; }
 function onlRetry() { const code = ONL.code, host = ONL.host; onlLeaveRoom(); onlShowPanel(false); document.querySelectorAll('#lobby select').forEach(s => s.disabled = false); const sb = document.getElementById('startBtn'); if (sb) sb.style.display = '';
   setTimeout(() => host ? onlHost(code) : onlJoin(code), 400); }
@@ -87,7 +113,7 @@ function onlVersionCheck() { if (typeof fetch !== 'function' || location.protoco
     document.body.appendChild(b); document.getElementById('verReload').onclick = () => onlHardReload(); document.getElementById('verX').onclick = () => b.remove(); }).catch(() => {}); }
 function onlStatus(t) { const e = document.getElementById('onStatus'); if (e) e.innerHTML = t; }
 function onlChatLine(t) { const e = document.getElementById('chatLog'); if (!e) return; const d = document.createElement('div'); d.textContent = t; e.appendChild(d); e.scrollTop = 1e9; }
-function onlName() { const v = (document.getElementById('pname').value || '').trim().slice(0, 16); if (v) localStorage.setItem('if_name', v); return v || 'Commander' + ((Math.random() * 90 + 10) | 0); }
+function onlName() { const v = netSafeName(document.getElementById('pname').value, ''); if (v) localStorage.setItem('if_name', v); return v || 'Commander' + ((Math.random() * 90 + 10) | 0); }
 function onlShowPanel(on) { ['hostBtn', 'joinBtn'].forEach(id => document.getElementById(id).disabled = on); document.getElementById('onPanel').style.display = on ? 'block' : 'none'; document.getElementById('presets').style.display = on ? 'none' : ''; }
 // ---- host ----
 function onlHost(keep) {
@@ -97,21 +123,21 @@ function onlHost(keep) {
   let me = rows.findIndex(r => r[0] === 'human'); if (me < 0) { me = 0; rows[0][0] = 'human'; } rows.forEach((r, i) => { if (i !== me && r[0] === 'human') r[0] = 'si'; });
   if (!rows.some(r => r[0] === 'remote')) { rows[me === 1 ? 0 : 1][0] = 'remote'; } lobbySet(rows); ONL.meRow = me;
   onlShowPanel(true); document.getElementById('readyBtn').style.display = 'none';
-  const _q = new URLSearchParams(location.search), _x = ['relays', 'mqtt', 'trackers', 'strategies', 'turn'].filter(k => _q.get(k)).map(k => '&' + k + '=' + encodeURIComponent(_q.get(k))).join(''); const link = location.origin + location.pathname + '?room=' + code + _x; // share link keeps signalling/TURN overrides
-  onlStatus(`Room <b>${code}</b> — share: <a href="${link}" target="_blank">${link}</a><br>${location.protocol === 'file:' ? '⚠ Hosting from file:// — friends must open the same game build via https.' : ''}`);
+  const _q = new URLSearchParams(location.search), _x = ['relays', 'mqtt', 'trackers', 'strategies', 'turn'].filter(k => _q.get(k)).map(k => '&' + k + '=' + encodeURIComponent(_q.get(k))).join(''); const link = location.origin + location.pathname + '?room=' + code + _x + (onlHideIP() && !_q.get('strategies') ? '&strategies=relay' : ''); // share link keeps signalling/TURN overrides
+  onlStatus(`Room <b>${code}</b> — share: <a href="${netEsc(link)}" target="_blank">${netEsc(link)}</a>${onlHideIP() ? ' <span class="dim">(🛡 IP hidden: relay only)</span>' : ''}<br>${location.protocol === 'file:' ? '⚠ Hosting from file:// — friends must open the same game build via https.' : ''}`);
   ONL.handlers.hello = (d, pid) => {
-    if (ONL.started) { if (d.ver === codeHash() && NET.rejoinReq(pid, d.name)) onlChatLine('* ' + d.name + ' rejoined'); else ONL.acts.kick({ reason: 'Match already running (no free slot to rejoin).' }, pid); return; }
-    if (d.ver !== codeHash()) { ONL.acts.kick({ reason: 'Version mismatch — the host has ' + NET_VERSION + ', you have ' + (d.nv || 'an older version') + '. Both players: reload the page (iPhone home-screen app: close it fully and reopen), then join again.', code: 'version', hv: NET_VERSION }, pid); onlChatLine('* ' + String(d.name || 'A player').slice(0, 16) + ' tried to join with ' + (d.nv || 'an older version') + ' (you have ' + NET_VERSION + ') — they need to reload'); return; }
-    if (d.cid && Object.values(ONL.peers).some(p => p.cid === d.cid)) return; // v5.9.2: same player reached us over a second signalling strategy
+    if (ONL.started) { if (d.ver === codeHash() && NET.rejoinReq(pid, netSafeName(d.name))) onlChatLine('* ' + netSafeName(d.name) + ' rejoined'); else ONL.acts.kick({ reason: 'Match already running (no free slot to rejoin).' }, pid); return; }
+    if (d.ver !== codeHash()) { ONL.acts.kick({ reason: 'Version mismatch — the host has ' + NET_VERSION + ', you have ' + String(d.nv || 'an older version').slice(0, 24) + '. Both players: reload the page (iPhone home-screen app: close it fully and reopen), then join again.', code: 'version', hv: NET_VERSION }, pid); onlChatLine('* ' + String(d.name || 'A player').slice(0, 16) + ' tried to join with ' + String(d.nv || 'an older version').slice(0, 24) + ' (you have ' + NET_VERSION + ') — they need to reload'); return; }
+    const cid = typeof d.cid === 'string' ? d.cid.slice(0, 24) : null; if (cid && Object.values(ONL.peers).some(p => p.cid === cid)) return; // v5.9.2: same player reached us over a second signalling strategy
     const taken = new Set(Object.values(ONL.peers).map(p => p.row)), rows = lobbyRead();
     let row = rows.findIndex((r, i) => r[0] === 'remote' && !taken.has(i));
     if (row < 0) row = rows.findIndex((r, i) => i !== ONL.meRow && r[0] === 'off'); if (row >= 0 && rows[row][0] === 'off') { rows[row][0] = 'remote'; lobbySet(rows); }
     if (row < 0) { ONL.acts.kick({ reason: 'Lobby is full — the host needs to set a slot to "Remote player" (or open a new room).', code: 'full' }, pid); return; }
-    ONL.peers[pid] = { name: String(d.name || 'Guest').slice(0, 16), row, ready: false, cid: d.cid }; onlChatLine(`* ${ONL.peers[pid].name} joined (slot ${row + 1})`); onlBroadcastLobby();
+    ONL.peers[pid] = { name: netSafeName(d.name), row, ready: false, cid }; onlChatLine(`* ${ONL.peers[pid].name} joined (slot ${row + 1})`); onlBroadcastLobby();
   };
   ONL.handlers.ready = (d, pid) => { if (ONL.peers[pid]) { ONL.peers[pid].ready = !!d.r; onlBroadcastLobby(); } };
-  ONL.handlers.pref = (d, pid) => { const p = ONL.peers[pid]; if (!p) return; const rows = lobbyRead(); if (d.fac && FACTIONS[d.fac]) rows[p.row][2] = d.fac; if (d.color && TEAM_COLORS[d.color] && !rows.some((r, i) => i !== p.row && r[3] === d.color)) rows[p.row][3] = d.color; lobbySet(rows); onlBroadcastLobby(); };
-  ONL.handlers.chat = (d, pid) => { const n = ONL.peers[pid] ? ONL.peers[pid].name : '?'; onlChatLine(n + ': ' + d.m); ONL.acts.chat({ m: d.m, n }); };
+  ONL.handlers.pref = (d, pid) => { const p = ONL.peers[pid]; if (!p) return; const rows = lobbyRead(); const own = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k); if (own(FACTIONS, d.fac)) rows[p.row][2] = d.fac; if (own(TEAM_COLORS, d.color) && !rows.some((r, i) => i !== p.row && r[3] === d.color)) rows[p.row][3] = d.color; lobbySet(rows); onlBroadcastLobby(); };
+  ONL.handlers.chat = (d, pid) => { const n = ONL.peers[pid] ? ONL.peers[pid].name : null, m = String(d.m == null ? '' : d.m).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 140); if (!n || !m) return; onlChatLine(n + ': ' + m); ONL.acts.chat({ m, n }); };
   onlBroadcastLobby();
 }
 function lobbyChanged() { if (ONL.host && !ONL.started) onlBroadcastLobby(); }
@@ -128,7 +154,7 @@ function onlBroadcastLobby() {
 function onlRenderPeers(st) {
   const e = document.getElementById('onPeers'); if (!e) return;
   const hr = st.rows ? st.rows.findIndex(r => r[0] === 'human') : 0, open = st.rows ? st.rows.map((r, i) => r[0] === 'remote' && !Object.values(st.peers).some(p => p.row === i) ? i : -1).filter(i => i >= 0) : [];
-  e.innerHTML = `<div>Slot ${(st.hostRow != null ? st.hostRow : Math.max(0, hr)) + 1}: <b>${st.hostName}</b> (host) 🟢</div>` + Object.values(st.peers).map(p => `<div>Slot ${p.row + 1}: <b>${p.name}</b> 🟢 connected · ${p.ready ? '✔ READY' : '⏳ not ready yet'}</div>`).join('') + open.map(i => `<div class="dim">Slot ${i + 1}: open — waiting for a friend to open the link (becomes Hard AI if empty)</div>`).join('');
+  e.innerHTML = `<div>Slot ${((st.hostRow != null ? st.hostRow : Math.max(0, hr)) | 0) + 1}: <b>${netEsc(netSafeName(st.hostName, 'Host'))}</b> (host) 🟢</div>` + Object.values(st.peers).map(p => `<div>Slot ${(p.row | 0) + 1}: <b>${netEsc(netSafeName(p.name))}</b> 🟢 connected · ${p.ready ? '✔ READY' : '⏳ not ready yet'}</div>`).join('') + open.map(i => `<div class="dim">Slot ${i + 1}: open — waiting for a friend to open the link (becomes Hard AI if empty)</div>`).join('');
 }
 function onlStartHost() {
   const rows = lobbyRead(); rows.forEach((r, i) => { if (r[0] === 'remote' && !Object.values(ONL.peers).some(p => p.row === i)) r[0] = 'si'; }); lobbySet(rows);
@@ -157,14 +183,33 @@ function onlJoin(code) {
     if (rs && !relayUp) onlError(`Can't reach any matchmaking or relay server for room <b>${code}</b>. Your network or an ad-blocker/firewall is blocking WebSocket servers. Turn off VPN / ad-blocker for this site or try mobile data, then press Retry.`);
     else if (sig) onlError(`Found the host of room <b>${code}</b> but could not connect (direct connection blocked and the relay got no answer). Make sure the host is still on the lobby screen with this room open and that you both have the same version (both reload), then press Retry.`);
     else onlError(`Can't find the host of room <b>${code}</b>. Check: 1) the code is right and the host still has the lobby open (if they closed it, they need to host again and send the new code); 2) you both have the same version — both reload the page / reopen the home-screen app. Then press Retry.`); }, 1000);
-  ONL.handlers.lobby = (st, pid) => { if (ONL.kicked) return; ONL.hostId = pid; clearTimeout(ONL.reachT); clearInterval(ONL.reachI); lobbySet(st.rows); document.querySelectorAll('#lobby select').forEach(s => s.disabled = true); onlRenderPeers(st);
-    const mine = st.peers[ONL.selfId]; onlStatus(`Room <b>${code}</b> — host <b>${st.hostName}</b>. ${mine ? `You are slot ${mine.row + 1}. Pick your faction/colour, then press Ready.` : 'Waiting for a slot…'} ${ONL.strategy ? `<span class="dim">(${ONL.strategy === 'relay' ? 'connected via relay server — a direct connection was blocked' : 'direct connection'})</span>` : ''}`); };
-  ONL.handlers.kick = d => { clearInterval(ONL.reachI); ONL.kicked = d; onlError(String(d.reason || 'The host refused the connection.').replace(/</g, '&lt;'), d.code !== 'version'); };
-  ONL.handlers.chat = d => onlChatLine(d.n + ': ' + d.m);
-  ONL.handlers.sync = (d, pid) => { if (ONL.started || !d.full) return; ONL.started = true; ONL.hostId = pid; const o = d.opts;
+  ONL.handlers.lobby = (st, pid) => { if (ONL.kicked || !onlValidLobby(st)) return; ONL.hostId = pid; clearTimeout(ONL.reachT); clearInterval(ONL.reachI); lobbySet(st.rows); document.querySelectorAll('#lobby select').forEach(s => s.disabled = true); onlRenderPeers(st);
+    const mine = st.peers[ONL.selfId]; onlStatus(`Room <b>${code}</b> — host <b>${netEsc(netSafeName(st.hostName, 'Host'))}</b>. ${mine ? `You are slot ${(mine.row | 0) + 1}. Pick your faction/colour, then press Ready.` : 'Waiting for a slot…'} ${ONL.strategy ? `<span class="dim">(${ONL.strategy === 'relay' ? 'connected via relay server — a direct connection was blocked' : 'direct connection'})</span>` : ''}`); };
+  ONL.handlers.kick = d => { clearInterval(ONL.reachI); ONL.kicked = d; onlError(netEsc(String(d.reason || 'The host refused the connection.').slice(0, 400)), d.code !== 'version'); };
+  ONL.handlers.chat = d => { const m = String(d.m == null ? '' : d.m).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 140); if (m) onlChatLine(netSafeName(d.n, '?') + ': ' + m); };
+  ONL.handlers.sync = (d, pid) => { if (ONL.started || !d.full || !netValidSync(d) || !onlValidStart(d.opts)) return; ONL.started = true; ONL.hostId = ONL.hostLock = pid; const o = d.opts;
     onlBegin({ seed: o.seed, slots: o.slots, me: d.me, humans: d.humans, peerTeam: d.peerTeam, host: false, hostPeer: pid, map: o.map, cmap: o.cmap, peace: o.peace, fog: o.fog !== false }); NET._applySync(d); };
-  ONL.handlers.start = (d, pid) => { ONL.started = true; ONL.hostId = pid; onlBegin({ seed: d.seed, slots: d.slots, me: d.peerTeam[ONL.selfId], humans: d.humans, peerTeam: d.peerTeam, host: false, hostPeer: pid, map: d.map, cmap: d.cmap, peace: d.peace, fog: d.fog !== false }); };
+  ONL.handlers.start = (d, pid) => { if (ONL.started || !onlValidStart(d) || !d.peerTeam || typeof d.peerTeam !== 'object' || !Array.isArray(d.humans)) return; ONL.started = true; ONL.hostId = ONL.hostLock = pid; onlBegin({ seed: d.seed, slots: d.slots, me: d.peerTeam[ONL.selfId], humans: d.humans, peerTeam: d.peerTeam, host: false, hostPeer: pid, map: d.map, cmap: d.cmap, peace: d.peace, fog: d.fog !== false }); };
   document.getElementById('readyBtn').style.display = '';
+}
+// v7.7.6: shape checks for the host's lobby and start packages (names are cleaned; nothing from a peer is ever run as code)
+function onlValidLobby(st) {
+  if (!st || !Array.isArray(st.rows) || st.rows.length > 16 || !st.peers || typeof st.peers !== 'object' || Array.isArray(st.peers)) return false;
+  for (const r of st.rows) if (!Array.isArray(r) || r.length > 8 || !r.every(x => x == null || (typeof x === 'string' && x.length <= 24))) return false;
+  const ps = Object.keys(st.peers); if (ps.length > 16) return false;
+  for (const k of ps) { const p = st.peers[k]; if (NET_BADKEY[k] || !p || typeof p !== 'object' || !netInt(p.row, 0, 15)) return false; p.name = netSafeName(p.name); }
+  st.hostName = netSafeName(st.hostName, 'Host'); if (st.hostRow != null && !netInt(st.hostRow, 0, 15)) return false; return true;
+}
+function onlValidStart(d) {
+  if (!d || typeof d !== 'object' || !Number.isInteger(d.seed) || !Array.isArray(d.slots) || d.slots.length < 1 || d.slots.length > 16) return false;
+  if (d.map != null && (typeof d.map !== 'string' || d.map.length > 40)) return false;
+  if (d.humans && !d.humans.every(h => netInt(h, 0, 15))) return false;
+  if (d.peerTeam) for (const k in d.peerTeam) if (NET_BADKEY[k] || !netInt(d.peerTeam[k], 0, 15)) return false;
+  for (const s of d.slots) { if (!s || typeof s !== 'object' || Array.isArray(s)) return false; for (const k in s) if (NET_BADKEY[k]) return false;
+    if (s.fac != null && (typeof s.fac !== 'string' || !Object.prototype.hasOwnProperty.call(FACTIONS, s.fac))) return false;
+    if (s.name != null) s.name = netSafeName(s.name, 'Player'); }
+  if (d.cmap != null) { if (typeof d.cmap !== 'object') return false; if (d.cmap.name != null) d.cmap.name = String(d.cmap.name).replace(/[<>&"'`]/g, '').slice(0, 40); }
+  return true;
 }
 function onlBegin(o) {
   if (o.me == null) { onlStatus('You were not assigned a slot.'); return; }
@@ -174,6 +219,7 @@ function onlBegin(o) {
 }
 function onlInitUI() {
   const pn = document.getElementById('pname'); if (!pn) return; pn.value = new URLSearchParams(location.search).get('name') || localStorage.getItem('if_name') || '';
+  const hi = document.getElementById('hideIp'); if (hi) { hi.checked = onlHideIP(); hi.onchange = () => { try { localStorage.setItem('if_hideip', hi.checked ? '1' : '0'); } catch (e) {} }; }
   document.getElementById('hostBtn').onclick = () => onlHost();
   document.getElementById('joinBtn').onclick = () => onlJoin(document.getElementById('joinCode').value);
   document.getElementById('readyBtn').onclick = () => { ONL.ready = !ONL.ready; ONL.acts.ready && ONL.acts.ready({ r: ONL.ready }); document.getElementById('readyBtn').textContent = ONL.ready ? '✔ Ready' : 'Ready'; };

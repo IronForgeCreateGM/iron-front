@@ -380,7 +380,7 @@ function lobbySelfTest() {
 
 // ===== end-game stats + army graph =====
 function endStatsHTML() {
-  const rows = G.players.map(P => `<tr style="color:${MMCOL[P.team]}"><td>${FACTIONS[P.fac].flag} ${P.name}</td><td>${P.ally + 1}</td><td>${P.stats.kills}</td><td>${P.stats.lost}</td><td>$${Math.floor(P.stats.mined)}</td><td>${P.stats.built || 0}</td><td>${P.out ? 'eliminated' : 'alive'}</td></tr>`).join('');
+  const rows = G.players.map(P => `<tr style="color:${MMCOL[P.team]}"><td>${FACTIONS[P.fac].flag} ${typeof netEsc === 'function' ? netEsc(P.name) : P.name}</td><td>${P.ally + 1}</td><td>${P.stats.kills}</td><td>${P.stats.lost}</td><td>$${Math.floor(P.stats.mined)}</td><td>${P.stats.built || 0}</td><td>${P.out ? 'eliminated' : 'alive'}</td></tr>`).join('');
   return `Time ${Math.floor(G.time / 60)}:${String(Math.floor(G.time % 60)).padStart(2, '0')}<table class="est"><tr><th>Player</th><th>Team</th><th>Kills</th><th>Lost</th><th>Mined</th><th>Built</th><th></th></tr>${rows}</table><canvas id="endGraph" width="520" height="150"></canvas><div style="font-size:11px;color:#9ab">Army value over time</div>`;
 }
 function drawEndGraph() {
