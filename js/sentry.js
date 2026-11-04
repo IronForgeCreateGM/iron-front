@@ -1,6 +1,6 @@
 'use strict';
 // v7.7.4 crash/error reporting (Sentry). Errors only: no tracing, no session replay, no personal data (sendDefaultPii false,
-// no user, no IP, URLs lose their query strings). The SDK comes from Sentry's CDN and only loads on the live site
+// no user, no IP (sdk.settings.infer_ip 'never', so Sentry does not take it from the connection either), URLs lose their query strings). The SDK comes from Sentry's CDN and only loads on the live site
 // (https://ironforgecreategm.github.io, environment "production"), or on another http(s) host when the page has ?sentry=1
 // (environment "dev"). It never loads from file:// (local zip), inside the App Store app, under test automation (navigator.webdriver,
 // unless ?sentry=1) or with ?sentry=0. If the CDN or Sentry is blocked or offline, nothing happens and the game is unaffected.
@@ -46,13 +46,13 @@
       if (!ver && typeof NET_VERSION !== 'undefined') ver = String(NET_VERSION).replace(/^v/, '');
       S.init({
         dsn: DSN, release: 'iron-front@' + (ver || 'unknown'), environment: D.env,
-        sendDefaultPii: false, tracesSampleRate: 0, maxBreadcrumbs: 30, allowUrls: [location.origin],
+        sendDefaultPii: false, dataCollection: { userInfo: false, cookies: false, httpHeaders: false, httpBodies: [], urlQueryParams: false }, tracesSampleRate: 0, maxBreadcrumbs: 30, allowUrls: [location.origin],
         integrations: defs => defs.filter(i => !/^(Replay|ReplayCanvas|Feedback|BrowserTracing|BrowserSession|Breadcrumbs)$/.test(i.name)).concat(S.breadcrumbsIntegration ? [S.breadcrumbsIntegration({ console: false })] : []),
         beforeBreadcrumb: b => { try { return JSON.parse(scrub(JSON.stringify(b))); } catch (e) { return null; } },
         beforeSend(ev) {
           try {
             if (++D.sent > 25) return null; // per page load cap
-            delete ev.user; if (ev.request) { delete ev.request.cookies; if (ev.request.headers) delete ev.request.headers.Referer; }
+            delete ev.user; ev.sdk = Object.assign({}, ev.sdk, { settings: { infer_ip: 'never' } }); if (ev.request) { delete ev.request.cookies; if (ev.request.headers) delete ev.request.headers.Referer; }
             ev.tags = Object.assign({}, ev.tags, ctx());
             return JSON.parse(scrub(JSON.stringify(ev)));
           } catch (e) { return null; }
