@@ -1,3 +1,7 @@
+## RESUME NOTE 3:56 AM PT Wed Nov 4 (backup run)
+- v7.7.6 LIVE (6bec943, pushed 3:50 AM PT, verified 0 errors). Security audit done (see NIGHTLY-LOG). Branch sec776 is merged into master.
+- Next night: stuck-army math + Nicholas's plain attack-move test, Hard France play, backlog.
+
 ## TONIGHT (Tue Nov 3 nightly run) — added 9:25 AM PT Tue Nov 3. Local master, NOT pushed.
 - Verify Sentry + PostHog together with the v7.7.4 (builder bots) test, then push them TOGETHER with v7.7.4 (no force-push).
   - Sentry (js/sentry.js): org iron-forge-up, project iron-front. Errors only (no tracing/replay/feedback), release iron-front@<ver>,

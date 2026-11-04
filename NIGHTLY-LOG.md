@@ -417,4 +417,16 @@ Nightly run started 12:03 AM PT. Pushed commit 8793b7b (v7.7.3 = 1531de1 + resum
 - Tonight: test v7.7.4 (det73/det74/spawn-det identical, builders-test, browser suite) and push if clean, then continue stuck-army math + attack-move test, Hard France play, backlog.
 
 ## Wed Nov 4 run interrupted (~12:54 AM PT) — backup run resumed at 3:01 AM PT
-- v7.7.5 is LIVE (77580d8, pushed 12:45 AM PT). Local master a74b538 = v7.7.6 (multiplayer security + Hide my IP), not pushed; its gate was cut off at ~12:54 AM PT (node suite 28/28 passed, det base logs done, online e2e OK). Backup run is finishing the gate (det/master, endgame, browser suite) and will push only if it is clean.
+- v7.7.5 is LIVE (77580d8, pushed 12:45 AM PT). Local master a74b538 = v7.7.6 (multiplayer security + Hide my IP), not pushed; its gate was cut off at ~12:54 AM PT (node suite 28/28 passed, det base logs done, online e2e OK). Backup run finished the gate and pushed v7.7.6 (see below).
+
+## v7.7.6 (Wed Nov 4, pushed 3:50 AM PT by the backup run) LIVE
+Backup run resumed the interrupted night at 3:01 AM PT. Pushed commit 6bec943 to main (fast-forward from v7.7.5, no force-push); live page verified at 3:55 AM PT: v7.7.6 (footer, NET_VERSION, version.json), manifest 200, classic and frostline skirmishes load with 0 page errors and 0 failed requests.
+- Multiplayer security audit (HIGH PRIORITY item) DONE. No gameplay or AI changes; Hard plays exactly as in v7.7.5.
+  - Was unsafe: messages from other players were trusted. A bad or hostile peer could send unknown command types, out-of-range values or commands for units it does not own, flood messages, send huge messages, inject HTML through a player name, crash a handler, or send a fake resync/desync that froze the game.
+  - Fixed: every incoming peer/relay message is checked (type whitelist, ranges, ownership); after the game starts only the host's turns count and guests cannot send host-only messages; player names are cleaned, length-capped and shown as plain text; per-peer rate and size caps (e.g. chat flood: 6 of 50 accepted); each handler is wrapped so a malformed message is dropped instead of crashing; hostile sync/desync packets are rejected instantly; no prototype pollution. A rejoin desync found during the work was fixed.
+  - New setting "Hide my IP (always use relay)": when on, no direct peer-to-peer connection is opened, so other players never see your IP. Off by default, so connections work exactly as before.
+  - Still open: the relay servers themselves are third-party public relays, and online play on custom maps is still untested on two real devices.
+- Tests: det73 / det74 / spawn-det IDENTICAL to v7.7.3 base. Node suite 28/28 pass (incl. netsec, net, net4, replay, transport, endgame 1010 s). Online e2e OK (hash match, 0 console errors). Browser: netsec-browser, privacy, builders, apppause, slot, place701, diff73, mobile-play, mobile, ui7, fogkeys, endless703, mapbuilder, reach, replay all pass; lobby 740 combos OK; check:www OK (191 files, map-builder key not in bundle).
+- Note: an old copy of the gate script restarted by itself at 3:04 AM PT (probably when the box woke) and was stopped as a duplicate.
+- Not done tonight: stuck-army math + attack-move test, Hard France play, backlog. These carry to the next night run.
+- Logs: /workspace/n1104/g776.
