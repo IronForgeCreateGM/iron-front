@@ -1,3 +1,19 @@
+## RESUME NOTE 2:20 PM PT Wed Nov 4 (day run)
+- v7.7.7 country flags LIVE (7c3dc39, pushed 2:13 PM PT). Flags item below is DONE.
+- Local master is AHEAD of main and NOT pushed:
+  - 5f0f332: Game Center Quick Match (js/quickmatch.js, test/quickmatch-test.js, ios-plugin/*.swift, GAME-CENTER.md)
+  - this notes commit
+- Midnight run, Game Center:
+  1. Run `node test/quickmatch-test.js` alone. It needs ~25 min under load, so use `timeout 1800`.
+     - The last full run was before two fixes and passed steps 1-4: web hidden; 3 phones matched with the same seed/slots and no desync; forged/junk messages dropped; guest leaves -> AI.
+     - Fixes since: the forged-message check no longer expects a 'type' count (an unknown type is dropped in onlDispatch before onlAccept counts it); the guest-leave and host-leave checks now poll for up to 20 s.
+     - "Host left mid-match -> guest goes offline" FAILED once (status "") under heavy load. It may be timing; if it still fails, debug the playerDisconnected -> onlPeerLeave -> NET onLeave(hostPeer) path in js/quickmatch.js qmAttach.
+     - The host-migration-during-countdown step never ran (browser killed by the 900 s timeout).
+  2. If it all passes: gate (det73/det74/spawn-det identical, browser suite, lobby, check:www) and push master to main as a fast-forward (bump the version if anything else changes).
+     - Quick Match only shows when the native IronGameCenter plugin exists (iPhone app); the web build hides #qmBox.
+  3. The Swift plugin (ios-plugin/) has never been compiled: no ios/ project, no Mac. Nicholas's Xcode/App Store Connect steps and the two-iPhone checklist are in GAME-CENTER.md.
+  - Privacy note for Nicholas: GKMatch can connect phones directly (P2P) with Apple relay fallback; IPs are never exposed to game code, but relay-only is not guaranteed.
+
 ## RESUME NOTE 3:56 AM PT Wed Nov 4 (backup run)
 - v7.7.6 LIVE (6bec943, pushed 3:50 AM PT, verified 0 errors). Security audit done (see NIGHTLY-LOG). Branch sec776 is merged into master.
 - Next night: stuck-army math + Nicholas's plain attack-move test, Hard France play, backlog.
@@ -396,3 +412,12 @@ Try the human way: select the whole army, one plain attack-move (F) to the enemy
 - Nicholas's choices (9:16 AM PT Nov 1): lobby lets him set ANY team number per slot (covers FFA, 2v2v2v2, 4v4, uneven); biggest map ~3x today's; editor built primarily for Mac (mouse/keyboard), phone just needs to play the maps; START TONIGHT, FIRST, before stuck-army work. Ship a playable v1 (editor + save/load + 8 spawns + per-slot teams + size picker + themes + resources) if gates pass, otherwise leave it on master with a play zip and notes.
 
 - [Nov 3] v7.7.4 local (6b60699, builder bots at construction sites, render only) is committed but UNTESTED and NOT pushed; the Nov 3 run was interrupted. Test then push tonight before other items.
+
+## Country flag on command centers (requested by Nicholas 2026-11-04)
+- Show a small flag of each player's COUNTRY/faction (e.g. France, China, etc.) on that player's command center (construction yard / HQ), so a glimpse of the base tells you which country, and so which special units, that player is using. Flag pole can carry a thin team-color trim. Readable at normal zoom; minimap marker optional if cheap. Visual only, no gameplay change. Test in skirmish, multiplayer and custom maps; push with the nightly if clean.
+
+## Quick Match lobby (requested by Nicholas 2026-11-04) — APPROVED: build with Apple Game Center (GKMatchmaker auto-match) in the iPhone app
+- Goal: one "Quick Match" button instead of host/join codes. Player joins a public queue/lobby; match starts after a countdown (e.g. 60s, or immediately when full); empty slots fill with Hard bots.
+- Options to evaluate and report: (1) Apple Game Center auto-match (GKMatchmaker, min/max players) for the iPhone app, free, uses Apple IDs, no server; (2) a tiny lobby service (Firebase/Supabase realtime or Cloudflare Durable Object) that also works on the web build; keep relay-only "Hide my IP" and all security-audit message validation.
+- Host = first player in lobby runs the bots; handle host leaving. Report recommended approach, cost, and effort to Nicholas before building.
+- Nicholas approved Game Center on 2026-11-04. Build it in the iOS app wrapper: Quick Match button, countdown, auto-match 2-8 players, empty slots = Hard bots, Game Center relay keeps IPs hidden. Web build keeps current host/join. Needs Game Center capability enabled in App Store Connect/Xcode; report any step only Nicholas can do. Test on simulator + note what needs two real iPhones.

@@ -430,3 +430,15 @@ Backup run resumed the interrupted night at 3:01 AM PT. Pushed commit 6bec943 to
 - Note: an old copy of the gate script restarted by itself at 3:04 AM PT (probably when the box woke) and was stopped as a duplicate.
 - Not done tonight: stuck-army math + attack-move test, Hard France play, backlog. These carry to the next night run.
 - Logs: /workspace/n1104/g776.
+
+## v7.7.7 (Wed Nov 4, pushed 2:13 PM PT, day run) LIVE
+Pushed commit 7c3dc39 to main (fast-forward from 6bec943, no force-push). Live page checked at 2:15 PM PT: version.json v7.7.7, NET_VERSION v7.7.7, classic and volcano8 skirmishes load with 0 page errors, 0 failed requests and a flag on each HQ. Quick Match is not in the live build.
+- NEW: every Command Yard / Command Center flies its owner's COUNTRY flag (all 8: USA, Russia, France, Germany, Brazil, Iran, China, Japan) with a thin trim in the player's colour, so two players of the same country still look different. The flag is hidden while a CC is being built or sold. It sways gently on desktop, stays still in Quiet / Low / phone quality (no per-frame cost), and is drawn 1.45x bigger on phones. Render only: no gameplay, stat or bot change. Hard plays exactly as in v7.7.6.
+- Tests (on the exact pushed tree, worktree /workspace/rts-v777):
+  - det73 / det74 / spawn-det are IDENTICAL to the v7.7.6 base.
+  - The node suite passes 29/29.
+  - These browser tests pass: flags-test (new: 8 countries, same-country trim, construction site, custom map on phone, Endless Quiet), netsec-browser, privacy, builders, apppause, slot, place701, diff73, mobile-play, mobile, ui7, fogkeys, endless703, mapbuilder, reach and replay.
+  - lobby passes, and so does check:www.
+  - slot and mobile-play failed once under parallel load and passed when run alone.
+- Screenshot: /workspace/iron-front-flags.png. Logs: /workspace/n1104/flag (first gate) and /workspace/n1104/f2 (final gate).
+- Game Center Quick Match is committed locally only (5f0f332, on master after 7c3dc39) and is NOT pushed. See NEXT-SESSION.md and GAME-CENTER.md.
