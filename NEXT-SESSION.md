@@ -23,6 +23,21 @@ Nicholas watched an 8-player free-for-all on the biggest map and reported:
 4. **Flags 40% smaller.** Command-center country flags (js/gfx/flags.js): scale to 0.6× of current, on desktop and phone (keep phone relative bump).
 Verify: an 8-player FFA on the biggest map runs past 30 min with no auto-end, at least one warhead launch happens, frame time improves. Then report to Chief.
 
+### ALSO TONIGHT: FFA bot decisions (Nicholas's Nov 4 3-way replay, seed 285356597, classic, all si2: fra/bra/jpn) — added 7:20 PM PT
+- Re-sim is deterministic (51/51 hash checkpoints OK). Note: 30 ticks/s, so 46185 ticks = 25:40 game time. France out 14:17, Brazil out 25:39, Japan wins.
+- France never built a Grand Cannon (it HAS access: tech at 3:00, gcannon avail from 2:31). Cause: defenseMgr/defPlan71 France tier 3 plan is
+  [gatling 2, turret 2, gcannon 1...] looped PER ENTRANCE (6 entrances); gatlings kept dying/refilling so the loop always returned before gcannon. France wasn't fort76.
+  Tier stays 1 (turrets only) until 5:00 even with tech. France actually had the MOST towers until ~11:00, just all cheap ones.
+- Brazil: 65-75k group sat at France's base 12:00-15:09 (still there 50 s after France died, no target). Japan hit Brazil's base from ~14:10 (up to 17k bldg hp / 10 s).
+  siExtras recall2 needs iv > max(4500, hv*1.5) where hv = Brazil's home army (~46k) -> fired only at 15:09. No notion of "what the far group is still winning".
+- Branch `ai-ffa-fix` (LOCAL, commit 476b785, NOT merged/pushed): new replay flag f78 (old replays unchanged, verified bit-identical). (A) France: >=1 gcannon at tier 3, 2 at tier 4,
+  once >=2 gatlings exist, ignoring the per-entrance loop (SIOFF.gc78 off). (B) recall when group is >25 tiles from HQ, iv>4500, iv > 0.8*home army and iv > 0.5*value of enemy buildings
+  near the group (SIOFF.rc78 off). Per-player off switch P.f78Off for A/B benches.
+- Quick check same seed: B only -> Brazil recalls 14:06 (was 15:09), home bldg damage 89k (was 231k), Brazil survives to end (was out 25:39); France out 14:48.
+  A only -> France builds 2 Grand Cannons from 6:10 and survives the whole game. Seeds 11/22/33 (same setup) mixed/noisy: Japan still wins most; in 22/33 Brazil dies EARLIER with fix.
+- TODO tonight: proper bench (ai-bench / fp76-vs style, P.f78Off one side) incl. 1v1 Hard, many seeds. Ship only if Hard doesn't get weaker; tune 0.8 / 0.5 / 25 if needed.
+  Harness used: /workspace/ana/sim.js (outside repo). Not shipped.
+
 ## RESUME NOTE 3:56 AM PT Wed Nov 4 (backup run)
 - v7.7.6 LIVE (6bec943, pushed 3:50 AM PT, verified 0 errors). Security audit done (see NIGHTLY-LOG). Branch sec776 is merged into master.
 - Next night: stuck-army math + Nicholas's plain attack-move test, Hard France play, backlog.
