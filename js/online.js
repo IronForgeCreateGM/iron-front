@@ -101,7 +101,7 @@ function onlParseCode(v) { v = String(v || '').trim(); const m = /[?&#]room=([A-
 // v7.6.3: errors are shown in red on screen with Retry + Reload buttons (never silent)
 function onlError(html, retry) { const code = ONL.code; onlStatus(`<div class="onErr">❌ ${html}</div><div class="onErrBtns">${retry !== false && code ? '<button id="onRetry">↻ Retry</button> ' : ''}<button id="onReload">⟳ Reload page</button> <span class="dim">[${typeof NET_VERSION !== 'undefined' ? NET_VERSION : ''}${ONL.strategy ? ' · ' + ONL.strategy : ''}]</span></div>`);
   const r = document.getElementById('onRetry'); if (r) r.onclick = () => onlRetry(); const l = document.getElementById('onReload'); if (l) l.onclick = () => onlHardReload(); console.warn('[online] ' + String(html).replace(/<[^>]+>/g, '')); }
-function onlLeaveRoom() { clearInterval(ONL.reachI); clearTimeout(ONL.reachT); try { ONL.room && ONL.room.leave(); } catch (e) {} ONL.room = null; ONL.peers = {}; ONL.hostId = null; ONL.hostLock = null; ONL_SEC.rate = {}; ONL.started = false; ONL.ready = false; ONL.acts = {}; ONL.handlers = {}; ONL.strategy = null; ONL.kicked = null;
+function onlLeaveRoom() { clearInterval(ONL.reachI); clearTimeout(ONL.reachT); try { ONL.room && ONL.room.leave(); } catch (e) {} ONL.room = null; ONL.peers = {}; ONL.hostId = null; ONL.hostLock = null; ONL_SEC.rate = {}; ONL.started = false; ONL.ready = false; ONL.acts = {}; ONL.handlers = {}; ONL.leaveCbs = []; ONL.strategy = null; ONL.kicked = null;
   if (typeof RTCDIAG !== 'undefined') Object.keys(RTCDIAG).forEach(k => RTCDIAG[k] = 0); const rb = document.getElementById('readyBtn'); if (rb) rb.textContent = 'Ready'; }
 function onlRetry() { const code = ONL.code, host = ONL.host; onlLeaveRoom(); onlShowPanel(false); document.querySelectorAll('#lobby select').forEach(s => s.disabled = false); const sb = document.getElementById('startBtn'); if (sb) sb.style.display = '';
   setTimeout(() => host ? onlHost(code) : onlJoin(code), 400); }
@@ -212,6 +212,7 @@ function onlValidStart(d) {
   return true;
 }
 function onlBegin(o) {
+  ONL.leaveCbs = []; // fresh leave handlers for this match (NET.begin will re-register)
   if (o.me == null) { onlStatus('You were not assigned a slot.'); return; }
   audioInit(); document.getElementById('menu').style.display = 'none';
   startGame('normal', { slots: o.slots, seed: o.seed, me: o.me, map: o.map, cmap: o.cmap, peace: o.peace, fog: o.fog !== false, online: { tr: onlTransport, host: o.host, me: o.me, humans: o.humans, peerTeam: o.peerTeam, hostPeer: o.hostPeer } });
