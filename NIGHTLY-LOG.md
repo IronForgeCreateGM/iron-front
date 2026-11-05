@@ -1,5 +1,13 @@
 # Iron Front nightly log
 
+## 2026-11-05 (day, ~3:30 PM PT): v7.8.3 Razorwheel + drop Iron Foundry from lobby LIVE
+- Removed **Iron Foundry** (Nicholas's 224² Map Builder featured map) from the selectable lobby list. Data kept in `js/featured-maps.js` with `hide:1` so old replays/`cmGet` still work; missing `cm:` selections fall back to classic.
+- New built-in map **Razorwheel** (96², 8 FFA): eight compass-rim bases, outer ring road for neighbor wars, eight spoke lanes into a contested hub with rich ore/gas/derricks. Rock wedges between spokes — multi-lane fights, no single turtle choke. Unlike classic / volcano / frost / hellgate.
+- Lobby: map option + Watch preset `wffa`. Seat order 0..7. Size 96 (smaller than volcano8) for late-game performance.
+- AI sims (8 Hard FFA, 20 min): seed 11 → 4 alive, 176 buildings, stuckPeak 0; seed 42 → 8 alive, 198 buildings, stuckPeak 0; no stalls/errors; all starts path-connected.
+- Tests: replay OK, units OK, eight OK, 8-FFA DET PASS, check:www OK, classic+volcano8+razorwheel smoke.
+- Live: YES (FF push, no force).
+
 ## 2026-11-05 (day, ~2:00 PM PT): v7.8.2 screen wake lock during matches LIVE
 - What players feel: on iPhone (home-screen web app / Safari) the screen no longer auto-locks every minute or two while a skirmish, bot game, multiplayer match, or spectating session is running. Menus, the end screen, pause, and quit release it so the phone can sleep again.
 - Technical (client-only; no sim/AI/stat changes; replay + determinism bit-identical): `navigator.wakeLock.request('screen')` feature-detected in `js/main.js`. Held while a match is live (`started && !paused && !G.over` and pause overlay hidden). Re-acquired on `visibilitychange` → visible during a live match (browsers drop the lock when the tab hides). Generation counter so a still-pending request after pause/quit/end cannot leave a lock held. Every rejection swallowed silently (no console / Sentry / PostHog). Optional muted looping playsinline 1×1 canvas-captureStream video fallback only when the Wake Lock API is missing.

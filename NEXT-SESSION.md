@@ -1,3 +1,6 @@
+## SHIPPED day Nov 5: v7.8.3 Razorwheel + Iron Foundry delisted LIVE
+Iron Foundry (224², Nicholas's map-builder featured map) removed from the lobby list (data kept for replays). New 8-FFA built-in **Razorwheel** (96² rim/spoke/hub).
+
 ## SHIPPED day Nov 5: v7.8.2 screen wake lock LIVE
 iPhone home-screen / Safari matches keep the screen awake; menus, end screen, pause, quit release it. Client-only (`js/main.js`). No sim/stat changes.
 

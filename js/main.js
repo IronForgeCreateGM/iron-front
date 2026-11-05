@@ -64,6 +64,7 @@ const PRESETS = {
   wsi:    { n: 'Watch: 2 Hard vs 2 Hard', slots: [['si', 'A'], ['si', 'B'], ['si', 'A'], ['si', 'B']] },
   w1:     { n: 'Watch: Medium vs Hard', slots: [['normal', 'A'], ['si', 'B']] },
   w2:     { n: 'Watch: Hard vs Hard', slots: [['si', 'A'], ['si', 'B']] },
+  wffa:   { n: 'Watch: 8 FFA Razorwheel', map: 'razorwheel', slots: [['si', 'A'], ['si', 'B'], ['si', 'C'], ['si', 'D'], ['si', 'E'], ['si', 'F'], ['si', 'G'], ['si', 'H']] },
 };
 const TEAM_LET = 'ABCDEFGH', teamIdx = t => Math.max(0, TEAM_LET.indexOf(t || 'A')); // v7.7: lobby team values A-H = ally 0-7 (A/B unchanged, so presets + replays are as before)
 const TEAM_CSS = ['#3d9cff', '#ff5040', '#3fcf6a', '#e8c840', '#b070ff', '#2cc8c8', '#ff9030', '#d8d8d8'];
@@ -396,7 +397,7 @@ function lobbySelfTest() {
     if (new Set(G.players.map(P => P.color)).size !== G.players.length) errs.push(label + ' dup colours');
     if (list[0][0] === 'human' && !(hum[me] && !hum[me].ai && slots[me].row === 0)) errs.push(label + ' ME wrong');
   };
-  for (const map of ['classic', 'frost', 'volcano', 'volcano8', 'hellgate']) { ms.value = map;
+  for (const map of ['classic', 'frost', 'volcano', 'volcano8', 'razorwheel', 'hellgate']) { ms.value = map;
     for (const pk of Object.keys(PRESETS)) {
       lobbySet(PRESETS[pk].slots); check(pk + '@' + map, map);
       for (let k = 0; k < 12; k++) { const rs = rows(), r = rs[(R() * rs.length) | 0], what = (R() * 4) | 0;
@@ -405,18 +406,32 @@ function lobbySelfTest() {
     }
     // all team splits for 4 active slots incl. 3v1 / 4v0, and You on every row
     for (let m = 0; m < 16; m++) { lobbySet([['human', m & 1 ? 'B' : 'A', 'fra', 'green'], ['si', m & 2 ? 'B' : 'A', 'rus'], ['normal', m & 4 ? 'B' : 'A', 'rand', 'blue'], ['hard', m & 8 ? 'B' : 'A']]); check('split' + m + '@' + map, map); }
-    for (let h = 0; h < 8; h++) { const L = [0, 1, 2, 3, 4, 5, 6, 7].map(i => [i === h ? 'human' : i < 6 || map === 'volcano8' || map === 'hellgate' ? 'si' : 'off', map === 'hellgate' ? (i < 2 ? 'A' : 'B') : i % 2 ? 'B' : 'A']); lobbySet(L); check('you@row' + (h + 1) + '@' + map, map); }
+    for (let h = 0; h < 8; h++) { const L = [0, 1, 2, 3, 4, 5, 6, 7].map(i => [i === h ? 'human' : i < 6 || map === 'volcano8' || map === 'hellgate' || map === 'razorwheel' ? 'si' : 'off', map === 'hellgate' ? (i < 2 ? 'A' : 'B') : map === 'razorwheel' ? 'ABCDEFGH'[i] : i % 2 ? 'B' : 'A']); lobbySet(L); check('you@row' + (h + 1) + '@' + map, map); }
   }
-  // v7.7.2 custom maps (featured 'Iron Foundry', 8 spawns): presets, FFA teams A-H, 2v2v2v2, You on every row
-  { const cmv = 'cm:feat-iron-foundry'; if ([...ms.options].some(o => o.value === cmv)) { setSel(ms, cmv);
-      if (!CM_SEL || CM_SEL.id !== 'feat-iron-foundry') errs.push('custom: featured map not selected');
+  // v7.8.3: Iron Foundry stays loadable via cmGet for old replays, but is hidden from the lobby list.
+  // Exercise custom seating with whatever featured map is still listed, else synthetic cmGet.
+  { const listed = [...ms.options].filter(o => o.value.startsWith('cm:feat-')).map(o => o.value);
+    const id = listed[0] ? listed[0].slice(3) : 'feat-iron-foundry';
+    const cm = typeof cmGet === 'function' ? cmGet(id) : null;
+    if (!cm) errs.push('custom: featured map data missing from CM_BUILTIN');
+    else if (listed[0]) {
+      setSel(ms, listed[0]);
+      if (!CM_SEL || CM_SEL.id !== id) errs.push('custom: featured map not selected');
       else { const TL = 'ABCDEFGH';
         for (const pk of Object.keys(PRESETS)) { lobbySet(PRESETS[pk].slots); check(pk + '@custom', 'custom'); }
         lobbySet([0, 1, 2, 3, 4, 5, 6, 7].map(i => [i ? 'si' : 'human', TL[i]])); check('ffa8@custom', 'custom');
         lobbySet([0, 1, 2, 3, 4, 5, 6, 7].map(i => [i ? 'si' : 'human', TL[i >> 1]])); check('2v2v2v2@custom', 'custom');
         lobbySet([0, 1, 2].map(i => [i ? 'si' : 'human', TL[i]])); check('ffa3@custom', 'custom');
         for (let h = 0; h < 8; h++) { lobbySet([0, 1, 2, 3, 4, 5, 6, 7].map(i => [i === h ? 'human' : 'si', TL[i % 4]])); check('you@row' + (h + 1) + '@custom', 'custom'); } }
-      setSel(ms, 'classic'); } else errs.push('custom: featured map missing from the map list'); }
+      setSel(ms, 'classic');
+    } else {
+      // no featured maps listed (v7.8.3+): still verify cmGet + seatPlan for the hidden Foundry data
+      const TL = 'ABCDEFGH', fake = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({ row: i, ally: i }));
+      const seats = seatPlan('custom', fake, cm.starts.length);
+      if (new Set(seats).size !== 8) errs.push('custom: hidden foundry seatPlan broken');
+      lobbySet([0, 1, 2, 3, 4, 5, 6, 7].map(i => [i ? 'si' : 'human', TL[i]]));
+      setSel(ms, 'razorwheel'); check('ffa8@razorwheel', 'razorwheel'); setSel(ms, 'classic');
+    } }
   // Endless: up to 4 defenders on rows 1-4 (any subset), solo -> centre base
   setMode('endless');
   for (let m = 1; m < 16; m++) { lobbySet([0, 1, 2, 3].map(i => [m & (1 << i) ? (i === 0 ? 'human' : 'remote') : 'off', 'A'])); check('endless' + m, 'endless'); }
@@ -481,12 +496,12 @@ function mapPreview() {
   const S = lobbySeats(), map = S.map, six = map === 'classic' && (S.n > 4 || S.rows.some(r => r.start > 3)), CU = map === 'custom' && typeof CM_SEL !== 'undefined' && CM_SEL, key = CU ? 'cm:' + CM_SEL.id + ':' + (CM_SEL.rev || 0) : map + (six ? '6' : '');
   if (map === 'custom' && !CU) return;
   if (!MP_CACHE[key]) {
-    const n = CU ? CM_SEL.starts.length : map === 'volcano8' || map === 'hellgate' ? 8 : six || map === 'volcano' || map === 'frost' ? 6 : 4, slots = []; for (let i = 0; i < n; i++) slots.push({ ai: true, diff: 'easy', ally: map === 'hellgate' ? (i < 2 ? 0 : 1) : i % 2 });
+    const n = CU ? CM_SEL.starts.length : map === 'volcano8' || map === 'hellgate' || map === 'razorwheel' ? 8 : six || map === 'volcano' || map === 'frost' ? 6 : 4, slots = []; for (let i = 0; i < n; i++) slots.push({ ai: true, diff: 'easy', ally: map === 'hellgate' ? (i < 2 ? 0 : 1) : i % 2 });
     const G0 = typeof G !== 'undefined' ? G : null, MW0 = MW, MH0 = MH;
     try { newGame({ seed: 1, map, slots, cmap: CU ? CM_SEL : undefined }); } catch (e) { G = G0; MW = MW0; MH = MH0; return; }
     const x = cv.getContext('2d'), W = cv.width, s = W / MW, img = x.createImageData(W, W), d = img.data;
     for (let py = 0; py < W; py++) for (let px = 0; px < W; px++) { const tx = Math.floor(px / s), ty = Math.floor(py / s), i = ty * MW + tx, t = G.map[i], l = G.lvl[i];
-      let r, g, b; if (t === 1) { r = G.mud && G.mud[i] ? 150 : G.desert ? 112 : 88; g = G.mud && G.mud[i] ? 106 : G.desert ? 88 : 82; b = G.mud && G.mud[i] ? 68 : G.desert ? 66 : 74; } else if (t === 2) { r = 28; g = 80; b = 120; } else if (G.lava[i]) { r = 230; g = 90; b = 30; } else if (G.ore[i] > 0) { r = 230; g = 190; b = 60; } else if (G.ice[i]) { r = 170; g = 210; b = 230; } else { const th = CU ? CM_SEL.theme : '', base = CU ? cmBaseRGB(th) : map === 'frost' ? [190, 205, 215] : map.startsWith('volcano') ? [70, 62, 58] : (map === 'hellgate' || map === 'endless') ? (G.wadi && G.wadi[i] ? [205, 180, 130] : [172, 138, 92]) : [70, 110, 60]; r = base[0] + l * 22; g = base[1] + l * 22; b = base[2] + l * 18; if (G.forest[i]) { r *= 0.7; g *= 0.85; b *= 0.7; } }
+      let r, g, b; if (t === 1) { r = G.mud && G.mud[i] ? 150 : G.desert ? 112 : 88; g = G.mud && G.mud[i] ? 106 : G.desert ? 88 : 82; b = G.mud && G.mud[i] ? 68 : G.desert ? 66 : 74; } else if (t === 2) { r = 28; g = 80; b = 120; } else if (G.lava[i]) { r = 230; g = 90; b = 30; } else if (G.ore[i] > 0) { r = 230; g = 190; b = 60; } else if (G.ice[i]) { r = 170; g = 210; b = 230; } else { const th = CU ? CM_SEL.theme : '', base = CU ? cmBaseRGB(th) : map === 'frost' ? [190, 205, 215] : map.startsWith('volcano') ? [70, 62, 58] : map === 'razorwheel' ? [78, 92, 70] : (map === 'hellgate' || map === 'endless') ? (G.wadi && G.wadi[i] ? [205, 180, 130] : [172, 138, 92]) : [70, 110, 60]; r = base[0] + l * 22; g = base[1] + l * 22; b = base[2] + l * 18; if (G.forest[i]) { r *= 0.7; g *= 0.85; b *= 0.7; } }
       const o = (py * W + px) * 4; d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255; }
     x.putImageData(img, 0, 0);
     x.fillStyle = '#4fe8dc'; for (const [vx, vy] of G.vents || []) { x.beginPath(); x.arc((vx + 0.5) * s, (vy + 0.5) * s, 2.6, 0, 7); x.fill(); }

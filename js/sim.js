@@ -15,8 +15,8 @@ function foe(a, b) { if (a === b) return false; if (a == null || b == null) retu
 // Hellgate is the one team-sided map: spots 1-2 are Team A's valley seats, 3-8 the Team B warlord bases. A row whose spot is on the other
 // team's side (or whose spot does not exist on the map) takes the lowest free spot on its own side instead; the lobby shows "N→M" for it.
 // Endless: defenders sit at spots 1-4 by row (solo = the centre base), the Horde is east. Pure + deterministic (host computes it, peers get the result).
-const SEAT_ORDER = { classic: [0, 3, 2, 1, 4, 5], frost: [0, 3, 2, 1, 4, 5], volcano: [0, 3, 2, 1, 4, 5], volcano8: [0, 3, 2, 1, 4, 5, 6, 7], hellgate: [0, 1, 2, 3, 4, 5, 6, 7], endless: [0, 1, 2, 3], custom: [0, 1, 2, 3, 4, 5, 6, 7] }; // v7.7 custom (map builder) maps: spot N = the builder's spawn N
-function seatMap(map, n) { return map !== 'hellgate' && map !== 'endless' && map !== 'custom' && n > 6 ? 'volcano8' : SEAT_ORDER[map] ? map : 'classic'; }
+const SEAT_ORDER = { classic: [0, 3, 2, 1, 4, 5], frost: [0, 3, 2, 1, 4, 5], volcano: [0, 3, 2, 1, 4, 5], volcano8: [0, 3, 2, 1, 4, 5, 6, 7], razorwheel: [0, 1, 2, 3, 4, 5, 6, 7], hellgate: [0, 1, 2, 3, 4, 5, 6, 7], endless: [0, 1, 2, 3], custom: [0, 1, 2, 3, 4, 5, 6, 7] }; // v7.7 custom (map builder) maps: spot N = the builder's spawn N
+function seatMap(map, n) { return map !== 'hellgate' && map !== 'endless' && map !== 'custom' && map !== 'razorwheel' && n > 6 ? 'volcano8' : SEAT_ORDER[map] ? map : 'classic'; }
 function seatSide(map, k) { return map === 'hellgate' ? (k < 2 ? 0 : 1) : null; } // start index -> required ally (null = any team may sit there)
 function seatPlan(map, rows, ns) { // rows: [{ row, ally }] (active lobby rows, in order) -> start index per row (ns = spawn count of a custom map)
   map = seatMap(map, rows.length); const order = map === 'custom' ? SEAT_ORDER.custom.slice(0, ns || 8) : SEAT_ORDER[map], taken = new Set(), out = rows.map(() => null);
@@ -34,7 +34,7 @@ function newGame(opts) {
   // slots: [{ ai, diff, ally, fac, start }]; default 1v1 from legacy opts
   const slots = opts.slots || [0, 1].map(t => ({ ai: opts.aiTeams.includes(t), diff: t === 0 && opts.p0diff ? opts.p0diff : opts.diff, ally: t, fac: (opts.facs || [])[t], start: t ? 3 : 0 }));
   if (opts.map === 'custom' && !(opts.cmap && opts.cmap.w && Array.isArray(opts.cmap.starts) && opts.cmap.starts.length)) opts.map = 'classic'; // v7.7 map builder: a custom map travels inside opts (replays/online carry it)
-  const HG = opts.map === 'hellgate', EN = opts.map === 'endless', CU = opts.map === 'custom'; MW = MH = CU ? cmapSize(opts.cmap) : HG ? 128 : EN ? 96 : (opts.map === 'volcano8' || slots.length > 6) ? 112 : 96; if (slots.length > 6 && !HG && !CU) opts.map = 'volcano8';
+  const HG = opts.map === 'hellgate', EN = opts.map === 'endless', CU = opts.map === 'custom', RW = opts.map === 'razorwheel'; MW = MH = CU ? cmapSize(opts.cmap) : HG ? 128 : RW ? 96 : EN ? 96 : (opts.map === 'volcano8' || slots.length > 6) ? 112 : 96; if (slots.length > 6 && !HG && !CU && !RW) opts.map = 'volcano8';
   const NP = slots.length;
   // every player gets its own start corner (guards against duplicate/missing starts from any lobby path)
   if (EN) { /* endlessSlots() already seated everyone */ }
@@ -81,7 +81,7 @@ function newGame(opts) {
 // 96x96 four-fold mirrored map: mains in corners (cliff ring + 2 ramps), two naturals each,
 // contested mid bases with rich (gold) fields, central monument, river with 4 bridges, forests.
 function genMap(R) {
-  G.mapName = G.opts.map || 'classic'; G.v8 = G.mapName === 'volcano8'; if (G.v8) G.mapName = 'volcano'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R); if (G.mapName === 'hellgate') return genHellgate(R); if (G.mapName === 'endless') return genEndless(R); if (G.mapName === 'custom') return genUserMap(R);
+  G.mapName = G.opts.map || 'classic'; G.v8 = G.mapName === 'volcano8'; if (G.v8) G.mapName = 'volcano'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R); if (G.mapName === 'hellgate') return genHellgate(R); if (G.mapName === 'endless') return genEndless(R); if (G.mapName === 'custom') return genUserMap(R); if (G.mapName === 'razorwheel') return genRazorwheel(R);
   const N = MW * MH, Q = MW / 2, gs = 8, gw = MW / gs + 2;
   const mk = () => { const a = []; for (let i = 0; i < gw * gw; i++) a.push(R()); return a; };
   const g1 = mk(), g2 = mk(), g3 = mk();
@@ -265,6 +265,87 @@ function genCustom(R) {
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (!inb(nx, ny)) continue; const n = idx(nx, ny); if (!seen[n] && G.map[n] === 0) { seen[n] = 1; st.push(n); } } }
   for (let i = 0; i < N; i++) if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.ore[i] = 0; G.forest[i] = 0; }
   G.six = true; G.oreMax = Float32Array.from(G.ore);
+}
+// v7.8.3 "Razorwheel" — 96×96 8-player FFA. Eight rim bases on a compass ring, an outer
+// ring road for neighbor wars, eight spoke lanes into a contested hub (rich ore + gas + derricks).
+// Rock wedges between spokes force multi-lane fights — no single turtle choke. Unique vs volcano/frost/hellgate/classic.
+function genRazorwheel(R) {
+  const N = MW * MH, M = MW / 2;
+  const nz = (() => { const s = 7, w = Math.ceil(MW / s) + 2, g = []; for (let i = 0; i < w * w * 3; i++) g.push(R()); const sm = t => t * t * (3 - 2 * t);
+    return (x, y, o) => { x /= s; y /= s; const xi = Math.floor(x), yi = Math.floor(y), fx = sm(x - xi), fy = sm(y - yi), v = (a, b) => g[(o * w * w + b * w + a) % g.length];
+      return (v(xi, yi) * (1 - fx) + v(xi + 1, yi) * fx) * (1 - fy) + (v(xi, yi + 1) * (1 - fx) + v(xi + 1, yi + 1) * fx) * fy; }; })();
+  const each = (cx, cy, r, f) => { for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(MH - 1, cy + r); y++) for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(MW - 1, cx + r); x++) { const d = dhypot(x + 0.5 - cx, y + 0.5 - cy); if (d <= r) f(idx(x, y), d, x, y); } };
+  const fieldC = (cx, cy, r, rich) => each(cx, cy, r + 0.3, i => { G.map[i] = 0; G.forest[i] = 0; G.ore[i] = (rich ? 540 : 410) * ORE_MULT * (0.8 + 0.4 * R()); G.rich[i] = rich ? 1 : 0; });
+  const clearC = (cx, cy, r) => each(cx, cy, r, i => { G.map[i] = 0; G.forest[i] = 0; G.lava[i] = 0; });
+  const rockC = (cx, cy, r) => each(cx, cy, r, i => { G.map[i] = 1; G.forest[i] = 0; G.ore[i] = 0; });
+  const path = (pts, r, f) => { for (let k = 0; k < pts.length - 1; k++) { const [x0, y0] = pts[k], [x1, y1] = pts[k + 1], n = Math.ceil(dhypot(x1 - x0, y1 - y0) * 2); for (let j = 0; j <= n; j++) each(x0 + (x1 - x0) * j / n, y0 + (y1 - y0) * j / n, r, f); } };
+  // base terrain: muted grass + light forest, rock border
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = idx(x, y), n = nz(x, y, 0), f = nz(x, y, 1);
+    G.elev[i] = n; G.map[i] = n > 0.82 ? 1 : 0; G.forest[i] = f > 0.7 && n < 0.78 ? 1 : 0; if (x < 2 || y < 2 || x > MW - 3 || y > MH - 3) G.map[i] = 1; }
+  G.vents = []; G.sites = []; G.dkPos = []; G.monument = null; G.weather = null; G.ruins = null; G.crown = null;
+  const vent = (x, y) => { clearC(x + 0.5, y + 0.5, 1.6); G.vents.push([x, y]); };
+  const dk = (x, y) => { G.dkPos.push([x, y]); };
+  // 8 compass starts on a ring (spot 1 = NW-ish, then clockwise). Angle offset so seats feel even.
+  const RIM = 38, bases = [];
+  for (let k = 0; k < 8; k++) { const a = -Math.PI * 3 / 4 + k * Math.PI / 4; bases.push([M + Math.cos(a) * RIM, M + Math.sin(a) * RIM, a]); }
+  G.starts = bases.map(([x, y]) => [x, y]);
+  // rock wedges between spokes (leave spoke gaps + outer ring + hub open)
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+    const dx = x + 0.5 - M, dy = y + 0.5 - M, d = Math.hypot(dx, dy); if (d < 11 || d > 44) continue;
+    let ang = Math.atan2(dy, dx); // -pi..pi
+    // distance to nearest spoke angle (bases point inward)
+    let best = 99; for (let k = 0; k < 8; k++) { const sa = bases[k][2] + Math.PI; let da = Math.abs(((ang - sa + Math.PI * 3) % (Math.PI * 2)) - Math.PI); best = Math.min(best, da); }
+    // wedge fills mid-angles; width grows with radius
+    if (best > 0.22 + 0.004 * d) { const i = idx(x, y); G.map[i] = 1; G.forest[i] = 0; G.ore[i] = 0; }
+  }
+  // outer ring road (neighbor wars) + clear spoke lanes into the hub
+  for (let k = 0; k < 8; k++) {
+    const a0 = bases[k][2], a1 = bases[(k + 1) % 8][2];
+    const steps = 28; for (let s = 0; s <= steps; s++) { let a = a0 + (a1 - a0) * s / steps; if (a1 < a0) a = a0 + (a1 + Math.PI * 2 - a0) * s / steps; clearC(M + Math.cos(a) * RIM, M + Math.sin(a) * RIM, 2.4); }
+    path([[bases[k][0], bases[k][1]], [M + Math.cos(a0 + Math.PI) * 2, M + Math.sin(a0 + Math.PI) * 2]], 2.0, i => { G.map[i] = 0; G.forest[i] = 0; });
+  }
+  // hub plaza: raised contested crater with rich mid
+  each(M, M, 12.5, (i, d) => { G.map[i] = 0; G.forest[i] = 0; G.lvl[i] = Math.max(G.lvl[i], d < 7 ? 1 : Math.max(0, 1 - (d - 7) / 5.5)); });
+  // shallow rock lip around hub with 8 spoke gates already cleared
+  for (let a = 0; a < Math.PI * 2; a += 0.04) {
+    let nearSpoke = false; for (let k = 0; k < 8; k++) { const sa = bases[k][2] + Math.PI; let da = Math.abs(((a - sa + Math.PI * 3) % (Math.PI * 2)) - Math.PI); if (da < 0.28) nearSpoke = true; }
+    if (nearSpoke) continue; rockC(M + Math.cos(a) * 12.2, M + Math.sin(a) * 12.2, 0.85);
+  }
+  // base pads + personal ore/gas
+  for (let k = 0; k < 8; k++) {
+    const [bx, by, a] = bases[k], inward = a + Math.PI, outward = a;
+    // plateau pad
+    each(bx, by, 9.5, (i, d) => { G.map[i] = 0; G.forest[i] = 0; G.ore[i] = 0; G.lvl[i] = Math.max(G.lvl[i], d < 7 ? 1 : Math.max(0, 1 - (d - 7) / 3)); });
+    // two ramps: inward (to spoke) + tangential (to ring)
+    clearC(bx + Math.cos(inward) * 8, by + Math.sin(inward) * 8, 2.2);
+    clearC(bx + Math.cos(a + Math.PI / 2) * 8, by + Math.sin(a + Math.PI / 2) * 8, 2.0);
+    clearC(bx + Math.cos(a - Math.PI / 2) * 8, by + Math.sin(a - Math.PI / 2) * 8, 2.0);
+    fieldC(bx + Math.cos(outward) * 5.5, by + Math.sin(outward) * 5.5, 1.9);
+    fieldC(bx + Math.cos(a + 0.9) * 5.2, by + Math.sin(a + 0.9) * 5.2, 1.6);
+    vent(Math.floor(bx + Math.cos(a - 0.7) * 4.5), Math.floor(by + Math.sin(a - 0.7) * 4.5));
+    G.sites.push({ x: bx, y: by, k: 'main' });
+    // natural expansion between this base and the next, on the ring
+    const aMid = a + Math.PI / 8, ex = M + Math.cos(aMid) * 28, ey = M + Math.sin(aMid) * 28;
+    clearC(ex, ey, 5.5); fieldC(ex, ey, 1.7); vent(Math.floor(ex + 2), Math.floor(ey)); G.sites.push({ x: ex, y: ey, k: 'nat' });
+  }
+  // contested hub resources
+  fieldC(M, M, 2.2, 1); fieldC(M - 4, M + 3, 1.4, 1); fieldC(M + 4, M - 3, 1.4, 1);
+  vent(Math.floor(M - 5), Math.floor(M - 2)); vent(Math.floor(M + 5), Math.floor(M + 2));
+  vent(Math.floor(M - 2), Math.floor(M + 5)); vent(Math.floor(M + 2), Math.floor(M - 5));
+  dk(Math.floor(M - 3), Math.floor(M)); dk(Math.floor(M + 3), Math.floor(M)); dk(Math.floor(M), Math.floor(M - 3)); dk(Math.floor(M), Math.floor(M + 3));
+  G.crown = [M, M]; // reuse crown marker for the hub (visual/AI mid interest)
+  // clear start pads hard
+  for (const [sx, sy] of G.starts) clearC(sx, sy, 4.5);
+  for (let i = 0; i < N; i++) { if (G.map[i] !== 0) G.forest[i] = 0; G.tier[i] = Math.round(G.lvl[i]); }
+  // flood-fill connectivity from start 0
+  const seen = new Uint8Array(N), st = [idx(Math.floor(G.starts[0][0]), Math.floor(G.starts[0][1]))]; seen[st[0]] = 1;
+  while (st.length) { const c = st.pop(), x = c % MW, y = (c / MW) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (!inb(nx, ny)) continue; const n = idx(nx, ny); if (!seen[n] && G.map[n] === 0) { seen[n] = 1; st.push(n); } } }
+  for (let i = 0; i < N; i++) if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.ore[i] = 0; G.forest[i] = 0; }
+  // ensure every start is reachable from start 0 (carve a spoke if flood missed)
+  for (let k = 1; k < 8; k++) { const [sx, sy] = G.starts[k], si = idx(Math.floor(sx), Math.floor(sy)); if (seen[si]) continue;
+    path([[G.starts[0][0], G.starts[0][1]], [sx, sy]], 2.2, i => { G.map[i] = 0; G.forest[i] = 0; }); }
+  G.six = true; G.oreMax = Float32Array.from(G.ore); G.mapName = 'razorwheel';
 }
 // v6.0 "Hindu Kush Hellgate" — 128x128 2v6 desert warzone. Team A (2 seats) holds a raised western valley
 // behind the Hindu Kush ridge; the ONLY way in is the 7-tile Hellgate canyon. Six warlord bases ring the eastern
