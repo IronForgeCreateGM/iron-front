@@ -14,6 +14,15 @@
   3. The Swift plugin (ios-plugin/) has never been compiled: no ios/ project, no Mac. Nicholas's Xcode/App Store Connect steps and the two-iPhone checklist are in GAME-CENTER.md.
   - Privacy note for Nicholas: GKMatch can connect phones directly (P2P) with Apple relay fallback; IPs are never exposed to game code, but relay-only is not guaranteed.
 
+
+## TOP PRIORITY TONIGHT (Nicholas, Nov 4 6:17 PM PT)
+Nicholas watched an 8-player free-for-all on the biggest map and reported:
+1. **No time limits.** Around 13–14 min the game ended with "team with biggest army value wins". He wants NO time limit on any game he plays or observes. Find the rule (search sim/ui/main/endless/ai for the stalemate/army-value win check, and any observer/spectator auto-end) and remove it, or make it off by default with no lobby default turning it on. Games end only by elimination (or surrender).
+2. **Bots never launch warheads.** Late game, several bots had Warhead Launchers built but nobody fired, so the game stagnated. Trace warhead76/warheadMgr (js/ai.js ~815 and ~1120): check build gating (gas/cr thresholds, s.con, s.mq), the launch value threshold (bv > 1500 / target scoring on knownB; in FFA on a huge map knownB may be empty from fog), and whether FFA targets are picked. Fix so Hard/all bots that own a launcher build a missile and launch it at a real target. No bot bonuses, no unit stat changes, Hard must not get weaker.
+3. **Late-game lag.** With huge armies the game got glitchy and slow. Profile an 8-player FFA on the biggest map at 15–25 min (stress mode exists in main.js ?stress). Optimize sim/render hot paths (spatial grid for targeting, throttle AI think, instancing) without changing gameplay results.
+4. **Flags 40% smaller.** Command-center country flags (js/gfx/flags.js): scale to 0.6× of current, on desktop and phone (keep phone relative bump).
+Verify: an 8-player FFA on the biggest map runs past 30 min with no auto-end, at least one warhead launch happens, frame time improves. Then report to Chief.
+
 ## RESUME NOTE 3:56 AM PT Wed Nov 4 (backup run)
 - v7.7.6 LIVE (6bec943, pushed 3:50 AM PT, verified 0 errors). Security audit done (see NIGHTLY-LOG). Branch sec776 is merged into master.
 - Next night: stuck-army math + Nicholas's plain attack-move test, Hard France play, backlog.
