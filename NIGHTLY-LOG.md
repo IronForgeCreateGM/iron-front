@@ -1,5 +1,12 @@
 # Iron Front nightly log
 
+## 2026-11-05 (day, ~2:00 PM PT): v7.8.2 screen wake lock during matches LIVE
+- What players feel: on iPhone (home-screen web app / Safari) the screen no longer auto-locks every minute or two while a skirmish, bot game, multiplayer match, or spectating session is running. Menus, the end screen, pause, and quit release it so the phone can sleep again.
+- Technical (client-only; no sim/AI/stat changes; replay + determinism bit-identical): `navigator.wakeLock.request('screen')` feature-detected in `js/main.js`. Held while a match is live (`started && !paused && !G.over` and pause overlay hidden). Re-acquired on `visibilitychange` → visible during a live match (browsers drop the lock when the tab hides). Generation counter so a still-pending request after pause/quit/end cannot leave a lock held. Every rejection swallowed silently (no console / Sentry / PostHog). Optional muted looping playsinline 1×1 canvas-captureStream video fallback only when the Wake Lock API is missing.
+- Hooks: `startGame`, `togglePause` (incl. online pause overlay + mobile.js background pause), end-screen show, quit buttons.
+- Tests: replay OK, units OK, eight OK, 5-min 8-FFA DET PASS (self-identical), check:www OK, classic + volcano8 browser smoke 0 page errors / 0 failed requests.
+- Live: YES (pushed from main, FF 174cc97.., no force).
+
 ## 2026-11-05 (day, ~11:10 AM PT): v7.8.1 snappier unit controls/UI LIVE
 - PUSHED 987e0af -> main at 11:08:56 AM PT (FF b10c5c2..987e0af, no force). LIVE verified 11:10 AM PT: version.json v7.8.1, 36 ?v=7.8.1 tags, NET_VERSION v7.8.1, classic + volcano8 smoke 0 page errors / 0 failed requests; derrick rebuild OK (8→9 on map swap).
 - Phase 2 after v7.8.0: selection, control groups, hover/pick, health bars, minimap cache — less lag when viewing/controlling huge armies (600+ / 8-FFA).

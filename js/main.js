@@ -3,7 +3,48 @@
 let started = false, paused = false, acc = 0, lastT = 0;
 const QS = new URLSearchParams(location.search);
 window.addEventListener('error', e => { if (QS.get('stk')) document.title = 'STK ' + (e.error && e.error.stack); const d = document.getElementById('err'); if (d) { d.style.display = 'block'; d.textContent += (e.message || e) + ' @' + (e.filename || '').split('/').pop() + ':' + e.lineno + '\n'; } });
-function togglePause() { if (!started || G.over) return; if (NET.online) { const pz = document.getElementById('pause'); pz.style.display = pz.style.display === 'flex' ? 'none' : 'flex'; return; } paused = !paused; document.getElementById('pause').style.display = paused ? 'flex' : 'none'; }
+function togglePause() { if (!started || G.over) return; if (NET.online) { const pz = document.getElementById('pause'); pz.style.display = pz.style.display === 'flex' ? 'none' : 'flex'; wlSync(); return; } paused = !paused; document.getElementById('pause').style.display = paused ? 'flex' : 'none'; wlSync(); }
+// v7.8.2: keep the phone screen awake during a live match (Wake Lock API; silent no-ops when missing/denied). Released on menus, end screen, pause, quit.
+const WL = { lock: null, gen: 0, want: false, vid: null };
+function wlMatchOn() {
+  if (!started || typeof G === 'undefined' || G.over || paused) return false;
+  const pz = document.getElementById('pause');
+  if (pz && pz.style.display === 'flex') return false;
+  return true;
+}
+function wlVideoOff() { const v = WL.vid; WL.vid = null; if (!v) return; try { v.pause(); } catch (e) {} try { if (v.srcObject) { const ts = v.srcObject.getTracks ? v.srcObject.getTracks() : []; ts.forEach(tr => { try { tr.stop(); } catch (e) {} }); v.srcObject = null; } } catch (e) {} try { v.remove(); } catch (e) {} }
+function wlVideoOn() {
+  if (WL.vid || typeof document === 'undefined' || !document.body) return;
+  try {
+    if (!HTMLCanvasElement.prototype.captureStream) return; // older-iOS fallback only when trivial+safe
+    const c = document.createElement('canvas'); c.width = 1; c.height = 1; try { c.getContext('2d').fillRect(0, 0, 1, 1); } catch (e) {}
+    const v = document.createElement('video'); v.muted = true; v.defaultMuted = true; v.loop = true; v.playsInline = true;
+    v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', '');
+    v.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-9px;bottom:0;';
+    v.srcObject = c.captureStream(1); document.body.appendChild(v); WL.vid = v;
+    const p = v.play(); if (p && p.catch) p.catch(() => {});
+  } catch (e) {}
+}
+function wlRelease() {
+  WL.want = false; WL.gen++;
+  const l = WL.lock; WL.lock = null;
+  if (l) { try { const r = l.release(); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+  wlVideoOff();
+}
+function wlAcquire() {
+  WL.want = true; const g = ++WL.gen;
+  const has = typeof navigator !== 'undefined' && navigator.wakeLock && typeof navigator.wakeLock.request === 'function';
+  if (!has) { wlVideoOn(); return; }
+  let req;
+  try { req = navigator.wakeLock.request('screen'); } catch (e) { wlVideoOn(); return; }
+  if (!req || typeof req.then !== 'function') { wlVideoOn(); return; }
+  req.then(l => {
+    if (g !== WL.gen || !WL.want) { try { const r = l.release(); if (r && r.catch) r.catch(() => {}); } catch (e) {} return; }
+    WL.lock = l; try { l.addEventListener('release', () => { if (WL.lock === l) WL.lock = null; }); } catch (e) {}
+  }).catch(() => { if (g === WL.gen && WL.want) wlVideoOn(); }); // swallow every rejection; no console/Sentry/PostHog
+}
+function wlSync() { if (wlMatchOn()) wlAcquire(); else wlRelease(); }
+addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && wlMatchOn()) wlAcquire(); });
 const MENU = { fac: 'usa', aiFac: 'rand' };
 // v7.3: three player-facing difficulties. Easy = 'easy', Medium = 'normal', Hard = the 'si' profile (the internal Chief SI benchmark bot).
 // Old options (lobby rows, presets, URLs, Endless/online backfill) map to the nearest: hard/chief/si -> Hard. Replays keep their recorded profiles.
@@ -77,6 +118,7 @@ function startGame(diff, opts) {
   }
   started = true; lastT = performance.now(); requestAnimationFrame(frame);
   if (!opts.demo) try { window.IF_AN && IF_AN.gameStart(); } catch (e) {} // v7.7.4: anonymous analytics (js/analytics.js; no-op when off)
+  wlSync(); // v7.8.2 screen wake lock while the match runs
 }
 const REC = QS.get('rec');
 window.__rec = n => { for (let i = 0; i < n && !G.over; i++) stepGame(); director(n * DT); uiFrame(n * DT); r3Render(n * DT); if (G.over && !UI.endShown) frame(performance.now(), true); return { t: G.time, tick: G.tick, over: G.over || null }; };
@@ -109,7 +151,7 @@ function frameBody(t, once) {
     document.getElementById('endTitle').className = G.over + (G.end && !G.watch ? ' endl' : '');
     try { const rs = replayFile(); if (rs) localStorage.setItem('ifLastReplay', rs); } catch (e) {}
     endlessEndScreen();
-    document.getElementById('endStats').innerHTML = endStatsHTML(); drawEndGraph(); sfx(G.over === 'victory' ? 'ready' : 'alert'); }
+    document.getElementById('endStats').innerHTML = endStatsHTML(); drawEndGraph(); sfx(G.over === 'victory' ? 'ready' : 'alert'); wlRelease(); }
 }
 // v7.0.3 error recovery: a thrown frame must never stop the game loop. Errors are logged (first few with stacks) and counted;
 // a sim error that repeats every tick triggers a sanitize pass that drops broken entities/projectiles so the game can carry on.
@@ -155,7 +197,7 @@ window.addEventListener('DOMContentLoaded', () => {
   onlInitUI(); if (typeof qmInitUI === 'function') qmInitUI(); // v7.7.7 Quick Match (iPhone app only)
   document.getElementById('surrBtn').onclick = () => { if (!started || G.over) return; if (confirm('Surrender this match?')) { NET.issue({ c: 'surrender' }); document.getElementById('pause').style.display = 'none'; paused = false; } };
   document.getElementById('resumeBtn').onclick = () => togglePause();
-  document.querySelectorAll('.quitBtn').forEach(b => b.onclick = () => { keepLastReplay(); location.href = location.pathname; });
+  document.querySelectorAll('.quitBtn').forEach(b => b.onclick = () => { keepLastReplay(); wlRelease(); location.href = location.pathname; });
   if (QS.get('v34')) { startGame('easy', { seed: 4242 }); G.opts.fog = false; G.spectate = true; G.players[0].fac = 'fra'; G.players[1].fac = 'rus'; G.players[1].ai = false;
     for (const [t, x, y] of [['power', 4, 12], ['barracks', 11, 3], ['refinery', 11, 12], ['factory', 15, 6], ['tech', 3, 15]]) addB(t, 0, x, y, true).born = -10;
     const v = G.vents[0]; addB('extractor', 0, v[0], v[1], true).born = -10; addB('gcannon', 0, 16, 14, true).born = -10; const tu = addB('turret', 0, 19, 12, true); tu.born = -10; tu.lvl = 3;

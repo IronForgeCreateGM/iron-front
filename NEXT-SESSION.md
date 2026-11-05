@@ -1,3 +1,6 @@
+## SHIPPED day Nov 5: v7.8.2 screen wake lock LIVE
+iPhone home-screen / Safari matches keep the screen awake; menus, end screen, pause, quit release it. Client-only (`js/main.js`). No sim/stat changes.
+
 ## SHIPPED day Nov 5: v7.8.0 + v7.8.1 (late-game lag Phase 1+2)
 Phase 1 (render/sim hitch) and Phase 2 (selection/UI/minimap) are LIVE. Remaining optional: spatial targeting in sim if made bit-identical; further pick spatial hash for ultra-dense piles.
 
