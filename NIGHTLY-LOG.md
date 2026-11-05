@@ -430,3 +430,6 @@ Backup run resumed the interrupted night at 3:01 AM PT. Pushed commit 6bec943 to
 - Note: an old copy of the gate script restarted by itself at 3:04 AM PT (probably when the box woke) and was stopped as a duplicate.
 - Not done tonight: stuck-army math + attack-move test, Hard France play, backlog. These carry to the next night run.
 - Logs: /workspace/n1104/g776.
+
+## 2026-11-04 6:25 PM PT: v7.7.8 hotfix (no time limit when watching)
+- Watching an all-bot game ended it as soon as player 1's bot (the one the camera 'sits' on) was eliminated, showing a team-wins screen (~13-14 min in an 8-bot FFA). js/sim.js elimination check now skips that early stop while watching (not replays). Games end only by elimination or surrender. No gameplay/AI/stat change.
