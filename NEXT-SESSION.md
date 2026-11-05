@@ -38,6 +38,13 @@ Verify: an 8-player FFA on the biggest map runs past 30 min with no auto-end, at
 - TODO tonight: proper bench (ai-bench / fp76-vs style, P.f78Off one side) incl. 1v1 Hard, many seeds. Ship only if Hard doesn't get weaker; tune 0.8 / 0.5 / 25 if needed.
   Harness used: /workspace/ana/sim.js (outside repo). Not shipped.
 
+
+### Nicholas follow-up (Nov 4, 7:27 PM PT) — APPROVED, do tonight
+- **Intelligent defense (all bots, FFA especially):** build on branch `ai-ffa-fix` recall (B). Bots should weigh home threat vs what the away army is achieving, recall in time, and not park armies at a dead enemy base. Tune thresholds via a multi-seed benchmark (FFA 3/4/8 + Hard 1v1, P.f78Off side-by-side). Hard must not get weaker.
+- **France = Grand Cannon fortress identity (AI build plan, NOT a stat change):** France opening should rush 5–6 Grand Cannons in the main base as fast as economy allows (cover main entrances), then expand and put 2 Grand Cannons + some turrets + AA at the expansion, THEN build a big army and push. Replace/extend fix (A). Goal: France becomes one of the stronger Hard bots. Benchmark France vs each faction before/after.
+- **Warheads still never fire (he re-checked on live v7.7.8):** top priority item 2 above. Verify bots that own a launcher build AND launch at least once per game in FFA and 1v1 benchmarks; log aiWar events.
+- Ship only if benchmarks are clean; report numbers to Chief.
+
 ## RESUME NOTE 3:56 AM PT Wed Nov 4 (backup run)
 - v7.7.6 LIVE (6bec943, pushed 3:50 AM PT, verified 0 errors). Security audit done (see NIGHTLY-LOG). Branch sec776 is merged into master.
 - Next night: stuck-army math + Nicholas's plain attack-move test, Hard France play, backlog.
