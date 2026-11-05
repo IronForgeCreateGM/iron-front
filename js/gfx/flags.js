@@ -53,6 +53,7 @@ function flagMats(fac, team) { // shared per (country, colour): one texture + tw
   return FLAGS.tex[key] = { cloth: new THREE.MeshLambertMaterial({ map: tx, side: THREE.DoubleSide, emissive: 0xffffff, emissiveMap: tx, emissiveIntensity: 0.38 }),
     trim: new THREE.MeshLambertMaterial({ color: trim, emissive: trim, emissiveIntensity: 0.35 }) };
 }
+const FLAG_SCALE = 0.6; // v7.7.9 (Nicholas): flags 40% smaller than v7.7.7
 const FLAG_MAST = 2.75; // mast height (the Command Yard roof is ~1.6, its antenna ~1.8)
 function makeHqFlag(b) { // -> THREE.Group or null; placed on the front-left corner of the footprint so the camera (south) sees it
   if (!FLAG_TYPES[b.t] || typeof G === 'undefined' || !G.players) return null;
@@ -69,7 +70,7 @@ function makeHqFlag(b) { // -> THREE.Group or null; placed on the front-left cor
 function flagUpdate(o, e, dt) { // per visible HQ per frame: hide on construction/sell, cheap sway unless Quiet/Low/phone-lite
   const f = o.flag; if (!f) return;
   const show = !o.cs && !e.con && !(e.sell >= 0); f.visible = show; if (!show) return;
-  const k = typeof R3 !== 'undefined' && R3.qName === 'mobile' ? 1.45 : 1; // phones: a bigger flag so it still reads on a small screen
+  const k = FLAG_SCALE * (typeof R3 !== 'undefined' && R3.qName === 'mobile' ? 1.45 : 1); // v7.7.9: 40% smaller everywhere; phones keep their relative 1.45x bump
   f.scale.set(k, k * Math.max(0.02, o.body.scale.y), k);
   if (typeof csLite === 'function' && csLite()) return;
   const u = f.userData, t = (typeof R3 !== 'undefined' ? R3.time : 0) + u.ph; u.cloth.rotation.y = -0.18 + Math.sin(t * 1.9) * 0.12 + Math.sin(t * 3.7) * 0.04;
