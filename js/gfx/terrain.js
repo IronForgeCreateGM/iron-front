@@ -185,8 +185,26 @@ function buildFogOverlay() {
   FOW.uFow.value = R3.fogTex; FOW.uMapS.value.set(MW, MH);
 }
 function updFogTex(dt) {
-  const d = R3.fogData, f = (R3.fogF && R3.fogF.length === MW * MH) ? R3.fogF : (R3.fogF = new Float32Array(MW * MH).fill(250)), k = 1 - Math.exp(-(dt || 0.016) * 7);
-  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x, j = ((MH - 1 - y) * MW + x) * 4; const a = vis0(i) ? 0 : seen0(i) ? 135 : 250; f[i] += (a - f[i]) * k; d[j + 3] = Math.round(f[i]); }
+  const d = R3.fogData, N = MW * MH;
+  // v7.8.0: fog-off → clear once (was rewriting every tile every frame)
+  if (!G.opts.fog) {
+    if (!R3.fogOffDone) {
+      const f = (R3.fogF && R3.fogF.length === N) ? R3.fogF : (R3.fogF = new Float32Array(N));
+      f.fill(0); for (let i = 0; i < N; i++) d[i * 4 + 3] = 0; R3.fogTex.needsUpdate = true; R3.fogOffDone = true;
+    }
+    return;
+  }
+  R3.fogOffDone = false;
+  // v7.8.0: update every other frame (lerp still smooth); when zoomed in only touch the view rect + margin
+  if ((R3._fogFrame = (R3._fogFrame || 0) + 1) & 1) return;
+  const f = (R3.fogF && R3.fogF.length === N) ? R3.fogF : (R3.fogF = new Float32Array(N).fill(250));
+  const k = 1 - Math.exp(-(dt || 0.016) * 14); // 2x rate to compensate for half the updates
+  let x0 = 0, y0 = 0, x1 = MW - 1, y1 = MH - 1;
+  if (R3.view && R3.cam && R3.cam.d < 55) {
+    x0 = Math.max(0, Math.floor(R3.view.x0) - 2); y0 = Math.max(0, Math.floor(R3.view.y0) - 2);
+    x1 = Math.min(MW - 1, Math.ceil(R3.view.x1) + 2); y1 = Math.min(MH - 1, Math.ceil(R3.view.y1) + 2);
+  }
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const i = y * MW + x, j = ((MH - 1 - y) * MW + x) * 4; const a = vis0(i) ? 0 : seen0(i) ? 135 : 250; f[i] += (a - f[i]) * k; d[j + 3] = Math.round(f[i]); }
   R3.fogTex.needsUpdate = true;
 }
 function buildOre() { if (typeof ensureFields === 'function') ensureFields();

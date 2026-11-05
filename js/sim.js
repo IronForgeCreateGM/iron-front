@@ -390,13 +390,14 @@ function engFound(team) { return G.r76 && noYard(team) && G.ents.some(e => e.kin
 function catOf(t) { return BT[t] ? BT[t].cat : FROMCAT[UT[t].from]; }
 function getBlock() {
   if (G.blockVer === G.bver) return G.block;
-  const g = new Uint8Array(MW * MH);
-  for (let i = 0; i < g.length; i++) g[i] = G.map[i] ? 1 : 0;
-  G.gateT = G.gateT || new Int8Array(MW * MH); G.gateT.fill(-1);
-  for (const e of G.ents) if (e.kind === 'b') for (let y = e.ty; y < e.ty + e.h; y++) for (let x = e.tx; x < e.tx + e.w; x++) { g[idx(x, y)] = e.t === 'gate' ? 3 : 2; if (e.t === 'gate') G.gateT[idx(x, y)] = e.team; }
-  const nr = new Uint8Array(MW * MH);
-  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { if (g[idx(x, y)]) continue; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (!inb(x + dx, y + dy) || g[idx(x + dx, y + dy)]) nr[idx(x, y)] = 1; }
-  G.near = nr; G.block = g; G.blockVer = G.bver; return g;
+  const N = MW * MH;
+  let g = G.block; if (!g || g.length !== N) g = new Uint8Array(N);
+  for (let i = 0; i < N; i++) g[i] = G.map[i] ? 1 : 0;
+  let gt = G.gateT; if (!gt || gt.length !== N) gt = new Int8Array(N); gt.fill(-1);
+  for (const e of G.ents) if (e.kind === 'b') for (let y = e.ty; y < e.ty + e.h; y++) for (let x = e.tx; x < e.tx + e.w; x++) { g[idx(x, y)] = e.t === 'gate' ? 3 : 2; if (e.t === 'gate') gt[idx(x, y)] = e.team; }
+  let nr = G.near; if (!nr || nr.length !== N) nr = new Uint8Array(N); else nr.fill(0);
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { if (g[idx(x, y)]) continue; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (!inb(x + dx, y + dy) || g[idx(x + dx, y + dy)]) { nr[idx(x, y)] = 1; break; } }
+  G.gateT = gt; G.near = nr; G.block = g; G.blockVer = G.bver; return g;
 }
 // gates (v5.0): block everyone except allies of the gate's owner (G.curTeam = team currently moving/pathing)
 const gateOpen = i => G.block[i] === 3 && G.curTeam != null && G.gateT[i] >= 0 && !foe(G.gateT[i], G.curTeam);
@@ -598,7 +599,11 @@ function findPath(sx, sy, gx, gy) {
   let six = Math.floor(sx), siy = Math.floor(sy), gix = Math.max(0, Math.min(MW - 1, Math.floor(gx))), giy = Math.max(0, Math.min(MH - 1, Math.floor(gy)));
   if (!inb(six, siy)) return [];
   if (g[idx(gix, giy)]) { const f = nearFree(gix, giy, 8); gix = f[0]; giy = f[1]; gx = gix + 0.5; gy = giy + 0.5; }
-  const N = MW * MH, gs = new Float32Array(N).fill(1e9), par = new Int32Array(N).fill(-1), cl = new Uint8Array(N);
+  const N = MW * MH;
+  // v7.8.0: reuse scratch buffers (was allocating ~100KB per A* call → GC hitch with big armies)
+  let gs = G._pgs, par = G._ppar, cl = G._pcl;
+  if (!gs || gs.length !== N) { G._pgs = gs = new Float32Array(N); G._ppar = par = new Int32Array(N); G._pcl = cl = new Uint8Array(N); }
+  gs.fill(1e9); par.fill(-1); cl.fill(0);
   const s = idx(six, siy), goal = idx(gix, giy);
   const heap = [], push = (f, n) => { heap.push([f, n]); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
   const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i;
@@ -728,6 +733,15 @@ function stepMissiles() { if (!G.missiles || !G.missiles.length) return;
       for (const e of G.ents) { if (e.hp <= 0 || (e.kind === 'u' && isAir(e))) continue; const d = dhypot(e.x - cx, e.y - cy) - (e.kind === 'b' ? Math.min(e.w, e.h) / 2 : 0); if (d < m.r) damage(e, m.dmg * (1 - 0.55 * Math.max(0, d) / m.r), { type: 'warhead' }, ms.team, null); }
       G.events.push({ e: 'impact', x: cx, y: cy, k: ms.k, r: m.r, big: m.big }); }
     return false; }); }
+function rebuildHash() {
+  const hash = new Map();
+  const pushH = (x, y, air, e) => { const k = (x << 8) | y | (air ? 1 << 20 : 0); let a = hash.get(k); if (!a) hash.set(k, a = []); a.push(e); };
+  for (let i = 0; i < G.ents.length; i++) {
+    const e = G.ents[i]; e._ix = i; if (e.hp <= 0 || e.kind !== 'u') continue;
+    pushH(Math.floor(e.x), Math.floor(e.y), isAir(e), e);
+  }
+  G.hash = hash; return hash;
+}
 function stepGame() {
   if (G.over) return;
   if (G.replay && typeof replayFeed === 'function') replayFeed(); else if (typeof recHash === 'function') recHash();
@@ -742,10 +756,8 @@ function stepGame() {
   for (const P of G.players) stepProduction(P);
   stepConstruction();
   if (G.tick % 30 === 0 && G.derricks) for (const d of G.derricks) if (d.owner >= 0 && G.players[d.owner] && !G.players[d.owner].out) { const P = G.players[d.owner]; P.cr += DERRICK_RATE; P.stats.mined += DERRICK_RATE; }
-  // spatial hash for separation
-  const hash = new Map();
-  for (const e of G.ents) if (e.kind === 'u') { const k = (Math.floor(e.x) << 8) | Math.floor(e.y) | (isAir(e) ? 1 << 20 : 0); let a = hash.get(k); if (!a) hash.set(k, a = []); a.push(e); }
-  G.hash = hash;
+  // spatial hash for separation (v7.8.0)
+  const hash = rebuildHash();
   G.dens.fill(0);
   for (const e of G.ents) if (e.kind === 'u' && !e.path.length && !isAir(e)) { const i = idx(Math.floor(e.x), Math.floor(e.y)); if (G.dens[i] < 6) G.dens[i]++; }
   if (G.tick % 30 === 0) { for (let i = 0; i < G.ore.length; i++) if (G.oreMax[i] > 0 && G.ore[i] < G.oreMax[i]) { const was = G.ore[i]; G.ore[i] = Math.min(G.oreMax[i], G.ore[i] + ORE_REGROW * (was > 0 ? 1 : 0.5)); } G.oreVer++; }
@@ -755,7 +767,7 @@ function stepGame() {
   stepProjs();
   // removal
   for (const e of G.ents) if (e.hp <= 0 && !e.dead) { e.dead = true; onDeath(e); }
-  if (G.ents.some(e => e.dead)) { G.ents = G.ents.filter(e => !e.dead); G.bver++; }
+  if (G.ents.some(e => e.dead)) { const hadB = G.ents.some(e => e.dead && e.kind === 'b'); G.ents = G.ents.filter(e => !e.dead); if (hadB) G.bver++; }
   for (const P of G.players) if (P.ai && !P.horde && typeof aiStep === 'function') aiThink(P);
   if (G.end && typeof endlessStep === 'function') endlessStep(); // v7.0 Endless wave director
   if (G.tick % 6 === 0) updFog();
@@ -1144,7 +1156,7 @@ function separate(hash) {
     for (let gy = cy - 1; gy <= cy + 1; gy++) for (let gx = cx - 1; gx <= cx + 1; gx++) {
       const l = hash.get((gx << 8) | gy | (air ? 1 << 20 : 0)); if (!l) continue;
       for (const b of l) {
-        if (b === a || b.id < a.id) continue;
+        if (b === a || b.kind !== 'u' || b.id < a.id) continue;
         let dx = a.x - b.x, dy = a.y - b.y, dd = dhypot(dx, dy); const min = ra + UT[b.t].r;
         if (dd >= min) continue;
         if (dd < 1e-4) { dx = G.R() - 0.5; dy = G.R() - 0.5; dd = dhypot(dx, dy); }
@@ -1243,15 +1255,20 @@ function harvest(h) {
 function updFog() {
   const done = new Set();
   for (let t = 0; t < G.players.length; t++) {
-    const v = G.visT[t], sn = G.seenT[t]; if (done.has(v)) continue; done.add(v); v.fill(0);
-    for (const e of G.ents) {
-      if (foe(e.team, t)) continue;
-      const air = e.kind === 'u' && UT[e.t].air, r = (e.kind === 'b' ? (BT[e.t].sight || 5) + e.w / 2 : UT[e.t].sight) * (G.weather && G.weather.on && !air ? 0.6 : 1), cx = e.x, cy = e.y, r2 = r * r, myT = air ? 9 : G.tier[idx(Math.floor(cx), Math.floor(cy))];
-      for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(MH - 1, cy + r); y++)
-        for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(MW - 1, cx + r); x++) { const dd = (x + 0.5 - cx) * (x + 0.5 - cx) + (y + 0.5 - cy) * (y + 0.5 - cy);
-          if (dd <= r2 && (G.tier[idx(x, y)] <= myT || dd < 4)) { v[idx(x, y)] = 1; sn[idx(x, y)] = 1; } }
+    const v = G.visT[t], sn = G.seenT[t]; if (done.has(v)) continue; done.add(v);
+    // v7.8.0: fog-off early out (was painting every sight circle then overwriting with fill(1))
+    if (!G.opts.fog) { v.fill(1); sn.fill(1); continue; }
+    v.fill(0);
+    // v7.8.0: only paint friendly sight (skip foe check on every entity — same set as before)
+    { const myAlly = G.players[t].ally;
+      for (const e of G.ents) {
+        if (G.players[e.team].ally !== myAlly) continue;
+        const air = e.kind === 'u' && UT[e.t].air, r = (e.kind === 'b' ? (BT[e.t].sight || 5) + e.w / 2 : UT[e.t].sight) * (G.weather && G.weather.on && !air ? 0.6 : 1), cx = e.x, cy = e.y, r2 = r * r, myT = air ? 9 : G.tier[idx(Math.floor(cx), Math.floor(cy))];
+        for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(MH - 1, cy + r); y++)
+          for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(MW - 1, cx + r); x++) { const dd = (x + 0.5 - cx) * (x + 0.5 - cx) + (y + 0.5 - cy) * (y + 0.5 - cy);
+            if (dd <= r2 && (G.tier[idx(x, y)] <= myT || dd < 4)) { v[idx(x, y)] = 1; sn[idx(x, y)] = 1; } }
+      }
     }
-    if (!G.opts.fog) { v.fill(1); sn.fill(1); } // v5.7.2: fog off = every team sees everything (was team 0 only)
   }
 }
 function visibleTo(team, e) {

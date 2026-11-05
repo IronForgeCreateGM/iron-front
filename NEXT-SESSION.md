@@ -1,3 +1,41 @@
+## TOP PRIORITY TONIGHT (Nicholas, Nov 5 ~9:15 AM PT) — late-game lag — READY TO SHIP on branch `perf-780`
+Nicholas: late-game gets slow/glitchy with lots of units (esp. 8-player FFA on volcano8/classic). **Do NOT push during the day;** finish gates tonight and ship as **v7.8.0** (fast-forward to main) before 4:30 PM PT only if that is a game night window — otherwise after game night.
+
+### Hotspots found (profiled headless 8-FFA volcano8 + browser stress)
+1. **Render hitches (biggest feel):** `updFogTex` rewrote every map tile and uploaded the fog texture **every frame** (even with fog off). Off-screen units still ran full lerp/gait. Ambient FX stayed high with 400–700 ents.
+2. **GC / pathfinding:** every `findPath` allocated ~100KB of scratch arrays (`Float32Array`/`Int32Array`/`Uint8Array` of MW×MH). Big fights → many A* → GC spikes.
+3. **Collision rebuild storm:** **any unit death** bumped `G.bver`, forcing a full `getBlock()` rebuild (buildings-only grid). Wrong — only building changes need that.
+4. **Fog sim:** with fog off, `updFog` still painted every sight circle then `fill(1)`. With fog on (FFA), painted by scanning all ents with a foe check.
+5. Tried spatial `acquire()` — **diverged sim** (not bit-identical). Reverted. Linear acquire stays. Further O(n²) targeting is optional follow-up behind a replay flag if needed.
+
+### What `perf-780` already has (local, not pushed)
+Files: `js/sim.js`, `js/render.js`, `js/gfx/terrain.js`.
+- Pool pathfinding scratch buffers; pool `getBlock` buffers.
+- Only bump `G.bver` when a **building** dies.
+- Fog-off early-out in `updFog`; ally-id paint path (same set as `!foe`).
+- Render: skip lerp/anim for off-screen/fog-hidden units; dial `FX.mul` down when ents >300/450/700; skip infantry gait when cam.d > 50.
+- Fog tex: clear once when fog off; update every other frame; when zoomed in only update the view rect.
+
+### Before / after numbers
+**Browser** (swiftshader, `?q=low&glb=0`, 90 frames of step+ui+render after spawning N units on classic):
+| units | before avg ms | after avg ms | before p95 | after p95 |
+| 400 | 80.5 | **13.4** | 16.1 | 16.1 |
+| 600 | 171.1 | **14.5** | 21.7 | 18.7 |
+(Median ~6–7 ms both ways; the win is killing hitch/avg spikes.)
+
+**Headless 12-min 8-FFA volcano8 seed 4242:** bit-identical (maxU 336, finalU 257). Late-game median ~4.1 ms/tick both ways (sim was not the hitch).
+
+**Determinism:** custom hash checkpoints every 30s for 5 min FFA — **DET PASS** (10/10). `test/replay-test.js` **REPLAY OK**. `test/units-test.js` UNITS OK, `test/eight-test.js` EIGHT OK.
+
+### Tonight ship checklist
+1. On `perf-780` (or merge into master): bump to **v7.8.0** (`version.json`, `package.json`, `NET_VERSION` in `js/net.js`, `?v=` + title in `index.html`).
+2. Gate: `test/replay-test.js`, det73/det74 vs base778 or live v7.7.9, browser suite lean, `npm run check:www`. No PNG commits. No mapbuilder key.
+3. NIGHTLY-LOG entry. Push **fast-forward only** to `main` via `GITHUB_TOKEN_IRONFRONT` URL (no force-push). Verify live page shows v7.8.0, 0 console errors.
+4. Optional leftover (not required to ship): spatial `acquire` behind a replay flag if mid-fight sim ms grows; AI `G.ents.filter` caching; warhead splash spatial.
+
+### Branch note
+Local `master` is ahead of remote `main` with Quick Match / notes commits. `perf-780` branched from that tip. Ship path: merge perf into whatever you push to `main` as FF from `08396c7`… or cherry-pick the 3-file perf commit onto a FFable tip. **Do not force-push.**
+
 ## RESUME NOTE 5:16 AM PT Thu Nov 5 (backup run)
 - v7.7.9 LIVE (08396c7): f79 AI (warheads fire, recall, France GC fortress), flags 40% smaller, FFA winner text, Quick Match (app only). Flags, warhead and no-time-limit items below are DONE.
 - Still open from TOP PRIORITY: late-game lag (item 3) and the 8-player 30+ min FFA verification on the biggest map.

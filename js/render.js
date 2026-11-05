@@ -239,6 +239,9 @@ function r3Render(dt) {
   updCamera(dt); updView(); if (!R3.anisoDone && R3.time > 0.5) { R3.anisoDone = true; applyAniso(); }
   handleEvents();
   const k = 1 - Math.exp(-dt * 16);
+  // v7.8.0 late-game: dial FX down when the board is crowded (visual only)
+  { const nE = G.ents.length; if (nE > 700) FX.mul = Math.min(FX.mul, 0.3); else if (nE > 450) FX.mul = Math.min(FX.mul, 0.5); else if (nE > 300) FX.mul = Math.min(FX.mul, 0.7); }
+  const lodFar = R3.cam.d > 50; // spectator zoomed out: skip infantry gait
   for (const u of R3.uiMesh.values()) u.n = 0;
   let nSel = 0, nEn = 0, nHov = 0, nBlob = 0, nRange = 0; const T = TMP;
   const alive = new Set();
@@ -280,13 +283,17 @@ function r3Render(dt) {
       continue;
     }
     // units
-    let rs = R3.rs.get(e.id);
-    if (!rs) { rs = { x: e.x, y: e.y, z: 0, ang: e.ang, tang: e.tang, recoil: 0, spin: 0 }; R3.rs.set(e.id, rs); }
     const d = UT[e.t], air = !!d.air, tz = heightAt(e.x, e.y) * (air ? 0.3 : 1) + e.z;
+    // v7.8.0: skip lerp/anim for fog-hidden or off-screen units (snap so they are ready when they enter view)
+    if (!vis || !inView(e.x, e.y)) {
+      let rs = R3.rs.get(e.id); if (rs) { rs.x = e.x; rs.y = e.y; rs.z = tz; rs.ang = e.ang; rs.tang = e.tang; }
+      continue;
+    }
+    let rs = R3.rs.get(e.id);
+    if (!rs) { rs = { x: e.x, y: e.y, z: tz, ang: e.ang, tang: e.tang, recoil: 0, spin: 0 }; R3.rs.set(e.id, rs); }
     if (Math.hypot(rs.x - e.x, rs.y - e.y) > 2) { rs.x = e.x; rs.y = e.y; rs.z = tz; } else { rs.x += (e.x - rs.x) * k; rs.y += (e.y - rs.y) * k; rs.z += (tz - rs.z) * k; }
     rs.ang += angDiff(rs.ang, e.ang) * k; rs.tang += angDiff(rs.tang, e.tang) * Math.min(1, k * 1.5);
     rs.recoil = Math.max(0, rs.recoil - dt * 0.35); rs.spin += dt * (e.t === 'gunship' || e.t === 'medevac' ? 28 : e.t === 'harv' ? (e.hst === 'mine' ? 8 : 0) : 3);
-    if (!vis || !inView(rs.x, rs.y)) continue;
     const U = unitIM(e.t, e.team); if (U.n >= U.cap) growIM(U, U.cap * 2);
     const i = U.n++, pv = U.model.piv;
     const moving = e.path.length > 0, bob = 0;
@@ -294,7 +301,7 @@ function r3Render(dt) {
     T.e.set(d.jet ? -Math.max(-0.7, Math.min(0.7, rs.bank)) : 0, -(d.armor === 'inf' ? rs.tang : rs.ang), air && !d.jet ? (moving ? -0.18 : 0) : 0, 'YXZ'); T.q.setFromEuler(T.e);
     const vs = (RVS[e.t] || 1) * (d.vs || 1) * (e.elite ? 1.18 : 1) * (d.vs ? 1 : (d.armor === 'inf' ? 1 : d.mech ? 0.85 : d.jet ? 1.1 : air ? 0.9 : e.t === 'harv' ? 0.62 : 0.8)); // v7.0 d.vs (boss) + elite scale; v6.2 smaller Ore Hauler
     if (pv.legs) {
-      animGait(rs, e, d, dt, pv.legs);
+      if (!lodFar) animGait(rs, e, d, dt, pv.legs); else { rs.spd = 0; rs.ph = rs.ph || 0; }
       const sq = pv.squad || 1;
       for (let m = 0; m < sq; m++) {
         const ii = m === 0 ? i : U.n++; if (ii >= U.cap) { growIM(U, U.cap * 2); }
