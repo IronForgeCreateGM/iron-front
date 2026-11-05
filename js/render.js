@@ -539,6 +539,11 @@ function lowPowerAlert() {
 // ===== v5.0: oil derricks (owner flag, pump animation) and day/night cycle =====
 function derricksUpdate(dt) {
   if (!G.derricks) return;
+  // v7.8.1: rebuild when map/derrick count changes (was crashing after classic→volcano8 in one session)
+  if (R3.dk && R3.dk.length !== G.derricks.length) {
+    for (const r of R3.dk) { if (r.g) R3.scene.remove(r.g); if (r.zone) R3.scene.remove(r.zone); }
+    R3.dk = null;
+  }
   if (!R3.dk) { R3.dk = G.derricks.map(d => { const B = new MB(0);
       B.box('b', 1.3, 0.12, 1.3, COL.CONCD, PBR.CONC, 0, 0.06, 0, { bevel: 0.03 }); for (const [x, z] of [[-0.4, -0.4], [0.4, -0.4], [-0.4, 0.4], [0.4, 0.4]]) B.box('b', 0.06, 1.4, 0.06, COL.STEEL, PBR.METAL, x * 0.6, 0.75, z * 0.6, { bevel: 0 });
       B.box('b', 0.3, 0.3, 0.3, COL.DARK, PBR.DARKM, 0, 1.45, 0, { bevel: 0.03 }); B.cyl('b', 0.12, 0.5, 0x3a2a1a, PBR.DARKM, 0.45, 0.35, 0.3, { seg: 10 });
@@ -557,7 +562,7 @@ function derricksUpdate(dt) {
         const R = typeof OUTPOST_R !== 'undefined' ? OUTPOST_R : 7, sq = new THREE.EdgesGeometry(new THREE.PlaneGeometry(R * 2 + 1, R * 2 + 1).rotateX(-Math.PI / 2));
         zone = new THREE.LineSegments(sq, new THREE.LineBasicMaterial({ color: 0xffd060, transparent: true, opacity: 0.55, fog: false })); zone.position.set(d.x, h + 0.25, d.y); zone.visible = false; R3.scene.add(zone); }
       R3.scene.add(g); return { g, arm, fm, owner: -2, zone }; }); }
-  G.derricks.forEach((d, i) => { const r = R3.dk[i]; r.g.visible = seen0(idx(Math.floor(d.x), Math.floor(d.y)));
+  G.derricks.forEach((d, i) => { const r = R3.dk[i]; if (!r) return; r.g.visible = seen0(idx(Math.floor(d.x), Math.floor(d.y)));
     if (r.owner !== d.owner) { r.owner = d.owner; const c = d.owner >= 0 ? new THREE.Color(MMCOL[d.owner]) : new THREE.Color(0xdddddd); r.fm.color.copy(c); r.fm.emissive.copy(c).multiplyScalar(d.owner >= 0 ? 0.35 : 0); }
     if (d.owner >= 0) r.arm.rotation.z = Math.sin(R3.time * 1.8 + i) * 0.35;
     if (r.zone) { r.zone.visible = d.owner === ME && r.g.visible; if (r.zone.visible) r.zone.material.opacity = 0.35 + 0.25 * Math.sin(R3.time * 3); } });

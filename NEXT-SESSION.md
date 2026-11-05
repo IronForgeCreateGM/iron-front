@@ -1,3 +1,6 @@
+## SHIPPED day Nov 5: v7.8.0 + v7.8.1 (late-game lag Phase 1+2)
+Phase 1 (render/sim hitch) and Phase 2 (selection/UI/minimap) are LIVE. Remaining optional: spatial targeting in sim if made bit-identical; further pick spatial hash for ultra-dense piles.
+
 ## TOP PRIORITY TONIGHT (Nicholas, Nov 5 ~9:15 AM PT) — late-game lag — SHIPPED as v7.8.0 (see NIGHTLY-LOG) — was branch `perf-780`
 Nicholas: late-game gets slow/glitchy with lots of units (esp. 8-player FFA on volcano8/classic). Shipped day of Nov 5 on Nicholas's ask. Optional leftovers still below. (fast-forward to main) before 4:30 PM PT only if that is a game night window — otherwise after game night.
 

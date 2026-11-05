@@ -46,7 +46,7 @@ function newGame(opts) {
     slots.forEach(sl => { if (sl.start == null) { sl.start = (slots.length > 6 ? (sl.ally ? [3, 1, 5, 7, 2, 0, 4, 6] : [0, 2, 4, 6, 1, 3, 5, 7]) : (sl.ally ? [3, 1, 5, 2, 0, 4] : [0, 2, 4, 1, 3, 5])).find(k => !taken.has(k)); taken.add(sl.start); } }); }
   G = { R, opts, r76: opts.r76 !== 0, nt: opts.nt !== 0, m7: opts.m7 === 0 || opts.nt === 0 ? 0 : opts.m7 == null ? 2 : opts.m7 | 0, f79: opts.f79 | 0, /* v7.7.9 AI: warheads fire, smarter recall, France GC fortress (0 = off for old replays) */ /* level: 1 = v7.6.6 m7 a-d, 2 = + m7e/f + amove resume (v7.6.7), 3 = + m7g (built in v7.6.8 but OFF by default: even vs v7.6.7 in 20 seat games) */ tick: 0, time: 0, ents: [], projs: [], events: [], nid: 1, over: null, bver: 1, blockVer: 0, block: null,
     map: new Uint8Array(MW * MH), ore: new Float32Array(MW * MH), elev: new Float32Array(MW * MH), rich: new Uint8Array(MW * MH), bridge: new Uint8Array(MW * MH), forest: new Uint8Array(MW * MH), lvl: new Float32Array(MW * MH), tier: new Uint8Array(MW * MH), lava: new Uint8Array(MW * MH), ice: new Uint8Array(MW * MH),
-    visT: [], seenT: [], oreVer: 0, players: [], hist: [] };
+    visT: [], seenT: [], oreVer: 0, idDirty: true, players: [], hist: [] };
   G.dens = new Uint8Array(MW * MH);
   genMap(R);
   // shared vision per alliance
@@ -359,7 +359,7 @@ function addB(t, team, tx, ty, instant, con) {
   { const l = d.wpn ? rsLvl(team, 'def') : 1; if (l > 1) b.hp = b.mhp = Math.round(d.hp * RES_M[l]); }
   if (chn && t === 'wall') b.hp = b.mhp = Math.round(d.hp * CHN_WALL.hp);
   if (con) { b.con = { p: 0, w: 0 }; b.born = 1e9; b.hp = Math.max(1, Math.round(b.mhp * CON_HP0)); } // v7.2 place-then-build: a construction site (no function until done)
-  G.ents.push(b); G.bver++;
+  G.ents.push(b); G.bver++; G.idDirty = true;
   // push units off footprint
   for (const u of G.ents) if (u.kind === 'u' && !isAir(u) && u.x >= tx - 0.3 && u.x <= tx + d.w + 0.3 && u.y >= ty - 0.3 && u.y <= ty + d.h + 0.3) { u.y = ty + d.h + 0.6; u.path = []; }
   G.events.push({ e: 'place', b });
@@ -370,10 +370,11 @@ function addU(t, team, x, y) {
   const u = { id: G.nid++, kind: 'u', t, team, x, y, z: d.air ? 2.6 : 0, hp: d.hp, mhp: d.hp, ang: team ? Math.PI * 0.75 : -Math.PI / 4, tang: 0,
     path: [], order: 'idle', tgt: null, dest: null, anchor: { x, y }, cd: 0, load: 0, hst: 'idle', moveT: 0, lastP: { x, y }, vet: 0 };
   u.tang = u.ang; if (d.cap) u.cargo = []; { const l = rsLvl(team, resCat(u)); if (l > 1) u.hp = u.mhp = Math.round(d.hp * RES_M[l]); }
-  G.ents.push(u);
+  G.ents.push(u); G.idDirty = true;
   return u;
 }
-function byId(id) { for (const e of G.ents) if (e.id === id) return e; return null; }
+function reindexEnts() { const m = G.idMap || (G.idMap = new Map()); m.clear(); for (const e of G.ents) m.set(e.id, e); G.idDirty = false; }
+function byId(id) { if (G.idDirty || !G.idMap) reindexEnts(); return G.idMap.get(id) || null; }
 function teamEnts(team, t) { return G.ents.filter(e => e.team === team && (!t || e.t === t)); }
 function hasBuilt(team, t) { return G.ents.some(e => e.kind === 'b' && e.team === team && e.t === t && e.hp > 0 && e.sell < 0 && !e.con); }
 function reqOk(team, d) { return d.req.every(r => hasBuilt(team, r)); }
@@ -705,7 +706,7 @@ function stepBoard(u) { const tr = byId(u.boardT); if (!tr || tr.hp <= 0 || !tr.
   if (dhypot(u.x - tr.x, u.y - tr.y) < 1.4) { if (cargoUsed(tr) + cargoSize(u) <= UT[tr.t].cap) { tr.cargo.push(u); u.inside = tr.id; u.dead = true; u.order = 'idle'; u.path = []; G.events.push({ e: 'board', team: u.team, x: tr.x, y: tr.y }); } else { u.order = 'idle'; } return; }
   if (!u.path.length || G.tick % 30 === u.id % 30) setPath(u, tr.x, tr.y); }
 function doUnload(tr) { const x0 = Math.floor(tr.x), y0 = Math.floor(tr.y); let k = 0;
-  for (const c of tr.cargo) { const f = nearFree(x0 + (k % 3) - 1, y0 + ((k / 3) | 0) - 1, 5); k++; c.x = f[0] + 0.5; c.y = f[1] + 0.5; c.dead = false; c.inside = null; c.path = []; c.order = 'idle'; c.anchor = { x: c.x, y: c.y }; c.lastP = { x: c.x, y: c.y }; G.ents.push(c); }
+  for (const c of tr.cargo) { const f = nearFree(x0 + (k % 3) - 1, y0 + ((k / 3) | 0) - 1, 5); k++; c.x = f[0] + 0.5; c.y = f[1] + 0.5; c.dead = false; c.inside = null; c.path = []; c.order = 'idle'; c.anchor = { x: c.x, y: c.y }; c.lastP = { x: c.x, y: c.y }; G.ents.push(c); G.idDirty = true; }
   if (tr.cargo.length) G.events.push({ e: 'unload', team: tr.team, x: tr.x, y: tr.y, n: tr.cargo.length }); tr.cargo = []; tr.order = 'idle'; tr.anchor = { x: tr.x, y: tr.y }; G.bver++; }
 function orderDerrick(units, k) { const dk = G.derricks[k]; if (!dk) return; for (const u of units) if (u.kind === 'u' && UT[u.t].engineer) { u.order = 'derrick'; u.dk = k; u.tgt = null; setPath(u, dk.x, dk.y); } }
 function orderStop(units) { for (const u of units) if (u.kind === 'u') { u.path = []; u.order = 'idle'; u.tgt = null; u.anchor = { x: u.x, y: u.y }; if (u.t === 'harv') u.hst = 'idle'; } }
@@ -767,7 +768,7 @@ function stepGame() {
   stepProjs();
   // removal
   for (const e of G.ents) if (e.hp <= 0 && !e.dead) { e.dead = true; onDeath(e); }
-  if (G.ents.some(e => e.dead)) { const hadB = G.ents.some(e => e.dead && e.kind === 'b'); G.ents = G.ents.filter(e => !e.dead); if (hadB) G.bver++; }
+  if (G.ents.some(e => e.dead)) { const hadB = G.ents.some(e => e.dead && e.kind === 'b'); G.ents = G.ents.filter(e => !e.dead); G.idDirty = true; if (hadB) G.bver++; }
   for (const P of G.players) if (P.ai && !P.horde && typeof aiStep === 'function') aiThink(P);
   if (G.end && typeof endlessStep === 'function') endlessStep(); // v7.0 Endless wave director
   if (G.tick % 6 === 0) updFog();

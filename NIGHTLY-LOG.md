@@ -1,5 +1,19 @@
 # Iron Front nightly log
 
+## 2026-11-05 (day, ~11:15 AM PT): v7.8.1 snappier unit controls/UI LIVE
+- Phase 2 after v7.8.0: selection, control groups, hover/pick, health bars, minimap cache — less lag when viewing/controlling huge armies (600+ / 8-FFA).
+- Changes (client/UI only except bit-identical `byId` Map):
+  - `setSel`: clear previous selection only (was O(all ents) every click/group recall).
+  - Control-group recall: `byId` Map with dirty flag (same lookup results → DET identical).
+  - `pickAt` / box-select: skip off-camera units via `inView` before `worldToScreen`.
+  - Hover/minimap throttle scales with entity count; idle timers every 0.2s.
+  - Minimap: cache terrain+fog layer (`mmTerrKey`); hot redraw is ents/pings only.
+  - Overlay health bars: cap extras under load; skip path lines when many selected or zoomed out; skip research chevrons when far.
+  - Derricks: rebuild `R3.dk` when count mismatches (classic→volcano8 same session); null-guard.
+- Bench @600 units (swiftshader): setSel avg 0.062→0.007 ms; group recall 0.035→0.006; minimap hot 1.30→0.46; overlay 1.15→0.64; UI+render frame avg 4.65→3.25. Full step+UI+render avg 17.8→16.6 (Phase 1 already fixed the big hitches).
+- Tests: 5-min 8-FFA DET PASS (10/10 hashes identical to v7.8.0), replay OK, units OK, eight OK, gate OK, sim/easy OK, check:www OK. Spatial targeting skipped (not bit-identical). No stat/balance changes.
+- Spatial sim targeting still deferred (NEXT-SESSION).
+
 ## TONIGHT IN ONE SCREEN (night of Fri Oct 30 -> Sat Oct 31, 2026; all times PT). Full entries are at the bottom of this file.
 Five versions went live (each was a fast-forward push to main, never forced, and checked on the live page afterwards):
 1. v7.6.6 (22817c7, pushed 10:58:54 PM): Hard bots got smarter. They attack when the fight maths says they will win, walk smarter routes around walls, spend big banks on silo, research and towers, and aim silo missiles better. NOTE: this went out about 1 minute before the agreed 11:00 PM push window. Undoing it would have needed a force-push, so it was left in place.

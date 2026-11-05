@@ -128,15 +128,16 @@ function buildMsg(t, why) { const d = BT[t], P = G.players[ME]; return why === '
 function pickAt(sx, sy) {
   const w = screenToWorld(sx, sy); if (!w) return null;
   let best = null, bd = 1e9;
+  // v7.8.1: prefer on-screen candidates; skip far off-camera units before worldToScreen
   for (const e of G.ents) {
     if (!visibleTo0(e)) continue;
-    // v5.7.1: the thing under the cursor must be near the clicked ground point (objects behind the camera project to garbage boxes)
+    if (e.kind === 'u' && !inView(e.x, e.y)) continue;
     if (dhypot(e.x - w.x, e.y - w.y) > (e.kind === 'b' ? Math.max(e.w, e.h) * 0.75 + 2.5 : UT[e.t] && (UT[e.t].air || UT[e.t].jet) ? 4.5 : 2.5)) continue;
-    if (e.kind === 'b') { // v5.5: screen-space box of the projected building (base + top), exact under the cursor
+    if (e.kind === 'b') {
       const h0 = typeof heightAt === 'function' ? heightAt(e.x, e.y) : 0, ht = e.t === 'tesla' ? 2.4 : e.t === 'wall' || e.t === 'gate' ? 0.9 : BT[e.t].cat === 'def' ? 1.3 : 1.6;
       let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [cx, cy] of [[e.tx, e.ty], [e.tx + e.w, e.ty], [e.tx, e.ty + e.h], [e.tx + e.w, e.ty + e.h]]) for (const z of [h0, h0 + ht]) { const q = worldToScreen(cx, cy, z); x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
       if (sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1) { const c = worldToScreen(e.x, e.y, h0 + ht * 0.5), d = Math.hypot(c.x - sx, c.y - sy) * 0.5 + 6; if (d < bd) { best = e; bd = d; } } continue; }
-    const rs = R3.rs.get(e.id) || e, p = worldToScreen(rs.x, rs.y, (R3.rs.get(e.id) ? rs.z : heightAt(e.x, e.y) + (e.z || 0)) + 0.3), d = Math.hypot(p.x - sx, p.y - sy), rr = (12 + UT[e.t].r * 900 / R3.cam.d) * (MOBL() ? 1.6 : 1); // v6.1: fat-finger radius on touch
+    const rs = R3.rs.get(e.id) || e, p = worldToScreen(rs.x, rs.y, (R3.rs.get(e.id) ? rs.z : heightAt(e.x, e.y) + (e.z || 0)) + 0.3), d = Math.hypot(p.x - sx, p.y - sy), rr = (12 + UT[e.t].r * 900 / R3.cam.d) * (MOBL() ? 1.6 : 1);
     if (d < rr && d < bd) { bd = d; best = e; }
   }
   return best;
@@ -144,7 +145,8 @@ function pickAt(sx, sy) {
 const TABFOR = { barracks: 'inf', factory: 'veh', airfield: 'air', hq: 'bld' };
 function setSel(list) {
   hideTip();
-  G.ents.forEach(e => e.sel = false); UI.sel = list; list.forEach(e => e.sel = true);
+  // v7.8.1: clear only previous selection (was O(all ents) every click/group recall)
+  for (const e of UI.sel) e.sel = false; UI.sel = list; for (const e of list) e.sel = true;
   if (list.length === 1 && list[0].kind === 'b' && list[0].team === ME && TABFOR[list[0].t]) { const tf = TABFOR[list[0].t]; if (tf === 'bld' || tf === 'def') { if (UI.tab !== tf) { UI.tab = tf; UI.hotPanel = 'side'; buildGrid(); } } else if (UI.btab !== tf) { UI.btab = tf; UI.hotPanel = 'bot'; buildBotGrid(); } }
   UI.ctxKey = null;
 }
@@ -207,7 +209,7 @@ function onUp(e) {
     if (t && t.team === ME && now - UI.lastClick < 350 && UI.lastPick === t.t) list = sameTypeOnScreen(t); // v6.2: buildings too
     UI.lastClick = now; UI.lastPick = t && t.t;
   } else {
-    list = G.ents.filter(o => o.team === ME && o.kind === 'u' && (() => { const rs = R3.rs.get(o.id) || o, p = worldToScreen(rs.x, rs.y, (rs.z || 0) + 0.2); return p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1; })());
+    list = G.ents.filter(o => o.team === ME && o.kind === 'u' && inView(o.x, o.y) && (() => { const rs = R3.rs.get(o.id) || o, p = worldToScreen(rs.x, rs.y, (rs.z || 0) + 0.2); return p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1; })());
     if (list.some(u => u.t !== 'harv')) list = list.filter(u => u.t !== 'harv');
   }
   if (m.shift) list = [...new Set([...UI.sel, ...list])];
@@ -315,17 +317,22 @@ function uiFrame(dt) {
   if (G.watch) { if (UI.keys.a) dx -= 1; if (UI.keys.d) dx += 1; if (UI.keys.w) dy -= 1; if (UI.keys.s) dy += 1; }
   if (!UI.mmDrag && !UI.pan) { R3.cam.tx += dx * sp; R3.cam.ty += dy * sp; }
   UI.sel = UI.sel.filter(s => s.hp > 0 && !s.dead && (s.team === ME || visibleTo0(s)));
-  for (const u of G.ents) if (u.team === ME && u.kind === 'u') u.idleT = (u.path.length || u.tgt || (u.t === 'harv' && u.hst !== 'idle' && u.hst !== 'manual')) ? 0 : (u.idleT || 0) + dt;
+  // v7.8.1: idle timers every 0.2s (selectIdle only needs coarse idle)
+  if ((UI._idleAcc = (UI._idleAcc || 0) + dt) >= 0.2) { const step = UI._idleAcc; UI._idleAcc = 0;
+    for (const u of G.ents) if (u.team === ME && u.kind === 'u') u.idleT = (u.path.length || u.tgt || (u.t === 'harv' && u.hst !== 'idle' && u.hst !== 'manual')) ? 0 : (u.idleT || 0) + step; }
   if (UI.placing && typeof MOB !== 'undefined' && MOB.on && MOB.pl && MOB.pl.t === UI.placing && !G.spectate) { const L = MOB.pl, d = BT[L.t]; ghost(L.t, L.tx, L.ty, L.ok); if (R3.ghost) { const gx = L.vx + d.w / 2, gy = L.vy + d.h / 2; R3.ghost.position.set(gx, heightAt(L.tx + d.w / 2, L.ty + d.h / 2) + 0.02, gy); } } // v7.0.1 touch: world-space ghost, smooth glide
   else if (UI.placing && m.x >= 0) { const w = screenToWorld(m.x, m.y); if (w) { const d = BT[UI.placing], tx = Math.floor(w.x - d.w / 2 + 0.5), ty = Math.floor(w.y - d.h / 2 + 0.5); ghost(UI.placing, tx, ty, canPlace(UI.placing, ME, tx, ty)); } }
   else ghost(null);
   wallPreview(UI.mode === 'wall' ? (UI.wallA ? wallTiles() : (() => { const w = m.x >= 0 && screenToWorld(m.x, m.y); return w ? [[Math.floor(w.x), Math.floor(w.y)]] : null; })()) : null);
   if (UI.placing && !avail(ME, UI.placing)) UI.placing = null;
   if (UI.msgT > 0) { UI.msgT -= dt; if (UI.msgT <= 0) $('msg').style.opacity = 0; }
-  el.style.cursor = UI.pan ? 'grabbing' : UI.placing ? 'cell' : UI.mode === 'sell' ? 'not-allowed' : UI.mode === 'repair' ? 'help' : UI.mode === 'amove' || UI.mode === 'nuke' ? 'crosshair' : (R3.hoverId && byId(R3.hoverId) && byId(R3.hoverId).team !== ME && UI.sel.some(s => s.kind === 'u' && s.team === ME)) ? 'crosshair' : 'default';
-  if ((UI.hovT = (UI.hovT || 0) + dt) > 0.05) { UI.hovT = 0; const h = m.x >= 0 && !m.down ? pickAt(m.x, m.y) : null; R3.hoverId = h ? h.id : null; }
+  const _hov = R3.hoverId ? byId(R3.hoverId) : null;
+  el.style.cursor = UI.pan ? 'grabbing' : UI.placing ? 'cell' : UI.mode === 'sell' ? 'not-allowed' : UI.mode === 'repair' ? 'help' : UI.mode === 'amove' || UI.mode === 'nuke' ? 'crosshair' : (_hov && _hov.team !== ME && UI.sel.some(s => s.kind === 'u' && s.team === ME)) ? 'crosshair' : 'default';
+  { const nE = G.ents.length, hovGap = nE > 500 ? 0.12 : nE > 300 ? 0.08 : 0.05;
+    if ((UI.hovT = (UI.hovT || 0) + dt) > hovGap) { UI.hovT = 0; const h = m.x >= 0 && !m.down ? pickAt(m.x, m.y) : null; R3.hoverId = h ? h.id : null; } }
   UI.t = (UI.t || 0) + dt; if (UI.t > (MOBL() ? 0.25 : 0.1)) { UI.t = 0; sidebar(); }
-  if ((UI.mmT = (UI.mmT || 0) + dt) > (MOBL() ? 0.5 : 0.2)) { UI.mmT = 0; minimap(); }
+  { const nE = G.ents.length, mmGap = MOBL() ? 0.5 : (nE > 400 ? 0.4 : nE > 250 ? 0.28 : 0.2);
+    if ((UI.mmT = (UI.mmT || 0) + dt) > mmGap) { UI.mmT = 0; minimap(); } }
   UI.alerts.forEach(a => a.t -= dt); UI.alerts = UI.alerts.filter(a => a.t > 0); UI.pings.forEach(p => p.t -= dt); UI.pings = UI.pings.filter(p => p.t > 0);
   const f = $('fps'); f.style.display = UI.set.fps ? 'block' : 'none'; if (UI.set.fps) f.textContent = `${Math.round(R3.fps)} fps · ${R3.calls || 0} draws · ${((R3.tris || 0) / 1000).toFixed(0)}k tris · ${R3.q.label}${R3.auto ? ' (auto)' : ''} · ${G.ents.filter(e => e.kind === 'u').length} units`;
   overlay();
@@ -409,15 +416,24 @@ function sidebar() {
 }
 function minimap() {
   const c = $('minimap'), x = c.getContext('2d'), s = c.width / MW;
-  const b = UI.mmBase.getContext('2d'), img = b.createImageData(MW, MH);
-  for (let i = 0; i < MW * MH; i++) {
-    let r = 46, g = 82, bl = 36; const t = G.map[i];
-    if (t === 1) { r = 112; g = 104; bl = 92; } else if (t === 2) { r = 28; g = 86; bl = 118; } else if (G.lava[i]) { r = 230; g = 80; bl = 20; } else if (G.ice[i]) { r = 170; g = 210; bl = 230; } else if (G.ore[i] > 30) { if (G.dia && G.dia[i]) { r = 120; g = 230; bl = 255; } else { r = 210; g = 165; bl = 50; } } else if (G.mapName === 'frost') { r = 190; g = 200; bl = 210; } else if (G.mapName === 'volcano') { r = 52; g = 44; bl = 40; } else if (G.desert) { r = G.wadi && G.wadi[i] ? 200 : 168; g = G.wadi && G.wadi[i] ? 176 : 136; bl = G.wadi && G.wadi[i] ? 128 : 92; }
-    if (t === 1 && G.mud && G.mud[i]) { r = 150; g = 108; bl = 70; } else if (t === 1 && G.desert) { r = 122; g = 94; bl = 70; }
-    if (t === 0 && G.lvl[i] > 0.5) { r *= 1.18; g *= 1.18; bl *= 1.18; }
-    const f = vis0(i) ? 1 : seen0(i) ? 0.5 : 0.08; img.data.set([r * f, g * f, bl * f, 255], i * 4);
+  if (UI.mmBase.width !== MW || UI.mmBase.height !== MH) { UI.mmBase.width = MW; UI.mmBase.height = MH; UI.mmTerrKey = null; }
+  // v7.8.1: cache terrain+fog layer; only rebuild when fog/ore/map stamp changes
+  const fogStamp = G.opts.fog ? ((G.tick / 30) | 0) : -1; // coarse fog for minimap (terrain cache hit rate)
+  const terrKey = G.mapName + '|' + (G.oreVer | 0) + '|' + fogStamp + '|' + MW + 'x' + MH;
+  if (UI.mmTerrKey !== terrKey) {
+    UI.mmTerrKey = terrKey;
+    const b = UI.mmBase.getContext('2d'), img = UI.mmImg && UI.mmImg.width === MW ? UI.mmImg : (UI.mmImg = b.createImageData(MW, MH));
+    const d = img.data;
+    for (let i = 0; i < MW * MH; i++) {
+      let r = 46, g = 82, bl = 36; const t = G.map[i];
+      if (t === 1) { r = 112; g = 104; bl = 92; } else if (t === 2) { r = 28; g = 86; bl = 118; } else if (G.lava[i]) { r = 230; g = 80; bl = 20; } else if (G.ice[i]) { r = 170; g = 210; bl = 230; } else if (G.ore[i] > 30) { if (G.dia && G.dia[i]) { r = 120; g = 230; bl = 255; } else { r = 210; g = 165; bl = 50; } } else if (G.mapName === 'frost') { r = 190; g = 200; bl = 210; } else if (G.mapName === 'volcano') { r = 52; g = 44; bl = 40; } else if (G.desert) { r = G.wadi && G.wadi[i] ? 200 : 168; g = G.wadi && G.wadi[i] ? 176 : 136; bl = G.wadi && G.wadi[i] ? 128 : 92; }
+      if (t === 1 && G.mud && G.mud[i]) { r = 150; g = 108; bl = 70; } else if (t === 1 && G.desert) { r = 122; g = 94; bl = 70; }
+      if (t === 0 && G.lvl[i] > 0.5) { r *= 1.18; g *= 1.18; bl *= 1.18; }
+      const f = vis0(i) ? 1 : seen0(i) ? 0.5 : 0.08, j = i * 4; d[j] = r * f; d[j + 1] = g * f; d[j + 2] = bl * f; d[j + 3] = 255;
+    }
+    b.putImageData(img, 0, 0);
   }
-  b.putImageData(img, 0, 0); x.imageSmoothingEnabled = true; x.drawImage(UI.mmBase, 0, 0, c.width, c.height);
+  x.imageSmoothingEnabled = true; x.drawImage(UI.mmBase, 0, 0, c.width, c.height);
   for (const e of G.ents) { if (!visibleTo0(e)) continue; x.fillStyle = MMCOL[e.team] || '#ff5040'; if (e.kind === 'b') x.fillRect(e.tx * s, e.ty * s, e.w * s, e.h * s); else x.fillRect(e.x * s - 1.5, e.y * s - 1.5, 3, 3); }
   for (const d of G.derricks || []) { if (d.op) { x.fillStyle = d.owner >= 0 ? MMCOL[d.owner] : '#ffd060'; x.beginPath(); x.moveTo(d.x * s, d.y * s - 5); x.lineTo(d.x * s + 5, d.y * s); x.lineTo(d.x * s, d.y * s + 5); x.lineTo(d.x * s - 5, d.y * s); x.closePath(); x.fill(); x.strokeStyle = '#000'; x.stroke(); continue; } x.fillStyle = d.owner >= 0 ? MMCOL[d.owner] : '#ddd'; x.fillRect(d.x * s - 2.5, d.y * s - 2.5, 5, 5); x.strokeStyle = '#000'; x.strokeRect(d.x * s - 2.5, d.y * s - 2.5, 5, 5); }
   x.fillStyle = '#5fe8c4'; for (const [vx, vy] of G.vents || []) { x.beginPath(); x.arc((vx + 0.5) * s, (vy + 0.5) * s, 3, 0, 7); x.fill(); }
@@ -428,10 +444,15 @@ function overlay() {
   const c = $('ov'), x = c.getContext('2d'), el = R3.renderer.domElement;
   if (c.width !== el.clientWidth || c.height !== el.clientHeight) { c.width = el.clientWidth; c.height = el.clientHeight; }
   x.clearRect(0, 0, c.width, c.height);
-  const mode = UI.set.hbars;
+  const mode = UI.set.hbars, far = R3.cam.d > 48, nE = G.ents.length;
+  // v7.8.1: under load, prefer selected/hover/construction bars; cap extras
+  const lite = nE > 350, barCap = lite ? 90 : 200; let bars = 0;
   for (const e of G.ents) {
-    const show = mode === 'always' || e.sel || e.id === R3.hoverId || (mode === 'smart' && e.hp < e.mhp) || (e.con && e.team === ME), rl = e.kind === 'u' || BT[e.t].wpn ? rsLvl(e.team, resCat(e)) : 1;
+    const important = e.sel || e.id === R3.hoverId || (e.con && e.team === ME);
+    const show = mode === 'always' || important || (mode === 'smart' && e.hp < e.mhp && (!lite || !far));
+    const rl = (!far && (e.kind === 'u' || (e.kind === 'b' && BT[e.t].wpn))) ? rsLvl(e.team, resCat(e)) : 1;
     if ((!show && rl < 2) || !visibleTo0(e) || !inView(e.x, e.y)) continue;
+    if (show && !important && ++bars > barCap) continue;
     const rs = e.kind === 'u' ? (R3.rs.get(e.id) || e) : e;
     const top = e.kind === 'b' ? 1.9 : (rs.z || 0) + (UT[e.t].armor === 'inf' ? 0.8 : 0.95);
     const p = worldToScreen(rs.x, e.kind === 'b' ? e.ty + 0.2 : rs.y, (e.kind === 'b' ? heightAt(e.x, e.y) : 0) + top); if (p.behind) continue;
@@ -447,7 +468,7 @@ function overlay() {
       if (e.w > 1) { x.font = 'bold 11px system-ui,sans-serif'; x.textAlign = 'center'; x.fillStyle = '#ffd88a'; x.strokeStyle = 'rgba(0,0,0,.85)'; x.lineWidth = 3; const tx = '🏗 ' + Math.floor(e.con.p * 100) + '%' + (e.con.w ? ' · waiting' : ''); x.strokeText(tx, p.x, cy - 4); x.fillText(tx, p.x, cy - 4); x.textAlign = 'left'; } }
     if (e.t === 'harv' && e.load > 0) { x.fillStyle = '#e8b030'; x.fillRect(p.x - w / 2, p.y + 4, w * e.load / HARV_CAP, 2); }
     if (e.sel && e.kind === 'b' && e.rally && e.team === ME) { const r = worldToScreen(e.rally.x, e.rally.y, heightAt(e.rally.x, e.rally.y)); x.strokeStyle = 'rgba(120,255,140,.7)'; x.setLineDash([5, 5]); x.beginPath(); x.moveTo(p.x, p.y + 20); x.lineTo(r.x, r.y); x.stroke(); x.setLineDash([]); x.fillStyle = '#7f8'; x.fillRect(r.x - 1, r.y - 14, 2, 14); x.fillRect(r.x + 1, r.y - 14, 9, 6); }
-    if (e.sel && e.kind === 'u' && e.team === ME && (e.path.length || (e.wq && e.wq.length))) {
+    if (e.sel && e.kind === 'u' && e.team === ME && (e.path.length || (e.wq && e.wq.length)) && UI.sel.length <= 24 && !far) {
       x.strokeStyle = e.order === 'amove' ? 'rgba(255,120,90,.55)' : 'rgba(120,255,140,.45)'; x.setLineDash([3, 4]); x.beginPath(); let q = worldToScreen(rs.x, rs.y, 0.05); x.moveTo(q.x, q.y);
       for (const pt of e.path) { q = worldToScreen(pt.x, pt.y, heightAt(pt.x, pt.y)); x.lineTo(q.x, q.y); }
       for (const pt of (e.wq || [])) { q = worldToScreen(pt.x, pt.y, heightAt(pt.x, pt.y)); x.lineTo(q.x, q.y); }
