@@ -1,6 +1,7 @@
 # Iron Front nightly log
 
-## 2026-11-05 (day, ~11:15 AM PT): v7.8.1 snappier unit controls/UI LIVE
+## 2026-11-05 (day, ~11:10 AM PT): v7.8.1 snappier unit controls/UI LIVE
+- PUSHED 987e0af -> main at 11:08:56 AM PT (FF b10c5c2..987e0af, no force). LIVE verified 11:10 AM PT: version.json v7.8.1, 36 ?v=7.8.1 tags, NET_VERSION v7.8.1, classic + volcano8 smoke 0 page errors / 0 failed requests; derrick rebuild OK (8→9 on map swap).
 - Phase 2 after v7.8.0: selection, control groups, hover/pick, health bars, minimap cache — less lag when viewing/controlling huge armies (600+ / 8-FFA).
 - Changes (client/UI only except bit-identical `byId` Map):
   - `setSel`: clear previous selection only (was O(all ents) every click/group recall).
