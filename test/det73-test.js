@@ -17,7 +17,7 @@ if (!process.env.DET_SKIPNODE) { const ctx = { console }; vm.createContext(ctx);
   const br = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'] });
   const pg = await br.newPage({ viewport: { width: 1200, height: 800 } }); const errs = []; pg.on('pageerror', e => errs.push(e.message));
   await pg.goto('file://' + ROOT + '/index.html?q=low'); await pg.waitForTimeout(1500);
-  await pg.evaluate(([ai, m7]) => { startGame('hard', { seed: 7, map: 'classic', fog: false, m7, slots: buildSlots([['human', 'A', 'bra'], [ai, 'B', 'rus'], ['normal', 'A', 'fra']]) }); paused = true; }, [process.env.DET_AI || 'hard', process.env.DET_M7 === '0' ? 0 : 1]); // v7.6.6: DET_M7=0 replays the pre-m7 Hard brain
+  await pg.evaluate(([ai, m7, f79]) => { startGame('hard', { seed: 7, map: 'classic', fog: false, m7, f79, slots: buildSlots([['human', 'A', 'bra'], [ai, 'B', 'rus'], ['normal', 'A', 'fra']]) }); paused = true; }, [process.env.DET_AI || 'hard', process.env.DET_M7 === '0' ? 0 : 1, process.env.DET_F79 === '1' ? 1 : 0]); // v7.6.6: DET_M7=0 pre-m7; v7.7.9: DET_F79=1 enables f79 AI (default 0 so hashes match v7.7.8 base)
   const hs = [];
   for (let k = 0; k < 120; k++) { // 120 chunks x 60 ticks = 4 min sim, renderer draws frames in between
     const h = await pg.evaluate(([k, S]) => { const P = G.players.find(p => !p.ai);
