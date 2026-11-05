@@ -445,3 +445,17 @@ Pushed commit 7c3dc39 to main (fast-forward from 6bec943, no force-push). Live p
 
 ## 2026-11-04 6:25 PM PT: v7.7.8 hotfix (no time limit when watching)
 - Watching an all-bot game ended it as soon as player 1's bot (the one the camera 'sits' on) was eliminated, showing a team-wins screen (~13-14 min in an 8-bot FFA). js/sim.js elimination check now skips that early stop while watching (not replays). Games end only by elimination or surrender. No gameplay/AI/stat change.
+
+## Thu Nov 5 night interrupted — backup run resumed at 3:12 AM PT
+- Midnight "Nightly Iron Front update" was cut off (~12:52 AM PT; last heartbeat). Live stays v7.7.8 (56171bb).
+- Local master ahead (ce77194): flags 40% smaller, watch FFA winner UI, Game Center Quick Match, f79 AI (warheads/recall/France GC) not yet gated/pushed.
+- Backup run takes over; ignore .night-run-lock. Details in the v7.7.9 entry when shipped (or carry note if held).
+
+## v7.7.9 (Thu Nov 5, pushed 5:14 AM PT, second backup run) LIVE
+- The 3 AM backup run's gate was cut off at ~4:00 AM PT (last heartbeat 4:01) partway through the browser tests. A second backup run resumed at 5:00 AM PT and finished only the safe part: the remaining gate on the already-tested local commit, then the push.
+- Pushed commit 08396c7 to main (fast-forward from v7.7.8 56171bb, no force-push). Live check 5:15 AM PT: version.json v7.7.9, footer and NET_VERSION v7.7.9, manifest 200, classic and volcano8 skirmishes load with 0 page errors and 0 failed requests.
+- What's in it: bots that own a Warhead Launcher now actually fire (bank fix, target any known enemy, base-spot fallback); smarter home recall and no armies parked at dead bases; France Grand Cannon fortress (bench: France reaches 2 GC by 10 min and 5-23 by 20-25 min); command-center flags 40% smaller; the watch end screen names the real winner in FFA; Game Center Quick Match code (only shows in the iPhone app; web hides it). New AI is behind replay flag f79, so old replays still play back identically. No unit stat changes, no bot bonuses.
+- Hard check (NEW f79 vs OLD, mirror countries, both seats): 16/24 ahead (5-3 decisive wins, 11-5 on army value at 30 min); not weaker overall.
+- Gate on 08396c7: det73 / det74 / spawn-det IDENTICAL to v7.7.8 base. Node suite 29/29 pass. Browser: netsec-browser, privacy, builders, apppause, slot, place701, diff73, mobile-play, mobile, ui7, fogkeys, endless703, mapbuilder, reach, replay, flags, quickmatch (21 checks incl. host migration) all pass; lobby 740 games OK; check:www OK (193 files, v7.7.9).
+- Not done / carried: late-game lag optimization (profiling in /workspace/n1105/prof, nothing shipped), FFA recall bench from branch ai-ffa-fix beyond what f79 covers, and an 8-player 30+ min FFA verification on the biggest map. Swift Game Center plugin still never compiled (needs Nicholas's Mac/Xcode, see GAME-CENTER.md).
+- Logs: /workspace/n1105/g779.

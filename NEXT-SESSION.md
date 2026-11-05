@@ -1,3 +1,7 @@
+## RESUME NOTE 5:16 AM PT Thu Nov 5 (backup run)
+- v7.7.9 LIVE (08396c7): f79 AI (warheads fire, recall, France GC fortress), flags 40% smaller, FFA winner text, Quick Match (app only). Flags, warhead and no-time-limit items below are DONE.
+- Still open from TOP PRIORITY: late-game lag (item 3) and the 8-player 30+ min FFA verification on the biggest map.
+
 ## RESUME NOTE 2:20 PM PT Wed Nov 4 (day run)
 - v7.7.7 country flags LIVE (7c3dc39, pushed 2:13 PM PT). Flags item below is DONE.
 - Local master is AHEAD of main and NOT pushed:
