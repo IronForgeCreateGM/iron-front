@@ -442,3 +442,6 @@ Pushed commit 7c3dc39 to main (fast-forward from 6bec943, no force-push). Live p
   - slot and mobile-play failed once under parallel load and passed when run alone.
 - Screenshot: /workspace/iron-front-flags.png. Logs: /workspace/n1104/flag (first gate) and /workspace/n1104/f2 (final gate).
 - Game Center Quick Match is committed locally only (5f0f332, on master after 7c3dc39) and is NOT pushed. See NEXT-SESSION.md and GAME-CENTER.md.
+
+## 2026-11-04 6:25 PM PT: v7.7.8 hotfix (no time limit when watching)
+- Watching an all-bot game ended it as soon as player 1's bot (the one the camera 'sits' on) was eliminated, showing a team-wins screen (~13-14 min in an 8-bot FFA). js/sim.js elimination check now skips that early stop while watching (not replays). Games end only by elimination or surrender. No gameplay/AI/stat change.

@@ -764,7 +764,7 @@ function stepGame() {
     for (const P of G.players) if (!P.out && !P.horde && !G.ents.some(e => e.team === P.team && e.kind === 'b' && KEY[e.t])) { P.out = true; G.events.push({ e: 'eliminated', team: P.team }); for (const e of G.ents) if (e.team === P.team && e.kind === 'b') e.hp = 0; }
     const live = new Set(G.players.filter(P => !P.out).map(P => P.ally)), me = G.players[ME] ? G.players[ME].ally : 0;
     if (live.size <= 1) { G.winAlly = [...live][0]; G.over = G.winAlly === me ? 'victory' : 'defeat'; }
-    else if (!live.has(me) && !(typeof NET !== 'undefined' && NET.online)) G.over = 'defeat'; // offline: stop once my side is out
+    else if (!live.has(me) && !(G.watch && !G.replay) && !(typeof NET !== 'undefined' && NET.online)) G.over = 'defeat'; // offline: stop once my side is out (v7.7.8: never while watching a bot game — it runs until one side is left)
     if (G.tick % 300 === 0) G.hist.push({ t: G.time, p: G.players.map(P => ({ army: G.ents.reduce((a, e) => a + (e.team === P.team && e.kind === 'u' && e.t !== 'harv' ? UT[e.t].cost : 0), 0), mined: P.stats.mined | 0 })) });
   }
 }
