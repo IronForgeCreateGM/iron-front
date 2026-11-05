@@ -33,6 +33,10 @@ function buildSlots(list, names, map) { // list rows: [type, team, fac, color]; 
   return act.map(([[type, team, fac, color], row], i) => ({ row, ai: type !== 'human' && type !== 'remote', local: type === 'human', diff: type === 'human' || type === 'remote' ? 'normal' : liveDiff(normDiff(type)), ally: teamIdx(team), fac: fac && fac !== 'rand' ? fac : RF(), color: color && color !== 'auto' ? color : undefined, start: st[i], seat: 1, smap: map || 'classic', name: (names && names[row]) || (type === 'human' ? 'You' : type === 'remote' ? 'Remote ' + (row + 1) : SLOT_TYPES[type]) }));
 }
 function seatFix(slots, map, ns) { if (slots.length && slots.every(s => s.seat && s.row != null && !s.horde) && slots.some(s => s.smap !== map)) { const st = seatPlan(map, slots.map(s => ({ row: s.row, ally: s.ally })), ns); slots.forEach((s, i) => { s.start = st[i]; s.smap = map; }); } return slots; }
+function watchWinTitle() { // v7.7.9: name the real winner when watching (FFA/multi-team), not just blue/red
+  const W = G.players.filter(P => P.ally === G.winAlly && !P.horde), allies = new Set(G.players.map(P => P.ally));
+  if (allies.size <= 2 || !W.length) return G.over === 'victory' ? 'BLUE TEAM WINS' : 'RED TEAM WINS';
+  const nm = W.map(P => (FACTIONS[P.fac] ? FACTIONS[P.fac].n : P.fac).toUpperCase()); return (nm.length > 1 ? 'TEAM ' + String.fromCharCode(65 + G.winAlly) + ' (' + nm.join(' + ') + ') WINS' : nm[0] + ' WINS'); }
 function startGame(diff, opts) {
   opts = opts || {};
   try { if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); } catch (e) {} // v5.7.2: no focus left in the lobby form
@@ -101,7 +105,7 @@ function frameBody(t, once) {
   if (G.over && !UI.endShown) { UI.endShown = true; const P = G.players[ME];
     try { window.IF_AN && IF_AN.gameEnd(); } catch (e) {} // v7.7.4: anonymous analytics
     document.getElementById('end').style.display = 'flex';
-    document.getElementById('endTitle').textContent = G.end && !G.watch ? `GAME OVER — WAVE ${G.end.wave}` : G.watch ? (G.over === 'victory' ? 'BLUE TEAM WINS' : 'RED TEAM WINS') + ` · ${(G.time / 60).toFixed(1)} min` : G.over === 'victory' ? 'VICTORY' : 'DEFEAT';
+    document.getElementById('endTitle').textContent = G.end && !G.watch ? `GAME OVER — WAVE ${G.end.wave}` : G.watch ? watchWinTitle() + ` · ${(G.time / 60).toFixed(1)} min` : G.over === 'victory' ? 'VICTORY' : 'DEFEAT';
     document.getElementById('endTitle').className = G.over + (G.end && !G.watch ? ' endl' : '');
     try { const rs = replayFile(); if (rs) localStorage.setItem('ifLastReplay', rs); } catch (e) {}
     endlessEndScreen();
