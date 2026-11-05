@@ -42,7 +42,7 @@ const FAKE = `(() => { const q = new URLSearchParams(location.search); const ID 
     if (cd) await pg.evaluate(cd => { QM.COUNTDOWN = cd; }, cd);
     const o = { pg, errs, id, closed: false }; if (id) pages[id] = o; return o; };
   const close = async o => { o.closed = true; leave(o.id); await o.pg.close(); };
-  const st = o => o.pg.evaluate(() => ({ qm: QM.state, host: QM.hostId, tick: typeof G !== 'undefined' && G && G.tick || 0, online: NET.online, me: NET.me, desync: NET.desync, resyncs: NET.resyncs, status: NET.status,
+  const st = o => o.pg.evaluate(() => ({ qm: QM.state, host: QM.hostId, tick: typeof G !== 'undefined' && G && G.tick || 0, online: NET.online, me: NET.me, desync: NET.desync, resyncs: NET.resyncs, status: NET.status || NET.lastStatus || '',
     seed: G && G.opts && G.opts.seed, slots: G && G.opts && G.opts.slots ? G.opts.slots.map(s => (s.ai ? 'ai:' + s.diff : 'h') + ':' + s.name) : null, ui: (document.getElementById('qmStatus') || {}).textContent, sec: Object.assign({}, ONL_SEC.why) }));
 
   // 1. web build: no Game Center bridge -> no Quick Match button, normal host/join untouched
@@ -71,16 +71,16 @@ const FAKE = `(() => { const q = new URLSearchParams(location.search); const ID 
   s = await st(C); ok(s.sec.nothost >= 1 && s.sec.json >= 1 && s.sec.qmshape >= 1, 'forged/junk messages dropped by the v7.7.6 filters', s.sec);
   // 4. a guest leaves mid-match -> host hands the seat to AI
   const cTeam = T[2].me; await close(C); let ai;
-  for (let i = 0; i < 40; i++) { await wait(500); ai = await A.pg.evaluate(t => ({ ai: G.players[t].ai, dropped: NET.dropped.has(t), st: NET.status }), cTeam); if (ai.dropped) break; } ok(ai.dropped && ai.ai, 'guest left mid-match -> AI takes their seat', ai);
+  for (let i = 0; i < 40; i++) { await wait(500); ai = await A.pg.evaluate(t => ({ ai: G.players[t].ai, dropped: NET.dropped.has(t), st: NET.status || NET.lastStatus || '' }), cTeam); if (ai.dropped && ai.ai) break; } // the drop command lands a few ticks after the peer leaves ok(ai.dropped && ai.ai, 'guest left mid-match -> AI takes their seat', ai);
   // 5. the host leaves mid-match -> remaining phone continues offline vs AI
   await close(A); for (let i = 0; i < 40; i++) { await wait(500); s = await st(B); if (!s.online) break; }
   ok(!s.online && /Host disconnected/.test(s.status), 'host left mid-match -> remaining phone continues offline vs AI', [s.online, s.status]);
   const t0 = s.tick; await wait(2000); s = await st(B); ok(s.tick > t0, 'offline game keeps running', [t0, s.tick]);
   ok(A.errs.length + B.errs.length + C.errs.length === 0, 'no page errors on the three phones', A.errs.concat(B.errs, C.errs).slice(0, 3));
-  await close(B);
+  console.log('step 6: close B'); await close(B); console.log('step 6: B closed');
 
   // 6. host leaves during the countdown -> survivor searches again -> a new phone arrives -> new host starts
-  const X = await open('H:1', 30), Y = await open('H:2', 5);
+  const X = await open('H:1', 30); console.log('step 6: X open'); const Y = await open('H:2', 5); console.log('step 6: Y open');
   await X.pg.evaluate(() => qmStart()); await wait(300); await Y.pg.evaluate(() => qmStart()); await wait(1200);
   s = await st(Y); ok(s.qm === 'lobby' && s.host === 'H:1', 'pre-start lobby, H:1 hosts', { qm: s.qm, host: s.host });
   await close(X); await wait(800);
