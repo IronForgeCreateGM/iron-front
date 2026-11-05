@@ -10,10 +10,12 @@ Five versions went live (each was a fast-forward push to main, never forced, and
 Old replays still replay at every step (each AI change has its own replay level). No bot bonuses and no unit stat changes.
 Tried and held back (not live): m7g (spending the bank at max pop: even, because gas runs out first), m7h/m7i (France tweaks: made France worse), fp76 fortress doctrine (too small a gain), SC2-style construction (a big sim + AI change that needs a full A/B; plan in docs/sc2-construction-plan.md, not started), and 7 stuck-army experiments on branch slot: formation fixes fs8 v1/v2/v3 (Hard benches 15W 2L 3T, 15W 2L 3T, 17W 1L 2T vs live 16W 2L 2T; stuck units not reduced), gap5 (wider gaps between bot buildings: 13% fewer stuck units but it FAILS the no-trap drill because bots' mining stalls), gap5b (the same with refineries left alone: passes, but no gain), rl6 (bot rally outside the base: no gain) and dr7 (wider spread at the factory door: no gain). See the end of this file.
 
-## 2026-11-05 (day): late-game lag work on branch perf-780 — NOT PUSHED
-- Profiled 8-FFA + browser stress. Main feel issue = render/GC hitches, not raw sim ms.
-- Fixes in js/sim.js + js/render.js + js/gfx/terrain.js (see NEXT-SESSION TOP PRIORITY). Bit-identical to v7.7.9 sim (DET PASS, REPLAY OK).
-- Browser avg frame at 600 units: ~171 ms → ~14.5 ms. Ship tonight as v7.8.0 after full gate.
+## 2026-11-05 (day, ~11 AM PT): v7.8.0 late-game smoothness LIVE
+- What players feel: big late-game armies hitch and stutter less. Fog, pathfinding GC, and off-screen unit work were the main culprits.
+- Technical (no gameplay/stat/AI changes; sim bit-identical to v7.7.9): pathfinding + collision buffers pooled; unit deaths no longer rebuild the building grid; fog-off and fog-texture work cut way down; off-screen units skip lerp/anim; FX dials down when the board is crowded.
+- Browser stress (swiftshader): ~600 units avg frame ~171 ms → ~14.5 ms.
+- Tests: replay OK, units OK, eight OK, 5-min 8-FFA DET PASS vs v7.7.9, classic+volcano8 browser load 0 errors.
+- Live: YES (pushed from perf-780).
 
 
 ## 2026-10-27: v7.2.0

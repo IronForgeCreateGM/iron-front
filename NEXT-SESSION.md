@@ -1,5 +1,5 @@
-## TOP PRIORITY TONIGHT (Nicholas, Nov 5 ~9:15 AM PT) — late-game lag — READY TO SHIP on branch `perf-780`
-Nicholas: late-game gets slow/glitchy with lots of units (esp. 8-player FFA on volcano8/classic). **Do NOT push during the day;** finish gates tonight and ship as **v7.8.0** (fast-forward to main) before 4:30 PM PT only if that is a game night window — otherwise after game night.
+## TOP PRIORITY TONIGHT (Nicholas, Nov 5 ~9:15 AM PT) — late-game lag — SHIPPED as v7.8.0 (see NIGHTLY-LOG) — was branch `perf-780`
+Nicholas: late-game gets slow/glitchy with lots of units (esp. 8-player FFA on volcano8/classic). Shipped day of Nov 5 on Nicholas's ask. Optional leftovers still below. (fast-forward to main) before 4:30 PM PT only if that is a game night window — otherwise after game night.
 
 ### Hotspots found (profiled headless 8-FFA volcano8 + browser stress)
 1. **Render hitches (biggest feel):** `updFogTex` rewrote every map tile and uploaded the fog texture **every frame** (even with fog off). Off-screen units still ran full lerp/gait. Ambient FX stayed high with 400–700 ents.
