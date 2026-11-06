@@ -1,3 +1,14 @@
+## SHIPPED night Nov 6: v7.8.5 Full Unlock free-tier scaffolding LIVE
+Country gate only (map gating next). Free You-factions: USA, Russia, Germany, France. Locked until $4.99 Full Unlock: Brazil, Iran, China, Japan. `js/unlock.js` + IronIAP stub; QA `?unlock=1`/`0`; Settings Restore. Bots unrestricted. No sim/AI/stat changes.
+
+## RESUME NOTE ~12:45 AM PT Fri Nov 6 (nightly)
+- Live target after push: v7.8.5. Primary item (queue 8 / Nov 4 monetization) shipped as country unlock.
+- **Next (map gating):** free tier = classic-style / 2v2 access (classic + frost safe); Full Unlock = all maps (volcano, volcano8, razorwheel, hellgate, endless maps as decided). Prefer a clean map gate similar to unlockFacOk; do not half-break lobby presets.
+- **Native IAP:** Swift StoreKit plugin not started (no ios/ Xcode project yet). Fill `window.IronIAP` / Capacitor plugin; product id suggested `ironfront_full_unlock`.
+- **4c-math leftovers:** held tonight after primary ship — France fortress further tune / silo EV / fortress-punish / stuck-army math only if Hard benches non-weaker (≤~6 games). Do NOT start SC2 construction rewrite.
+- LLC / seller name (MBEP Apps vs Creations) still needs Nicholas.
+- Game Center Swift still needs Nicholas's Mac (GAME-CENTER.md).
+
 ## SHIPPED day Nov 5: v7.8.4 lobby teams + Razorwheel corners LIVE
 Phone lobby Team headers + Hellgate→FFA footgun + teamIdx harden + end-screen Team N (letter). Razorwheel diagonal spawns pushed out (96² kept).
 

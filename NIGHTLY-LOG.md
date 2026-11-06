@@ -1,5 +1,14 @@
 # Iron Front nightly log
 
+## 2026-11-06 (nightly, ~12:45 AM PT): v7.8.5 Full Unlock free-tier scaffolding LIVE
+- **What players see:** Free countries always playable as You — USA, Russia, Germany, France. Brazil, Iran, China and Japan show a lock on the faction picker until Full Unlock ($4.99 one-time, no subscription). Tapping a locked country opens an unlock panel. Settings shows the price line and a Restore purchases button. Bots / Watch / FFA enemies can still be any country. Web does not charge (App Store message); QA uses `?unlock=1` / `?unlock=0`.
+- **Technical:** new `js/unlock.js` (localStorage `if_full_unlock` + Capacitor Preferences when present, `window.IronIAP` purchase/restore/getStatus stub for future StoreKit). Lobby You-row + home faction cards gated; `buildSlots` clamps human locked picks and human Random to the free pool. No sim/AI/stat changes; old replays unchanged. Map gating deferred (document in NEXT-SESSION).
+- **Tests:** unlock-test UNLOCK OK; replay OK; units OK; eight OK; factions7 ALL PASS; check:www OK; browser smoke classic + razorwheel 0 page errors / 0 failed requests.
+- Live: YES (FF push, no force).
+- Screenshot: /workspace/iron-front-v7.8.5-unlock.png (offer: /workspace/iron-front-v7.8.5-unlock-offer.png)
+- Play zip: /workspace/iron-front-v7.8.5.zip
+
+
 ## 2026-11-05 (day, ~4:00 PM PT): v7.8.4 lobby teams + Razorwheel corner spawns LIVE
 - **Root cause (Nicholas's 2v2v1v1v1v1 Razorwheel watch):** lobby→sim preserves teams when set correctly (no mid-game ally drift). Phone lobby hid Team/Faction/Colour headers and used a broken 3-column grid, so Team was easy to mis-set. Leaving Hellgate's 2v6 (A,A,B×6) for Razorwheel kept warlord alliances. `teamIdx` also collapsed unrecognized values onto Team A. End screen showed bare numbers (no letter), so a team collision looked like “four Team 2 winners”.
 - **Fix:** mobile lobby always shows 5 columns + headers; harden `teamIdx` (A–H / 1–8 / Team N); Hellgate→Razorwheel/volcano8 footgun flips hell-pattern teams to unique A–H; lobby presets `8 FFA` + `2v2v1v1v1v1`; end screen / watch banner `Team N (letter)`; lobbySet forces sticky team option.
