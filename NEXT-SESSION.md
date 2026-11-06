@@ -1,3 +1,6 @@
+## SHIPPED morning Nov 6: v7.8.6 France Grand Cannon fortress in FFA LIVE
+France Hard bots now actually build the 5–6 Grand Cannon opening in FFA (they already could in 1v1/teams). Root cause: `fort79` waited for a 2500 idle bank that FFA never holds, and waited until 5:00 even after tech. Fix queues the cannon immediately after tech and places it beside the lane.
+
 ## SHIPPED night Nov 6: v7.8.5 Full Unlock free-tier scaffolding LIVE
 Country gate only (map gating next). Free You-factions: USA, Russia, Germany, France. Locked until $4.99 Full Unlock: Brazil, Iran, China, Japan. `js/unlock.js` + IronIAP stub; QA `?unlock=1`/`0`; Settings Restore. Bots unrestricted. No sim/AI/stat changes.
 

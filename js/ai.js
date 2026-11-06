@@ -65,6 +65,7 @@ function aiStep(P) {
   if (V6 && !SIOFF.q76) post76(P, S, D, me, cnt, hq);
   { const nd = me.filter(e => e.kind === 'b' && BT[e.t].cat === 'def' && e.t !== 'wall' && e.t !== 'gate' && e.t !== 'gtower').length, nw = (cnt.wall || 0) + (cnt.gate || 0) + (cnt.gtower || 0);
     S.defFull = (VD && !G.end ? nd >= (P.fac === 'fra' ? 18 + 6 * (cnt.cc || 0) : P.fac === 'chn' ? 10 + 4 * (cnt.cc || 0) : 5 + 3 * (cnt.cc || 0)) * (S.underAttack ? 1.4 : 1) * (popOf(P.team) >= POP_CAP - 6 && P.cr > 3000 ? 1.5 : 1) : nd >= 14 + 4 * (cnt.cc || 0)) || (G.time > END_T && nd >= 8); S.wallFull = nw >= 36 || G.time > END_T; // v5.6: towers must not starve the army
+    if (VD && !G.end && P.fac === 'fra' && f79On(P, 'gc79') && avail(P.team, 'gcannon') && (cnt.gcannon || 0) < 5) S.defFull = false; // v7.8.6: cheap FFA towers must not mark France done before the Grand Cannon rush
     if (S.defFull && (!S.underAttack || (VD && !G.end))) for (const it of P.queues.def.slice()) if (it.t !== 'wall' && it.prog < 0.3) cancel(P.team, it.t); }
   if (doc && (VD && !G.end ? !S.defFull : !(S.defFull && !S.underAttack))) defenseMgr(P, S, D, me, cnt, hq);
   else if (!(VD && !G.end) && !P.queues.def.length && !P.ready.def && (cnt.factory || 0) > 0) {
@@ -218,14 +219,14 @@ function aiSpot(P, t, hq, foes) {
   for (const [, x, y] of cands) {
     if (!canPlace(t, P.team, x, y)) continue;
     if (!pass && !ref8Ok(t, x, y, d, g, RL)) continue;
-    if (P.aiS && P.aiS.lanes && t !== 'wall' && P.aiS.lanes.some(l => dhypot(l.x - x - d.w / 2, l.y - y - d.h / 2) < 1.4 + d.w * 0.5)) continue; // keep entrance lanes open
+    if (P.aiS && P.aiS.lanes && t !== 'wall' && t !== 'gcannon' && P.aiS.lanes.some(l => dhypot(l.x - x - d.w / 2, l.y - y - d.h / 2) < 1.4 + d.w * 0.5)) continue; // keep entrance lanes open (v7.8.6: Grand Cannons are 2x2 and cannot sit in the 2.4-tile lane gap, especially with many FFA spokes)
     // keep 1-tile gap around non-defense buildings so units can flow
     if (d.cat !== 'def') { let ok = true; for (let yy = y - 1; yy <= y + d.h && ok; yy++) for (let xx = x - 1; xx <= x + d.w; xx++) if (inb(xx, yy) && g[idx(xx, yy)] === 2) { ok = false; break; } if (!ok) continue; }
     if (NT && !nt76Ok(P, x + d.w / 2, y + d.h / 2, nt76Foot(t, x, y), null, false /* 2-wide lane check off: it starved builds in drills */, nt76Src(P, t, x, y))) { if (++ntF >= 8) return null; continue; } // v7.6.5 no-trap
     return [x, y];
   }
   }
-  if (d.cat === 'bld' && !aiSpot.inner) { aiSpot.inner = true; try { return aiSpotWide(P, t, hq); } finally { aiSpot.inner = false; } }
+  if ((d.cat === 'bld' || t === 'gcannon') && !aiSpot.inner) { aiSpot.inner = true; try { return aiSpotWide(P, t, hq); } finally { aiSpot.inner = false; } } // v7.8.6: GCs also get the wide search so FFA rim bases can still place them
   return null;
 }
 // v5.6: crowded base -> look around every own building (expansions too) out to 22 tiles, then without the spacing rule
@@ -236,7 +237,7 @@ function aiSpotWide(P, t, hq) {
     for (const a of anchors) for (let y = Math.max(1, Math.floor(a.y - 9)); y < Math.min(MH - d.h, a.y + 9); y++) for (let x = Math.max(1, Math.floor(a.x - 9)); x < Math.min(MW - d.w, a.x + 9); x++) cands.push([dhypot(x - hq.x, y - hq.y) + (a.t === 'hq' || a.t === 'cc' ? 0 : 3), x, y]);
     cands.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]); let last = -1;
     for (const [dd, x, y] of cands) { if (dd > 26) break; const k = y * MW + x; if (k === last) continue; last = k; if (!canPlace(t, P.team, x, y)) continue;
-      if (P.aiS && P.aiS.lanes && P.aiS.lanes.some(l => dhypot(l.x - x - d.w / 2, l.y - y - d.h / 2) < 1.2 + d.w * 0.5)) continue;
+      if (P.aiS && P.aiS.lanes && t !== 'gcannon' && P.aiS.lanes.some(l => dhypot(l.x - x - d.w / 2, l.y - y - d.h / 2) < 1.2 + d.w * 0.5)) continue;
       if (strict) { let ok = true; for (let yy = y - 1; yy <= y + d.h && ok; yy++) for (let xx = x - 1; xx <= x + d.w; xx++) if (inb(xx, yy) && g[idx(xx, yy)] === 2) { ok = false; break; } if (!ok) continue; }
       if (NT && !nt76Ok(P, x + d.w / 2, y + d.h / 2, nt76Foot(t, x, y), null, false /* 2-wide lane check off: it starved builds in drills */, nt76Src(P, t, x, y))) { if (++ntF >= 8) return null; continue; } // v7.6.5 no-trap
       return [x, y]; } }
@@ -665,11 +666,11 @@ function baseEntrances(P, S, hq) {
 }
 // static defence at EVERY entrance + flak over the core; Tesla / Grand Cannon once teched. Spends from the def queue only.
 function fort79(P, S, me, ents, hq, tier) { // France: 5-6 Grand Cannons over the main entrances first, then 2 GCs + turrets + flak at each expansion, then the army
-  if ((S.bad.gcannon || 0) > G.time || tier < 3) return false; const D79 = me.filter(e => e.kind === 'b' && BT[e.t].cat === 'def' && e.hp > 0);
+  if ((S.bad.gcannon || 0) > G.time || !ents.length) return false; const D79 = me.filter(e => e.kind === 'b' && BT[e.t].cat === 'def' && e.hp > 0);
   const gcs = D79.filter(e => e.t === 'gcannon'), xcc = me.filter(e => e.t === 'cc' && e.hp > 0 && dhypot(e.x - hq.x, e.y - hq.y) > 14), main = gcs.filter(e => !xcc.some(c => dhypot(e.x - c.x, e.y - c.y) < 12)).length, want = P.cr > 6000 ? 6 : 5;
-  const put = (t, at) => { if (P.gas < (BT[t].gas || 0)) return false; if (BT[t].pow < 0 && P.pow + BT[t].pow < 0) { if (!P.queues.bld.some(q => q.t === 'power' || q === 'power') && avail(P.team, 'power') && P.cr >= BT.power.cost) enqueue(P.team, 'power'); return true; }
-    if (P.cr < BT[t].cost) return true; S.defAt = at; S.defAtT = G.time; enqueue(P.team, t); return true; };
-  if (main < want) { const en = ents[main % ents.length], ring = Math.floor(main / ents.length), f = 0.35 + ring * 0.12, sd = ring % 2 ? 2.5 : -2.5 * (ring > 0 ? 1 : 0);
+  const put = (t, at) => { if (P.gas < (BT[t].gas || 0)) return true; if (BT[t].pow < 0 && P.pow + BT[t].pow < 0) { if (!P.queues.bld.some(q => q.t === 'power' || q === 'power') && avail(P.team, 'power') && P.cr >= BT.power.cost) enqueue(P.team, 'power'); return true; }
+    S.defAt = at; S.defAtT = G.time; enqueue(P.team, t); return true; }; // v7.8.6: do not wait for the full 2500 idle — enqueue and let resvOf bank it (FFA never holds 2500)
+  if (main < want) { const en = ents[main % ents.length], ring = Math.floor(main / ents.length), f = 0.35 + ring * 0.12, sd = (ring % 2 ? 1 : -1) * 3.2; // v7.8.6: always sit beside the lane (2x2 on-lane spots fail in FFA)
     const dx = en.b.x - en.x, dy = en.b.y - en.y, L = Math.max(1, dhypot(dx, dy)); return put('gcannon', { x: en.x + dx * f - dy / L * sd, y: en.y + dy * f + dx / L * sd }); }
   for (const c of xcc.filter(e => !e.con).sort((a, b) => a.id - b.id).slice(0, 2)) { // the (first two) expansions
     let es = null, bd = 1e9; for (const Q of G.players) if (foe(Q.team, P.team) && !Q.out) { const st = G.starts[Q.start], d = dhypot(st[0] - c.x, st[1] - c.y); if (d < bd) { bd = d; es = st; } }

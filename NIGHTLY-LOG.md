@@ -1,5 +1,13 @@
 # Iron Front nightly log
 
+## 2026-11-06 (morning, ~8:10 AM PT): v7.8.6 France Grand Cannon fortress in FFA LIVE
+- **What players see:** France Hard bots in FFA (Razorwheel and other FFA maps) now raise Grand Cannon fortresses the way they already did in team games: first cannon as soon as the Tech Center finishes (~3 min), then 5 covering the main base.
+- **Root cause:** The v7.7.9 fortress plan (`fort79`) would not even queue a Grand Cannon until France had 2500 *unreserved* credits sitting idle. In FFA the army spends every credit, so that never happened and they built zero cannons (only the early turrets). The plan also waited until the 5:00 "tier 3" clock even after tech was done (~3:00). If it gave up (short on gas) it fell back to the old per-entrance gatling loop, which never reaches a cannon when there are many FFA approaches. 2×2 cannon spots also sat on the entrance lane and failed to place among 6 FFA spoke lanes.
+- **Fix (France / gc79 only, no unit stat changes, no bot bonuses):** queue the cannon like other defenses and let the existing reserve system bank the 2500; start as soon as tech is available; wait on gas instead of falling through to gatlings; place cannons beside the lane (skip the 2.4-tile lane exclusion and allow the wide search for Grand Cannons); do not mark France's defenses "full" until at least 5 Grand Cannons exist.
+- **Sim:** Razorwheel 8-FFA seed 11, Hard (si2), two France seats: both had a cannon going up at 3:00 and 5 finished Grand Cannons by 10:00 (still 5 at 12:00). Both alive.
+- **Tests:** replay OK; 5-min 8-FFA DET PASS (self-identical; 4 GCs already up at 5:00); lobbySelfTest OK (954 games). Browser smoke skipped (usage).
+- Live: YES (FF push, no force).
+
 ## 2026-11-06 (nightly, ~12:45 AM PT): v7.8.5 Full Unlock free-tier scaffolding LIVE
 - **What players see:** Free countries always playable as You — USA, Russia, Germany, France. Brazil, Iran, China and Japan show a lock on the faction picker until Full Unlock ($4.99 one-time, no subscription). Tapping a locked country opens an unlock panel. Settings shows the price line and a Restore purchases button. Bots / Watch / FFA enemies can still be any country. Web does not charge (App Store message); QA uses `?unlock=1` / `?unlock=0`.
 - **Technical:** new `js/unlock.js` (localStorage `if_full_unlock` + Capacitor Preferences when present, `window.IronIAP` purchase/restore/getStatus stub for future StoreKit). Lobby You-row + home faction cards gated; `buildSlots` clamps human locked picks and human Random to the free pool. No sim/AI/stat changes; old replays unchanged. Map gating deferred (document in NEXT-SESSION).
