@@ -1,3 +1,6 @@
+## SHIPPED day Nov 5: v7.8.4 lobby teams + Razorwheel corners LIVE
+Phone lobby Team headers + Hellgate→FFA footgun + teamIdx harden + end-screen Team N (letter). Razorwheel diagonal spawns pushed out (96² kept).
+
 ## SHIPPED day Nov 5: v7.8.3 Razorwheel + Iron Foundry delisted LIVE
 Iron Foundry (224², Nicholas's map-builder featured map) removed from the lobby list (data kept for replays). New 8-FFA built-in **Razorwheel** (96² rim/spoke/hub).
 

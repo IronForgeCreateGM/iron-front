@@ -116,9 +116,9 @@ body.mobile #menu .panel{width:100%;max-width:100vw;padding:12px;box-sizing:bord
 body.mobile #menu button,body.mobile #menu select,body.mobile #menu input{min-height:46px;font-size:16px;padding:8px 12px}
 body.mobile #menu .big{width:100%;margin:6px 0}
 body.mobile .setupRow{flex-direction:column}
-body.mobile #lobby .lrow{display:grid;grid-template-columns:24px 1fr 1fr;gap:6px;margin-bottom:10px}
-body.mobile #lobby .lrow > .lf{grid-column:2}
-body.mobile #lobby .lrow.lh{display:none}
+body.mobile #lobby .lrow{display:grid;grid-template-columns:22px 1.05fr 0.85fr 1.05fr 0.9fr;gap:4px;margin-bottom:8px;align-items:center}
+body.mobile #lobby .lrow > .lf{grid-column:auto}
+body.mobile #lobby .lrow.lh{display:grid;font-size:10px;letter-spacing:.06em;opacity:.9}
 body.mobile #lobby .lrow select{width:100%}
 body.mobile #mapPrev{width:min(70vw,260px);height:min(70vw,260px)}
 body.mobile #pause button{min-height:48px;font-size:18px}

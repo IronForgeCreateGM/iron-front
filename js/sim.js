@@ -266,7 +266,7 @@ function genCustom(R) {
   for (let i = 0; i < N; i++) if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.ore[i] = 0; G.forest[i] = 0; }
   G.six = true; G.oreMax = Float32Array.from(G.ore);
 }
-// v7.8.3 "Razorwheel" — 96×96 8-player FFA. Eight rim bases on a compass ring, an outer
+// v7.8.3/v7.8.4 "Razorwheel" — 96×96 8-player FFA. Eight rim bases on a compass ring, an outer
 // ring road for neighbor wars, eight spoke lanes into a contested hub (rich ore + gas + derricks).
 // Rock wedges between spokes force multi-lane fights — no single turtle choke. Unique vs volcano/frost/hellgate/classic.
 function genRazorwheel(R) {
@@ -285,13 +285,14 @@ function genRazorwheel(R) {
   G.vents = []; G.sites = []; G.dkPos = []; G.monument = null; G.weather = null; G.ruins = null; G.crown = null;
   const vent = (x, y) => { clearC(x + 0.5, y + 0.5, 1.6); G.vents.push([x, y]); };
   const dk = (x, y) => { G.dkPos.push([x, y]); };
-  // 8 compass starts on a ring (spot 1 = NW-ish, then clockwise). Angle offset so seats feel even.
-  const RIM = 38, bases = [];
-  for (let k = 0; k < 8; k++) { const a = -Math.PI * 3 / 4 + k * Math.PI / 4; bases.push([M + Math.cos(a) * RIM, M + Math.sin(a) * RIM, a]); }
+  // 8 compass starts on a ring (spot 1 = NW-ish, then clockwise). v7.8.4: diagonals further out for build room; cardinals nudged out too.
+  const bases = [];
+  for (let k = 0; k < 8; k++) { const a = -Math.PI * 3 / 4 + k * Math.PI / 4, rim = (k % 2 === 0) ? 42.5 : 40;
+    bases.push([M + Math.cos(a) * rim, M + Math.sin(a) * rim, a, rim]); }
   G.starts = bases.map(([x, y]) => [x, y]);
   // rock wedges between spokes (leave spoke gaps + outer ring + hub open)
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
-    const dx = x + 0.5 - M, dy = y + 0.5 - M, d = Math.hypot(dx, dy); if (d < 11 || d > 44) continue;
+    const dx = x + 0.5 - M, dy = y + 0.5 - M, d = Math.hypot(dx, dy); if (d < 11 || d > 47) continue;
     let ang = Math.atan2(dy, dx); // -pi..pi
     // distance to nearest spoke angle (bases point inward)
     let best = 99; for (let k = 0; k < 8; k++) { const sa = bases[k][2] + Math.PI; let da = Math.abs(((ang - sa + Math.PI * 3) % (Math.PI * 2)) - Math.PI); best = Math.min(best, da); }
@@ -300,8 +301,8 @@ function genRazorwheel(R) {
   }
   // outer ring road (neighbor wars) + clear spoke lanes into the hub
   for (let k = 0; k < 8; k++) {
-    const a0 = bases[k][2], a1 = bases[(k + 1) % 8][2];
-    const steps = 28; for (let s = 0; s <= steps; s++) { let a = a0 + (a1 - a0) * s / steps; if (a1 < a0) a = a0 + (a1 + Math.PI * 2 - a0) * s / steps; clearC(M + Math.cos(a) * RIM, M + Math.sin(a) * RIM, 2.4); }
+    const a0 = bases[k][2], a1 = bases[(k + 1) % 8][2], r0 = bases[k][3], r1 = bases[(k + 1) % 8][3];
+    const steps = 32; for (let s = 0; s <= steps; s++) { let a = a0 + (a1 - a0) * s / steps; if (a1 < a0) a = a0 + (a1 + Math.PI * 2 - a0) * s / steps; const rr = r0 + (r1 - r0) * s / steps; clearC(M + Math.cos(a) * rr, M + Math.sin(a) * rr, 2.4); }
     path([[bases[k][0], bases[k][1]], [M + Math.cos(a0 + Math.PI) * 2, M + Math.sin(a0 + Math.PI) * 2]], 2.0, i => { G.map[i] = 0; G.forest[i] = 0; });
   }
   // hub plaza: raised contested crater with rich mid
@@ -320,12 +321,12 @@ function genRazorwheel(R) {
     clearC(bx + Math.cos(inward) * 8, by + Math.sin(inward) * 8, 2.2);
     clearC(bx + Math.cos(a + Math.PI / 2) * 8, by + Math.sin(a + Math.PI / 2) * 8, 2.0);
     clearC(bx + Math.cos(a - Math.PI / 2) * 8, by + Math.sin(a - Math.PI / 2) * 8, 2.0);
-    fieldC(bx + Math.cos(outward) * 5.5, by + Math.sin(outward) * 5.5, 1.9);
-    fieldC(bx + Math.cos(a + 0.9) * 5.2, by + Math.sin(a + 0.9) * 5.2, 1.6);
-    vent(Math.floor(bx + Math.cos(a - 0.7) * 4.5), Math.floor(by + Math.sin(a - 0.7) * 4.5));
+    fieldC(bx + Math.cos(outward) * 6.2, by + Math.sin(outward) * 6.2, 1.9);
+    fieldC(bx + Math.cos(a + 0.9) * 5.6, by + Math.sin(a + 0.9) * 5.6, 1.6);
+    vent(Math.floor(bx + Math.cos(a - 0.7) * 4.8), Math.floor(by + Math.sin(a - 0.7) * 4.8));
     G.sites.push({ x: bx, y: by, k: 'main' });
     // natural expansion between this base and the next, on the ring
-    const aMid = a + Math.PI / 8, ex = M + Math.cos(aMid) * 28, ey = M + Math.sin(aMid) * 28;
+    const aMid = a + Math.PI / 8, ex = M + Math.cos(aMid) * 30, ey = M + Math.sin(aMid) * 30;
     clearC(ex, ey, 5.5); fieldC(ex, ey, 1.7); vent(Math.floor(ex + 2), Math.floor(ey)); G.sites.push({ x: ex, y: ey, k: 'nat' });
   }
   // contested hub resources

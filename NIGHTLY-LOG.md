@@ -1,5 +1,13 @@
 # Iron Front nightly log
 
+## 2026-11-05 (day, ~4:00 PM PT): v7.8.4 lobby teams + Razorwheel corner spawns LIVE
+- **Root cause (Nicholas's 2v2v1v1v1v1 Razorwheel watch):** lobby→sim preserves teams when set correctly (no mid-game ally drift). Phone lobby hid Team/Faction/Colour headers and used a broken 3-column grid, so Team was easy to mis-set. Leaving Hellgate's 2v6 (A,A,B×6) for Razorwheel kept warlord alliances. `teamIdx` also collapsed unrecognized values onto Team A. End screen showed bare numbers (no letter), so a team collision looked like “four Team 2 winners”.
+- **Fix:** mobile lobby always shows 5 columns + headers; harden `teamIdx` (A–H / 1–8 / Team N); Hellgate→Razorwheel/volcano8 footgun flips hell-pattern teams to unique A–H; lobby presets `8 FFA` + `2v2v1v1v1v1`; end screen / watch banner `Team N (letter)`; lobbySet forces sticky team option.
+- **Razorwheel:** same 96²; diagonal rims 38→42.5, cardinals 38→40; ore/vents/nats nudged with bases; hub/spokes path-connected; no rock under starts.
+- **Sim:** 8-Hard FFA seed 11, 20 min, stuckPeak 0, no errors, 2 alive.
+- **Tests:** lobbySelfTest OK (incl. 2v2v1v1v1v1 + ffa8unique on razorwheel & volcano8), replay/units/eight/check:www/5-min DET PASS, browser smoke classic+volcano8+razorwheel 0 page errors.
+- Live: YES (FF push, no force).
+
 ## 2026-11-05 (day, ~3:30 PM PT): v7.8.3 Razorwheel + drop Iron Foundry from lobby LIVE
 - Removed **Iron Foundry** (Nicholas's 224² Map Builder featured map) from the selectable lobby list. Data kept in `js/featured-maps.js` with `hide:1` so old replays/`cmGet` still work; missing `cm:` selections fall back to classic.
 - New built-in map **Razorwheel** (96², 8 FFA): eight compass-rim bases, outer ring road for neighbor wars, eight spoke lanes into a contested hub with rich ore/gas/derricks. Rock wedges between spokes — multi-lane fights, no single turtle choke. Unlike classic / volcano / frost / hellgate.

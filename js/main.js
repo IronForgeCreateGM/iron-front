@@ -61,12 +61,22 @@ const PRESETS = {
   hellgate: { n: '2v6 Hindu Kush Hellgate', map: 'hellgate', slots: [['human', 'A'], ['si', 'A'], ['si', 'B'], ['si', 'B'], ['si', 'B'], ['si', 'B'], ['si', 'B'], ['si', 'B']] },
   t3v3:   { n: '3v3', slots: [['human', 'A'], ['si', 'B'], ['si', 'A'], ['si', 'B'], ['si', 'A'], ['si', 'B']] },
   coop:   { n: 'Me + Hard AI vs 2 Medium', slots: [['human', 'A'], ['normal', 'B'], ['si', 'A'], ['normal', 'B']] },
+  ffa8:   { n: '8 FFA (Razorwheel)', map: 'razorwheel', slots: [['human', 'A'], ['si', 'B'], ['si', 'C'], ['si', 'D'], ['si', 'E'], ['si', 'F'], ['si', 'G'], ['si', 'H']] },
+  mix8:   { n: '2v2v1v1v1v1 (Razorwheel)', map: 'razorwheel', slots: [['human', 'A'], ['si', 'A'], ['si', 'B'], ['si', 'B'], ['si', 'C'], ['si', 'D'], ['si', 'E'], ['si', 'F']] },
   wsi:    { n: 'Watch: 2 Hard vs 2 Hard', slots: [['si', 'A'], ['si', 'B'], ['si', 'A'], ['si', 'B']] },
   w1:     { n: 'Watch: Medium vs Hard', slots: [['normal', 'A'], ['si', 'B']] },
   w2:     { n: 'Watch: Hard vs Hard', slots: [['si', 'A'], ['si', 'B']] },
   wffa:   { n: 'Watch: 8 FFA Razorwheel', map: 'razorwheel', slots: [['si', 'A'], ['si', 'B'], ['si', 'C'], ['si', 'D'], ['si', 'E'], ['si', 'F'], ['si', 'G'], ['si', 'H']] },
 };
-const TEAM_LET = 'ABCDEFGH', teamIdx = t => Math.max(0, TEAM_LET.indexOf(t || 'A')); // v7.7: lobby team values A-H = ally 0-7 (A/B unchanged, so presets + replays are as before)
+const TEAM_LET = 'ABCDEFGH';
+function teamIdx(t) { // v7.8.4: A-H, 1-8, 0-7, and "Team N" all map cleanly — never silently collide invalid values onto Team A
+  if (typeof t === 'number' && t >= 0 && t <= 7) return t | 0;
+  const s = String(t == null ? 'A' : t).trim().toUpperCase();
+  const li = TEAM_LET.indexOf(s); if (li >= 0) return li;
+  const m = s.match(/(?:TEAM\s*)?([1-8])$/); if (m) return (+m[1]) - 1;
+  const n = parseInt(s, 10); if (n >= 0 && n <= 7) return n;
+  return 0;
+}
 const TEAM_CSS = ['#3d9cff', '#ff5040', '#3fcf6a', '#e8c840', '#b070ff', '#2cc8c8', '#ff9030', '#d8d8d8'];
 function lobbyNs(map) { return map === 'custom' && typeof CM_SEL !== 'undefined' && CM_SEL ? CM_SEL.starts.length : undefined; } // spawn count of the selected custom map
 function buildSlots(list, names, map) { // list rows: [type, team, fac, color]; names: row -> player name; map: lobby map (seats: row N -> spot N, see seatPlan in sim.js)
@@ -75,10 +85,11 @@ function buildSlots(list, names, map) { // list rows: [type, team, fac, color]; 
   return act.map(([[type, team, fac, color], row], i) => ({ row, ai: type !== 'human' && type !== 'remote', local: type === 'human', diff: type === 'human' || type === 'remote' ? 'normal' : liveDiff(normDiff(type)), ally: teamIdx(team), fac: fac && fac !== 'rand' ? fac : RF(), color: color && color !== 'auto' ? color : undefined, start: st[i], seat: 1, smap: map || 'classic', name: (names && names[row]) || (type === 'human' ? 'You' : type === 'remote' ? 'Remote ' + (row + 1) : SLOT_TYPES[type]) }));
 }
 function seatFix(slots, map, ns) { if (slots.length && slots.every(s => s.seat && s.row != null && !s.horde) && slots.some(s => s.smap !== map)) { const st = seatPlan(map, slots.map(s => ({ row: s.row, ally: s.ally })), ns); slots.forEach((s, i) => { s.start = st[i]; s.smap = map; }); } return slots; }
-function watchWinTitle() { // v7.7.9: name the real winner when watching (FFA/multi-team), not just blue/red
-  const W = G.players.filter(P => P.ally === G.winAlly && !P.horde), allies = new Set(G.players.map(P => P.ally));
+function watchWinTitle() { // v7.7.9 / v7.8.4: name the real winner when watching (FFA/multi-team); show Team N + letter so end screen matches lobby
+  const W = G.players.filter(P => P.ally === G.winAlly && !P.horde), allies = new Set(G.players.filter(P => !P.horde).map(P => P.ally));
   if (allies.size <= 2 || !W.length) return G.over === 'victory' ? 'BLUE TEAM WINS' : 'RED TEAM WINS';
-  const nm = W.map(P => (FACTIONS[P.fac] ? FACTIONS[P.fac].n : P.fac).toUpperCase()); return (nm.length > 1 ? 'TEAM ' + String.fromCharCode(65 + G.winAlly) + ' (' + nm.join(' + ') + ') WINS' : nm[0] + ' WINS'); }
+  const nm = W.map(P => (FACTIONS[P.fac] ? FACTIONS[P.fac].n : P.fac).toUpperCase()), tl = TEAM_LET[G.winAlly] || '?';
+  return nm.length > 1 ? `TEAM ${G.winAlly + 1} (${tl}: ${nm.join(' + ')}) WINS` : `${nm[0]} WINS`; }
 function startGame(diff, opts) {
   opts = opts || {};
   try { if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); } catch (e) {} // v5.7.2: no focus left in the lobby form
@@ -342,7 +353,10 @@ function hellgateSetup() {
   { const ps = document.getElementById('peaceSel'); if (ps && ps.value === '180') ps.value = '300'; } // 5-min peace: time to dig in at the Hellgate
   lobbySet(rows); if (on) { ONL.meRow = me; if (typeof lobbyChanged === 'function') lobbyChanged(); }
 }
-function lobbySet(list) { const rows = document.querySelectorAll('#lobby .lrow:not(.lh)'); rows.forEach((r, i) => { const s = list[i] || ['off', i % 2 ? 'B' : 'A']; r.querySelector('.lt').value = normDiff(s[0]); r.querySelector('.la').value = s[1]; r.querySelector('.lf').value = s[2] || (i === 0 && s[0] === 'human' ? MENU.fac : 'rand'); r.querySelector('.lc').value = s[3] || 'auto'; }); if (typeof mapPreview === 'function') mapPreview(); }
+function lobbySet(list) { const rows = document.querySelectorAll('#lobby .lrow:not(.lh)'); rows.forEach((r, i) => { const s = list[i] || ['off', i % 2 ? 'B' : 'A']; r.querySelector('.lt').value = normDiff(s[0]);
+    const la = r.querySelector('.la'), want = String(s[1] || 'A').toUpperCase().slice(0, 1); la.value = want;
+    if (la.value !== want && TEAM_LET.indexOf(want) >= 0) { /* v7.8.4: force option selected if .value assign silently failed */ const opt = [...la.options].find(o => o.value === want); if (opt) opt.selected = true; }
+    r.querySelector('.lf').value = s[2] || (i === 0 && s[0] === 'human' ? MENU.fac : 'rand'); r.querySelector('.lc').value = s[3] || 'auto'; }); if (typeof mapPreview === 'function') mapPreview(); }
 // v7.0 lobby mode: Skirmish (any map, two teams) or Endless (up to 4 defenders on Hellgate Last Stand vs the Horde)
 function setMode(m) {
   MENU.mode = m; const su = document.getElementById('setup'); if (!su) return; su.classList.toggle('endless', m === 'endless');
@@ -391,7 +405,7 @@ function lobbySelfTest() {
       if (en && slots.length === 1) { if (P.start !== 4) errs.push(label + ' endless solo not at centre'); return; }
       const sideOk = own != null && (seatSide(eff, own) == null || seatSide(eff, own) === P.ally);
       if (sideOk) { if (P.start !== own || seatLabel(eff, slots.length, P.start) !== sl.row + 1) errs.push(label + ` row ${sl.row + 1} (${sl.ai ? 'bot' : 'human'}) at spot ${seatLabel(eff, slots.length, P.start)}`); else exact++; }
-      else { moved++; if (eff === 'hellgate' && slots.filter(s => s.ally === P.ally).length <= (P.ally ? 6 : 2) && seatSide(eff, P.start) !== P.ally) errs.push(label + ' moved row ' + (sl.row + 1) + ' landed on the wrong side'); } });
+      else { moved++; if (eff === 'hellgate' && new Set(slots.map(s => s.ally)).size <= 2 && slots.filter(s => s.ally === P.ally).length <= (P.ally ? 6 : 2) && seatSide(eff, P.start) !== (P.ally ? 1 : 0)) errs.push(label + ' moved row ' + (sl.row + 1) + ' landed on the wrong side'); } }); // v7.8.4: Hellgate side check for 2-team lobbies within valley/warlord capacity; binary side (ally?1:0)
     slots.forEach((sl, t) => { const row = list.filter(r => r[0] !== 'off')[t]; if (!en && teamIdx(row[1]) !== hum[t].ally) errs.push(label + ' team mismatch p' + t);
       if (row[2] !== 'rand' && hum[t].fac !== row[2]) errs.push(label + ' fac mismatch p' + t); if (row[3] !== 'auto' && !en && hum[t].color !== row[3]) errs.push(label + ' color mismatch p' + t); });
     if (new Set(G.players.map(P => P.color)).size !== G.players.length) errs.push(label + ' dup colours');
@@ -400,6 +414,8 @@ function lobbySelfTest() {
   for (const map of ['classic', 'frost', 'volcano', 'volcano8', 'razorwheel', 'hellgate']) { ms.value = map;
     for (const pk of Object.keys(PRESETS)) {
       lobbySet(PRESETS[pk].slots); check(pk + '@' + map, map);
+      // v7.8.4: skip random team/slot fuzz on Hellgate — side-locked seats make A/B flips intentional moves, not regressions
+      if (map === 'hellgate') continue;
       for (let k = 0; k < 12; k++) { const rs = rows(), r = rs[(R() * rs.length) | 0], what = (R() * 4) | 0;
         if (what === 0) setSel(r.querySelector('.lf'), facs[(R() * facs.length) | 0]); else if (what === 1) setSel(r.querySelector('.lc'), cols[(R() * cols.length) | 0]); else if (what === 2) setSel(r.querySelector('.la'), R() < 0.5 ? 'A' : 'B'); else setSel(r.querySelector('.lt'), ['off', 'si', 'easy', 'normal'][(R() * 4) | 0]);
         check(pk + '@' + map + '#' + k + ' ' + JSON.stringify(lobbyRead()), map); }
@@ -407,6 +423,18 @@ function lobbySelfTest() {
     // all team splits for 4 active slots incl. 3v1 / 4v0, and You on every row
     for (let m = 0; m < 16; m++) { lobbySet([['human', m & 1 ? 'B' : 'A', 'fra', 'green'], ['si', m & 2 ? 'B' : 'A', 'rus'], ['normal', m & 4 ? 'B' : 'A', 'rand', 'blue'], ['hard', m & 8 ? 'B' : 'A']]); check('split' + m + '@' + map, map); }
     for (let h = 0; h < 8; h++) { const L = [0, 1, 2, 3, 4, 5, 6, 7].map(i => [i === h ? 'human' : i < 6 || map === 'volcano8' || map === 'hellgate' || map === 'razorwheel' ? 'si' : 'off', map === 'hellgate' ? (i < 2 ? 'A' : 'B') : map === 'razorwheel' ? 'ABCDEFGH'[i] : i % 2 ? 'B' : 'A']); lobbySet(L); check('you@row' + (h + 1) + '@' + map, map); }
+  }
+  // v7.8.4: 2v2v1v1v1v1 + pure 8-FFA must keep lobby teams into the match on Razorwheel and classic 8-player
+  for (const map of ['razorwheel', 'volcano8']) {
+    ms.value = map; // keep mapSel in sync — lobbySeats/preview read it
+    lobbySet([0, 1, 2, 3, 4, 5, 6, 7].map(i => [i ? 'si' : 'human', 'AABBCDEF'[i]]));
+    check('2v2v1v1v1v1@' + map, map);
+    { const sl = buildSlots(lobbyRead(), null, map), als = sl.map(s => s.ally).join();
+      if (als !== '0,0,1,1,2,3,4,5') errs.push('2v2v1v1v1v1@' + map + ' allies ' + als); }
+    lobbySet([0, 1, 2, 3, 4, 5, 6, 7].map(i => [i ? 'si' : 'human', TEAM_LET[i]]));
+    check('ffa8unique@' + map, map);
+    { const sl = buildSlots(lobbyRead(), null, map); if (new Set(sl.map(s => s.ally)).size !== 8) errs.push('ffa8unique@' + map + ' not 8 unique allies'); }
+    if (teamIdx('3') !== 2 || teamIdx('H') !== 7 || teamIdx('Team 8') !== 7 || teamIdx(5) !== 5) errs.push('teamIdx harden failed');
   }
   // v7.8.3: Iron Foundry stays loadable via cmGet for old replays, but is hidden from the lobby list.
   // Exercise custom seating with whatever featured map is still listed, else synthetic cmGet.
@@ -441,7 +469,7 @@ function lobbySelfTest() {
 
 // ===== end-game stats + army graph =====
 function endStatsHTML() {
-  const rows = G.players.map(P => `<tr style="color:${MMCOL[P.team]}"><td>${FACTIONS[P.fac].flag} ${typeof netEsc === 'function' ? netEsc(P.name) : P.name}</td><td>${P.ally + 1}</td><td>${P.stats.kills}</td><td>${P.stats.lost}</td><td>$${Math.floor(P.stats.mined)}</td><td>${P.stats.built || 0}</td><td>${P.out ? 'eliminated' : 'alive'}</td></tr>`).join('');
+  const rows = G.players.map(P => `<tr style="color:${MMCOL[P.team]}"><td>${FACTIONS[P.fac].flag} ${typeof netEsc === 'function' ? netEsc(P.name) : P.name}</td><td>Team ${P.ally + 1} (${TEAM_LET[P.ally] || '?'})</td><td>${P.stats.kills}</td><td>${P.stats.lost}</td><td>$${Math.floor(P.stats.mined)}</td><td>${P.stats.built || 0}</td><td>${P.out ? 'eliminated' : 'alive'}</td></tr>`).join('');
   return `Time ${Math.floor(G.time / 60)}:${String(Math.floor(G.time % 60)).padStart(2, '0')}<table class="est"><tr><th>Player</th><th>Team</th><th>Kills</th><th>Lost</th><th>Mined</th><th>Built</th><th></th></tr>${rows}</table><canvas id="endGraph" width="520" height="150"></canvas><div style="font-size:11px;color:#9ab">Army value over time</div>`;
 }
 function drawEndGraph() {
@@ -530,7 +558,19 @@ window.addEventListener('load', () => {
   homeRecords();
   if ($$('playOnlineBtn')) $$('playOnlineBtn').onclick = () => { audioInit && audioInit(); homeShow('online'); };
   if ($$('backBtn')) $$('backBtn').onclick = () => homeShow(null);
-  if ($$('mapSel')) $$('mapSel').addEventListener('change', () => { if (typeof cmSelChanged === 'function') cmSelChanged(); if ($$('mapSel').value === 'hellgate') hellgateSetup(); mapPreview(); });
+  if ($$('mapSel')) $$('mapSel').addEventListener('change', () => {
+    if (typeof cmSelChanged === 'function') cmSelChanged();
+    const mv = $$('mapSel').value;
+    if (mv === 'hellgate') hellgateSetup();
+    else if (mv === 'razorwheel' || mv === 'volcano8') { // v7.8.4: leaving Hellgate's 2v6 team pattern on an FFA/8-slot map silently allies six warlords — flip to unique teams
+      const cur = lobbyRead();
+      const hellPat = cur.length >= 8 && cur[0] && cur[0][1] === 'A' && cur[1] && cur[1][1] === 'A'
+        && cur.every((r, i) => r[0] === 'off' || r[1] === (i < 2 ? 'A' : 'B'))
+        && cur.filter(r => r[0] !== 'off').length >= 6;
+      if (hellPat) lobbySet(cur.map((r, i) => [r[0], TEAM_LET[i], r[2] || 'rand', r[3] || 'auto']));
+    }
+    mapPreview();
+  });
   if (new URLSearchParams(location.search).get('room')) homeShow('online');
   if (QS.get('lobbytest') || QS.get('home')) homeShow(QS.get('home') === 'online' ? 'online' : 'bots');
   if (QS.get('home') === 'endless') setMode('endless');
