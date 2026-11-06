@@ -1,3 +1,8 @@
+## 2026-11-06 (morning, ~8:20 AM PT): v7.8.7 web fully unlocked LIVE
+- **What players see:** On the GitHub Pages web build, all 8 countries are unlocked again (no $4.99 lock). Full Unlock IAP scaffolding stays for the future App Store / native build only (`unlockIsNative`). QA `?unlock=0` can still force the gate on web for tests.
+- **Technical:** `js/unlock.js` — `unlockGateActive()`; web default owned; native path unchanged. No sim/AI/stat changes.
+- **Tests:** lobbySelfTest + replay (fast gates only; usage lean).
+
 # Iron Front nightly log
 
 ## 2026-11-06 (morning, ~8:10 AM PT): v7.8.6 France Grand Cannon fortress in FFA LIVE

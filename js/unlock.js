@@ -1,13 +1,14 @@
 'use strict';
-// ===== v7.8.5 Full Unlock ($4.99 one-time) — free countries always; locked countries need Full Unlock =====
-// Free: USA, Russia, Germany, France. Locked: Brazil, Iran, China, Japan.
-// Only the human "You" faction pick is gated. Bots, watch, FFA opponents, and remotes may use any country.
-// Native StoreKit fills window.IronIAP later; web shows App Store price (no fake charges). QA: ?unlock=1 / ?unlock=0.
+// ===== v7.8.5 Full Unlock ($4.99 one-time) — scaffolding for App Store; web is fully unlocked =====
+// Free: USA, Russia, Germany, France. Locked (native only): Brazil, Iran, China, Japan.
+// Only the human "You" faction pick is gated, and only on native/App Store builds (unlockIsNative).
+// GitHub Pages / web: all 8 countries unlocked by default (no IAP). Scaffolding kept for StoreKit later.
+// QA: ?unlock=1 grants; ?unlock=0 force-locks even on web (tests the gate).
 const UNLOCK_LS = 'if_full_unlock';
 const UNLOCK_PRICE = '$4.99';
 const UNLOCK_FREE = ['usa', 'rus', 'ger', 'fra'];
 const UNLOCK_LOCKED = ['bra', 'irn', 'chn', 'jpn'];
-const UNLOCK = { owned: false, ready: false, price: UNLOCK_PRICE };
+const UNLOCK = { owned: false, ready: false, price: UNLOCK_PRICE, forceGate: false };
 
 function unlockIsNative() {
   try {
@@ -35,7 +36,14 @@ async function unlockPrefsSet(on) {
     else if (!on && typeof P.remove === 'function') await P.remove({ key: UNLOCK_LS });
   } catch (e) {}
 }
-function unlockOwned() { return !!UNLOCK.owned; }
+function unlockGateActive() {
+  // IAP country lock is native/App Store only. Web (Pages) stays fully unlocked unless QA ?unlock=0.
+  return !!(UNLOCK.forceGate || unlockIsNative());
+}
+function unlockOwned() {
+  if (!unlockGateActive()) return true;
+  return !!UNLOCK.owned;
+}
 function unlockFacLocked(id) { return UNLOCK_LOCKED.indexOf(id) >= 0; }
 function unlockFacFree(id) { return UNLOCK_FREE.indexOf(id) >= 0; }
 /** Human "You" may pick this faction? Bots always yes (pass forHuman=false). */
@@ -184,7 +192,7 @@ function unlockRefreshUI() {
   document.querySelectorAll('#lobby .lf').forEach(unlockMarkFacOptions);
   const st = document.getElementById('unlockStatus');
   if (st) st.textContent = unlockOwned()
-    ? 'Full Unlock: owned on this device'
+    ? (unlockGateActive() ? 'Full Unlock: owned on this device' : 'Full Unlock: all countries free on web (App Store IAP later)')
     : ('Full Unlock: ' + UNLOCK_PRICE + ' one-time (no subscription) — free countries USA · Russia · Germany · France');
   const rb = document.getElementById('unlockRestoreSetBtn');
   if (rb) rb.style.display = '';
@@ -203,13 +211,20 @@ async function unlockBoot() {
   // QA URL overrides (device-local persistence)
   try {
     const qs = (typeof QS !== 'undefined') ? QS : new URLSearchParams(location.search);
-    if (qs.get('unlock') === '1') unlockGrantQA();
-    else if (qs.get('unlock') === '0') unlockClearQA();
+    if (qs.get('unlock') === '1') { UNLOCK.forceGate = false; unlockGrantQA(); }
+    else if (qs.get('unlock') === '0') { UNLOCK.forceGate = true; unlockClearQA(); }
     // Automated tests that pick locked human factions (lobbytest / selftest) grant unlock for this session only
     else if (qs.get('lobbytest') || qs.get('selftest') || qs.get('unlocktest')) {
       /* keep persisted state; tests that need locked human use ?unlock=1 explicitly */
     }
   } catch (e) {}
+  // Web / GitHub Pages: fully unlocked (scaffold stays for native IAP). Skip persistence unless force-gated.
+  if (!unlockGateActive()) {
+    UNLOCK.owned = true;
+    UNLOCK.ready = true;
+    unlockRefreshUI();
+    return;
+  }
   let owned = unlockReadLS();
   const pref = await unlockPrefsGet();
   if (pref === true) owned = true;
