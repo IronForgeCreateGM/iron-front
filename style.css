@@ -275,3 +275,8 @@ body.mobile.mplay #waveHud .wvS{font-size:10px;margin-top:2px}body.mobile.mplay 
 #menu .sub{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden} /* v7.6.10: the NEW list grew to 20 lines on phones and pushed Play below the fold */
 
 #homeBtns .big.mb{background:linear-gradient(#6a4ab0,#3e2a78);border-color:#a08ae0}
+
+/* v7.8.5 Full Unlock: locked faction cards */
+.fcard.locked{opacity:.55;filter:grayscale(.35);position:relative}
+.fcard .ulock{position:absolute;top:4px;right:6px;font-size:14px;line-height:1;pointer-events:none}
+.fcard.locked.on{border-color:rgba(255,210,122,.35);background:rgba(255,210,122,.06)}

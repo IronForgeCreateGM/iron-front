@@ -82,7 +82,9 @@
   <label><input type="checkbox" id="setQuiet"> 🍃 Quiet mode (M) — caps FPS, 1x resolution, lighter FX</label>
   <label>Quiet mode FPS cap <select id="setQuietFps"><option value="60">60</option><option value="30">30</option></select></label>
   <label><input type="checkbox" id="setFps"> Show FPS / stats (`)</label>
-  <p class="credits" style="font-size:11px;opacity:.65;margin:8px 0 4px">Iron Front collects no personal data; the web version sends anonymous crash/error reports (Sentry) and anonymous gameplay statistics (PostHog) (<a href="privacy.html" target="_blank" style="color:inherit">privacy</a>). Uses three.js (MIT) and Trystero (MIT). All sound is synthesised in the browser.</p>
+  <p id="unlockStatus" style="font-size:12px;opacity:.85;margin:10px 0 4px">Full Unlock: $4.99 one-time (no subscription) — free countries USA · Russia · Germany · France</p>
+  <button type="button" id="unlockRestoreSetBtn" style="margin-bottom:6px">Restore purchases</button>
+  <p class="credits" style="font-size:11px;opacity:.65;margin:8px 0 4px">Iron Front collects no personal data; the web version sends anonymous crash/error reports (Sentry) and anonymous gameplay statistics (PostHog) (<a href="privacy.html" target="_blank" style="color:inherit">privacy</a>). Uses three.js (MIT) and Trystero (MIT). All sound is synthesised in the browser. Full Unlock is a $4.99 one-time purchase (no subscription).</p>
   <button id="setClose" class="big">Done</button>
 </div></div>
 <div id="end" class="screen" style="display:none"><div class="panel"><h1 id="endTitle"></h1><div id="endRun" style="display:none"></div><p id="endStats"></p><button id="saveRepBtn">💾 Save replay</button> <button class="quitBtn big">Play again</button></div></div>
@@ -91,6 +93,7 @@
 <script src="js/analytics.js?v=7.8.4"></script>
 <script src="vendor/three.min.js?v=7.8.4"></script>
 <script src="js/data.js?v=7.8.4"></script>
+<script src="js/unlock.js?v=7.8.4"></script>
 <script src="js/sim.js?v=7.8.4"></script>
 <script src="js/ai.js?v=7.8.4"></script>
 <script src="js/endless.js?v=7.8.4"></script>

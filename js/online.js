@@ -157,6 +157,8 @@ function onlRenderPeers(st) {
   e.innerHTML = `<div>Slot ${((st.hostRow != null ? st.hostRow : Math.max(0, hr)) | 0) + 1}: <b>${netEsc(netSafeName(st.hostName, 'Host'))}</b> (host) 🟢</div>` + Object.values(st.peers).map(p => `<div>Slot ${(p.row | 0) + 1}: <b>${netEsc(netSafeName(p.name))}</b> 🟢 connected · ${p.ready ? '✔ READY' : '⏳ not ready yet'}</div>`).join('') + open.map(i => `<div class="dim">Slot ${i + 1}: open — waiting for a friend to open the link (becomes Hard AI if empty)</div>`).join('');
 }
 function onlStartHost() {
+  // v7.8.5: host You-row cannot start as a locked country without Full Unlock (bots/remotes unrestricted)
+  { const rows0 = lobbyRead(), me = rows0.find(r => r[0] === 'human'); if (me && typeof unlockHumanRowOk === 'function' && !unlockHumanRowOk(me)) { if (typeof unlockOffer === 'function') unlockOffer(me[2]); return; } }
   const rows = lobbyRead(); rows.forEach((r, i) => { if (r[0] === 'remote' && !Object.values(ONL.peers).some(p => p.row === i)) r[0] = 'si'; }); lobbySet(rows);
   const names = { [Math.max(0, rows.findIndex(r => r[0] === 'human'))]: ONL.name }; for (const p of Object.values(ONL.peers)) names[p.row] = p.name;
   const slots = buildSlots(rows, names, lobbyOpts().map), seed = (Math.random() * 1e9) | 0;

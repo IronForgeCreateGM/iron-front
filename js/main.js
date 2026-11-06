@@ -80,9 +80,16 @@ function teamIdx(t) { // v7.8.4: A-H, 1-8, 0-7, and "Team N" all map cleanly —
 const TEAM_CSS = ['#3d9cff', '#ff5040', '#3fcf6a', '#e8c840', '#b070ff', '#2cc8c8', '#ff9030', '#d8d8d8'];
 function lobbyNs(map) { return map === 'custom' && typeof CM_SEL !== 'undefined' && CM_SEL ? CM_SEL.starts.length : undefined; } // spawn count of the selected custom map
 function buildSlots(list, names, map) { // list rows: [type, team, fac, color]; names: row -> player name; map: lobby map (seats: row N -> spot N, see seatPlan in sim.js)
-  const RF = () => FAC_KEYS[(Math.random() * FAC_KEYS.length) | 0], act = list.map((r, row) => [r, row]).filter(([r]) => r[0] !== 'off');
+  // v7.8.5: human Random picks only free countries until Full Unlock; bots still use every faction
+  const RF = (human) => { const keys = (typeof unlockFacPool === 'function') ? unlockFacPool(!!human) : FAC_KEYS; return keys[(Math.random() * keys.length) | 0]; };
+  const act = list.map((r, row) => [r, row]).filter(([r]) => r[0] !== 'off');
   const st = seatPlan(map || 'classic', act.map(([r, row]) => ({ row, ally: teamIdx(r[1]) })), lobbyNs(map));
-  return act.map(([[type, team, fac, color], row], i) => ({ row, ai: type !== 'human' && type !== 'remote', local: type === 'human', diff: type === 'human' || type === 'remote' ? 'normal' : liveDiff(normDiff(type)), ally: teamIdx(team), fac: fac && fac !== 'rand' ? fac : RF(), color: color && color !== 'auto' ? color : undefined, start: st[i], seat: 1, smap: map || 'classic', name: (names && names[row]) || (type === 'human' ? 'You' : type === 'remote' ? 'Remote ' + (row + 1) : SLOT_TYPES[type]) }));
+  return act.map(([[type, team, fac, color], row], i) => {
+    const human = type === 'human'; // remotes already picked on their client; do not re-roll their locked country
+    let f = fac && fac !== 'rand' ? fac : RF(human);
+    if (human && typeof unlockFacOk === 'function' && !unlockFacOk(f, true)) f = RF(true); // safety: never start You as a locked country without unlock
+    return { row, ai: type !== 'human' && type !== 'remote', local: type === 'human', diff: type === 'human' || type === 'remote' ? 'normal' : liveDiff(normDiff(type)), ally: teamIdx(team), fac: f, color: color && color !== 'auto' ? color : undefined, start: st[i], seat: 1, smap: map || 'classic', name: (names && names[row]) || (type === 'human' ? 'You' : type === 'remote' ? 'Remote ' + (row + 1) : SLOT_TYPES[type]) };
+  });
 }
 function seatFix(slots, map, ns) { if (slots.length && slots.every(s => s.seat && s.row != null && !s.horde) && slots.some(s => s.smap !== map)) { const st = seatPlan(map, slots.map(s => ({ row: s.row, ally: s.ally })), ns); slots.forEach((s, i) => { s.start = st[i]; s.smap = map; }); } return slots; }
 function watchWinTitle() { // v7.7.9 / v7.8.4: name the real winner when watching (FFA/multi-team); show Team N + letter so end screen matches lobby
@@ -201,12 +208,20 @@ window.addEventListener('DOMContentLoaded', () => {
   else if (QS.get('slots')) startGame('normal', { slots: buildSlots(QS.get('slots').split(',').map(r => r.split(':')), null, QS.get('map') || 'classic'), seed: +QS.get('seed') || 5 }); // e.g. ?slots=si:A:usa:yellow,hard:B
   else if (QS.get('watch')) startGame(QS.get('watch') === 'si' ? 'hard' : QS.get('watch'), { watch: QS.get('watch') === 'si' ? 'si' : 1, seed: +QS.get('seed') || 5 });
   { const box = document.getElementById('facs'), desc = document.getElementById('facDesc');
-    const sel = f => { MENU.fac = f; if (ONL.room && !ONL.host && ONL.acts.pref) ONL.acts.pref({ fac: f }); const lf = document.querySelector('#lobby .lf'); if (lf) lf.value = f; box.querySelectorAll('.fcard').forEach(c => c.classList.toggle('on', c.dataset.f === f)); const F = FACTIONS[f]; desc.innerHTML = `<b>${F.flag} ${F.n}</b> — special: ${F.desc}`; };
+    const sel = f => {
+      if (typeof unlockFacOk === 'function' && !unlockFacOk(f, true)) { if (typeof unlockOffer === 'function') unlockOffer(f); return; }
+      MENU.fac = f; if (ONL.room && !ONL.host && ONL.acts.pref) ONL.acts.pref({ fac: f }); const lf = document.querySelector('#lobby .lf'); if (lf) lf.value = f; box.querySelectorAll('.fcard').forEach(c => c.classList.toggle('on', c.dataset.f === f)); const F = FACTIONS[f]; desc.innerHTML = `<b>${F.flag} ${F.n}</b> — special: ${F.desc}`;
+    };
     for (const f in FACTIONS) { const c = document.createElement('div'); c.className = 'fcard'; c.dataset.f = f; c.innerHTML = `<div class="fl">${FACTIONS[f].flag}</div>${FACTIONS[f].n}`; c.onclick = () => sel(f); box.appendChild(c); }
-    sel('usa'); }
+    sel('usa'); if (typeof unlockRefreshUI === 'function') unlockRefreshUI(); }
   lobbyInit(); if (QS.get('lobbytest')) setTimeout(lobbySelfTest, 0);
-  document.getElementById('startBtn').onclick = () => { audioInit(); if (ONL.room && ONL.host) { onlStartHost(); return; } const rows = lobbyRead(); if (rows.some(r => r[0] === 'remote')) { uiMsgMenu('Remote slots need an online game: press “Host online game”.'); return; } { const lo = lobbyOpts(), na = rows.filter(r => r[0] !== 'off').length; if (lo.cmap && na > lo.cmap.starts.length) { uiMsgMenu(`“${lo.cmap.name}” has ${lo.cmap.starts.length} spawn points — close ${na - lo.cmap.starts.length} slot(s) or add spawns in the Map Builder.`); return; } } startGame('normal', Object.assign({ slots: buildSlots(rows, null, lobbyOpts().map), fog: document.getElementById('fogChk').checked }, lobbyOpts())); };
+  document.getElementById('startBtn').onclick = () => { audioInit(); if (ONL.room && ONL.host) { onlStartHost(); return; } const rows = lobbyRead(); if (rows.some(r => r[0] === 'remote')) { uiMsgMenu('Remote slots need an online game: press “Host online game”.'); return; } { const lo = lobbyOpts(), na = rows.filter(r => r[0] !== 'off').length; if (lo.cmap && na > lo.cmap.starts.length) { uiMsgMenu(`“${lo.cmap.name}” has ${lo.cmap.starts.length} spawn points — close ${na - lo.cmap.starts.length} slot(s) or add spawns in the Map Builder.`); return; } } // v7.8.5: You cannot start as a locked country without Full Unlock
+    { const me = rows.find(r => r[0] === 'human'); if (me && typeof unlockHumanRowOk === 'function' && !unlockHumanRowOk(me)) { if (typeof unlockOffer === 'function') unlockOffer(me[2]); return; } }
+    startGame('normal', Object.assign({ slots: buildSlots(rows, null, lobbyOpts().map), fog: document.getElementById('fogChk').checked }, lobbyOpts())); };
   onlInitUI(); if (typeof qmInitUI === 'function') qmInitUI(); // v7.7.7 Quick Match (iPhone app only)
+  // v7.8.5 Full Unlock: load ownership, Settings restore, QA query already handled in unlockBoot
+  if (typeof unlockBoot === 'function') unlockBoot().then(() => { if (typeof unlockRefreshUI === 'function') unlockRefreshUI(); }).catch(() => {});
+  { const rb = document.getElementById('unlockRestoreSetBtn'); if (rb) rb.onclick = () => { if (typeof unlockRestore === 'function') unlockRestore(false); }; }
   document.getElementById('surrBtn').onclick = () => { if (!started || G.over) return; if (confirm('Surrender this match?')) { NET.issue({ c: 'surrender' }); document.getElementById('pause').style.display = 'none'; paused = false; } };
   document.getElementById('resumeBtn').onclick = () => togglePause();
   document.querySelectorAll('.quitBtn').forEach(b => b.onclick = () => { keepLastReplay(); wlRelease(); location.href = location.pathname; });
@@ -339,7 +354,23 @@ function lobbyInit() {
   const pb = document.getElementById('presets'); pb.innerHTML = Object.keys(PRESETS).filter(k => k[0] !== 'w').map(k => `<button data-p="${k}">${k[0] === 'w' ? '▶ ' : ''}${PRESETS[k].n}</button>`).join('');
   pb.querySelectorAll('button').forEach(b => b.onclick = () => { lobbySet(PRESETS[b.dataset.p].slots); { const ms = document.getElementById('mapSel'), pm = PRESETS[b.dataset.p].map; if (ms && pm) { ms.value = pm; ms.dispatchEvent(new Event('change')); } } if (b.dataset.p[0] === 'w') { audioInit(); startGame('normal', Object.assign(lobbyOpts(), { slots: buildSlots(lobbyRead(), null, lobbyOpts().map), seed: (Math.random() * 1e6) | 0 })); } });
   lobbySet(PRESETS.duel.slots);
-  box.querySelector('.lf').onchange = e => { if (e.target.value !== 'rand') MENU.fac = e.target.value; };
+  // v7.8.5: locking applies only to the local You row; AI / remote rows may pick any country
+  box.querySelectorAll('.lrow:not(.lh)').forEach(row => {
+    const lf = row.querySelector('.lf'), lt = row.querySelector('.lt');
+    let prev = lf.value;
+    lf.addEventListener('focus', () => { prev = lf.value; });
+    lf.addEventListener('change', () => {
+      const human = lt && lt.value === 'human', v = lf.value;
+      if (human && v !== 'rand' && typeof unlockFacOk === 'function' && !unlockFacOk(v, true)) {
+        if (typeof unlockOffer === 'function') unlockOffer(v);
+        lf.value = prev && (prev === 'rand' || unlockFacOk(prev, true)) ? prev : (typeof unlockGuardHumanFac === 'function' ? unlockGuardHumanFac('usa') : 'usa');
+        return;
+      }
+      prev = lf.value;
+      if (human && lf.value !== 'rand') MENU.fac = lf.value;
+    });
+  });
+  if (typeof unlockRefreshUI === 'function') unlockRefreshUI();
 }
 // v6.0: picking Hindu Kush Hellgate auto-fills 2 humans (Team A) + 6 Hard AI warlords (Team B); the 'You' row and any joined peers keep their rows
 function hellgateSetup() {
