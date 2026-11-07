@@ -5,6 +5,13 @@
 
 # Iron Front nightly log
 
+## 2026-11-07 (nightly, ~12:10 AM PT): HELD — no update tonight (usage near cap)
+- Weekly Grok Bot usage was at 96.9% at the start of the run, with no on-demand spending set up; it resets Sat Nov 7 at about 5:09 PM PT. A full nightly (worker, tests, push) could use up the rest and stop every bot, including the morning check-in, until the reset.
+- NEXT-SESSION.md also says to hold the AI items (idle air-stack flank strike, Grand Cannon nuke punish) until after the reset. Map gating for Full Unlock is native-only now that the web build is fully unlocked, so it wouldn't change the live game.
+- Nothing changed or pushed. Live stays v7.8.7 (1471a47). The 3 AM and 5 AM backup runs are marked done for tonight so they don't spend usage either.
+- Carried to the first run after the reset: the NEXT-SESSION 'AFTER USAGE RESET' items 1 and 2, then map gating for the native build.
+
+
 ## 2026-11-06 (morning, ~8:10 AM PT): v7.8.6 France Grand Cannon fortress in FFA LIVE
 - **What players see:** France Hard bots in FFA (Razorwheel and other FFA maps) now raise Grand Cannon fortresses the way they already did in team games: first cannon as soon as the Tech Center finishes (~3 min), then 5 covering the main base.
 - **Root cause:** The v7.7.9 fortress plan (`fort79`) would not even queue a Grand Cannon until France had 2500 *unreserved* credits sitting idle. In FFA the army spends every credit, so that never happened and they built zero cannons (only the early turrets). The plan also waited until the 5:00 "tier 3" clock even after tech was done (~3:00). If it gave up (short on gas) it fell back to the old per-entrance gatling loop, which never reaches a cannon when there are many FFA approaches. 2×2 cannon spots also sat on the entrance lane and failed to place among 6 FFA spoke lanes.
