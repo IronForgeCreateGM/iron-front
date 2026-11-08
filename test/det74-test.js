@@ -23,7 +23,7 @@ if (!process.env.DET_SKIPNODE) { const ctx = { console }; vm.createContext(ctx);
     if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) return r.fulfill({ status: 404, body: 'nf' }); r.fulfill({ status: 200, contentType: MIME[path.extname(f)] || 'application/octet-stream', body: fs.readFileSync(f) }); });
   await pg.route(/^(?!http:\/\/iron\.test)https?:/, r => r.abort());
   await pg.goto('http://iron.test/iron-front/index.html?q=low' + (process.env.DET_GLB === '0' ? '&glb=0' : '')); await pg.waitForTimeout(1500); await pg.waitForTimeout(1500);
-  await pg.evaluate(([ai, f79]) => { startGame('hard', { seed: 7, map: 'classic', fog: false, f79, slots: buildSlots([['human', 'A', 'bra'], [ai, 'B', 'rus'], ['normal', 'A', 'fra']]) }); paused = true; }, [process.env.DET_AI || 'hard', process.env.DET_F79 === '1' ? 1 : 0]); // v7.7.9: default f79 off so hashes match v7.7.8 base
+  await pg.evaluate(([ai, f79, f80]) => { startGame('hard', { seed: 7, map: 'classic', fog: false, f79, f80, slots: buildSlots([['human', 'A', 'bra'], [ai, 'B', 'rus'], ['normal', 'A', 'fra']]) }); paused = true; }, [process.env.DET_AI || 'hard', process.env.DET_F79 === '1' ? 1 : 0, process.env.DET_F80 === '1' ? 1 : 0]); // v7.7.9: default f79 off so hashes match v7.7.8 base; v7.8.8: DET_F80=1 enables f80 (default 0 so hashes match v7.8.7 base)
   const hs = [];
   for (let k = 0; k < 120; k++) { // 120 chunks x 60 ticks = 4 min sim, renderer draws frames in between
     const h = await pg.evaluate(([k, S]) => { const P = G.players.find(p => !p.ai);
