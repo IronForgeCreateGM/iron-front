@@ -1,3 +1,11 @@
+## 2026-11-08 (nightly, ~12:07 AM PT): v7.8.8 idle air flank + Grand Cannon nuke punish LIVE
+- **What players see:** Hard bots no longer park 20+ fighters and jets circling at home in the late game. They send the whole air force together on a flank route around the back of the enemy base, steer around air defense, and hit critical infrastructure (power plants, refineries, command yards, silos). When they are stuck against a France Grand Cannon fortress they prioritize gas harvesting, build 1–2 Warhead Launchers, and fire Titan warheads at the cannons (they will keep firing even if SM-3 batteries try to intercept), then push once the guns are degraded.
+- **Technical:** Replay flag f80 (default on for new games, off for old replays). Per-player `P.f80Off` and `SIOFF.air80` / `SIOFF.gc80`. Circling strike craft with bombs now count as ready (they never landed when every pad was full); interceptors fly with the package instead of orbiting home. Waypoint is past the far side of the known enemy base, with a weak-AA probe. No unit stat changes, no bot resource bonuses, fp76 still opt-in/held.
+- **Tests:** f80-air-test F80 OK (20-plane flank at power from the far side; f80-off circling jets stay home; Titan aimed at a Grand Cannon). Hard bench vs live (P.f80Off): 2W 2L 2T — same seat/faction won each pairing, no regression (classic 5 France@0, volcano 93 both TIE, frost 57 Russia@0 faster with f80: 17.1 vs 20.1 min). det73 node hashes IDENTICAL to live v7.8.7 (1471a47) with f80 off. replay OK, units OK, check:www OK.
+- Live: YES (FF push, no force).
+- Screenshot: /workspace/iron-front-v7.8.8.png
+- Play zip: /workspace/iron-front-v7.8.8.zip
+
 ## 2026-11-06 (morning, ~8:20 AM PT): v7.8.7 web fully unlocked LIVE
 - **What players see:** On the GitHub Pages web build, all 8 countries are unlocked again (no $4.99 lock). Full Unlock IAP scaffolding stays for the future App Store / native build only (`unlockIsNative`). QA `?unlock=0` can still force the gate on web for tests.
 - **Technical:** `js/unlock.js` — `unlockGateActive()`; web default owned; native path unchanged. No sim/AI/stat changes.

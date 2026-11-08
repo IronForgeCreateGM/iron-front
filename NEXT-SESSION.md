@@ -1,3 +1,9 @@
+## SHIPPED night Nov 8: v7.8.8 idle air flank + Grand Cannon nuke punish LIVE
+Hard bots send a parked late-game air stack together on a back-of-base flank (avoid AA, hit power / refineries / CC / silos). When stuck against France Grand Cannons they prioritize gas, build 1–2 Warhead Launchers, and fire Titans at the cannons (accept SM-3). Replay flag f80 (default on; `P.f80Off` for A/B). Bench vs live Hard: 2–2–2, same seat winners, no regression. fp76 still opt-in/held. No France/unit stat changes.
+
+## STILL OPEN after v7.8.8
+- **Map gating for Full Unlock (native only):** free tier = classic-style / 2v2 access (classic + frost safe); Full Unlock = all maps (volcano, volcano8, razorwheel, hellgate, endless, etc.). Mirror unlockFacOk; do not half-break lobby presets. WEB must stay fully unlocked (`unlockIsNative` / `unlockGateActive`). QA `?unlock=0` should still be able to force the gate.
+
 ## SHIPPED morning Nov 6: v7.8.6 France Grand Cannon fortress in FFA LIVE
 France Hard bots now actually build the 5–6 Grand Cannon opening in FFA (they already could in 1v1/teams). Root cause: `fort79` waited for a 2500 idle bank that FFA never holds, and waited until 5:00 even after tech. Fix queues the cannon immediately after tech and places it beside the lane.
 
