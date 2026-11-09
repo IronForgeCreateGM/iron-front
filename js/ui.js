@@ -426,7 +426,7 @@ function minimap() {
     const d = img.data;
     for (let i = 0; i < MW * MH; i++) {
       let r = 46, g = 82, bl = 36; const t = G.map[i];
-      if (t === 1) { r = 112; g = 104; bl = 92; } else if (t === 2) { r = 28; g = 86; bl = 118; } else if (G.lava[i]) { r = 230; g = 80; bl = 20; } else if (G.ice[i]) { r = 170; g = 210; bl = 230; } else if (G.ore[i] > 30) { if (G.dia && G.dia[i]) { r = 120; g = 230; bl = 255; } else { r = 210; g = 165; bl = 50; } } else if (G.mapName === 'frost') { r = 190; g = 200; bl = 210; } else if (G.mapName === 'volcano') { r = 52; g = 44; bl = 40; } else if (G.desert) { r = G.wadi && G.wadi[i] ? 200 : 168; g = G.wadi && G.wadi[i] ? 176 : 136; bl = G.wadi && G.wadi[i] ? 128 : 92; }
+      if (G.void && G.void[i]) { r = 8; g = 8; bl = 20; } else if (t === 1) { r = 112; g = 104; bl = 92; } else if (t === 2) { r = 28; g = 86; bl = 118; } else if (G.lava[i]) { r = 230; g = 80; bl = 20; } else if (G.ice[i]) { r = 170; g = 210; bl = 230; } else if (G.ore[i] > 30) { if (G.dia && G.dia[i]) { r = 120; g = 230; bl = 255; } else { r = 210; g = 165; bl = 50; } } else if (G.mapName === 'frost') { r = 190; g = 200; bl = 210; } else if (G.void) { r = 150; g = 150; bl = 156; } else if (G.mapName === 'volcano') { r = 52; g = 44; bl = 40; } else if (G.desert) { r = G.wadi && G.wadi[i] ? 200 : 168; g = G.wadi && G.wadi[i] ? 176 : 136; bl = G.wadi && G.wadi[i] ? 128 : 92; }
       if (t === 1 && G.mud && G.mud[i]) { r = 150; g = 108; bl = 70; } else if (t === 1 && G.desert) { r = 122; g = 94; bl = 70; }
       if (t === 0 && G.lvl[i] > 0.5) { r *= 1.18; g *= 1.18; bl *= 1.18; }
       const f = vis0(i) ? 1 : seen0(i) ? 0.5 : 0.08, j = i * 4; d[j] = r * f; d[j + 1] = g * f; d[j + 2] = bl * f; d[j + 3] = 255;

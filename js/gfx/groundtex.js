@@ -5,7 +5,7 @@
 const TEX = { st: 'off', theme: '', cache: {}, mats: [], light: false, fails: 0 };
 const TEX_LAYERS = ['grass', 'dirt', 'rock', 'sand'];
 function mapTh() { return G.theme || (G.mapName === 'frost' ? 'frost' : G.mapName === 'volcano' ? 'volcano' : G.desert ? 'desert' : 'grass'); } // v7.7: custom maps carry G.theme (grass/desert/frost/volcano/space/mech)
-function texTheme() { const t = mapTh(); return t === 'space' ? 'volcano' : t === 'mech' ? 'frost' : t; } // space + mech reuse the volcano/frost texture sets, tinted in the shader
+function texTheme() { const t = mapTh(); return t === 'space' ? 'volcano' : t === 'mech' ? 'frost' : t; } // v7.9.0: 'moon' (Shattered Moon) has its own regolith set // space + mech reuse the volcano/frost texture sets, tinted in the shader
 function texLight() { return !!((typeof UI !== 'undefined' && UI.set && UI.set.quiet) || (typeof MOB !== 'undefined' && MOB.on) || R3.qName === 'low' || R3.qName === 'quiet' || R3.qName === 'mobile'); }
 function texOn() { if (typeof QS !== 'undefined' && QS.get('tex') === '0') return false; return typeof location === 'undefined' || location.protocol !== 'file:'; }
 function texUniforms() { // one shared uniform block; the sampler values are filled in when the textures arrive

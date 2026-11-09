@@ -20,7 +20,7 @@ function heightAt(x, y) {
 function buildHeightfield() {
   HW = MW * HR + 1; HH = MH * HR + 1; const R = mkRng(G.opts.seed + 11); HF = new Float32Array(HW * HH);
   const tileAt = (x, y) => G.map[Math.max(0, Math.min(MH - 1, y)) * MW + Math.max(0, Math.min(MW - 1, x))];
-  for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { const t = tileAt(Math.floor((x - 0.5) / HR + 0.0001), Math.floor((y - 0.5) / HR + 0.0001)); const tx = Math.max(0, Math.min(MW - 1, Math.floor((x - 0.5) / HR + 0.0001))), ty = Math.max(0, Math.min(MH - 1, Math.floor((y - 0.5) / HR + 0.0001))), L = G.lvl[ty * MW + tx] * LVL_H; HF[y * HW + x] = (t === 1 ? (G.lpit && G.lpit[ty * MW + tx] ? -0.15 : G.desert ? (G.mud && G.mud[ty * MW + tx] ? 0.15 : G.rim && G.rim[ty * MW + tx] ? 0.35 : 2.7) : 2.0) : t === 2 ? -1.1 : G.desert && G.wadi && G.wadi[ty * MW + tx] ? -0.45 : 0) + L; }
+  for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { const t = tileAt(Math.floor((x - 0.5) / HR + 0.0001), Math.floor((y - 0.5) / HR + 0.0001)); const tx = Math.max(0, Math.min(MW - 1, Math.floor((x - 0.5) / HR + 0.0001))), ty = Math.max(0, Math.min(MH - 1, Math.floor((y - 0.5) / HR + 0.0001))), L = G.lvl[ty * MW + tx] * LVL_H; HF[y * HW + x] = (t === 1 && G.void && G.void[ty * MW + tx] ? 0 : t === 1 ? (G.lpit && G.lpit[ty * MW + tx] ? -0.15 : G.desert ? (G.mud && G.mud[ty * MW + tx] ? 0.15 : G.rim && G.rim[ty * MW + tx] ? 0.35 : 2.7) : 2.0) : t === 2 ? -1.1 : G.desert && G.wadi && G.wadi[ty * MW + tx] ? -0.45 : 0) + L; }
   const blur = (r) => { const tmp = new Float32Array(HF.length);
     for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { let s = 0, n = 0; for (let k = -r; k <= r; k++) { const xx = Math.max(0, Math.min(HW - 1, x + k)); s += HF[y * HW + xx]; n++; } tmp[y * HW + x] = s / n; }
     for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { let s = 0, n = 0; for (let k = -r; k <= r; k++) { const yy = Math.max(0, Math.min(HH - 1, y + k)); s += tmp[yy * HW + x]; n++; } HF[y * HW + x] = s / n; } };
@@ -32,7 +32,30 @@ function buildHeightfield() {
     HF[i] = h + rock * (n2(wx, wy, 0.9) * 0.35 + n2(wx, wy, 2.3) * 0.15 + 0.4 * rock) + (1 - rock) * n2(wx, wy, 0.6) * 0.03;
     const t = tileAt(Math.floor(wx), Math.floor(wy)), L = lvlAt(wx, wy) * LVL_H; if (t === 0) HF[i] = Math.max(L - 0.22, Math.min(HF[i], L + 0.25 + (HF[i] - L) * 0.2));
   }
+  if (G.void) moonHeights(n2);
 }
+// v7.9.0 Shattered Moon (render-only): jagged rock cliffs dropping into space + impact craters on the plateaus.
+// Uses its own render RNG; sim state is untouched (units still stand at heightAt, which only moves a few cm in a crater).
+function moonHeights(n2) {
+  // smooth walkable mask at vertex resolution -> rounded, noise-jagged rim (not tile steps); carve a steep cliff on the space side only
+  const M = new Float32Array(HW * HH), T = new Float32Array(HW * HH), tv = (x, y) => { const tx = Math.max(0, Math.min(MW - 1, Math.floor((x - 0.5) / HR + 0.0001))), ty = Math.max(0, Math.min(MH - 1, Math.floor((y - 0.5) / HR + 0.0001))); return ty * MW + tx; };
+  for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) M[y * HW + x] = G.void[tv(x, y)] ? 0 : 1;
+  for (let pass = 0; pass < 2; pass++) { const r = 3;
+    for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { let s = 0; for (let k = -r; k <= r; k++) s += M[y * HW + Math.max(0, Math.min(HW - 1, x + k))]; T[y * HW + x] = s / (2 * r + 1); }
+    for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { let s = 0; for (let k = -r; k <= r; k++) s += T[Math.max(0, Math.min(HH - 1, y + k)) * HW + x]; M[y * HW + x] = s / (2 * r + 1); } }
+  for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { const i = y * HW + x, wx = x / HR, wy = y / HR, ti = tv(x, y); if (!G.void[ti]) continue;
+    const e = M[i] - 0.5 + n2(wx * 1.7 + 3.1, wy * 1.7, 0.9) * 0.2 + n2(wx, wy, 2.6) * 0.1 + n2(wx - 4.4, wy, 6.3) * 0.05; if (e > 0.02) { HF[i] = Math.max(HF[i], 0) + 0.05 + n2(wx, wy, 5.0) * 0.08; continue; } // rock lip
+    const dep = Math.min(1, -e / 0.22); HF[i] = -8 * dep * (0.85 + 0.15 * dep) + (n2(wx, wy, 0.7) * 1.3 + n2(wx + 7.3, wy - 2.1, 1.9) * 0.6 + n2(wx, wy, 4.1) * 0.12) * Math.min(1, dep * 2) * (1 - dep * 0.3); }
+  const R = mkRng((G.opts.seed | 0) + 313), near = (x, y) => (G.starts || []).some(s => Math.hypot(s[0] - x, s[1] - y) < 7.5);
+  for (let k = 0; k < 900; k++) { const cx = 2 + R() * (MW - 4), cy = 2 + R() * (MH - 4), r = 0.9 + R() ** 2.4 * 6.5; if (G.map[Math.floor(cy) * MW + Math.floor(cx)] !== 0 || near(cx, cy)) continue;
+    const dpth = 0.3 * Math.min(1, r / 3), x0 = Math.max(0, Math.floor((cx - r * 1.7) * HR)), x1 = Math.min(HW - 1, Math.ceil((cx + r * 1.7) * HR)), y0 = Math.max(0, Math.floor((cy - r * 1.7) * HR)), y1 = Math.min(HH - 1, Math.ceil((cy + r * 1.7) * HR));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const wx = x / HR, wy = y / HR, ti = Math.floor(wy) * MW + Math.floor(wx); if (ti < 0 || ti >= MW * MH || G.map[ti] !== 0) continue;
+      const d = Math.hypot(wx - cx, wy - cy) / r; if (d > 1.7) continue;
+      HF[y * HW + x] += (d < 1 ? (d * d - 1) * dpth : 0) + dpth * 0.45 * Math.exp(-(((d - 1) / 0.22) ** 2)) + (d > 1 ? dpth * 0.12 * Math.exp(-(d - 1) * 3) : 0); } }
+}
+function moonFlatten() { // after the mesh is built: other systems (air units, fx, fog) see flat ground over space instead of the cliff bottoms
+  for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { const tx = Math.max(0, Math.min(MW - 1, Math.floor((x - 0.5) / HR + 0.0001))), ty = Math.max(0, Math.min(MH - 1, Math.floor((y - 0.5) / HR + 0.0001)));
+    if (G.void[ty * MW + tx]) { const i = y * HW + x; HF[i] = Math.max(HF[i], -0.3); } } }
 function terrainMaterial() {
   const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0, envMapIntensity: 0.5 });
   m.extensions = { derivatives: true };
@@ -62,6 +85,9 @@ function terrainMaterial() {
           grass = mix(vec3(0.42,0.29,0.15), vec3(0.56,0.41,0.22), n1) * (0.86 + 0.18*n3) * (0.94 + 0.08*rip); grass = mix(grass, vec3(0.36,0.27,0.16), smoothstep(0.6, 0.8, n2) * 0.5);
           dirt = mix(vec3(0.27,0.17,0.09), vec3(0.38,0.25,0.13), n2) * (0.8 + 0.35*n3); sand = mix(vec3(0.62,0.5,0.32), vec3(0.72,0.6,0.4), n3) * (0.92 + 0.1*rip);
           rock = rock * vec3(1.55,1.12,0.8) * (0.9 + 0.25*smoothstep(0.3, 0.7, fract(vW.y*1.6 + n1*0.6))); }
+        #elif THEME == 6
+          grass = mix(vec3(0.15,0.15,0.15), vec3(0.27,0.265,0.26), n1) * (0.8 + 0.3*n3) * (0.9 + 0.2*n4); dirt = mix(vec3(0.09,0.09,0.09), vec3(0.16,0.155,0.15), n2) * (0.8 + 0.3*n3);
+          rock = mix(vec3(0.08,0.08,0.085), vec3(0.22,0.215,0.21), n2) * (0.7 + 0.5*vnoise(q*5.0 + vW.y*3.0)); sand = mix(vec3(0.26,0.255,0.25), vec3(0.34,0.335,0.33), n3);
         #endif
         #endif
         ` + TEX_GLSL_COLOR + `
@@ -84,7 +110,7 @@ function terrainMaterial() {
         #endif` + TEX_GLSL_NORMAL);
     fowPatch(sh);
   };
-  m.defines = { THEME: { grass: 0, frost: 1, volcano: 2, desert: 3, space: 4, mech: 5 }[mapTh()] || 0, TEXQ: 0 }; m.customProgramCacheKey = () => 'terrain3_' + m.defines.THEME + '_' + m.defines.TEXQ;
+  m.defines = { THEME: { grass: 0, frost: 1, volcano: 2, desert: 3, space: 4, mech: 5, moon: 6 }[mapTh()] || 0, TEXQ: 0 }; m.customProgramCacheKey = () => 'terrain3_' + m.defines.THEME + '_' + m.defines.TEXQ;
   TEX.mats = [m]; TEX.ready = ''; texLoad(); // v7.6.2: swap in the texture set when it arrives
   return m;
 }
@@ -120,7 +146,7 @@ function buildTerrain3() {
     const x = pos.getX(i), z = pos.getZ(i), h = pos.getY(i), ny = nor.getY(i);
     const hl = h - lvlAt(x, z) * LVL_H; let rock = Math.max(0, Math.min(1, (0.93 - ny) / 0.15)) * (lvlAt(x, z) % 1 > 0.05 && lvlAt(x, z) % 1 < 0.95 ? 0.25 : 1) + Math.max(0, Math.min(1, (hl - 0.6) / 0.6));
     let sand = hl < -0.1 ? Math.min(1, (-0.1 - hl) / 0.3) : 0, dirt = oreAt(x, z) * 1.2; if (G.wadi && G.wadi[Math.min(MH - 1, Math.floor(z)) * MW + Math.min(MW - 1, Math.floor(x))]) sand = Math.max(sand, 0.85);
-    rock = Math.min(1, rock);
+    rock = Math.min(1, rock); if (G.void) { const vti = Math.min(MH - 1, Math.floor(z)) * MW + Math.min(MW - 1, Math.floor(x)); if (G.map[vti] !== 0 && h < -0.3) { rock = 1; sand = 0; dirt = 0; } else if (G.map[vti] === 0) rock = Math.max(0, Math.min(1, (0.8 - ny) / 0.15)); } // v7.9.0: crater bowls stay regolith
     { const wr = wearAt(x, z) * (1 - rock) * (1 - sand); dirt = Math.max(dirt, wr); } // v7.6.2 worn tracks between bases, expansions, ramps and the centre
     const grass = Math.max(0, 1 - rock - sand - dirt);
     spl.set([grass, dirt, rock, sand], i * 4);
@@ -130,15 +156,19 @@ function buildTerrain3() {
     { let occ = 0; for (const [dx, dz] of DIRS) { let m = 0; for (const r of [0.6, 1.4, 2.8]) m = Math.max(m, (heightAt(x + dx * r, z + dz * r) - h) / r); occ += Math.atan(Math.max(0, m)); } // v7.6.2 baked horizon AO
       ao *= 1 - Math.min(0.55, occ / 8 / 1.5708 * 1.1); }
     if (hl < -0.05 && hl > -0.7 && nearWater(x, z)) ao *= 1 - 0.32 * Math.min(1, (-0.05 - hl) / 0.25); // wet shoreline
+    if (G.void && h < 0) ao *= 0.12 + 0.88 * Math.max(0, Math.min(1, 1 + h / 6.5)) ** 1.5; // cliffs fade into the dark underside
     col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = ao;
   }
   geo.setAttribute('splat', new THREE.BufferAttribute(spl, 4)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  if (G.void) { const ix = geo.index.array, keep = []; for (let t = 0; t < ix.length; t += 3) { const a = ix[t], b = ix[t + 1], c = ix[t + 2]; if (Math.max(pos.getY(a), pos.getY(b), pos.getY(c)) > -5.6) keep.push(a, b, c); }
+    geo.setIndex(keep); moonFlatten(); } // v7.9.0: open space shows through (and ~70% fewer terrain triangles on Shattered Moon)
   const mesh = new THREE.Mesh(geo, terrainMaterial()); mesh.receiveShadow = true; R3.scene.add(mesh); R3.terrain = mesh;
+  if (G.void) buildSpace(); else {
   // outside skirt
   const sk = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: { space: 0x0c0b16, mech: 0x26292d }[G.theme] || (G.desert ? 0x4a3a28 : 0x1c2416), roughness: 1 }));
   sk.position.set(MW / 2, -0.6, MH / 2); R3.scene.add(sk);
-  const edge = new THREE.Mesh(new THREE.BoxGeometry(MW + 0.6, 0.6, MH + 0.6), new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.9 })); edge.position.set(MW / 2, -0.62, MH / 2); R3.scene.add(edge);
-  if (typeof propsReset === 'function') propsReset(); buildFogOverlay(); buildWater(); buildOre(); buildFoliage(); buildVents(); buildLandmarks(); buildSurfaces(); if (G.desert) buildDesert(); if (G.theme === 'space' || G.theme === 'mech') buildThemeSky(); if (typeof propsBuildScatter === 'function') propsBuildScatter();
+  const edge = new THREE.Mesh(new THREE.BoxGeometry(MW + 0.6, 0.6, MH + 0.6), new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.9 })); edge.position.set(MW / 2, -0.62, MH / 2); R3.scene.add(edge); }
+  if (typeof propsReset === 'function') propsReset(); buildFogOverlay(); if (!G.void) buildWater(); buildOre(); buildFoliage(); buildVents(); buildLandmarks(); buildSurfaces(); if (G.desert) buildDesert(); if (G.theme === 'space' || G.theme === 'mech' || G.theme === 'moon') buildThemeSky(); if (typeof propsBuildScatter === 'function') propsBuildScatter();
 }
 function buildWater() {
   // height texture for shoreline foam (bytes)
@@ -250,23 +280,23 @@ function buildFoliage() {
     g.setAttribute('normal', new THREE.Float32BufferAttribute([0, 1, 0, 0, 1, 0, 0, 1, 0], 3)); blades.push(g); }
   const tg = new THREE.BufferGeometry(); { let P = [], C = [], N = []; for (const b of blades) { P.push(...b.attributes.position.array); C.push(...b.attributes.color.array); N.push(...b.attributes.normal.array); }
     tg.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); tg.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); tg.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); }
-  const MAXG = G.desert ? 12000 : 30000, gm = new THREE.InstancedMesh(tg, windMat(true, 0.9), MAXG); gm.receiveShadow = true; gm.frustumCulled = false;
+  const MAXG = G.void ? 1 : G.desert ? 12000 : 30000, gm = new THREE.InstancedMesh(tg, windMat(true, 0.9), MAXG); gm.receiveShadow = true; gm.frustumCulled = false;
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), cl = new THREE.Color(); let k = 0; R3.grassTile = [];
   let tries = 0;
-  while (k < MAXG && tries++ < MAXG * 4) {
+  while (!G.void && k < MAXG && tries++ < MAXG * 4) {
     const x = R() * MW, y = R() * MH, ti = Math.floor(y) * MW + Math.floor(x); if (R3.wear && R3.wear[ti] > 0.45 && R() < 0.8) continue; if (G.map[ti] !== 0 || G.oreMax[ti] > 0 || nearBase(x, y)) continue;
     const h = heightAt(x, y); if (h > 0.35 || h < -0.05) continue;
     const s = 0.45 + R() * 0.5; e.set(0, R() * 6.28, 0); q.setFromEuler(e); m4.compose(new THREE.Vector3(x, h, y), q, new THREE.Vector3(s, s * (0.8 + R() * 0.6), s)); gm.setMatrixAt(k, m4);
     cl.setRGB(0.8 + R() * 0.4, 0.85 + R() * 0.3, 0.7 + R() * 0.3); gm.setColorAt(k, cl); (R3.grassTile[ti] = R3.grassTile[ti] || []).push(k); k++;
   }
-  gm.count = k; R3.grassMax = k; R3.grass = gm; if (mapTh() !== 'grass') { gm.material = gm.material.clone(); gm.material.color.set({ frost: 0x9aa4ad, desert: 0x8a6c3c, volcano: 0x3a2e26, space: 0x2c2440, mech: 0x4a5056 }[mapTh()]); } R3.scene.add(gm);
+  gm.count = k; R3.grassMax = k; R3.grass = gm; if (mapTh() !== 'grass') { gm.material = gm.material.clone(); gm.material.color.set({ frost: 0x9aa4ad, desert: 0x8a6c3c, volcano: 0x3a2e26, space: 0x2c2440, mech: 0x4a5056, moon: 0x58585c }[mapTh()]); } R3.scene.add(gm);
   // trees (pine) near cliffs and scattered
   const B = new MB(0); B.cyl('t', 0.05, 0.4, 0x4a3524, PBR.RUB, 0, 0.2, 0, { seg: 6 });
   for (let i = 0; i < 3; i++) B.cone('t', 0.36 - i * 0.09, 0.5, 0x2f5a26 + i * 0x061006, [0, 0.85, 0], 0, 0.45 + i * 0.27, 0, { seg: 8 });
   const treeGeo = B.build().t; const trees = [];
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x; if (G.map[i] !== 0 || G.oreMax[i] > 0 || nearBase(x + 0.5, y + 0.5)) continue;
     const nearRock = [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [0, 2], [-2, 0], [0, -2]].some(([a, b]) => inb(x + a, y + b) && G.map[(y + b) * MW + x + a] === 1);
-    if (R() < (G.desert && !G.custom ? 0 : G.forest && G.forest[i] ? 0.6 : G.custom && (G.desert || G.theme === 'space' || G.theme === 'mech') ? 0 : nearRock ? 0.45 : 0.012)) trees.push([x + 0.2 + R() * 0.6, y + 0.2 + R() * 0.6, 0.7 + R() * 0.7]); }
+    if (R() < (G.void ? 0 : G.desert && !G.custom ? 0 : G.forest && G.forest[i] ? 0.6 : G.custom && (G.desert || G.theme === 'space' || G.theme === 'mech') ? 0 : nearRock ? 0.45 : 0.012)) trees.push([x + 0.2 + R() * 0.6, y + 0.2 + R() * 0.6, 0.7 + R() * 0.7]); }
   const tm = new THREE.InstancedMesh(treeGeo, windMat(false, 0.8), trees.length); tm.castShadow = true; tm.receiveShadow = true; tm.frustumCulled = false;
   trees.forEach((t, j) => { e.set((R() - 0.5) * 0.1, R() * 6.28, (R() - 0.5) * 0.1); q.setFromEuler(e); m4.compose(new THREE.Vector3(t[0], heightAt(t[0], t[1]) - 0.05, t[1]), q, new THREE.Vector3(t[2], t[2] * (0.9 + R() * 0.4), t[2])); tm.setMatrixAt(j, m4);
     cl.setRGB(0.8 + R() * 0.4, 0.8 + R() * 0.4, 0.8 + R() * 0.3); tm.setColorAt(j, cl); (R3.treeTile = R3.treeTile || {})[Math.floor(t[1]) * MW + Math.floor(t[0])] = j; });
@@ -274,8 +304,8 @@ function buildFoliage() {
   if (trees.length && TH !== 'desert') PR({ mesh: tm, file: 'trees_' + TH });
   // boulders on cliffs: displaced icosahedra
   const rg = new THREE.IcosahedronGeometry(0.5, 1); { const p = rg.attributes.position; for (let i = 0; i < p.count; i++) { const v = new THREE.Vector3().fromBufferAttribute(p, i); v.multiplyScalar(0.8 + 0.35 * Math.sin(v.x * 7 + v.y * 5) * Math.cos(v.z * 6)); p.setXYZ(i, v.x, v.y * 0.75, v.z); } rg.computeVertexNormals(); }
-  const RB = new MB(0); RB.add('r', rg, G.desert ? 0x9a7652 : 0x77706a, [0, 0.85, 0], 0, 0, 0); const rgeo = RB.build().r; const rocks = [];
-  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x; if (G.map[i] === 1 && !(G.mud && G.mud[i]) && !(G.lpit && G.lpit[i]) && R() < 0.3) rocks.push([x + R(), y + R(), 0.25 + R() * 0.55]);
+  const RB = new MB(0); RB.add('r', rg, G.desert ? 0x9a7652 : G.void ? 0x7a7a7e : 0x77706a, [0, 0.85, 0], 0, 0, 0); const rgeo = RB.build().r; const rocks = [];
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x; if (G.map[i] === 1 && !(G.void && G.void[i]) && !(G.mud && G.mud[i]) && !(G.lpit && G.lpit[i]) && R() < (G.void ? 0.8 : 0.3)) rocks.push([x + R(), y + R(), G.void ? 0.45 + R() * 0.75 : 0.25 + R() * 0.55]); // v7.9.0 moon: boulder fields + crater rim stones
     else if (G.map[i] === 0 && !G.oreMax[i] && R() < 0.02 && !nearBase(x, y)) rocks.push([x + R(), y + R(), 0.1 + R() * 0.12]); }
   const rm = new THREE.InstancedMesh(rgeo, pbrMaterial(), rocks.length); rm.castShadow = true; rm.receiveShadow = true; rm.frustumCulled = false;
   rocks.forEach((r, j) => { e.set(R() * 3, R() * 6, R() * 3); q.setFromEuler(e); m4.compose(new THREE.Vector3(r[0], heightAt(r[0], r[1]) + r[2] * 0.1, r[1]), q, new THREE.Vector3(r[2], r[2], r[2])); rm.setMatrixAt(j, m4); });
@@ -400,8 +430,38 @@ function buildSurfaces() {
 
 // v6.0 Hindu Kush Hellgate desert dressing: mud-brick compound walls (on blocking G.mud tiles), burnt-out wrecks,
 // sandbag nests at the canyon mouths, warm dust haze. All visual-only and seeded locally (never touches the sim RNG).
+// v7.9.0 Shattered Moon backdrop (render-only): one big unlit plane far below the asteroids. Layers: Blender hero plate
+// (spiral galaxy + nebula, models/space/hero*.webp), a tileable Blender star layer at two scales with twinkle, and 3 shooting-star
+// slots computed in the shader (no per-frame JS, no extra draw calls). Phones / Quiet / Low get the 1024 plate + one star layer.
+function buildSpace() {
+  const S = R3.scene, lt = typeof texLight === 'function' && texLight(), on = typeof texOn !== 'function' || texOn();
+  const u = { uTime: R3.uTime, uHero: { value: null }, uStars: { value: null }, uOn: { value: 0 }, uLt: { value: lt ? 1 : 0 } };
+  const mat = new THREE.ShaderMaterial({ uniforms: u, depthWrite: false, fog: false, extensions: { derivatives: true },
+    vertexShader: `varying vec2 vP; varying vec2 vC; void main(){ vec4 w = modelMatrix*vec4(position,1.0); vP = w.xz;
+      vec3 f = -vec3(viewMatrix[0][2], viewMatrix[1][2], viewMatrix[2][2]); float t = (w.y - cameraPosition.y) / min(-0.05, f.y); vC = cameraPosition.xz + f.xz * t;
+      gl_Position = projectionMatrix*viewMatrix*w; }`,
+    fragmentShader: GLSL_NOISE + `uniform float uTime, uOn, uLt; uniform sampler2D uHero, uStars; varying vec2 vP; varying vec2 vC;
+      vec3 meteor(vec2 p, float t, float j){ float P = 8.0 + j * 4.7, z = t / P + j * 0.37, c = floor(z), k = fract(z) * P / 1.1; if (k > 1.0) return vec3(0.0);
+        vec2 r = vec2(hash12(vec2(c, j + 0.5)), hash12(vec2(j + 3.1, c + 3.7))) - 0.5; float a = hash12(vec2(c * 1.3, j * 7.1)) * 6.2832; vec2 d = vec2(cos(a), sin(a));
+        vec2 head = vC + r * vec2(110.0, 70.0) + d * (k - 0.5) * 70.0, q = p - head; float al = dot(q, -d), pe = abs(dot(q, vec2(-d.y, d.x))), fade = sin(k * 3.14159);
+        float tl = clamp(1.0 - al / 16.0, 0.0, 1.0) * step(0.0, al); float w = 0.06 + 0.22 * (1.0 - tl);
+        return vec3(0.75, 0.88, 1.0) * (tl * tl * smoothstep(w, 0.0, pe) * 1.8 + exp(-dot(q, q) * 3.0) * 2.5) * fade; }
+      void main(){ vec2 h = (vP - vec2(${MW / 2}.0, ${MH / 2}.0)) / 900.0 + vec2(0.5, 0.56); vec3 c = texture2D(uHero, h).rgb; c = c * c * 0.9;
+        float px = length(fwidth(vP)); // world units per pixel: fade the fine star layers out when zoomed far out (mip-averaged stars read as grey static)
+        vec3 s1 = texture2D(uStars, vP / 40.0).rgb; float tw = 0.7 + 0.3 * sin(uTime * 2.1 + hash12(floor(vP / 1.5)) * 40.0);
+        c += s1 * s1 * 1.25 * tw * clamp(1.6 - px * 6.0, 0.15, 1.0);
+        if (uLt < 0.5) { vec3 s2 = texture2D(uStars, vP / 17.0 + 0.37).rgb; c += s2 * s2 * 0.45 * clamp(1.4 - px * 12.0, 0.0, 1.0); }
+        for (int j = 0; j < 3; j++) c += meteor(vP, mod(uTime, 4000.0), float(j));
+        gl_FragColor = vec4(mix(vec3(0.004, 0.005, 0.014), c, uOn), 1.0); }` });
+  const pl = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400).rotateX(-Math.PI / 2), mat); pl.position.set(MW / 2, -42, MH / 2); pl.renderOrder = -10; pl.frustumCulled = false; S.add(pl); R3.space = pl;
+  if (!on) return; const L = new THREE.TextureLoader(); let n = 0; const ok = () => { if (++n === 2) u.uOn.value = 1; };
+  L.load('models/space/' + (lt ? 'hero_m' : 'hero') + '.webp', t => { t.wrapS = t.wrapT = THREE.MirroredRepeatWrapping; t.minFilter = THREE.LinearMipmapLinearFilter; u.uHero.value = t; ok(); });
+  L.load('models/space/stars.webp', t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.minFilter = THREE.LinearMipmapLinearFilter; t.anisotropy = 4; u.uStars.value = t; ok(); });
+}
 function buildThemeSky() { // v7.7 custom-map themes: space (dark violet haze) and mech (cool steel haze); render-only
-  const S = R3.scene, sp = G.theme === 'space', fc = sp ? 0x141228 : 0x7d868e; if (S.fog) { S.fog.color.set(fc); if (S.fog.density != null) S.fog.density *= sp ? 0.8 : 1; } if (S.background && S.background.isColor) S.background.set(fc);
+  const S = R3.scene, sp = G.theme === 'space', fc = sp ? 0x141228 : 0x7d868e;
+  if (G.theme === 'moon') { if (S.fog) { S.fog.color.set(0x070912); if (S.fog.density != null) S.fog.density *= 0.55; } if (S.background && S.background.isColor) S.background.set(0x020308); // v7.9.0: hard lunar sun, cool dim fill
+    if (R3.hemi) { R3.hemi.color.set(0xaab4d8); R3.hemi.groundColor.set(0x14141c); } if (R3.sun) R3.sun.color.lerp(new THREE.Color(0xf4f6ff), 0.6); return; } if (S.fog) { S.fog.color.set(fc); if (S.fog.density != null) S.fog.density *= sp ? 0.8 : 1; } if (S.background && S.background.isColor) S.background.set(fc);
   if (R3.hemi) { R3.hemi.color.set(sp ? 0xb8b0ff : 0xdde8f0); R3.hemi.groundColor.set(sp ? 0x201a40 : 0x3a4048); } if (R3.sun) R3.sun.color.lerp(new THREE.Color(sp ? 0xc8c0ff : 0xe8f0ff), 0.4); }
 function buildDesert() {
   const R = mkRng((G.opts.seed | 0) + 606), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3(), cl = new THREE.Color();

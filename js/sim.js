@@ -15,8 +15,8 @@ function foe(a, b) { if (a === b) return false; if (a == null || b == null) retu
 // Hellgate is the one team-sided map: spots 1-2 are Team A's valley seats, 3-8 the Team B warlord bases. A row whose spot is on the other
 // team's side (or whose spot does not exist on the map) takes the lowest free spot on its own side instead; the lobby shows "N→M" for it.
 // Endless: defenders sit at spots 1-4 by row (solo = the centre base), the Horde is east. Pure + deterministic (host computes it, peers get the result).
-const SEAT_ORDER = { classic: [0, 3, 2, 1, 4, 5], frost: [0, 3, 2, 1, 4, 5], volcano: [0, 3, 2, 1, 4, 5], volcano8: [0, 3, 2, 1, 4, 5, 6, 7], razorwheel: [0, 1, 2, 3, 4, 5, 6, 7], hellgate: [0, 1, 2, 3, 4, 5, 6, 7], endless: [0, 1, 2, 3], custom: [0, 1, 2, 3, 4, 5, 6, 7] }; // v7.7 custom (map builder) maps: spot N = the builder's spawn N
-function seatMap(map, n) { return map !== 'hellgate' && map !== 'endless' && map !== 'custom' && map !== 'razorwheel' && n > 6 ? 'volcano8' : SEAT_ORDER[map] ? map : 'classic'; }
+const SEAT_ORDER = { classic: [0, 3, 2, 1, 4, 5], frost: [0, 3, 2, 1, 4, 5], volcano: [0, 3, 2, 1, 4, 5], volcano8: [0, 3, 2, 1, 4, 5, 6, 7], razorwheel: [0, 1, 2, 3, 4, 5, 6, 7], shatteredmoon: [0, 1, 2, 3, 4, 5, 6, 7], hellgate: [0, 1, 2, 3, 4, 5, 6, 7], endless: [0, 1, 2, 3], custom: [0, 1, 2, 3, 4, 5, 6, 7] }; // v7.7 custom (map builder) maps: spot N = the builder's spawn N
+function seatMap(map, n) { return map !== 'hellgate' && map !== 'endless' && map !== 'custom' && map !== 'razorwheel' && map !== 'shatteredmoon' && n > 6 ? 'volcano8' : SEAT_ORDER[map] ? map : 'classic'; }
 function seatSide(map, k) { return map === 'hellgate' ? (k < 2 ? 0 : 1) : null; } // start index -> required ally (null = any team may sit there)
 function seatPlan(map, rows, ns) { // rows: [{ row, ally }] (active lobby rows, in order) -> start index per row (ns = spawn count of a custom map)
   map = seatMap(map, rows.length); const order = map === 'custom' ? SEAT_ORDER.custom.slice(0, ns || 8) : SEAT_ORDER[map], taken = new Set(), out = rows.map(() => null);
@@ -34,7 +34,7 @@ function newGame(opts) {
   // slots: [{ ai, diff, ally, fac, start }]; default 1v1 from legacy opts
   const slots = opts.slots || [0, 1].map(t => ({ ai: opts.aiTeams.includes(t), diff: t === 0 && opts.p0diff ? opts.p0diff : opts.diff, ally: t, fac: (opts.facs || [])[t], start: t ? 3 : 0 }));
   if (opts.map === 'custom' && !(opts.cmap && opts.cmap.w && Array.isArray(opts.cmap.starts) && opts.cmap.starts.length)) opts.map = 'classic'; // v7.7 map builder: a custom map travels inside opts (replays/online carry it)
-  const HG = opts.map === 'hellgate', EN = opts.map === 'endless', CU = opts.map === 'custom', RW = opts.map === 'razorwheel'; MW = MH = CU ? cmapSize(opts.cmap) : HG ? 128 : RW ? 96 : EN ? 96 : (opts.map === 'volcano8' || slots.length > 6) ? 112 : 96; if (slots.length > 6 && !HG && !CU && !RW) opts.map = 'volcano8';
+  const HG = opts.map === 'hellgate', EN = opts.map === 'endless', CU = opts.map === 'custom', RW = opts.map === 'razorwheel', SM = opts.map === 'shatteredmoon'; MW = MH = CU ? cmapSize(opts.cmap) : SM ? 224 : HG ? 128 : RW ? 96 : EN ? 96 : (opts.map === 'volcano8' || slots.length > 6) ? 112 : 96; if (slots.length > 6 && !HG && !CU && !RW && !SM) opts.map = 'volcano8';
   const NP = slots.length;
   // every player gets its own start corner (guards against duplicate/missing starts from any lobby path)
   if (EN) { /* endlessSlots() already seated everyone */ }
@@ -81,7 +81,7 @@ function newGame(opts) {
 // 96x96 four-fold mirrored map: mains in corners (cliff ring + 2 ramps), two naturals each,
 // contested mid bases with rich (gold) fields, central monument, river with 4 bridges, forests.
 function genMap(R) {
-  G.mapName = G.opts.map || 'classic'; G.v8 = G.mapName === 'volcano8'; if (G.v8) G.mapName = 'volcano'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R); if (G.mapName === 'hellgate') return genHellgate(R); if (G.mapName === 'endless') return genEndless(R); if (G.mapName === 'custom') return genUserMap(R); if (G.mapName === 'razorwheel') return genRazorwheel(R);
+  G.mapName = G.opts.map || 'classic'; G.v8 = G.mapName === 'volcano8'; if (G.v8) G.mapName = 'volcano'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R); if (G.mapName === 'hellgate') return genHellgate(R); if (G.mapName === 'endless') return genEndless(R); if (G.mapName === 'custom') return genUserMap(R); if (G.mapName === 'razorwheel') return genRazorwheel(R); if (G.mapName === 'shatteredmoon') return genShatteredMoon(R);
   const N = MW * MH, Q = MW / 2, gs = 8, gw = MW / gs + 2;
   const mk = () => { const a = []; for (let i = 0; i < gw * gw; i++) a.push(R()); return a; };
   const g1 = mk(), g2 = mk(), g3 = mk();
@@ -347,6 +347,63 @@ function genRazorwheel(R) {
   for (let k = 1; k < 8; k++) { const [sx, sy] = G.starts[k], si = idx(Math.floor(sx), Math.floor(sy)); if (seen[si]) continue;
     path([[G.starts[0][0], G.starts[0][1]], [sx, sy]], 2.2, i => { G.map[i] = 0; G.forest[i] = 0; }); }
   G.six = true; G.oreMax = Float32Array.from(G.ore); G.mapName = 'razorwheel';
+}
+// v7.9.0 "Shattered Moon" — 224×224 (max size) 8-player FFA in space. Eight big asteroid plateaus float on a ring over
+// impassable void. Thin rock bridges spiral: base k -> ore islet k -> base k+1 (one rival behind, one ahead), and every islet
+// has a curving bridge inward to the central crater (monument, rich ore, the most gas). Ground armies must walk the bridges;
+// air flies straight over the void. Every feature is built once in a rotated frame, so all 8 seats are the same shape.
+// G.void marks space tiles (G.map = 1 there, so it is impassable like rock; render draws them as open space).
+function genShatteredMoon(R) {
+  const N = MW * MH, M = MW / 2, A0 = -D_HPI, ST = D_PI / 4, RB = 80, RI = 54, RC = 25, BR = 17, IR = 9;
+  G.map.fill(1); G.void = new Uint8Array(N).fill(1); G.theme = 'moon';
+  G.vents = []; G.sites = []; G.dkPos = []; G.monument = null; G.weather = null; G.ruins = null; G.crown = null;
+  const P = (r, a) => [M + r * dcos(a), M + r * dsin(a)];
+  const walk = i => { G.map[i] = 0; G.void[i] = 0; G.forest[i] = 0; };
+  const box = (cx, cy, r, f) => { for (let y = Math.max(1, Math.floor(cy - r - 1)); y <= Math.min(MH - 2, Math.ceil(cy + r + 1)); y++) for (let x = Math.max(1, Math.floor(cx - r - 1)); x <= Math.min(MW - 2, Math.ceil(cx + r + 1)); x++) f(idx(x, y), x + 0.5 - cx, y + 0.5 - cy); };
+  const disc = (cx, cy, r, f) => box(cx, cy, r, (i, dx, dy) => { if (dhypot(dx, dy) <= r) f(i); });
+  // rough asteroid outline: radius wobble as a function of the angle in the feature's own (rotated) frame
+  const blob = (cx, cy, r0, rot, amp, ph) => box(cx, cy, r0 + amp * 3.6, (i, dx, dy) => { const d = dhypot(dx, dy), t = datan2(dy, dx) - rot;
+    const w = amp * (1.7 * dsin(3 * t + 0.7 + ph) + 1.0 * dsin(5 * t + 2.1 + ph) + 0.55 * dsin(11 * t + 0.3) + 0.3 * dsin(23 * t + 1.9)); if (d <= r0 + w) walk(i); });
+  const bez = (p0, c, p2, f) => { const n = Math.ceil(dhypot(p2[0] - p0[0], p2[1] - p0[1]) * 2.4); for (let j = 0; j <= n; j++) { const t = j / n, u = 1 - t; f(u * u * p0[0] + 2 * u * t * c[0] + t * t * p2[0], u * u * p0[1] + 2 * u * t * c[1] + t * t * p2[1], t); } };
+  const bridge = (p0, c, p2) => bez(p0, c, p2, (x, y, t) => disc(x, y, 2.75 + 0.45 * dsin(t * 17.3 + 0.6) + 0.25 * dsin(t * 41.0), walk)); // 4.6-6.9 tiles wide
+  const field = (cx, cy, r, rich) => disc(cx, cy, r + 0.3, i => { walk(i); G.ore[i] = (rich ? 560 : 410) * ORE_MULT * (0.8 + 0.4 * R()); G.rich[i] = rich ? 1 : 0; });
+  const vent = (x, y) => { x = Math.floor(x); y = Math.floor(y); disc(x + 0.5, y + 0.5, 1.6, i => { walk(i); G.ore[i] = 0; G.rich[i] = 0; }); G.vents.push([x, y]); };
+  const boulder = (cx, cy, r) => disc(cx, cy, r, i => { G.map[i] = 1; G.void[i] = 0; G.ore[i] = 0; });
+  // central crater: walkable floor ringed by a rock rim (the bridges punch gates through it)
+  box(M, M, RC + 2, (i, dx, dy) => { const d = dhypot(dx, dy), t = datan2(dy, dx), w = 0.7 * dsin(8 * t + 0.4) + 0.35 * dsin(16 * t + 1.3) + 0.2 * dsin(40 * t);
+    if (d <= RC + w) { G.void[i] = 0; G.map[i] = d < RC - 4.2 + w * 0.5 ? 0 : 1; } });
+  const bases = [];
+  for (let k = 0; k < 8; k++) {
+    const a = A0 + k * ST, b = P(RB, a), il = P(RI, a + ST / 2); bases.push(b);
+    blob(b[0], b[1], BR, a, 0.85, 0); blob(il[0], il[1], IR, a + ST / 2, 0.5, 1.3);
+    bridge(b, P(72, a + ST * 0.3), il);                               // base k -> islet k
+    bridge(il, P(63, a + ST * 0.8), P(RB, a + ST));                   // islet k -> base k+1
+    bridge(il, P(37, a + ST / 2 + 0.36), P(11, a + ST / 2 + 0.62));  // islet k -> crater (curls clockwise: the spiral)
+  }
+  G.starts = bases.map(([x, y]) => [x, y]);
+  for (let k = 0; k < 8; k++) {
+    const a = A0 + k * ST, [bx, by] = bases[k], ux = dcos(a), uy = dsin(a), L = (f, s) => [bx + ux * f - uy * s, by + uy * f + ux * s];
+    // main: two ore fields behind the HQ (space side), two gas vents on the flanks, a few boulders for cover
+    field(...L(8.5, -3.6), 2.0); field(...L(8.5, 3.6), 1.7);
+    vent(...L(-1.5, -8.5)); vent(...L(-1.5, 8.5));
+    boulder(...L(13, -8), 1.4); boulder(...L(12.5, 8.5), 1.2); boulder(...L(4, -13.5), 1.1); boulder(...L(-6, 12.5), 1.0);
+    G.sites.push({ x: bx, y: by, k: 'main' });
+    // ore islet (natural expansion between this base and the next)
+    const ia = a + ST / 2, iu = dcos(ia), iv = dsin(ia), il = P(RI, ia);
+    field(il[0] + iu * 4, il[1] + iv * 4, 2.1); G.sites.push({ x: il[0] - iu * 2.5, y: il[1] - iv * 2.5, k: 'nat' });
+    // crater: rich ore + the most gas, between the gates
+    const ca = ia + 0.62 + ST / 2; field(...P(10, ca), 1.5, 1); vent(...P(17, ca));
+    if (k % 2 === 0) G.sites.push({ x: P(13.5, ca + 0.18)[0], y: P(13.5, ca + 0.18)[1], k: 'mid' });
+  }
+  // monument (blocking 4x4) in the crater centre
+  for (let y = M - 2; y < M + 2; y++) for (let x = M - 2; x < M + 2; x++) { const i = idx(x, y); G.map[i] = 1; G.void[i] = 0; G.ore[i] = 0; } G.monument = [M, M];
+  for (const [sx, sy] of G.starts) disc(sx, sy, 4.5, i => { walk(i); G.ore[i] = 0; G.rich[i] = 0; });
+  // flood fill from start 0: walkable tiles nobody can reach go back to space
+  const seen = new Uint8Array(N), st = [idx(Math.floor(G.starts[0][0]), Math.floor(G.starts[0][1]))]; seen[st[0]] = 1;
+  while (st.length) { const c = st.pop(), x = c % MW, y = (c / MW) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (!inb(nx, ny)) continue; const n = idx(nx, ny); if (!seen[n] && G.map[n] === 0) { seen[n] = 1; st.push(n); } } }
+  for (let i = 0; i < N; i++) { if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.void[i] = 1; G.ore[i] = 0; G.rich[i] = 0; } if (G.void[i]) { G.ore[i] = 0; G.rich[i] = 0; } G.forest[i] = 0; G.tier[i] = 0; }
+  G.six = true; G.oreMax = Float32Array.from(G.ore); G.mapName = 'shatteredmoon';
 }
 // v6.0 "Hindu Kush Hellgate" — 128x128 2v6 desert warzone. Team A (2 seats) holds a raised western valley
 // behind the Hindu Kush ridge; the ONLY way in is the 7-tile Hellgate canyon. Six warlord bases ring the eastern
