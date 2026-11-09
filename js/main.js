@@ -204,7 +204,8 @@ window.addEventListener('DOMContentLoaded', () => {
   if (typeof THREE === 'undefined') { document.getElementById('err').style.display = 'block'; document.getElementById('err').textContent = 'Three.js failed to load (vendor/three.min.js)'; return; }
   let diff = 'normal';
   document.querySelectorAll('#diff button').forEach(b => b.onclick = () => { diff = b.dataset.d; document.querySelectorAll('#diff button').forEach(x => x.classList.toggle('on', x === b)); });
-  if (QS.get('preset')) { try { startGame('normal', { slots: buildSlots(PRESETS[QS.get('preset')].slots, null, PRESETS[QS.get('preset')].map || QS.get('map') || 'classic'), map: PRESETS[QS.get('preset')].map || undefined, seed: +QS.get('seed') || 5 }); } catch (er) { document.title = 'STK ' + er.stack; throw er; } }
+  if (QS.get('preset') && PRESETS[QS.get('preset')] && PRESETS[QS.get('preset')].map && typeof unlockMapOk === 'function' && !unlockMapOk(PRESETS[QS.get('preset')].map)) { if (typeof unlockOfferMap === 'function') setTimeout(() => unlockOfferMap(PRESETS[QS.get('preset')].map), 0); } // v7.8.9: gated build skips a locked-map URL preset (menu + offer)
+  else if (QS.get('preset')) { try { startGame('normal', { slots: buildSlots(PRESETS[QS.get('preset')].slots, null, PRESETS[QS.get('preset')].map || QS.get('map') || 'classic'), map: PRESETS[QS.get('preset')].map || undefined, seed: +QS.get('seed') || 5 }); } catch (er) { document.title = 'STK ' + er.stack; throw er; } }
   else if (QS.get('slots')) startGame('normal', { slots: buildSlots(QS.get('slots').split(',').map(r => r.split(':')), null, QS.get('map') || 'classic'), seed: +QS.get('seed') || 5 }); // e.g. ?slots=si:A:usa:yellow,hard:B
   else if (QS.get('watch')) startGame(QS.get('watch') === 'si' ? 'hard' : QS.get('watch'), { watch: QS.get('watch') === 'si' ? 'si' : 1, seed: +QS.get('seed') || 5 });
   { const box = document.getElementById('facs'), desc = document.getElementById('facDesc');
@@ -217,6 +218,7 @@ window.addEventListener('DOMContentLoaded', () => {
   lobbyInit(); if (QS.get('lobbytest')) setTimeout(lobbySelfTest, 0);
   document.getElementById('startBtn').onclick = () => { audioInit(); if (ONL.room && ONL.host) { onlStartHost(); return; } const rows = lobbyRead(); if (rows.some(r => r[0] === 'remote')) { uiMsgMenu('Remote slots need an online game: press “Host online game”.'); return; } { const lo = lobbyOpts(), na = rows.filter(r => r[0] !== 'off').length; if (lo.cmap && na > lo.cmap.starts.length) { uiMsgMenu(`“${lo.cmap.name}” has ${lo.cmap.starts.length} spawn points — close ${na - lo.cmap.starts.length} slot(s) or add spawns in the Map Builder.`); return; } } // v7.8.5: You cannot start as a locked country without Full Unlock
     { const me = rows.find(r => r[0] === 'human'); if (me && typeof unlockHumanRowOk === 'function' && !unlockHumanRowOk(me)) { if (typeof unlockOffer === 'function') unlockOffer(me[2]); return; } }
+    { const ms = document.getElementById('mapSel'), mv = MENU.mode === 'endless' ? 'endless' : ms ? ms.value : 'classic'; if (typeof unlockMapOk === 'function' && !unlockMapOk(mv)) { if (typeof unlockOfferMap === 'function') unlockOfferMap(mv); return; } } // v7.8.9 map gate
     startGame('normal', Object.assign({ slots: buildSlots(rows, null, lobbyOpts().map), fog: document.getElementById('fogChk').checked }, lobbyOpts())); };
   onlInitUI(); if (typeof qmInitUI === 'function') qmInitUI(); // v7.7.7 Quick Match (iPhone app only)
   // v7.8.5 Full Unlock: load ownership, Settings restore, QA query already handled in unlockBoot
@@ -352,8 +354,20 @@ function lobbyInit() {
   box.querySelectorAll('.lt').forEach(sel => sel.addEventListener('change', () => { if (sel.value !== 'human') return; box.querySelectorAll('.lt').forEach(o => { if (o !== sel && o.value === 'human') o.value = 'si'; }); }));
   box.querySelectorAll('select').forEach(sel => sel.addEventListener('change', () => { if (typeof lobbyChanged === 'function') lobbyChanged(); mapPreview(); }));
   const pb = document.getElementById('presets'); pb.innerHTML = Object.keys(PRESETS).filter(k => k[0] !== 'w').map(k => `<button data-p="${k}">${k[0] === 'w' ? '▶ ' : ''}${PRESETS[k].n}</button>`).join('');
-  pb.querySelectorAll('button').forEach(b => b.onclick = () => { lobbySet(PRESETS[b.dataset.p].slots); { const ms = document.getElementById('mapSel'), pm = PRESETS[b.dataset.p].map; if (ms && pm) { ms.value = pm; ms.dispatchEvent(new Event('change')); } } if (b.dataset.p[0] === 'w') { audioInit(); startGame('normal', Object.assign(lobbyOpts(), { slots: buildSlots(lobbyRead(), null, lobbyOpts().map), seed: (Math.random() * 1e6) | 0 })); } });
+  pb.querySelectorAll('button').forEach(b => b.onclick = () => { { const pm0 = PRESETS[b.dataset.p].map; if (pm0 && typeof unlockMapOk === 'function' && !unlockMapOk(pm0)) { if (typeof unlockOfferMap === 'function') unlockOfferMap(pm0); return; } } /* v7.8.9: locked-map preset opens Full Unlock, lobby untouched */ lobbySet(PRESETS[b.dataset.p].slots); { const ms = document.getElementById('mapSel'), pm = PRESETS[b.dataset.p].map; if (ms && pm) { ms.value = pm; ms.dispatchEvent(new Event('change')); } } if (b.dataset.p[0] === 'w') { audioInit(); startGame('normal', Object.assign(lobbyOpts(), { slots: buildSlots(lobbyRead(), null, lobbyOpts().map), seed: (Math.random() * 1e6) | 0 })); } });
   lobbySet(PRESETS.duel.slots);
+  { // v7.8.9 map gate (native only; web always open): a locked map pick opens Full Unlock and snaps back to the last free pick, before any other map listener runs
+    const ms = document.getElementById('mapSel');
+    if (ms) { MENU.mapPrev = ms.value || 'classic';
+      ms.addEventListener('change', ev => {
+        const v = ms.value;
+        if (typeof unlockMapOk !== 'function' || unlockMapOk(v)) { MENU.mapPrev = v; return; }
+        ev.stopImmediatePropagation();
+        const back = MENU.mapPrev && MENU.mapPrev !== 'endless' && unlockMapOk(MENU.mapPrev) && [...ms.options].some(o => o.value === MENU.mapPrev) ? MENU.mapPrev : 'classic';
+        ms.value = back; if (typeof cmSelChanged === 'function') cmSelChanged();
+        if (typeof unlockOfferMap === 'function') unlockOfferMap(v);
+        if (typeof mapPreview === 'function') mapPreview();
+      }, true); } }
   // v7.8.5: locking applies only to the local You row; AI / remote rows may pick any country
   box.querySelectorAll('.lrow:not(.lh)').forEach(row => {
     const lf = row.querySelector('.lf'), lt = row.querySelector('.lt');
@@ -390,6 +404,7 @@ function lobbySet(list) { const rows = document.querySelectorAll('#lobby .lrow:n
     r.querySelector('.lf').value = s[2] || (i === 0 && s[0] === 'human' ? MENU.fac : 'rand'); r.querySelector('.lc').value = s[3] || 'auto'; }); if (typeof mapPreview === 'function') mapPreview(); }
 // v7.0 lobby mode: Skirmish (any map, two teams) or Endless (up to 4 defenders on Hellgate Last Stand vs the Horde)
 function setMode(m) {
+  if (m === 'endless' && typeof unlockMapOk === 'function' && !unlockMapOk('endless')) { if (typeof unlockOfferMap === 'function') unlockOfferMap('endless'); return; } // v7.8.9: Endless is Full Unlock on native
   MENU.mode = m; const su = document.getElementById('setup'); if (!su) return; su.classList.toggle('endless', m === 'endless');
   document.querySelectorAll('#modeTabs button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
   const ms = document.getElementById('mapSel'), ei = document.getElementById('endInfo'), hs = document.getElementById('endHS');

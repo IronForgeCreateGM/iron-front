@@ -57,6 +57,59 @@ function unlockFacPool(forHuman) {
   if (!forHuman || unlockOwned()) return (typeof FAC_KEYS !== 'undefined' ? FAC_KEYS.slice() : UNLOCK_FREE.concat(UNLOCK_LOCKED));
   return UNLOCK_FREE.slice();
 }
+// v7.8.9 map gate (native only, mirrors unlockFacOk): free tier = classic-style / 2v2 maps. Full Unlock = every map.
+// Only the local lobby pick is gated (skirmish / host / Endless tab). Replays, online guests and Quick Match plans are never gated.
+const UNLOCK_MAPS_FREE = ['classic', 'frost'];
+function unlockMapFree(map) {
+  if (!map) return true;
+  if (UNLOCK_MAPS_FREE.indexOf(map) >= 0) return true;
+  if (map.startsWith && map.startsWith('cm:')) { // Featured (built-in) maps are part of Full Unlock; private Map Builder maps stay free
+    const id = map.slice(3);
+    return !(typeof CM_BUILTIN !== 'undefined' && CM_BUILTIN && CM_BUILTIN[id]);
+  }
+  return map === 'custom';
+}
+/** Local lobby may pick this map? */
+function unlockMapOk(map) {
+  if (unlockOwned()) return true;
+  return unlockMapFree(map);
+}
+function unlockMapName(map) {
+  const s = document.getElementById('mapSel');
+  if (s) for (const o of s.options) if (o.value === map) return (o.dataset.n || o.textContent).replace(/^🔒\s*/, '');
+  return map === 'endless' ? 'Hellgate Last Stand (Endless)' : String(map || 'that map');
+}
+function unlockOfferMap(map) { unlockOffer(null, map); }
+function unlockMarkMaps() {
+  const s = document.getElementById('mapSel');
+  if (s) for (const o of s.options) {
+    if (!o.dataset.n) o.dataset.n = o.textContent;
+    const locked = !unlockMapOk(o.value);
+    o.textContent = locked ? ('🔒 ' + o.dataset.n) : o.dataset.n;
+    o.classList.toggle('ulocked', locked);
+  }
+  const pb = document.getElementById('presets');
+  if (pb && typeof PRESETS !== 'undefined') pb.querySelectorAll('button[data-p]').forEach(b => {
+    const P = PRESETS[b.dataset.p]; if (!P) return;
+    if (!b.dataset.n) b.dataset.n = b.textContent;
+    const locked = !!(P.map && !unlockMapOk(P.map));
+    b.textContent = locked ? ('🔒 ' + b.dataset.n) : b.dataset.n;
+    b.classList.toggle('ulocked', locked);
+  });
+  document.querySelectorAll('#modeTabs button[data-m="endless"], #playEndlessBtn').forEach(b => {
+    if (!b.dataset.n) b.dataset.n = b.textContent;
+    const locked = !unlockMapOk('endless');
+    b.textContent = locked ? ('🔒 ' + b.dataset.n) : b.dataset.n;
+    b.classList.toggle('ulocked', locked);
+  });
+  // If the gate just closed (QA ?unlock=0) while a locked map is selected, fall back to a free map — never for an online guest (host owns the map)
+  const guest = typeof ONL !== 'undefined' && ONL.room && !ONL.host;
+  if (s && !guest && !unlockMapOk(s.value) && s.value !== 'endless') {
+    s.value = 'classic';
+    if (typeof cmSelChanged === 'function') cmSelChanged();
+    if (typeof mapPreview === 'function') { try { mapPreview(); } catch (e) {} }
+  }
+}
 function unlockSetOwned(on, persist) {
   UNLOCK.owned = !!on;
   if (persist !== false) { unlockWriteLS(UNLOCK.owned); unlockPrefsSet(UNLOCK.owned); }
@@ -95,7 +148,7 @@ function unlockCloseOffer() {
   const el = document.getElementById('unlockOffer');
   if (el) el.style.display = 'none';
 }
-function unlockOffer(fac) {
+function unlockOffer(fac, map) {
   let box = document.getElementById('unlockOffer');
   if (!box) {
     box = document.createElement('div');
@@ -119,9 +172,15 @@ function unlockOffer(fac) {
   const body = document.getElementById('unlockOfferBody');
   const freeList = UNLOCK_FREE.map(k => (FACTIONS && FACTIONS[k] ? FACTIONS[k].flag + ' ' + FACTIONS[k].n : k)).join(', ');
   const lockedList = UNLOCK_LOCKED.map(k => (FACTIONS && FACTIONS[k] ? FACTIONS[k].flag + ' ' + FACTIONS[k].n : k)).join(', ');
-  let msg = `<b>${name}</b> is part of Full Unlock (${UNLOCK_PRICE} one-time, no subscription).`;
-  msg += `<br><br>Free countries: ${freeList}.`;
-  msg += `<br>Full Unlock also adds: ${lockedList}.`;
+  const mapN = map ? unlockMapName(map) : '';
+  let msg = `<b>${map ? mapN : name}</b> is part of Full Unlock (${UNLOCK_PRICE} one-time, no subscription).`;
+  if (map) {
+    msg += `<br><br>Free maps: Iron Crossroads and Frostline Pass (1v1 / 2v2 / classic).`;
+    msg += `<br>Full Unlock also adds: Volcano Crown, Volcano Crown XL, Razorwheel, Hindu Kush Hellgate, Endless and the featured maps — plus ${lockedList}.`;
+  } else {
+    msg += `<br><br>Free countries: ${freeList}.`;
+    msg += `<br>Full Unlock also adds: ${lockedList}, and every map.`;
+  }
   if (!unlockIsNative()) msg += `<br><br>On the web this build does not charge — Full Unlock is sold on the <b>App Store</b>. Use <code>?unlock=1</code> on this device for QA.`;
   else msg += `<br><br>One purchase unlocks every country and every map on this Apple ID.`;
   if (body) body.innerHTML = msg;
@@ -190,10 +249,11 @@ function unlockRefreshUI() {
     } else if (badge) badge.remove();
   });
   document.querySelectorAll('#lobby .lf').forEach(unlockMarkFacOptions);
+  unlockMarkMaps();
   const st = document.getElementById('unlockStatus');
   if (st) st.textContent = unlockOwned()
-    ? (unlockGateActive() ? 'Full Unlock: owned on this device' : 'Full Unlock: all countries free on web (App Store IAP later)')
-    : ('Full Unlock: ' + UNLOCK_PRICE + ' one-time (no subscription) — free countries USA · Russia · Germany · France');
+    ? (unlockGateActive() ? 'Full Unlock: owned on this device' : 'Full Unlock: all countries and maps free on web (App Store IAP later)')
+    : ('Full Unlock: ' + UNLOCK_PRICE + ' one-time (no subscription) — free countries USA · Russia · Germany · France; free maps Iron Crossroads · Frostline Pass');
   const rb = document.getElementById('unlockRestoreSetBtn');
   if (rb) rb.style.display = '';
 }

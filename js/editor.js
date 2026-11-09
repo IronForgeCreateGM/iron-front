@@ -27,7 +27,7 @@ function cmRefreshSel(pick) { // list saved maps in the skirmish map picker (unl
   if (all.length) { og = document.createElement('optgroup'); og.id = 'cmGroup'; og.label = '🛠 My maps';
     for (const m of all) { const o = document.createElement('option'); o.value = 'cm:' + m.id; o.textContent = `${m.name} (${m.starts.length}) · ${m.w}²`; og.appendChild(o); } s.appendChild(og); }
   if ([...s.options].some(o => o.value === cur)) s.value = cur; else if (cur && cur.startsWith('cm:')) s.value = 'classic';
-  cmSelChanged(); }
+  cmSelChanged(); if (typeof unlockMarkMaps === 'function') unlockMarkMaps(); }
 function mbApply() { const on = mbUnlocked(), b = document.getElementById('mapBuilderBtn'); if (b) b.style.display = on ? '' : 'none'; cmRefreshSel(); if (!on) CM_SEL = null; }
 (async () => { await mbCheckKey(); mbApply(); const b = document.getElementById('mapBuilderBtn'); if (b) b.onclick = () => { if (mbUnlocked()) mbOpen(); }; if (typeof QS !== 'undefined' && QS.get('editor') && mbUnlocked()) mbOpen(); })(); // editor.js loads at the end of <body>, so the menu DOM exists
 

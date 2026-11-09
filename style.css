@@ -280,3 +280,4 @@ body.mobile.mplay #waveHud .wvS{font-size:10px;margin-top:2px}body.mobile.mplay 
 .fcard.locked{opacity:.55;filter:grayscale(.35);position:relative}
 .fcard .ulock{position:absolute;top:4px;right:6px;font-size:14px;line-height:1;pointer-events:none}
 .fcard.locked.on{border-color:rgba(255,210,122,.35);background:rgba(255,210,122,.06)}
+#presets button.ulocked,#modeTabs button.ulocked,#playEndlessBtn.ulocked{opacity:.6}

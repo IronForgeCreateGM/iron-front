@@ -158,7 +158,7 @@ function onlRenderPeers(st) {
 }
 function onlStartHost() {
   // v7.8.5: host You-row cannot start as a locked country without Full Unlock (bots/remotes unrestricted)
-  { const rows0 = lobbyRead(), me = rows0.find(r => r[0] === 'human'); if (me && typeof unlockHumanRowOk === 'function' && !unlockHumanRowOk(me)) { if (typeof unlockOffer === 'function') unlockOffer(me[2]); return; } }
+  { const rows0 = lobbyRead(), me = rows0.find(r => r[0] === 'human'); if (me && typeof unlockHumanRowOk === 'function' && !unlockHumanRowOk(me)) { if (typeof unlockOffer === 'function') unlockOffer(me[2]); return; } } { const ms = document.getElementById('mapSel'), mv = MENU.mode === 'endless' ? 'endless' : ms ? ms.value : 'classic'; if (typeof unlockMapOk === 'function' && !unlockMapOk(mv)) { if (typeof unlockOfferMap === 'function') unlockOfferMap(mv); return; } } // v7.8.9 map gate (host pick only)
   const rows = lobbyRead(); rows.forEach((r, i) => { if (r[0] === 'remote' && !Object.values(ONL.peers).some(p => p.row === i)) r[0] = 'si'; }); lobbySet(rows);
   const names = { [Math.max(0, rows.findIndex(r => r[0] === 'human'))]: ONL.name }; for (const p of Object.values(ONL.peers)) names[p.row] = p.name;
   const slots = buildSlots(rows, names, lobbyOpts().map), seed = (Math.random() * 1e9) | 0;

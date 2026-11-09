@@ -26,6 +26,7 @@ function mobPerf() { // iPhone preset: DPR cap 1.5, no shadows/bloom/grass, ligh
   if (R3.camera && R3.camera.far > 170) { R3.camera.far = 170; R3.camera.updateProjectionMatrix(); }
 }
 function mobWatch4v4() { // all-bot 4v4 on Volcano Crown XL, spectated
+  if (typeof unlockMapOk === 'function' && !unlockMapOk('volcano8')) { homeShow('bots'); if (typeof unlockOfferMap === 'function') unlockOfferMap('volcano8'); return; } // v7.8.9 map gate (native only)
   homeShow('bots'); const ms = document.getElementById('mapSel'); ms.value = 'volcano8'; ms.dispatchEvent(new Event('change'));
   lobbySet([['si', 'A'], ['chief', 'A'], ['hard', 'A'], ['si', 'A'], ['hard', 'B'], ['si', 'B'], ['chief', 'B'], ['hard', 'B']]);
   document.getElementById('startBtn').click();
