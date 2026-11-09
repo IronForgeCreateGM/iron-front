@@ -542,3 +542,9 @@ Pushed commit 7c3dc39 to main (fast-forward from 6bec943, no force-push). Live p
 - Gate on 08396c7: det73 / det74 / spawn-det IDENTICAL to v7.7.8 base. Node suite 29/29 pass. Browser: netsec-browser, privacy, builders, apppause, slot, place701, diff73, mobile-play, mobile, ui7, fogkeys, endless703, mapbuilder, reach, replay, flags, quickmatch (21 checks incl. host migration) all pass; lobby 740 games OK; check:www OK (193 files, v7.7.9).
 - Not done / carried: late-game lag optimization (profiling in /workspace/n1105/prof, nothing shipped), FFA recall bench from branch ai-ffa-fix beyond what f79 covers, and an 8-player 30+ min FFA verification on the biggest map. Swift Game Center plugin still never compiled (needs Nicholas's Mac/Xcode, see GAME-CENTER.md).
 - Logs: /workspace/n1105/g779.
+
+## v7.8.9 (Mon Nov 9, pushed 5:10 AM PT, backup run) LIVE
+- The midnight run's gate finished at 3:07 AM PT but was never pushed; the 5 AM backup run resumed at 5:04 AM PT and did only the safe part: reviewed the finished gate, then pushed.
+- Pushed 2526f59 to main (fast-forward from b8e76f1, no force-push). Full Unlock map gate (native only; web stays fully unlocked). No sim/AI/stat changes.
+- Gate: det73/det74/spawn identical to base; browser suite all OK (netsec-browser and privacy passed on rerun), mapgate, unlock, quickmatch, lobby OK; check:www OK v7.8.9.
+- Uncommitted local edits (APP-STORE.md, ios-plugin, js/unlock.js, IronIAPPlugin.swift) left untouched and unpushed.
