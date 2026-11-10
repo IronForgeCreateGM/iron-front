@@ -1,3 +1,8 @@
+## SHIPPED night Nov 10: v7.9.1 Delta of Kings (8-FFA, 224², grass) LIVE — see NIGHTLY-LOG
+Sketch panel 2 is done. Built-in map `deltakings` (js/sim.js `genDeltaKings`): X rivers, four islands with 2 bases each, 4 fords (`G.ford`, no-build), 4 derrick islets with bridges, King's Isle with 4 bridges. Exactly 8-fold symmetric. Web unlocked; native = Full Unlock.
+- Possible follow-ups: phone perf on 224² maps (~1.6M terrain tris, so consider a lower heightfield resolution for big maps on phones); a "Watch: 8 FFA Delta of Kings" preset.
+- **Next sketch maps (still to build):** Frozen Labyrinth, Rift Canyon (see backlog below).
+
 ## SHIPPED day Mon Nov 9: v7.9.0 Shattered Moon (8-FFA, 224²) — see NIGHTLY-LOG
 Nicholas picked "Shattered Moon" from the 4-map sketch (/workspace/mapsketch/four-maps.png, panel 1) and wants the other three built eventually.
 Built-in map `shatteredmoon` (js/sim.js `genShatteredMoon`): 8 asteroid bases (2 ore fields + 2 gas vents each) on a ring over impassable space (`G.void`), spiral bridges base k → ore islet k → base k+1, every islet curls a bridge into the central crater (monument, 8 rich ore fields, 8 gas vents). Render: Blender space plate + tileable star layer + shader shooting stars (`buildSpace`), moon regolith texture set `moon_*` (Blender AO on real crater displacement), moon rocks/debris props. Web unlocked; native = Full Unlock (not in UNLOCK_MAPS_FREE).
@@ -5,7 +10,7 @@ Built-in map `shatteredmoon` (js/sim.js `genShatteredMoon`): 8 asteroid bases (2
 
 ## FUTURE MAP BACKLOG (Nicholas, Nov 9: "eventually we will probably do all of them") — sketch panels 2-4
 Use the full 224×224 size, only existing features (cliffs/high ground, water, lava, ore, gas vents, derricks, outposts, monument), make them bold, 8 seats rotationally/mirror fair, bots verified (expand, path, attack).
-1. **Delta of Kings (grass theme).** Two wide rivers cross in a big X and cut the map into four islands, two bases per island. Shallow fords and a few bridges are the only ways across; oil derricks sit on small river islands. You start next to a neighbour you will probably have to beat first, then the fight moves across the water.
+1. ~~**Delta of Kings (grass theme).**~~ SHIPPED v7.9.1 (Nov 10). Two wide rivers cross in a big X and cut the map into four islands, two bases per island. Shallow fords and a few bridges are the only ways across; oil derricks sit on small river islands. You start next to a neighbour you will probably have to beat first, then the fight moves across the water.
 2. **Frozen Labyrinth (frost theme).** Bases in the corners and edge centres; the middle half of the map is a maze of ice cliffs. Outposts and rich ore pockets sit at the maze's dead ends, so you have to go in and claim them. Slow siege map where France's Grand Cannons and smart routing shine.
 3. **Rift Canyon (desert theme).** A huge lava-floored canyon cuts diagonally across the whole map. Four bases on high mesas on each side, staggered in a zigzag so no two players face each other head on. A few narrow ramps and bridges cross the rift and gas vents sit down inside it, so the best resources mean leaving the high ground. Every spot has a mirrored twin on the other side.
 
