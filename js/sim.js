@@ -423,18 +423,25 @@ function genDeltaKings(R) {
   const ORE = [[31.5, 95.5, 2.2, 0], [46.5, 93.5, 1.9, 0], [29.5, 53.5, 1.9, 0], [0, 67, 2.3, 1], [4.5, 11.5, 1.5, 1]]; // main x2, natural, island crown (rich, shared), King's Isle (rich)
   const VENT = [[28.5, 77.5], [47.5, 76.5], [41.5, 61.5], [6.5, 59.5], [5.5, 5.5]]; // main x2, natural, crown, King's Isle
   const ISLET = 65.5, KR = 15.5;
+  // water classification of any point (u, v) from the map centre: 0 land, 2 water, 3 ford, 4 bridge (+ King's Isle hill level).
+  // The generator samples tile centres; the renderer samples it per height vertex (G.dkCls) so the diagonal banks come out smooth.
+  const cls = (u, v, o) => { const a = Math.min(Math.abs(u), Math.abs(v)), b = Math.max(Math.abs(u), Math.abs(v));
+    const s = (a + b) * S2, d = (b - a) * S2, r = dhypot(a, b), th = datan2(a, b); let t = 0; o.lv = 0;
+    const lakeR = 30 + 1.4 * dsin(th * 12 + 0.7) + 0.7 * dsin(th * 28 + 2.0);
+    const water = r < lakeR || d < hw(s) || (a > 96 && b > 96); o.water = water;
+    if (water) t = 2;
+    if (r < KR + 0.8 * dsin(th * 10 + 1.1)) { t = 0; o.lv = r < 9 ? 1 : Math.max(0, 1 - (r - 9) / 4); }          // King's Isle (raised centre)
+    if (near(a, b, ISLET, ISLET) < 5.2 + 0.5 * dsin(th * 40)) t = 0;                                                // derrick islets in the rivers
+    if (t === 2 && Math.abs(s - 60) < 3.5 && r >= lakeR) t = 3;                                                     // shallow fords
+    if (t === 2 && Math.abs(b - ISLET) < 1.6 && d < hw(s) && a < ISLET) t = 4;                                     // wooden bridge: bank -> islet
+    if (t === 2 && a < 2 && r >= KR - 1 && r < lakeR + 2) t = 4;                                                    // King's bridges (one per island)
+    return t; };
+  const CO = {}; G.dkCls = (wx, wy) => cls(wx - M, wy - M, CO);
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
     const i = idx(x, y), u = x + 0.5 - M, v = y + 0.5 - M, a = Math.min(Math.abs(u), Math.abs(v)), b = Math.max(Math.abs(u), Math.abs(v));
-    const s = (a + b) * S2, d = (b - a) * S2, r = dhypot(a, b), th = datan2(a, b);
-    let t = 0, lv = 0, fo = 0;
-    const lakeR = 30 + 1.4 * dsin(th * 12 + 0.7) + 0.7 * dsin(th * 28 + 2.0);
-    const water = r < lakeR || d < hw(s) || (a > 96 && b > 96);
-    if (water) t = 2;
-    if (r < KR + 0.8 * dsin(th * 10 + 1.1)) { t = 0; lv = r < 9 ? 1 : Math.max(0, 1 - (r - 9) / 4); }             // King's Isle (raised centre)
-    if (near(a, b, ISLET, ISLET) < 5.2 + 0.5 * dsin(th * 40)) t = 0;                                                // derrick islets in the rivers
-    if (t === 2 && Math.abs(s - 60) < 3.5 && r >= lakeR) { t = 0; G.ford[i] = 1; }                                // shallow fords
-    if (t === 2 && Math.abs(b - ISLET) < 1.6 && d < hw(s) && a < ISLET) { t = 0; G.bridge[i] = 1; }               // wooden bridge: bank -> islet
-    if (t === 2 && a < 2 && r >= KR - 1 && r < lakeR + 2) { t = 0; G.bridge[i] = 1; }                              // King's bridges (one per island)
+    const s = (a + b) * S2, d = (b - a) * S2, r = dhypot(a, b);
+    let t = cls(u, v, CO), lv = CO.lv, fo = 0; const water = CO.water, lakeR = 30 + 1.4 * dsin(datan2(a, b) * 12 + 0.7) + 0.7 * dsin(datan2(a, b) * 28 + 2.0);
+    if (t === 3) { t = 0; G.ford[i] = 1; } else if (t === 4) { t = 0; G.bridge[i] = 1; }
     if (t === 0 && !water) {
       const db = near(a, b, BA, BB), ph = datan2(b - BB, a - BA);
       lv = db < 11 ? 1 : Math.max(0, 1 - (db - 11) / 4);                                                          // the king's low hill

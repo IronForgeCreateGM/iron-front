@@ -20,7 +20,8 @@ function heightAt(x, y) {
 function buildHeightfield() {
   HW = MW * HR + 1; HH = MH * HR + 1; const R = mkRng(G.opts.seed + 11); HF = new Float32Array(HW * HH);
   const tileAt = (x, y) => G.map[Math.max(0, Math.min(MH - 1, y)) * MW + Math.max(0, Math.min(MW - 1, x))];
-  for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { const t = tileAt(Math.floor((x - 0.5) / HR + 0.0001), Math.floor((y - 0.5) / HR + 0.0001)); const tx = Math.max(0, Math.min(MW - 1, Math.floor((x - 0.5) / HR + 0.0001))), ty = Math.max(0, Math.min(MH - 1, Math.floor((y - 0.5) / HR + 0.0001))), L = G.lvl[ty * MW + tx] * LVL_H; HF[y * HW + x] = (t === 1 && G.void && G.void[ty * MW + tx] ? 0 : t === 1 ? (G.lpit && G.lpit[ty * MW + tx] ? -0.15 : G.desert ? (G.mud && G.mud[ty * MW + tx] ? 0.15 : G.rim && G.rim[ty * MW + tx] ? 0.35 : 2.7) : 2.0) : t === 2 ? -1.1 : G.desert && G.wadi && G.wadi[ty * MW + tx] ? -0.45 : 0) + L; }
+  const DK = G.dkCls; // v7.9.1 Delta of Kings: classify water/ford per vertex from the smooth river shape (no tile staircase on the diagonal banks)
+  for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { let t = tileAt(Math.floor((x - 0.5) / HR + 0.0001), Math.floor((y - 0.5) / HR + 0.0001)); if (DK && t !== 1) { const c = DK(x / HR, y / HR); t = c === 2 ? 2 : c === 3 ? 3 : 0; } const tx = Math.max(0, Math.min(MW - 1, Math.floor((x - 0.5) / HR + 0.0001))), ty = Math.max(0, Math.min(MH - 1, Math.floor((y - 0.5) / HR + 0.0001))), L = G.lvl[ty * MW + tx] * LVL_H; HF[y * HW + x] = (t === 1 && G.void && G.void[ty * MW + tx] ? 0 : t === 1 ? (G.lpit && G.lpit[ty * MW + tx] ? -0.15 : G.desert ? (G.mud && G.mud[ty * MW + tx] ? 0.15 : G.rim && G.rim[ty * MW + tx] ? 0.35 : 2.7) : 2.0) : t === 2 ? -1.1 : t === 3 ? -0.45 : G.desert && G.wadi && G.wadi[ty * MW + tx] ? -0.45 : 0) + L; }
   const blur = (r) => { const tmp = new Float32Array(HF.length);
     for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { let s = 0, n = 0; for (let k = -r; k <= r; k++) { const xx = Math.max(0, Math.min(HW - 1, x + k)); s += HF[y * HW + xx]; n++; } tmp[y * HW + x] = s / n; }
     for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) { let s = 0, n = 0; for (let k = -r; k <= r; k++) { const yy = Math.max(0, Math.min(HH - 1, y + k)); s += tmp[yy * HW + x]; n++; } HF[y * HW + x] = s / n; } };
@@ -30,7 +31,7 @@ function buildHeightfield() {
   for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) {
     const i = y * HW + x, h = HF[i], wx = x / HR, wy = y / HR, rock = Math.max(0, Math.min(1, h / 1.2));
     HF[i] = h + rock * (n2(wx, wy, 0.9) * 0.35 + n2(wx, wy, 2.3) * 0.15 + 0.4 * rock) + (1 - rock) * n2(wx, wy, 0.6) * 0.03;
-    const t = tileAt(Math.floor(wx), Math.floor(wy)), L = lvlAt(wx, wy) * LVL_H; if (t === 0) HF[i] = Math.max(L - 0.22, Math.min(HF[i], L + 0.25 + (HF[i] - L) * 0.2));
+    let t = tileAt(Math.floor(wx), Math.floor(wy)); if (DK && t !== 1) { const c = DK(wx, wy); t = c === 4 ? 0 : c; } const L = lvlAt(wx, wy) * LVL_H; if (t === 0) HF[i] = Math.max(L - 0.22, Math.min(HF[i], L + 0.25 + (HF[i] - L) * 0.2)); // v7.9.1: Delta of Kings fords sit just under the water
   }
   if (G.void) moonHeights(n2);
 }
@@ -319,8 +320,10 @@ function buildLandmarks() {
     const RB = new MB(0); RB.box('r', 0.08, 0.32, 1.0, 0x6d6e70, PBR.METAL, 0, 0.2, 0, { bevel: 0.01 }); RB.box('r', 0.12, 0.05, 1.0, 0x8a8c90, PBR.METAL, 0, 0.36, 0, { bevel: 0.01 });
     const dm = new THREE.InstancedMesh(B.build().d, pbrMaterial(), tiles.length), rails = [];
     const m4 = new THREE.Matrix4(); tiles.forEach((i, k) => { const x = i % MW, y = (i / MW) | 0; m4.makeTranslation(x + 0.5, 0.06, y + 0.5); dm.setMatrixAt(k, m4);
+      if (G.ford) { const wet = j => G.map[j] === 2 && !G.bridge[j]; // v7.9.1 Delta of Kings: bridges run both ways, rail every water-facing side
+        if (wet(i - 1)) rails.push([x + 0.06, y + 0.5]); if (wet(i + 1)) rails.push([x + 0.94, y + 0.5]); if (wet(i - MW)) rails.push([x + 0.5, y + 0.06, 1]); if (wet(i + MW)) rails.push([x + 0.5, y + 0.94, 1]); return; }
       if (!G.bridge[i - 1]) rails.push([x + 0.06, y + 0.5]); if (!G.bridge[i + 1]) rails.push([x + 0.94, y + 0.5]); });
-    const rm = new THREE.InstancedMesh(RB.build().r, pbrMaterial(), rails.length); rails.forEach(([x, y], k) => { m4.makeTranslation(x, 0.06, y); rm.setMatrixAt(k, m4); });
+    const rm = new THREE.InstancedMesh(RB.build().r, pbrMaterial(), rails.length); rails.forEach(([x, y, h], k) => { if (h) m4.makeRotationY(Math.PI / 2).setPosition(x, 0.06, y); else m4.makeTranslation(x, 0.06, y); rm.setMatrixAt(k, m4); });
     for (const m of [dm, rm]) { m.castShadow = m.receiveShadow = true; m.frustumCulled = false; R3.scene.add(m); }
     if (typeof propsReg === 'function') { propsReg({ mesh: dm, file: 'bridge', pick: [0] }); propsReg({ mesh: rm, file: 'bridge', pick: [1] }); }
   }
