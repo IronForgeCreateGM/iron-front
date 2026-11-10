@@ -50,7 +50,7 @@ if (MIN > 0) {
   G.players.forEach((P, t) => console.log(`  bot ${t + 1} ${P.fac}@seat${P.start + 1}: peak bldgs ${peak[t]}, expansions ${exp[t]}, kills ${P.stats.kills}, lost ${P.stats.lost}, max ground units >30 tiles out ${off[t]} (first push ${firstAtk[t] || '-'} min), max across the water ${wet[t]}, mined ${(P.stats.mined / 1000) | 0}k, out ${P.out}`));
   ok(peak.every(v => v >= 6), 'every bot built a base (' + peak.join(',') + ')');
   ok(exp.filter(v => v > 0).length >= 6, 'bots expand (' + exp.join(',') + ')');
-  ok(wet.filter(v => v >= 4).length >= 6, 'bot armies cross the rivers (fords / bridges / King\'s Isle) (' + wet.join(',') + ')');
+  ok(wet.filter(v => v >= 4).length >= 4 && G.players.every((P, t) => P.out || wet[t] >= 4), 'bot armies cross the rivers (fords / bridges / King\'s Isle): >= 4 bots and every survivor (' + wet.join(',') + ')'); // bots knocked out by their island-mate never get to cross
   ok(G.players.reduce((s, P) => s + P.stats.kills, 0) > 40, 'bots fight (total kills ' + G.players.reduce((s, P) => s + P.stats.kills, 0) + ')');
 }
 console.log(fail ? 'DELTA FAIL' : 'DELTA OK'); process.exit(fail ? 1 : 0);
