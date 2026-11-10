@@ -15,8 +15,8 @@ function foe(a, b) { if (a === b) return false; if (a == null || b == null) retu
 // Hellgate is the one team-sided map: spots 1-2 are Team A's valley seats, 3-8 the Team B warlord bases. A row whose spot is on the other
 // team's side (or whose spot does not exist on the map) takes the lowest free spot on its own side instead; the lobby shows "N→M" for it.
 // Endless: defenders sit at spots 1-4 by row (solo = the centre base), the Horde is east. Pure + deterministic (host computes it, peers get the result).
-const SEAT_ORDER = { classic: [0, 3, 2, 1, 4, 5], frost: [0, 3, 2, 1, 4, 5], volcano: [0, 3, 2, 1, 4, 5], volcano8: [0, 3, 2, 1, 4, 5, 6, 7], razorwheel: [0, 1, 2, 3, 4, 5, 6, 7], shatteredmoon: [0, 1, 2, 3, 4, 5, 6, 7], hellgate: [0, 1, 2, 3, 4, 5, 6, 7], endless: [0, 1, 2, 3], custom: [0, 1, 2, 3, 4, 5, 6, 7] }; // v7.7 custom (map builder) maps: spot N = the builder's spawn N
-function seatMap(map, n) { return map !== 'hellgate' && map !== 'endless' && map !== 'custom' && map !== 'razorwheel' && map !== 'shatteredmoon' && n > 6 ? 'volcano8' : SEAT_ORDER[map] ? map : 'classic'; }
+const SEAT_ORDER = { classic: [0, 3, 2, 1, 4, 5], frost: [0, 3, 2, 1, 4, 5], volcano: [0, 3, 2, 1, 4, 5], volcano8: [0, 3, 2, 1, 4, 5, 6, 7], razorwheel: [0, 1, 2, 3, 4, 5, 6, 7], shatteredmoon: [0, 1, 2, 3, 4, 5, 6, 7], deltakings: [0, 1, 2, 3, 4, 5, 6, 7], hellgate: [0, 1, 2, 3, 4, 5, 6, 7], endless: [0, 1, 2, 3], custom: [0, 1, 2, 3, 4, 5, 6, 7] }; // v7.7 custom (map builder) maps: spot N = the builder's spawn N
+function seatMap(map, n) { return map !== 'hellgate' && map !== 'endless' && map !== 'custom' && map !== 'razorwheel' && map !== 'shatteredmoon' && map !== 'deltakings' && n > 6 ? 'volcano8' : SEAT_ORDER[map] ? map : 'classic'; }
 function seatSide(map, k) { return map === 'hellgate' ? (k < 2 ? 0 : 1) : null; } // start index -> required ally (null = any team may sit there)
 function seatPlan(map, rows, ns) { // rows: [{ row, ally }] (active lobby rows, in order) -> start index per row (ns = spawn count of a custom map)
   map = seatMap(map, rows.length); const order = map === 'custom' ? SEAT_ORDER.custom.slice(0, ns || 8) : SEAT_ORDER[map], taken = new Set(), out = rows.map(() => null);
@@ -34,7 +34,7 @@ function newGame(opts) {
   // slots: [{ ai, diff, ally, fac, start }]; default 1v1 from legacy opts
   const slots = opts.slots || [0, 1].map(t => ({ ai: opts.aiTeams.includes(t), diff: t === 0 && opts.p0diff ? opts.p0diff : opts.diff, ally: t, fac: (opts.facs || [])[t], start: t ? 3 : 0 }));
   if (opts.map === 'custom' && !(opts.cmap && opts.cmap.w && Array.isArray(opts.cmap.starts) && opts.cmap.starts.length)) opts.map = 'classic'; // v7.7 map builder: a custom map travels inside opts (replays/online carry it)
-  const HG = opts.map === 'hellgate', EN = opts.map === 'endless', CU = opts.map === 'custom', RW = opts.map === 'razorwheel', SM = opts.map === 'shatteredmoon'; MW = MH = CU ? cmapSize(opts.cmap) : SM ? 224 : HG ? 128 : RW ? 96 : EN ? 96 : (opts.map === 'volcano8' || slots.length > 6) ? 112 : 96; if (slots.length > 6 && !HG && !CU && !RW && !SM) opts.map = 'volcano8';
+  const HG = opts.map === 'hellgate', EN = opts.map === 'endless', CU = opts.map === 'custom', RW = opts.map === 'razorwheel', SM = opts.map === 'shatteredmoon', DK = opts.map === 'deltakings'; MW = MH = CU ? cmapSize(opts.cmap) : SM || DK ? 224 : HG ? 128 : RW ? 96 : EN ? 96 : (opts.map === 'volcano8' || slots.length > 6) ? 112 : 96; if (slots.length > 6 && !HG && !CU && !RW && !SM && !DK) opts.map = 'volcano8';
   const NP = slots.length;
   // every player gets its own start corner (guards against duplicate/missing starts from any lobby path)
   if (EN) { /* endlessSlots() already seated everyone */ }
@@ -81,7 +81,7 @@ function newGame(opts) {
 // 96x96 four-fold mirrored map: mains in corners (cliff ring + 2 ramps), two naturals each,
 // contested mid bases with rich (gold) fields, central monument, river with 4 bridges, forests.
 function genMap(R) {
-  G.mapName = G.opts.map || 'classic'; G.v8 = G.mapName === 'volcano8'; if (G.v8) G.mapName = 'volcano'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R); if (G.mapName === 'hellgate') return genHellgate(R); if (G.mapName === 'endless') return genEndless(R); if (G.mapName === 'custom') return genUserMap(R); if (G.mapName === 'razorwheel') return genRazorwheel(R); if (G.mapName === 'shatteredmoon') return genShatteredMoon(R);
+  G.mapName = G.opts.map || 'classic'; G.v8 = G.mapName === 'volcano8'; if (G.v8) G.mapName = 'volcano'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R); if (G.mapName === 'hellgate') return genHellgate(R); if (G.mapName === 'endless') return genEndless(R); if (G.mapName === 'custom') return genUserMap(R); if (G.mapName === 'razorwheel') return genRazorwheel(R); if (G.mapName === 'shatteredmoon') return genShatteredMoon(R); if (G.mapName === 'deltakings') return genDeltaKings(R);
   const N = MW * MH, Q = MW / 2, gs = 8, gw = MW / gs + 2;
   const mk = () => { const a = []; for (let i = 0; i < gw * gw; i++) a.push(R()); return a; };
   const g1 = mk(), g2 = mk(), g3 = mk();
@@ -405,6 +405,72 @@ function genShatteredMoon(R) {
   for (let i = 0; i < N; i++) { if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.void[i] = 1; G.ore[i] = 0; G.rich[i] = 0; } if (G.void[i]) { G.ore[i] = 0; G.rich[i] = 0; } G.forest[i] = 0; G.tier[i] = 0; }
   G.six = true; G.oreMax = Float32Array.from(G.ore); G.mapName = 'shatteredmoon';
 }
+// v7.9.1 "Delta of Kings" — 224×224 8-player FFA, grass. Two wide rivers cross in a big X and cut the land into four
+// islands, two kings per island. The only ways across: shallow fords (walkable, shown as shallow water), short wooden
+// bridges over tiny derrick islets, and four bridges into the King's Isle at the confluence (monument, rich ore, 4 gas).
+// Built as a function of the folded coords (a, b) = (min(|u|,|v|), max(|u|,|v|)) around the map centre, so the map is
+// exactly 8-fold (D4: 4 rotations x mirror) symmetric — every seat gets the same land, ore, gas and crossings.
+// G.ford marks ford tiles (walkable; render sinks them under the water). Fords and bridges are no-build (this map only).
+function genDeltaKings(R) {
+  const N = MW * MH, M = MW / 2, S2 = Math.SQRT1_2;
+  G.vents = []; G.sites = []; G.dkPos = []; G.monument = [M, M]; G.weather = null; G.ruins = null; G.crown = null; G.ford = new Uint8Array(N);
+  const hsh = (a, b) => { let h = (Math.round(a * 2) * 374761393 + Math.round(b * 2) * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+  const vn = (a, b, s, o) => { a = a / s + o; b = b / s + o * 1.7; const ai = Math.floor(a), bi = Math.floor(b), fa = a - ai, fb = b - bi, sa = fa * fa * (3 - 2 * fa), sb = fb * fb * (3 - 2 * fb);
+    return (hsh(ai, bi) * (1 - sa) + hsh(ai + 1, bi) * sa) * (1 - sb) + (hsh(ai, bi + 1) * (1 - sa) + hsh(ai + 1, bi + 1) * sa) * sb; };
+  const BA = 37.5, BB = 84.5;                           // base in the folded frame (8 images = 8 seats)
+  const near = (a, b, pa, pb) => dhypot(a - pa, b - pb);
+  const hw = s => 7 + 1.2 * dsin(s * 0.09 + 0.4) + 0.6 * dsin(s * 0.23) + Math.max(0, s - 112) * 0.5; // river half-width: breathes, opens into the delta mouths
+  const ORE = [[31.5, 95.5, 2.2, 0], [46.5, 93.5, 1.9, 0], [29.5, 53.5, 1.9, 0], [0, 67, 2.3, 1], [4.5, 11.5, 1.5, 1]]; // main x2, natural, island crown (rich, shared), King's Isle (rich)
+  const VENT = [[28.5, 77.5], [47.5, 76.5], [41.5, 61.5], [6.5, 59.5], [5.5, 5.5]]; // main x2, natural, crown, King's Isle
+  const ISLET = 65.5, KR = 15.5;
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+    const i = idx(x, y), u = x + 0.5 - M, v = y + 0.5 - M, a = Math.min(Math.abs(u), Math.abs(v)), b = Math.max(Math.abs(u), Math.abs(v));
+    const s = (a + b) * S2, d = (b - a) * S2, r = dhypot(a, b), th = datan2(a, b);
+    let t = 0, lv = 0, fo = 0;
+    const lakeR = 30 + 1.4 * dsin(th * 12 + 0.7) + 0.7 * dsin(th * 28 + 2.0);
+    const water = r < lakeR || d < hw(s) || (a > 96 && b > 96);
+    if (water) t = 2;
+    if (r < KR + 0.8 * dsin(th * 10 + 1.1)) { t = 0; lv = r < 9 ? 1 : Math.max(0, 1 - (r - 9) / 4); }             // King's Isle (raised centre)
+    if (near(a, b, ISLET, ISLET) < 5.2 + 0.5 * dsin(th * 40)) t = 0;                                                // derrick islets in the rivers
+    if (t === 2 && Math.abs(s - 60) < 3.5 && r >= lakeR) { t = 0; G.ford[i] = 1; }                                // shallow fords
+    if (t === 2 && Math.abs(b - ISLET) < 1.6 && d < hw(s) && a < ISLET) { t = 0; G.bridge[i] = 1; }               // wooden bridge: bank -> islet
+    if (t === 2 && a < 2 && r >= KR - 1 && r < lakeR + 2) { t = 0; G.bridge[i] = 1; }                              // King's bridges (one per island)
+    if (t === 0 && !water) {
+      const db = near(a, b, BA, BB), ph = datan2(b - BB, a - BA);
+      lv = db < 11 ? 1 : Math.max(0, 1 - (db - 11) / 4);                                                          // the king's low hill
+      const gap = Math.abs(((ph - D_PI + 3 * D_PI) % (2 * D_PI)) - D_PI) < 0.32 || Math.abs(((ph + 1.75 + 3 * D_PI) % (2 * D_PI)) - D_PI) < 0.3 || Math.abs(((ph + 0.55 + 3 * D_PI) % (2 * D_PI)) - D_PI) < 0.22;
+      if (db > 17.2 && db < 19.4 && !gap && vn(a, b, 3, 5) > 0.22) t = 1;                                         // broken rock crown around each base
+      const key = Math.min(db - 21, near(a, b, 35, 58) - 9, near(a, b, 0, 64) - 10, near(a, b, 0, 104) - 6, r - lakeR - 6, d - hw(s) - 3);
+      const n = vn(a, b, 9, 0) * 0.7 + vn(a, b, 4, 3) * 0.3;
+      if (key > 0 && n > 0.66) t = 1;                                                                              // rock outcrops in the wild land
+      if (key > -2 && t === 0 && vn(a, b, 6, 9) > 0.7) fo = 1;                                                   // forest groves
+      if (b > 109.6) t = 1;                                                                                        // map border
+    }
+    G.map[i] = t; G.lvl[i] = t === 2 ? 0 : lv; G.forest[i] = t === 0 ? fo : 0; G.elev[i] = vn(a, b, 8, 2);
+    for (const [pa, pb, rr, rich] of ORE) if (near(a, b, pa, pb) <= rr + 0.3) { G.map[i] = 0; G.forest[i] = 0; G.ore[i] = (rich ? 540 : 410) * ORE_MULT * (0.8 + 0.4 * hsh(a, b)); G.rich[i] = rich; }
+    for (const [pa, pb] of VENT) if (near(a, b, pa, pb) < 1.7) { G.map[i] = 0; G.forest[i] = 0; G.ore[i] = 0; G.rich[i] = 0; }
+    if (Math.abs(u) < 2 && Math.abs(v) < 2) { G.map[i] = 1; G.ore[i] = 0; }                                         // monument (4x4)
+  }
+  // the 8 images of a folded point (a, b), in seat order: clockwise from the north island's west king
+  const imgs = (a, b) => [[-a, -b], [a, -b], [b, -a], [b, a], [a, b], [-a, b], [-b, a], [-b, -a]];
+  G.starts = imgs(BA, BB).map(([u, v]) => [M + u, M + v]);
+  const uniq = (pts, f) => { const seen = new Set(); for (const [u, v] of pts) { const k = u + ',' + v; if (!seen.has(k)) { seen.add(k); f(M + u, M + v); } } };
+  for (const [va, vb] of VENT) uniq(imgs(va, vb), (x, y) => G.vents.push([Math.floor(x), Math.floor(y)]));
+  for (const [x, y] of G.starts) G.sites.push({ x, y, k: 'main' });
+  uniq(imgs(35, 58), (x, y) => G.sites.push({ x, y, k: 'nat' }));
+  uniq(imgs(0, 61), (x, y) => G.sites.push({ x, y, k: 'mid' }));          // island crown, between the two kings
+  uniq(imgs(10.5, 10.5), (x, y) => G.sites.push({ x, y, k: 'mid' }));     // King's Isle
+  uniq(imgs(ISLET, ISLET), (x, y) => G.dkPos.push([Math.floor(x), Math.floor(y)])); // islet derricks
+  uniq(imgs(0, 103), (x, y) => G.dkPos.push([Math.floor(x), Math.floor(y)]));       // a derrick on the shore between the two kings
+  const disc = (cx, cy, rr, f) => { for (let y = Math.floor(cy - rr); y <= cy + rr; y++) for (let x = Math.floor(cx - rr); x <= cx + rr; x++) if (inb(x, y) && dhypot(x + 0.5 - cx, y + 0.5 - cy) <= rr) f(idx(x, y)); };
+  for (const [sx, sy] of G.starts) disc(sx, sy, 4.5, i => { G.map[i] = 0; G.forest[i] = 0; G.ore[i] = 0; G.rich[i] = 0; });
+  // flood fill from start 0: walkable land nobody can reach becomes rock
+  const seen = new Uint8Array(N), st = [idx(Math.floor(G.starts[0][0]), Math.floor(G.starts[0][1]))]; seen[st[0]] = 1;
+  while (st.length) { const c = st.pop(), x = c % MW, y = (c / MW) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (!inb(nx, ny)) continue; const n = idx(nx, ny); if (!seen[n] && G.map[n] === 0) { seen[n] = 1; st.push(n); } } }
+  for (let i = 0; i < N; i++) { if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.ore[i] = 0; G.rich[i] = 0; G.ford[i] = 0; G.bridge[i] = 0; } if (G.map[i] !== 0) { G.forest[i] = 0; G.ford[i] = 0; G.bridge[i] = 0; } G.tier[i] = Math.round(G.lvl[i]); }
+  G.six = true; G.oreMax = Float32Array.from(G.ore); G.mapName = 'deltakings';
+}
 // v6.0 "Hindu Kush Hellgate" — 128x128 2v6 desert warzone. Team A (2 seats) holds a raised western valley
 // behind the Hindu Kush ridge; the ONLY way in is the 7-tile Hellgate canyon. Six warlord bases ring the eastern
 // desert (seats 3-8). Dry wadi, mud-brick compounds (blocking), mesas, lots of ore + derricks in no-man's-land.
@@ -550,6 +616,7 @@ function canPlace(t, team, tx, ty) {
   if (tx < 0 || ty < 0 || tx + d.w > MW || ty + d.h > MH) return false;
   const g = getBlock();
   for (let y = ty; y < ty + d.h; y++) for (let x = tx; x < tx + d.w; x++) if (g[idx(x, y)] || G.ore[idx(x, y)] > 0) return false;
+  if (G.ford) for (let y = ty; y < ty + d.h; y++) for (let x = tx; x < tx + d.w; x++) if (G.ford[idx(x, y)] || G.bridge[idx(x, y)]) return false; // v7.9.1 Delta of Kings only: no walling the fords/bridges
   const onVent = (G.vents || []).some(([vx, vy]) => vx >= tx && vx < tx + d.w && vy >= ty && vy < ty + d.h);
   if ((t === 'extractor') !== onVent) return false;
   if (G.custom && t === 'refinery') { const dx = Math.floor(tx + d.w / 2), dy = ty + d.h; if (!inb(dx, dy) || g[idx(dx, dy)]) return false; } // v7.7 custom maps only: painted water/rock can sit right under a refinery, keep its harvester dock open
