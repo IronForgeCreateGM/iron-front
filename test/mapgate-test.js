@@ -1,9 +1,9 @@
 // v7.8.9: Full Unlock MAP gate (native only). Web default = everything open; ?unlock=0 forces the gate; ?unlock=1 opens all.
-// Free maps: classic + frost. Locked when gated: volcano, volcano8, razorwheel, shatteredmoon, deltakings, hellgate, endless, featured cm: maps.
+// Free maps: classic + frost. Locked when gated: volcano, volcano8, razorwheel, shatteredmoon, deltakings, labyrinth, hellgate, endless, featured cm: maps.
 // NODE_PATH=/workspace/pwlib/node_modules node test/mapgate-test.js [url]
 const { chromium } = require('playwright-core'), path = require('path');
 const BASE = process.argv[2] || ('file://' + path.resolve(__dirname, '../index.html'));
-const LOCKED = ['volcano', 'volcano8', 'razorwheel', 'shatteredmoon', 'deltakings', 'hellgate', 'endless'], FREE = ['classic', 'frost'];
+const LOCKED = ['volcano', 'volcano8', 'razorwheel', 'shatteredmoon', 'deltakings', 'labyrinth', 'hellgate', 'endless'], FREE = ['classic', 'frost'];
 (async () => {
   const br = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'] });
   let fail = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fail++; };
@@ -36,7 +36,7 @@ const LOCKED = ['volcano', 'volcano8', 'razorwheel', 'shatteredmoon', 'deltaking
     ok(st.facs === 8, 'web default: all 8 countries open got ' + st.facs);
     ok(!st.lockedOpts.length && !st.lockedPresets.length && !st.endTab.includes('🔒'), 'web default: no 🔒 on maps/presets/Endless ' + JSON.stringify(st));
     for (const m of LOCKED.filter(m => m !== 'endless').concat(st.featured)) { const r = await pick(pg, m); ok(r.val === m && !r.offer, 'web default: map ' + m + ' selectable'); }
-    const all = await pg.evaluate(() => LOCKED_ALL = ['volcano', 'volcano8', 'razorwheel', 'shatteredmoon', 'deltakings', 'hellgate', 'endless'].every(m => unlockMapOk(m)));
+    const all = await pg.evaluate(() => LOCKED_ALL = ['volcano', 'volcano8', 'razorwheel', 'shatteredmoon', 'deltakings', 'labyrinth', 'hellgate', 'endless'].every(m => unlockMapOk(m)));
     ok(all, 'web default: unlockMapOk true for every map');
     // presets with locked-on-native maps still apply on web
     const pr = await pg.evaluate(() => { document.querySelector('#presets button[data-p="t4v4"]').click(); return { map: document.getElementById('mapSel').value, n: lobbyRead().filter(r => r[0] !== 'off').length }; });
