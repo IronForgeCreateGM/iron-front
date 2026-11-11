@@ -3,7 +3,7 @@
 // Every player action is a command {c:'move',...}. Offline: executed immediately.
 // Online: tagged for tick (now + DELAY); the host collects every human's input for a tick,
 // broadcasts the merged "turn", and all peers execute it before stepping that tick.
-const NET_VERSION = 'v7.9.1';
+const NET_VERSION = 'v7.9.2';
 const own = (T, ids) => (ids || []).map(byId).filter(e => e && e.team === T && e.hp > 0);
 const CMD = {
   mbuild(T, c) { const b = byId(c.b); return !!(b && b.team === T && siloBuild(b, c.k)); },
@@ -66,7 +66,7 @@ const netInt = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
 const NET_SEC = { dropped: 0, errors: 0 };
 // v5.2 replay recorder: every executed command is logged with the tick it ran at (+ periodic state hashes for verification)
 const RPL = { on: false, data: null };
-function recStart() { RPL.on = !G.replay; RPL.data = RPL.on ? { v: 1, game: 'ironfront', ver: typeof NET_VERSION !== 'undefined' ? NET_VERSION : '', date: new Date().toISOString(), seed: G.opts.seed, r76: G.r76 ? 1 : 0, nt: G.nt ? 1 : 0, m7: G.m7 | 0, f79: G.f79 | 0, f80: G.f80 | 0, map: G.opts.map || 'classic', cmap: G.opts.map === 'custom' ? G.opts.cmap : undefined, peace: G.opts.peace, fog: G.opts.fog !== false, diff: G.opts.diff, me: typeof ME !== 'undefined' ? ME : 0,
+function recStart() { RPL.on = !G.replay; RPL.data = RPL.on ? { v: 1, game: 'ironfront', ver: typeof NET_VERSION !== 'undefined' ? NET_VERSION : '', date: new Date().toISOString(), seed: G.opts.seed, r76: G.r76 ? 1 : 0, nt: G.nt ? 1 : 0, m7: G.m7 | 0, f79: G.f79 | 0, f80: G.f80 | 0, f81: G.f81 | 0, map: G.opts.map || 'classic', cmap: G.opts.map === 'custom' ? G.opts.cmap : undefined, peace: G.opts.peace, fog: G.opts.fog !== false, diff: G.opts.diff, me: typeof ME !== 'undefined' ? ME : 0,
   slots: G.opts.slots.map(s => ({ ai: !!s.ai, diff: s.diff, ally: s.ally, fac: s.fac, color: s.color, start: s.start, seat: s.seat ? 1 : undefined, name: s.name, horde: s.horde ? 1 : undefined })), mode: G.opts.mode, cmds: [], hash: [] } : null; }
 function recHash() { if (RPL.on && RPL.data && G.tick % 900 === 0 && typeof stateHash === 'function') { RPL.data.hash.push([G.tick, stateHash()]); if (G.tick % 1800 === 0 && typeof localStorage !== 'undefined') try { localStorage.setItem('ifLastReplay', replayFile()); } catch (e) {} } }
 function replayFeed() { const R = G.replay; while (R.i < R.cmds.length && R.cmds[R.i][0] <= G.tick) { const [, T, c] = R.cmds[R.i++]; execCmd(T, c); }

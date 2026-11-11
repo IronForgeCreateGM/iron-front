@@ -1,3 +1,6 @@
+## SHIPPED afternoon Nov 11: v7.9.2 smarter late-game bots (f81)
+Hard bots gather the late-game air wing as one back-of-base flank (fighters stay home only if under air threat). When stuck against France Grand Cannons they bank gas, wait for Titans (never a short-range Viper), fire at the cannons (accept SM-3), and push once the guns weaken. Replay flag f81 (default on; `P.f81Off` for A/B). Bench vs live v7.9.1 Hard: same seat winners, no regression. Organic USA vs France (classic 57) improved from France-on-points to a tie, with 2 Titans on the cannons. fp76 still opt-in/held. No France/unit stat changes. The uncommitted IAP edits were left untouched.
+
 ## SHIPPED night Nov 10: v7.9.1 Delta of Kings (8-FFA, 224², grass) LIVE — see NIGHTLY-LOG
 Sketch panel 2 is done. Built-in map `deltakings` (js/sim.js `genDeltaKings`): X rivers, four islands with 2 bases each, 4 fords (`G.ford`, no-build), 4 derrick islets with bridges, King's Isle with 4 bridges. Exactly 8-fold symmetric. Web unlocked; native = Full Unlock.
 - Possible follow-ups: phone perf on 224² maps (~1.6M terrain tris, so consider a lower heightfield resolution for big maps on phones); a "Watch: 8 FFA Delta of Kings" preset.
