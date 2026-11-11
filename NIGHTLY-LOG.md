@@ -567,3 +567,6 @@ Pushed commit 7c3dc39 to main (fast-forward from 6bec943, no force-push). Live p
 - Pushed 2526f59 to main (fast-forward from b8e76f1, no force-push). Full Unlock map gate (native only; web stays fully unlocked). No sim/AI/stat changes.
 - Gate: det73/det74/spawn identical to base; browser suite all OK (netsec-browser and privacy passed on rerun), mapgate, unlock, quickmatch, lobby OK; check:www OK v7.8.9.
 - Uncommitted local edits (APP-STORE.md, ios-plugin, js/unlock.js, IronIAPPlugin.swift) left untouched and unpushed.
+
+## Wed Nov 11 3:05 AM PT backup run
+- Midnight run was cut off after shipping v7.9.1 (Delta of Kings, 9dcda39, pushed and in sync with main). Backup run found no unpushed work; could not read the saved midnight prompt, so started nothing new. Frozen Labyrinth and Rift Canyon remain queued.
