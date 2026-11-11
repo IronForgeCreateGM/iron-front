@@ -15,8 +15,8 @@ function foe(a, b) { if (a === b) return false; if (a == null || b == null) retu
 // Hellgate is the one team-sided map: spots 1-2 are Team A's valley seats, 3-8 the Team B warlord bases. A row whose spot is on the other
 // team's side (or whose spot does not exist on the map) takes the lowest free spot on its own side instead; the lobby shows "N→M" for it.
 // Endless: defenders sit at spots 1-4 by row (solo = the centre base), the Horde is east. Pure + deterministic (host computes it, peers get the result).
-const SEAT_ORDER = { classic: [0, 3, 2, 1, 4, 5], frost: [0, 3, 2, 1, 4, 5], volcano: [0, 3, 2, 1, 4, 5], volcano8: [0, 3, 2, 1, 4, 5, 6, 7], razorwheel: [0, 1, 2, 3, 4, 5, 6, 7], shatteredmoon: [0, 1, 2, 3, 4, 5, 6, 7], deltakings: [0, 1, 2, 3, 4, 5, 6, 7], hellgate: [0, 1, 2, 3, 4, 5, 6, 7], endless: [0, 1, 2, 3], custom: [0, 1, 2, 3, 4, 5, 6, 7] }; // v7.7 custom (map builder) maps: spot N = the builder's spawn N
-function seatMap(map, n) { return map !== 'hellgate' && map !== 'endless' && map !== 'custom' && map !== 'razorwheel' && map !== 'shatteredmoon' && map !== 'deltakings' && n > 6 ? 'volcano8' : SEAT_ORDER[map] ? map : 'classic'; }
+const SEAT_ORDER = { classic: [0, 3, 2, 1, 4, 5], frost: [0, 3, 2, 1, 4, 5], volcano: [0, 3, 2, 1, 4, 5], volcano8: [0, 3, 2, 1, 4, 5, 6, 7], razorwheel: [0, 1, 2, 3, 4, 5, 6, 7], shatteredmoon: [0, 1, 2, 3, 4, 5, 6, 7], deltakings: [0, 1, 2, 3, 4, 5, 6, 7], labyrinth: [0, 1, 2, 3, 4, 5, 6, 7], hellgate: [0, 1, 2, 3, 4, 5, 6, 7], endless: [0, 1, 2, 3], custom: [0, 1, 2, 3, 4, 5, 6, 7] }; // v7.7 custom (map builder) maps: spot N = the builder's spawn N
+function seatMap(map, n) { return map !== 'hellgate' && map !== 'endless' && map !== 'custom' && map !== 'razorwheel' && map !== 'shatteredmoon' && map !== 'deltakings' && map !== 'labyrinth' && n > 6 ? 'volcano8' : SEAT_ORDER[map] ? map : 'classic'; }
 function seatSide(map, k) { return map === 'hellgate' ? (k < 2 ? 0 : 1) : null; } // start index -> required ally (null = any team may sit there)
 function seatPlan(map, rows, ns) { // rows: [{ row, ally }] (active lobby rows, in order) -> start index per row (ns = spawn count of a custom map)
   map = seatMap(map, rows.length); const order = map === 'custom' ? SEAT_ORDER.custom.slice(0, ns || 8) : SEAT_ORDER[map], taken = new Set(), out = rows.map(() => null);
@@ -34,7 +34,7 @@ function newGame(opts) {
   // slots: [{ ai, diff, ally, fac, start }]; default 1v1 from legacy opts
   const slots = opts.slots || [0, 1].map(t => ({ ai: opts.aiTeams.includes(t), diff: t === 0 && opts.p0diff ? opts.p0diff : opts.diff, ally: t, fac: (opts.facs || [])[t], start: t ? 3 : 0 }));
   if (opts.map === 'custom' && !(opts.cmap && opts.cmap.w && Array.isArray(opts.cmap.starts) && opts.cmap.starts.length)) opts.map = 'classic'; // v7.7 map builder: a custom map travels inside opts (replays/online carry it)
-  const HG = opts.map === 'hellgate', EN = opts.map === 'endless', CU = opts.map === 'custom', RW = opts.map === 'razorwheel', SM = opts.map === 'shatteredmoon', DK = opts.map === 'deltakings'; MW = MH = CU ? cmapSize(opts.cmap) : SM || DK ? 224 : HG ? 128 : RW ? 96 : EN ? 96 : (opts.map === 'volcano8' || slots.length > 6) ? 112 : 96; if (slots.length > 6 && !HG && !CU && !RW && !SM && !DK) opts.map = 'volcano8';
+  const HG = opts.map === 'hellgate', EN = opts.map === 'endless', CU = opts.map === 'custom', RW = opts.map === 'razorwheel', SM = opts.map === 'shatteredmoon', DK = opts.map === 'deltakings', LB = opts.map === 'labyrinth'; MW = MH = CU ? cmapSize(opts.cmap) : SM || DK || LB ? 224 : HG ? 128 : RW ? 96 : EN ? 96 : (opts.map === 'volcano8' || slots.length > 6) ? 112 : 96; if (slots.length > 6 && !HG && !CU && !RW && !SM && !DK && !LB) opts.map = 'volcano8';
   const NP = slots.length;
   // every player gets its own start corner (guards against duplicate/missing starts from any lobby path)
   if (EN) { /* endlessSlots() already seated everyone */ }
@@ -81,7 +81,7 @@ function newGame(opts) {
 // 96x96 four-fold mirrored map: mains in corners (cliff ring + 2 ramps), two naturals each,
 // contested mid bases with rich (gold) fields, central monument, river with 4 bridges, forests.
 function genMap(R) {
-  G.mapName = G.opts.map || 'classic'; G.v8 = G.mapName === 'volcano8'; if (G.v8) G.mapName = 'volcano'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R); if (G.mapName === 'hellgate') return genHellgate(R); if (G.mapName === 'endless') return genEndless(R); if (G.mapName === 'custom') return genUserMap(R); if (G.mapName === 'razorwheel') return genRazorwheel(R); if (G.mapName === 'shatteredmoon') return genShatteredMoon(R); if (G.mapName === 'deltakings') return genDeltaKings(R);
+  G.mapName = G.opts.map || 'classic'; G.v8 = G.mapName === 'volcano8'; if (G.v8) G.mapName = 'volcano'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R); if (G.mapName === 'hellgate') return genHellgate(R); if (G.mapName === 'endless') return genEndless(R); if (G.mapName === 'custom') return genUserMap(R); if (G.mapName === 'razorwheel') return genRazorwheel(R); if (G.mapName === 'shatteredmoon') return genShatteredMoon(R); if (G.mapName === 'deltakings') return genDeltaKings(R); if (G.mapName === 'labyrinth') return genLabyrinth(R);
   const N = MW * MH, Q = MW / 2, gs = 8, gw = MW / gs + 2;
   const mk = () => { const a = []; for (let i = 0; i < gw * gw; i++) a.push(R()); return a; };
   const g1 = mk(), g2 = mk(), g3 = mk();
@@ -477,6 +477,79 @@ function genDeltaKings(R) {
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (!inb(nx, ny)) continue; const n = idx(nx, ny); if (!seen[n] && G.map[n] === 0) { seen[n] = 1; st.push(n); } } }
   for (let i = 0; i < N; i++) { if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.ore[i] = 0; G.rich[i] = 0; G.ford[i] = 0; G.bridge[i] = 0; } if (G.map[i] !== 0) { G.forest[i] = 0; G.ford[i] = 0; G.bridge[i] = 0; } G.tier[i] = Math.round(G.lvl[i]); }
   G.six = true; G.oreMax = Float32Array.from(G.ore); G.mapName = 'deltakings';
+}
+// v7.9.2 "Frozen Labyrinth" — 224×224 8-player FFA, frost. Eight bases on a ring (4 corners + 4 edge centres) inside a
+// circular ice-cliff arena; the middle of the map is a labyrinth of four concentric ice-cliff rings. Each seat owns a spiral
+// lane in: outer gate → outer corridor (dead end: an outpost room with rich ore) → middle corridor (dead end: rich ore +
+// gas pocket) → the shared inner ring road (rich ore) → the core (monument, rich ore, gas). Lanes only meet in the inner ring
+// and core; the open frozen field outside links neighbours. Built on canonical (C4-rotated) polar coords with a 45° pattern
+// period: exact 4-fold rotational symmetry on the tile grid, and corner and edge seats get the same pattern rotated by 45°
+// (ore totals are normalised per field so every seat's fields hold exactly the same amount).
+function genLabyrinth(R) {
+  const N = MW * MH, M = MW / 2, DEG = D_PI / 180, BR = 94;
+  G.vents = []; G.sites = []; G.dkPos = []; G.monument = [M, M]; G.weather = null; G.ruins = null; G.crown = null; G.theme = 'frost';
+  const hsh = (a, b) => { let h = (Math.round(a * 2) * 374761393 + Math.round(b * 2) * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+  const canon = (u, v) => { let q = 0; while (!(u > 0 && v > 0)) { const t = u; u = v; v = -t; q++; } return [u, v, q]; }; // rotate by -90° until in the first quadrant
+  const ad = (t, t0) => { const d = (((t - t0) % 45) + 45) % 45; return Math.min(d, 45 - d); };
+  const arc = (r, t, t0) => r * ad(t, t0) * DEG;
+  // maze: rings [r0, r1, gate centre t (deg, 45° period, seat axis at t = 0), gate half-width tiles]; radial walls [r0, r1, t]
+  const RINGS = [[16, 19, 22.5, 2.8], [32, 35, 6, 3], [48, 51, -9, 3], [64, 67, 5, 3.5]];
+  const RADS = [[35, 48, 18], [51, 64, 30]];
+  const pol = (lx, ly) => [dhypot(BR + lx, ly), datan2(ly, BR + lx) / DEG]; // seat-local (radial out, tangential) -> polar
+  // ore fields: [r, t, radius, total (in 410-ore tiles), rich]
+  const F = [[...pol(6, -11), 2.2, 16, 0], [...pol(6, 11), 2.2, 16, 0], [...pol(-25, -14), 2.0, 13, 0],  // main x2, natural
+    [57.5, 24.5, 1.8, 13, 1], [41.5, -20, 1.8, 12, 1], [25.5, -13, 1.5, 8, 1], [10, 0, 1.2, 5, 1]];       // outpost room, middle pocket, ring road, core
+  const VENT = [pol(-4, -12), pol(-4, 12), pol(-21, -7), [41.5, -14.5], [11.5, 33]];                         // main x2, natural, middle pocket, core
+  const OUTPOST = [57.5, 15], DERRICK = [100.5, 22.5], LAKE = [84, 22.5, 6.5];
+  const img = (r, t, k) => [r * dcos((t + 45 * k) * DEG), r * dsin((t + 45 * k) * DEG)];
+  const fid = new Int16Array(N).fill(-1), fcnt = new Float64Array(F.length * 8);
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+    const i = idx(x, y), [cu, cv, q] = canon(x + 0.5 - M, y + 0.5 - M), r = dhypot(cu, cv), th = datan2(cv, cu) / DEG, t = th % 45;
+    const al = (t < 22.5 ? t : t - 45) * DEG, lx = r * dcos(al) - BR, ly = r * dsin(al), db = dhypot(lx, ly), ph = datan2(ly, lx);
+    let m = 0, lv = 0, fo = 0, ice = 0;
+    const wob = 0.55 * dsin(t * 8 * DEG * 3 + r * 0.23) + 0.35 * dsin(t * 8 * DEG * 7 + 1.3);
+    for (const [r0, r1, g, gw] of RINGS) if (r >= r0 + wob && r < r1 + wob && arc(r, t, g) > gw) m = 1;
+    for (const [r0, r1, tw] of RADS) if (r >= r0 - 1 && r < r1 + 1 && arc(r, t, tw) < 1.7 + 0.25 * wob) m = 1;
+    if (r < 64 && m === 0) ice = hsh(cu * 0.37 | 0, cv * 0.37 | 0) < 0.55 || r < 16 ? 1 : 0;     // frozen maze floor (visual)
+    if (r >= 67) {
+      lv = db < 11 ? 1 : Math.max(0, 1 - (db - 11) / 4);                                             // each base sits on a low plateau
+      const gap = Math.abs(ph) > D_PI - 0.5 || Math.abs(Math.abs(ph) - D_HPI) < 0.34;                 // crown gaps: inward + both neighbours
+      if (db > 16 && db < 18.2 && !gap) m = 1;                                                        // broken ice crown around each base
+      const ld = dhypot(r * dcos((t - 22.5) * DEG) - LAKE[0], r * dsin((t - 22.5) * DEG));
+      if (ld < LAKE[2] + 0.8 * dsin(t * 40 * DEG + r)) ice = 1;                                      // frozen lake between neighbours
+      if (ld > LAKE[2] + 1.5 && Math.abs(ld - LAKE[2] - 3) < 1.1 && Math.abs(ad(t, 22.5) * DEG * r) > 3) m = 1; // ice spires ringing the lake
+      if (r > 100 && db > 20 && dsin(t * 8 * DEG * 4 + r * 0.6) > 0.15) fo = 1;                       // snowy pines along the arena wall
+      if (r > 108.5 + 1.2 * dsin(t * 8 * DEG * 5 + 0.7)) m = 1;                                         // the arena's ice wall
+    }
+    G.map[i] = m; G.lvl[i] = lv; G.forest[i] = m ? 0 : fo; G.ice[i] = m ? 0 : ice; G.elev[i] = hsh(cu / 7 | 0, cv / 7 | 0) * 0.5 + hsh(cu / 3 | 0, cv / 3 | 0) * 0.5;
+    for (let f = 0; f < F.length && fid[i] < 0; f++) for (let k = -1; k <= 2; k++) { const [fu, fv] = img(F[f][0], F[f][1], k); if (dhypot(cu - fu, cv - fv) <= F[f][2] + 0.3) { fid[i] = f * 8 + (((k + 2 * q) % 8) + 8) % 8; fcnt[fid[i]]++; G.map[i] = 0; G.forest[i] = 0; G.ice[i] = 0; break; } }
+    for (const [vr, vt] of VENT) for (let k = -1; k <= 2; k++) { const [fu, fv] = img(vr, vt, k); if (dhypot(cu - fu, cv - fv) < 1.7) { G.map[i] = 0; G.forest[i] = 0; G.ice[i] = 0; } }
+    if (Math.abs(x + 0.5 - M) < 2 && Math.abs(y + 0.5 - M) < 2) { G.map[i] = 1; G.ice[i] = 0; }   // monument (4x4)
+  }
+  for (let i = 0; i < N; i++) if (fid[i] >= 0) { const f = F[fid[i] >> 3]; G.ore[i] = f[3] * (f[4] ? 540 : 410) * ORE_MULT / fcnt[fid[i]]; G.rich[i] = f[4]; }
+  // point features: 2 canonical images (seat-axis 0° and 45°), then exact 90° tile rotations (x, y) -> (W-1-y, x)
+  const rotT = ([x, y], n) => { for (let k = 0; k < n; k++) [x, y] = [MW - 1 - y, x]; return [x, y]; };
+  const pts = (r, t) => { const out = []; for (let s = 0; s < 2; s++) { const [u, v] = img(r, t, s); out.push([Math.floor(M + u), Math.floor(M + v)]); } const all = []; for (let n = 0; n < 4; n++) for (const p of out) all.push(rotT(p, n)); return all; };
+  // seats: canonical edge (93.5, 0.5) and corner (66.5, 66.5); order clockwise from the NW corner (sketch numbering)
+  const rotP = ([x, y], n) => { for (let k = 0; k < n; k++) [x, y] = [MW - y, x]; return [x, y]; };
+  const E0 = [M + 93.5, M + 0.5], C0 = [M + 66.5, M + 66.5]; // E (0°), SE (45°)
+  G.starts = [rotP(C0, 2), rotP(E0, 3), rotP(C0, 3), E0, C0, rotP(E0, 1), rotP(C0, 1), rotP(E0, 2)];
+  for (const [vr, vt] of VENT) for (const p of pts(vr, vt)) G.vents.push(p);
+  for (const [x, y] of G.starts) G.sites.push({ x, y, k: 'main' });
+  const site = (r, t, k) => { for (const [x, y] of pts(r, t)) G.sites.push({ x: x + 0.5, y: y + 0.5, k }); };
+  site(...pol(-22, -9), 'nat'); site(55.5, 20, 'mid'); site(41.5, -18, 'mid'); site(25.5, -8, 'mid');
+  G.sites.push({ x: M + 6.5, y: M + 0.5, k: 'mid' }, { x: M - 6.5, y: M + 0.5, k: 'mid' }, { x: M + 0.5, y: M + 6.5, k: 'mid' }, { x: M + 0.5, y: M - 6.5, k: 'mid' });
+  const NAMES = ['East', 'South-East', 'South', 'South-West', 'West', 'North-West', 'North', 'North-East'];
+  pts(...OUTPOST).forEach(([x, y], j) => G.dkPos.push([x, y, 'Ice Vault ' + NAMES[((j >> 1) * 2 + (j & 1)) % 8]]));
+  for (const p of pts(...DERRICK)) G.dkPos.push(p);
+  const disc = (cx, cy, rr, f) => { for (let y = Math.floor(cy - rr); y <= cy + rr; y++) for (let x = Math.floor(cx - rr); x <= cx + rr; x++) if (inb(x, y) && dhypot(x + 0.5 - cx, y + 0.5 - cy) <= rr) f(idx(x, y)); };
+  for (const [sx, sy] of G.starts) disc(sx, sy, 7.5, i => { if (!(G.ore[i] > 0)) { G.map[i] = 0; G.forest[i] = 0; G.ice[i] = 0; } });
+  // flood fill from start 0: walkable land nobody can reach becomes rock
+  const seen = new Uint8Array(N), st = [idx(Math.floor(G.starts[0][0]), Math.floor(G.starts[0][1]))]; seen[st[0]] = 1;
+  while (st.length) { const c = st.pop(), x = c % MW, y = (c / MW) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (!inb(nx, ny)) continue; const n = idx(nx, ny); if (!seen[n] && G.map[n] === 0) { seen[n] = 1; st.push(n); } } }
+  for (let i = 0; i < N; i++) { if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.ore[i] = 0; G.rich[i] = 0; } if (G.map[i] !== 0) { G.forest[i] = 0; G.ice[i] = 0; } G.tier[i] = Math.round(G.lvl[i]); }
+  G.six = true; G.oreMax = Float32Array.from(G.ore); G.mapName = 'labyrinth';
 }
 // v6.0 "Hindu Kush Hellgate" — 128x128 2v6 desert warzone. Team A (2 seats) holds a raised western valley
 // behind the Hindu Kush ridge; the ONLY way in is the 7-tile Hellgate canyon. Six warlord bases ring the eastern
