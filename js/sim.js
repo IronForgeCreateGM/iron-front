@@ -512,7 +512,7 @@ function genLabyrinth(R) {
     const wob = 0.55 * dsin(t * 8 * DEG * 3 + r * 0.23) + 0.35 * dsin(t * 8 * DEG * 7 + 1.3);
     for (const [r0, r1, g, gw] of RINGS) if (r >= r0 + wob && r < r1 + wob && arc(r, t, g) > gw) m = 1;
     for (const [r0, r1, tw] of RADS) if (r >= r0 - 1 && r < r1 + 1 && arc(r, t, tw) < 1.7 + 0.25 * wob) m = 1;
-    if (r < 64 && m === 0) ice = 2;                                                                // frozen maze floor (visual; edges trimmed below)
+    if (r < 64 && m === 0) ice = 2;                                                                // frozen maze floor (visual)
     if (r >= 67) {
       lv = db < 11 ? 1 : Math.max(0, 1 - (db - 11) / 4);                                             // each base sits on a low plateau
       const gap = Math.abs(ph) > D_PI - 0.5 || Math.abs(Math.abs(ph) - D_HPI) < 0.34;                 // crown gaps: inward + both neighbours
@@ -528,11 +528,8 @@ function genLabyrinth(R) {
     for (const [vr, vt] of VENT) for (let k = -1; k <= 2; k++) { const [fu, fv] = img(vr, vt, k); if (dhypot(cu - fu, cv - fv) < 1.7) { G.map[i] = 0; G.forest[i] = 0; G.ice[i] = 0; } }
     if (Math.abs(x + 0.5 - M) < 2 && Math.abs(y + 0.5 - M) < 2) { G.map[i] = 1; G.ice[i] = 0; }   // monument (4x4)
   }
-  // frozen maze floor: glossy ice everywhere in the corridors except a snowy 1-tile rim along the cliffs and around ore / vents
-  const ice2 = Uint8Array.from(G.ice); for (let y = 1; y < MH - 1; y++) for (let x = 1; x < MW - 1; x++) { const i = idx(x, y); if (ice2[i] !== 2) continue; let rim = 0;
-    for (let dy = -1; dy <= 1 && !rim; dy++) for (let dx = -1; dx <= 1; dx++) { const j = idx(x + dx, y + dy); if (G.map[j] !== 0 || fid[j] >= 0 || (ice2[j] === 0 && dhypot(x + 0.5 - M, y + 0.5 - M) < 60)) { rim = 1; break; } }
-    G.ice[i] = rim ? 0 : 1; }
-  for (let i = 0; i < N; i++) if (G.ice[i] === 2) G.ice[i] = 0;
+  // frozen maze floor: glossy ice sheet over every corridor tile up to the cliffs (ore fields and gas vents stay snow)
+  for (let i = 0; i < N; i++) if (G.ice[i] === 2) G.ice[i] = fid[i] >= 0 ? 0 : 1;
   for (let i = 0; i < N; i++) if (fid[i] >= 0) { const f = F[fid[i] >> 3]; G.ore[i] = f[3] * (f[4] ? 540 : 410) * ORE_MULT / fcnt[fid[i]]; G.rich[i] = f[4]; }
   // point features: 2 canonical images (seat-axis 0° and 45°), then exact 90° tile rotations (x, y) -> (W-1-y, x)
   const rotT = ([x, y], n) => { for (let k = 0; k < n; k++) [x, y] = [MW - 1 - y, x]; return [x, y]; };
