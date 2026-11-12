@@ -172,7 +172,7 @@ const NET = {
     this.mig = null;
     // the longest stream wins; a report must agree with what we already hold before we trust its extra turns
     const mine = new Map(); for (const [t, c] of this.log) if (c.length) mine.set(t, JSON.stringify(c)); for (const [t, c] of this.turns) if (c.length) mine.set(t, JSON.stringify(c));
-    let best = null; for (const p of want) { const r = M.reps[p]; if (!r || r.m <= this.maxTurn || r.lo > this.maxTurn) continue;
+    let best = null; for (const p of want) { const r = M.reps[p]; if (!r || r.m <= this.maxTurn || r.lo > this.maxTurn || r.m > this.maxTurn + 90) continue; // a real gap is a few ticks of in-flight turns; never trust a long made-up tail
       const theirs = new Map(r.tl.map(([t, c]) => [t, JSON.stringify(c)])); let agree = true;
       for (let t = r.lo + 1; t <= this.maxTurn && agree; t++) if ((mine.get(t) || '[]') !== (theirs.get(t) || '[]')) agree = false;
       if (agree && (!best || r.m > best.m)) best = r; }
