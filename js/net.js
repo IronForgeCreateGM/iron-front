@@ -108,13 +108,14 @@ const NET = {
   begin(tr, opts) {
     Object.assign(this, { online: true, offline: false, tr, hostPeer: opts.hostPeer, status: '', host: opts.host, me: opts.me, humans: opts.humans.slice(), peerTeam: Object.assign({}, opts.peerTeam || {}), teamPeer: {},
       DELAY: 4, turns: new Map(), pending: [], batch: [], hashes: new Map(), desync: null, log: [], dropped: new Set(), lastSent: 0, maxTurn: 0, upto: {}, cin: new Map(), unsent: [], dropQ: [],
-      rtt: {}, dl: {}, waitSince: {}, lastHeard: {}, syncAt: {}, syncN: {}, resyncs: 0, stats: { sent: 0, recv: 0, bytes: 0 }, gopts: JSON.parse(JSON.stringify(G.opts)) });
+      rtt: {}, dl: {}, waitSince: {}, lastHeard: {}, syncAt: {}, syncN: {}, resyncs: 0, stats: { sent: 0, recv: 0, bytes: 0 }, gopts: JSON.parse(JSON.stringify(G.opts)) , migrate: !!opts.migrate, selfPid: opts.selfPid || null, gone: new Set(), mig: null, migEarly: {}, migrations: 0 });
+    if (!this.host) { const gt = new Set(Object.values(this.peerTeam)); this.hostTeam = this.humans.find(h => !gt.has(h)); }
     for (const pid in this.peerTeam) this.teamPeer[this.peerTeam[pid]] = pid;
     for (let t = 1; t <= this.DELAY; t++) this.turns.set(t, []);
     this.maxTurn = this.DELAY;
     if (this.host) { this.lastSent = this.DELAY; for (const h of this.humans) this.upto[h] = this.DELAY; }
     const R = () => this.stats.recv++;
-    tr.on('in', (d, from) => { R(); if (!this.host || !d || typeof d !== 'object') return; const team = this.peerTeam[from]; if (team == null || this.dropped.has(team)) return;
+    tr.on('in', (d, from) => { R(); if (this.mig && this.mig.host && d && typeof d === 'object') { if (this.mig.inq.length < 64) this.mig.inq.push([d, from]); return; } if (!this.host || !d || typeof d !== 'object') return; const team = this.peerTeam[from]; if (team == null || this.dropped.has(team)) return;
       if (!netInt(d.t, 0, this.lastSent + 600) || (d.c != null && (!Array.isArray(d.c) || d.c.length > 256))) { NET_SEC.dropped++; return; } // v7.7.6
       const cmds = (d.c || []).filter(c => netValidCmd(c, false)); NET_SEC.dropped += (d.c || []).length - cmds.length; this.lastHeard[team] = this.now();
       if (Array.isArray(d.h) && netInt(d.h[0], 0, 1e8) && netInt(d.h[1], 0, 4294967295)) this._checkHash(d.h[0], d.h[1], team); this._addInput(team, d.t, cmds); });
@@ -130,10 +131,65 @@ const NET = {
     tr.on('desync', (d, from) => { R(); if (!this.host && d && (from == null || !this.hostPeer || from === this.hostPeer) && netInt(d.t, 0, 1e8) && netInt(d.team, 0, 15)) this.desync = { t: d.t, team: d.team }; });
     tr.on('sync', (d, from) => { R(); if (!this.host && (!this.hostPeer || from == null || from === this.hostPeer)) this._applySync(d); });
     tr.on('rejoin', (d, from) => { R(); if (this.host && d) this.rejoinReq(from, netSafeName(d.name)); });
-    tr.onLeave(pid => {
-      if (this.host) { const team = this.peerTeam[pid]; if (team != null && this.teamPeer[team] === pid) this._drop(team, 'disconnected'); }
-      else if (this.hostPeer === pid) this.goOffline('Host disconnected — continuing offline vs AI');
+    tr.on('mg', (d, from) => { R(); this._migReport(d, from); }); // v7.9.5 host migration: a guest's turn report for the new host
+    tr.onLeave(pid => { if (pid != null) this.gone.add(pid);
+      if (this.host) { const team = this.peerTeam[pid]; if (team != null && this.teamPeer[team] === pid) this._drop(team, 'disconnected'); if (this.mig && this.mig.host) this._migPoll(); }
+      else if (this.hostPeer === pid) { if (this.migrate) this._migStart(pid); else this.goOffline('Host disconnected — continuing offline vs AI'); }
     });
+  },
+  // ---- v7.9.5 host migration (Quick Match only, opts.migrate): when the host leaves mid-match and 2+ humans remain, they keep
+  // playing TOGETHER. Everyone elects the same new host (lowest remaining Game Center id). Guests send the new host a report of
+  // how far the old host's turn stream reached them (+ the recent turns); the new host takes the longest stream (all streams are
+  // prefixes of the same one), re-broadcasts the turns some guests missed, hands the old host's seat to the AI and carries on.
+  // A guest that still ends up out of step is repaired by the normal hash check -> resync. Room games keep "continue offline".
+  _migTail(from) { const out = []; for (const [t, c] of this.log) if (t > from && c.length) out.push([t, c]); for (const [t, c] of this.turns) if (t > from && t > G.tick && c.length) out.push([t, c]); return out; },
+  _migStart(oldPid) {
+    const oldTeam = this.peerTeam[oldPid] != null ? this.peerTeam[oldPid] : this.hostTeam;
+    const live = Object.keys(this.peerTeam).filter(p => !this.gone.has(p) && p !== oldPid && !this.dropped.has(this.peerTeam[p]));
+    if (!this.selfPid || !live.includes(this.selfPid) || live.length < 2) { this.goOffline('Host disconnected — continuing offline vs AI'); return; }
+    live.sort(); const nh = live[0], oldName = oldTeam != null && G.players[oldTeam] ? G.players[oldTeam].name : 'Host';
+    this.migrations++; this.hostPeer = nh; if (this.desync) this.desync = null;
+    if (nh === this.selfPid) {
+      this.mig = { host: true, old: oldPid, oldTeam, at: this.now(), want: live.filter(p => p !== nh), reps: {}, inq: [] };
+      for (const p in this.migEarly) this.mig.reps[p] = this.migEarly[p]; this.migEarly = {};
+      this.status = oldName + ' (host) left — you are the new host…'; if (typeof onNetMigrate === 'function') onNetMigrate(nh, true);
+      this._migPoll(); if (this.mig && typeof setTimeout === 'function') setTimeout(() => this._migPoll(true), 3000);
+    } else {
+      this.mig = null; this.status = oldName + ' (host) left — ' + (G.players[this.peerTeam[nh]] ? G.players[this.peerTeam[nh]].name : 'another player') + ' is the new host';
+      if (typeof onNetMigrate === 'function') onNetMigrate(nh, false);
+      const lo = Math.max(0, this.maxTurn - 300); this._send('mg', { m: this.maxTurn, k: G.tick, lo, tl: this._migTail(lo) }, nh);
+    }
+  },
+  _migReport(d, from) { // new host: a guest's report (may arrive before our own leave event)
+    if (!this.migrate || !d || typeof d !== 'object' || this.peerTeam[from] == null || !netInt(d.m, 0, 1e8) || !netInt(d.k, 0, 1e8) || !netInt(d.lo, 0, 1e8) || d.k > d.m || d.lo > d.m || !Array.isArray(d.tl) || d.tl.length > 400) { NET_SEC.dropped++; return; }
+    for (const e of d.tl) { if (!Array.isArray(e) || e.length !== 2 || !netInt(e[0], d.lo + 1, d.m) || !Array.isArray(e[1]) || e[1].length > 256) { NET_SEC.dropped++; return; }
+      for (const x of e[1]) if (!Array.isArray(x) || x.length !== 2 || !netInt(x[0], 0, 15) || !netValidCmd(x[1], true)) { NET_SEC.dropped++; return; } }
+    if (this.mig && this.mig.host) { this.mig.reps[from] = d; this._migPoll(); } else if (!this.host) this.migEarly[from] = d;
+  },
+  _migPoll(force) {
+    const M = this.mig; if (!M || !M.host) return; const want = M.want.filter(p => !this.gone.has(p));
+    if (!force && want.some(p => !M.reps[p]) && this.now() - M.at < 3000) return;
+    this.mig = null;
+    // the longest stream wins; a report must agree with what we already hold before we trust its extra turns
+    const mine = new Map(); for (const [t, c] of this.log) if (c.length) mine.set(t, JSON.stringify(c)); for (const [t, c] of this.turns) if (c.length) mine.set(t, JSON.stringify(c));
+    let best = null; for (const p of want) { const r = M.reps[p]; if (!r || r.m <= this.maxTurn || r.lo > this.maxTurn) continue;
+      const theirs = new Map(r.tl.map(([t, c]) => [t, JSON.stringify(c)])); let agree = true;
+      for (let t = r.lo + 1; t <= this.maxTurn && agree; t++) if ((mine.get(t) || '[]') !== (theirs.get(t) || '[]')) agree = false;
+      if (agree && (!best || r.m > best.m)) best = r; }
+    if (best) { const T = new Map(best.tl); for (let t = this.maxTurn + 1; t <= best.m; t++) if (t > G.tick) this.turns.set(t, (T.get(t) || []).map(([a, b]) => [a, b])); this.maxTurn = best.m; }
+    // become the host
+    const now = this.now(); this.host = true; this.lastSent = this.maxTurn; this.cin = new Map(); this.unsent = []; this.hashes = new Map(); this.waitSince = {}; this.syncAt = {}; this.syncN = {}; this.rtt = {}; this.dl = {};
+    this.teamPeer = {}; for (const pid in this.peerTeam) if (!this.gone.has(pid)) this.teamPeer[this.peerTeam[pid]] = pid;
+    if (M.oldTeam != null) this._drop(M.oldTeam, 'left'); for (const p of M.want) if (this.gone.has(p)) this._drop(this.peerTeam[p], 'disconnected');
+    for (const h of this._need()) { this.upto[h] = this.lastSent + this.DELAY; this.lastHeard[h] = now; }
+    // resend everything any guest may have missed (from the shortest reported stream), then the fresh lead-in turns
+    let lo = this.maxTurn; for (const p of want) { const r = M.reps[p]; lo = Math.min(lo, r ? r.m : Math.max(0, this.maxTurn - 300)); } lo = Math.max(lo, this.maxTurn - 300, 0);
+    const old = new Map(this.log); for (const [t, c] of this.turns) old.set(t, c);
+    const re = []; for (let t = lo + 1; t <= this.lastSent; t++) re.push([t, old.get(t) || []]);
+    this._tryFinalize(); this.unsent = re.concat(this.unsent); this._flush();
+    this.status = (M.oldTeam != null && G.players[M.oldTeam] ? G.players[M.oldTeam].name.replace(/ \(AI\)$/, '') : 'The host') + ' left — you are the new host (AI took their seat)';
+    for (const [d, from] of M.inq) { const team = this.peerTeam[from]; if (team == null || this.dropped.has(team) || !netInt(d.t, 0, this.lastSent + 600) || (d.c != null && (!Array.isArray(d.c) || d.c.length > 256))) continue;
+      this._addInput(team, d.t, (d.c || []).filter(c => netValidCmd(c, false))); }
   },
   _need() { return this.humans.filter(h => !this.dropped.has(h)); },
   _drop(team, why) { if (this.dropped.has(team)) return; this.dropped.add(team); this.dropQ.push({ c: 'drop', p: team, diff: 'normal' }); delete this.waitSince[team];

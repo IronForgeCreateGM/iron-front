@@ -69,20 +69,21 @@ function onlJoinRoom(code) {
 //  - each handler runs inside try/catch: a malformed message is dropped and never crashes the game
 // limits: [max JSON chars, refill per second, burst, 'H' = host-only]
 const ONL_LIMITS = { lobby: [65536, 20, 40, 'H'], hello: [2048, 2, 6], ready: [256, 5, 10], pref: [512, 5, 10], chat: [1024, 3, 6], start: [4194304, 2, 4, 'H'], kick: [4096, 2, 4, 'H'],
-  in: [262144, 60, 150], turn: [1048576, 90, 300, 'H'], hash: [512, 10, 20], desync: [512, 2, 4, 'H'], pg: [256, 5, 10, 'H'], po: [256, 5, 10], sync: [33554432, 2, 4, 'H'], rejoin: [1024, 2, 4] };
+  in: [262144, 60, 150], mg: [262144, 2, 4], turn: [1048576, 90, 300, 'H'], hash: [512, 10, 20], desync: [512, 2, 4, 'H'], pg: [256, 5, 10, 'H'], po: [256, 5, 10], sync: [33554432, 2, 4, 'H'], rejoin: [1024, 2, 4] };
 const ONL_SEC = { dropped: 0, errors: 0, rate: {}, why: {} };
 function onlSecDrop(why) { ONL_SEC.dropped++; ONL_SEC.why[why] = (ONL_SEC.why[why] || 0) + 1; return false; }
 function onlAccept(name, d, pid) {
   const L = ONL_LIMITS[name]; if (!L || !Object.prototype.hasOwnProperty.call(ONL_LIMITS, name)) return onlSecDrop('type');
   if (d == null || typeof d !== 'object' || Array.isArray(d)) return onlSecDrop('shape');
   if (ONL.host) { if (L[3] === 'H') return onlSecDrop('hostonly'); }
-  else if (ONL.hostLock) { if (pid !== ONL.hostLock) return onlSecDrop('nothost'); } // locked once the host admitted us (or the match started)
+  else if (ONL.hostLock) { if (pid !== ONL.hostLock && !(name === 'mg' && ONL.started && ONL.peers[pid])) return onlSecDrop('nothost'); } // v7.9.5: a migration report may reach the next host just before it learns the old host left // locked once the host admitted us (or the match started)
   else if (!(name === 'lobby' || name === 'kick' || name === 'sync' || (name === 'chat' && pid === ONL.hostId))) return onlSecDrop('nohost');
   const now = Date.now(), k = pid + '|' + name, b = ONL_SEC.rate[k] || (ONL_SEC.rate[k] = { t: now, v: L[2] });
   b.v = Math.min(L[2], b.v + (now - b.t) / 1000 * L[1]); b.t = now; if (b.v < 1) return onlSecDrop('rate'); b.v -= 1;
   let n = 0; try { n = JSON.stringify(d).length; } catch (e) { return onlSecDrop('json'); } if (n > L[0]) return onlSecDrop('size');
   return true;
 }
+function onNetMigrate(nh, amHost) { ONL.hostId = nh; if (amHost) { ONL.host = true; ONL.hostLock = null; } else { ONL.host = false; ONL.hostLock = nh; } if (typeof QM !== 'undefined' && QM.state === 'started') QM.hostId = nh; } // v7.9.5 Quick Match host migration
 function onlDispatch(name, d, pid) { const h = ONL.handlers[name]; if (!h || !onlAccept(name, d, pid)) return;
   try { h(d, pid); } catch (e) { ONL_SEC.errors++; console.warn('[online] dropped a malformed ' + name + ' message', e && e.message); } }
 // v7.7.6: "Hide my IP" = relay-only. No WebRTC (direct peer-to-peer) connection is ever opened, so other players never see
@@ -217,7 +218,7 @@ function onlBegin(o) {
   ONL.leaveCbs = []; // fresh leave handlers for this match (NET.begin will re-register)
   if (o.me == null) { onlStatus('You were not assigned a slot.'); return; }
   audioInit(); document.getElementById('menu').style.display = 'none';
-  startGame('normal', { slots: o.slots, seed: o.seed, me: o.me, map: o.map, cmap: o.cmap, peace: o.peace, fog: o.fog !== false, online: { tr: onlTransport, host: o.host, me: o.me, humans: o.humans, peerTeam: o.peerTeam, hostPeer: o.hostPeer } });
+  startGame('normal', { slots: o.slots, seed: o.seed, me: o.me, map: o.map, cmap: o.cmap, peace: o.peace, fog: o.fog !== false, online: { tr: onlTransport, host: o.host, me: o.me, humans: o.humans, peerTeam: o.peerTeam, hostPeer: o.hostPeer, migrate: !!o.migrate, selfPid: o.selfPid || null } });
   announce('Online match — lockstep ' + NET.DELAY + ' ticks', 'net0', 1);
 }
 function onlInitUI() {

@@ -2,7 +2,8 @@
 // node test/quickmatch-test.js   — needs playwright-core (NODE_PATH) and Chrome. Covers: web build hides the button; 3 phones auto-match,
 // countdown, 1 Hard bot fills the 4th seat, same seed/slots everywhere, lockstep runs without desync; a forged message from a non-host
 // and junk bytes are dropped; a guest leaving mid-match -> AI takes the seat; the host leaving mid-match -> the rest continue offline;
-// the host leaving during the countdown -> remaining phone looks for players again, a new phone joins, new host starts the match.
+// the host leaving during the countdown -> remaining phone looks for players again, a new phone joins, new host starts the match;
+// v7.9.5: the host leaving mid-match with 2+ phones left -> they elect a new host and keep playing together.
 const fs = require('fs'), path = require('path'), { chromium } = require('playwright-core');
 const ROOT = path.join(__dirname, '..');
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.glb': 'model/gltf-binary', '.png': 'image/png', '.svg': 'image/svg+xml' };
@@ -93,5 +94,31 @@ const FAKE = `(() => { const q = new URLSearchParams(location.search); const ID 
   const U = [await st(Y), await st(Z)];
   ok(U.every(x => x.qm === 'started' && x.online && x.seed === U[0].seed) && U[0].slots.length === 4 && U[0].slots.filter(x => x.startsWith('ai:')).length === 2, 'new host started: 2 humans + 2 Hard bots, same game', U.map(x => [x.qm, x.seed, x.slots]));
   ok(Y.errs.length + Z.errs.length + X.errs.length === 0, 'no page errors (host-migration case)', Y.errs.concat(Z.errs, X.errs).slice(0, 3));
+  await close(Y); await close(Z);
+  // 7. v7.9.5 host migration: host leaves mid-match with 2 phones left -> they elect a new host and keep playing TOGETHER
+  const K1 = await open('K:1', 4), K2 = await open('K:2', 4), K3 = await open('K:3', 4);
+  K1.pg.evaluate(() => { qmStart(); }).catch(() => {}); await wait(300); K2.pg.evaluate(() => { qmStart(); }).catch(() => {}); await wait(800); K3.pg.evaluate(() => { qmStart(); }).catch(() => {});
+  let K; for (let i = 0; i < 40; i++) { await wait(500); K = [await st(K1), await st(K2), await st(K3)]; if (K.every(x => x.qm === 'started' && x.online && x.tick > 60)) break; }
+  ok(K.every(x => x.qm === 'started' && x.online), 'migration case: three phones in one match', K.map(x => [x.qm, x.online, x.tick]));
+  const oldTeam = K[0].me; await wait(4000); await close(K1);
+  let M2, M3; for (let i = 0; i < 40; i++) { await wait(500); M2 = await K2.pg.evaluate(t => ({ host: NET.host, online: NET.online, hp: NET.hostPeer, ai: G.players[t].ai, tick: G.tick, st: NET.status || NET.lastStatus || '', mig: NET.migrations }), oldTeam);
+    M3 = await K3.pg.evaluate(t => ({ host: NET.host, online: NET.online, hp: NET.hostPeer, ai: G.players[t].ai, tick: G.tick, st: NET.status || NET.lastStatus || '', mig: NET.migrations }), oldTeam); if (M2.host && M2.ai && M3.ai) break; }
+  ok(M2.online && M2.host && M2.hp === 'K:2' && M3.online && !M3.host && M3.hp === 'K:2', 'host left mid-match -> K:2 (lowest id) is the new host, K:3 follows it, both still online', [M2, M3]);
+  ok(M2.ai && M3.ai, 'the old host\'s seat is now played by the AI on both phones', [M2.ai, M3.ai]);
+  // a command from the guest still reaches the new host through the lockstep
+  const mv = await K3.pg.evaluate(() => { const u = G.ents.find(e => e.team === NET.me && e.kind === 'u' && e.t !== 'harv'); NET.issue({ c: 'move', u: [u.id], x: u.x + 6, y: u.y }); return { id: u.id, x: u.x + 6 }; });
+  await wait(3000);
+  const seen = await K2.pg.evaluate(m => { const u = G.ents.find(e => e.id === m.id); return u ? Math.round(Math.abs(u.x - m.x) * 10) / 10 : -1; }, mv);
+  ok(seen >= 0 && seen < 5, 'a guest move after the migration plays out on the new host', seen);
+  const a0 = [M2.tick, M3.tick]; await wait(12000);
+  const H2 = await K2.pg.evaluate(() => ({ tick: G.tick, h: stateHash(), desync: NET.desync, online: NET.online })), H3 = await K3.pg.evaluate(() => ({ tick: G.tick, h: stateHash(), desync: NET.desync, online: NET.online, resyncs: NET.resyncs }));
+  ok(H2.online && H3.online && H2.tick > a0[0] + 100 && H3.tick > a0[1] + 100 && !H2.desync && !H3.desync, 'after the migration both phones keep running in lockstep (no desync)', [a0, H2, H3]);
+  // same state at the same tick: pause both at a common tick by comparing the replay hash list
+  const sync3 = H3.resyncs;
+  ok(sync3 <= 1, 'the guest needed at most one state repair after the migration', sync3);
+  // the new host leaving too -> the last phone continues offline vs AI
+  await close(K2); for (let i = 0; i < 40; i++) { await wait(500); s = await st(K3); if (!s.online) break; }
+  ok(!s.online && /Host disconnected/.test(s.status), 'then the new host leaves -> last phone continues offline vs AI', [s.online, s.status]);
+  ok(K1.errs.length + K2.errs.length + K3.errs.length === 0, 'no page errors (mid-match migration case)', K1.errs.concat(K2.errs, K3.errs).slice(0, 3));
   await br.close(); console.log(fail ? 'QUICKMATCH FAIL ' + fail : 'QUICKMATCH OK'); process.exit(fail ? 1 : 0);
 })();

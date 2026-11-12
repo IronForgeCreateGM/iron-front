@@ -3,7 +3,8 @@
 // The web build never shows this (no native bridge there) and keeps the normal Host / Join room codes.
 // Everything after matchmaking reuses the existing online stack unchanged: messages go through onlDispatch -> onlAccept
 // (v7.7.6 size caps, per-player rate limits, host lock, host-only types, try/catch) and the host's 'start' package passes
-// onlValidStart; the lockstep (NET), drop-to-AI and "host left -> continue offline vs AI" behave exactly as in a room game.
+// onlValidStart; the lockstep (NET) and drop-to-AI behave exactly as in a room game. v7.9.5: if the host leaves mid-match and 2+ humans
+// remain, they elect a new host (lowest id) and keep playing together (NET host migration); a lone survivor continues offline vs AI.
 //
 // Native bridge (Capacitor plugin "IronGameCenter", see ios-plugin/ and GAME-CENTER.md). All methods return Promises:
 //   authenticate()                          -> { playerId, alias }          (GKLocalPlayer.local, shows Apple's sign-in sheet if needed)
@@ -104,7 +105,7 @@ function qmGo(d, host) {
   clearInterval(QM.iv); QM.state = 'started'; ONL.started = true; ONL.hostId = d.host; if (!host) ONL.hostLock = d.host;
   for (const id of Object.keys(d.peerTeam)) ONL.peers[id] = { name: (QM.hello[id] || {}).name || (QM.players[id] || {}).alias || 'Player', row: d.peerTeam[id] };
   qmUi('');
-  onlBegin({ seed: d.seed, slots: d.slots, me: host ? d.me : d.peerTeam[QM.me], humans: d.humans, peerTeam: d.peerTeam, host, hostPeer: d.host, map: d.map, cmap: null, peace: d.peace, fog: d.fog !== false });
+  onlBegin({ seed: d.seed, slots: d.slots, me: host ? d.me : d.peerTeam[QM.me], humans: d.humans, peerTeam: d.peerTeam, host, hostPeer: d.host, map: d.map, cmap: null, peace: d.peace, fog: d.fog !== false, migrate: true, selfPid: QM.me }); // v7.9.5: host leaves -> the rest elect a new host and keep playing together
 }
 function qmCancel(msg) { const st = QM.state; clearInterval(QM.iv); QM.state = 'idle'; QM.players = {}; QM.hello = {}; QM.hostId = null; ONL.hostLock = null; ONL.host = false;
   if (QM.bridge && st !== 'idle') { try { const p = QM.bridge.stopSearch(); if (p && p.catch) p.catch(() => {}); } catch (e) {} try { const p = QM.bridge.disconnect(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
