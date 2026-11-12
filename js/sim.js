@@ -478,7 +478,7 @@ function genDeltaKings(R) {
   for (let i = 0; i < N; i++) { if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.ore[i] = 0; G.rich[i] = 0; G.ford[i] = 0; G.bridge[i] = 0; } if (G.map[i] !== 0) { G.forest[i] = 0; G.ford[i] = 0; G.bridge[i] = 0; } G.tier[i] = Math.round(G.lvl[i]); }
   G.six = true; G.oreMax = Float32Array.from(G.ore); G.mapName = 'deltakings';
 }
-// v7.9.2 "Frozen Labyrinth" — 224×224 8-player FFA, frost. Eight bases on a ring (4 corners + 4 edge centres) inside a
+// v7.9.3 "Frozen Labyrinth" — 224×224 8-player FFA, frost. Eight bases on a ring (4 corners + 4 edge centres) inside a
 // circular ice-cliff arena; the middle of the map is a labyrinth of four concentric ice-cliff rings. Each seat owns a spiral
 // lane in: outer gate → outer corridor (dead end: an outpost room with rich ore) → middle corridor (dead end: rich ore +
 // gas pocket) → the shared inner ring road (rich ore) → the core (monument, rich ore, gas). Lanes only meet in the inner ring

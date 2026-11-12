@@ -1,4 +1,4 @@
-// v7.9.2 Frozen Labyrinth: layout checks (exact 4-fold rotation symmetry, fair seats, reachability, maze dead ends) + 8 Hard (si2) bots FFA.
+// v7.9.3 Frozen Labyrinth: layout checks (exact 4-fold rotation symmetry, fair seats, reachability, maze dead ends) + 8 Hard (si2) bots FFA.
 // node test/labyrinth-test.js [seed] [minutes]   (minutes 0 = layout only)
 const fs = require('fs'), vm = require('vm'), path = require('path');
 vm.runInThisContext(['data.js', 'sim.js', 'ai.js'].map(f => fs.readFileSync(path.join(__dirname, '../js', f), 'utf8')).join('\n') + '\nglobalThis.A={newGame,stepGame,get G(){return G},get MW(){return MW}};');
