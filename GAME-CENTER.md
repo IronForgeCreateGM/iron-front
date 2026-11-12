@@ -14,7 +14,7 @@ The Online menu shows one button, **⚡ Quick Match (Game Center)**. When a play
 5. If someone leaves:
    - **Before the start:** a new host is picked automatically and the countdown gets 10 extra seconds. If only one player is left, the game goes back to searching.
    - **A player leaves during the match:** a bot takes over their seat. This is the same as room games.
-   - **The host leaves during the match:** everyone else keeps playing offline against bots. This is also the same as room games.
+   - **The host leaves during the match (v7.9.5):** if 2 or more players are still in, they keep playing **together**. The phone with the lowest Game Center id becomes the new host within about a second, any turns some phones missed are re-sent, and a bot takes over the old host's seat. If the new host leaves too, the same thing happens again. If only one player is left, they keep playing offline against bots. Room games (web Host/Join) still continue offline when the host leaves.
 
 **Security:** every message from another phone goes through the same v7.7.6 checks as room games: size caps, rate limits, host-only messages, and start/command validation.
 
