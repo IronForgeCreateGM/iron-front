@@ -15,8 +15,8 @@ function foe(a, b) { if (a === b) return false; if (a == null || b == null) retu
 // Hellgate is the one team-sided map: spots 1-2 are Team A's valley seats, 3-8 the Team B warlord bases. A row whose spot is on the other
 // team's side (or whose spot does not exist on the map) takes the lowest free spot on its own side instead; the lobby shows "N→M" for it.
 // Endless: defenders sit at spots 1-4 by row (solo = the centre base), the Horde is east. Pure + deterministic (host computes it, peers get the result).
-const SEAT_ORDER = { classic: [0, 3, 2, 1, 4, 5], frost: [0, 3, 2, 1, 4, 5], volcano: [0, 3, 2, 1, 4, 5], volcano8: [0, 3, 2, 1, 4, 5, 6, 7], razorwheel: [0, 1, 2, 3, 4, 5, 6, 7], shatteredmoon: [0, 1, 2, 3, 4, 5, 6, 7], deltakings: [0, 1, 2, 3, 4, 5, 6, 7], labyrinth: [0, 1, 2, 3, 4, 5, 6, 7], hellgate: [0, 1, 2, 3, 4, 5, 6, 7], endless: [0, 1, 2, 3], custom: [0, 1, 2, 3, 4, 5, 6, 7] }; // v7.7 custom (map builder) maps: spot N = the builder's spawn N
-function seatMap(map, n) { return map !== 'hellgate' && map !== 'endless' && map !== 'custom' && map !== 'razorwheel' && map !== 'shatteredmoon' && map !== 'deltakings' && map !== 'labyrinth' && n > 6 ? 'volcano8' : SEAT_ORDER[map] ? map : 'classic'; }
+const SEAT_ORDER = { classic: [0, 3, 2, 1, 4, 5], frost: [0, 3, 2, 1, 4, 5], volcano: [0, 3, 2, 1, 4, 5], volcano8: [0, 3, 2, 1, 4, 5, 6, 7], razorwheel: [0, 1, 2, 3, 4, 5, 6, 7], shatteredmoon: [0, 1, 2, 3, 4, 5, 6, 7], deltakings: [0, 1, 2, 3, 4, 5, 6, 7], labyrinth: [0, 1, 2, 3, 4, 5, 6, 7], riftcanyon: [0, 1, 2, 3, 4, 5, 6, 7], hellgate: [0, 1, 2, 3, 4, 5, 6, 7], endless: [0, 1, 2, 3], custom: [0, 1, 2, 3, 4, 5, 6, 7] }; // v7.7 custom (map builder) maps: spot N = the builder's spawn N
+function seatMap(map, n) { return map !== 'hellgate' && map !== 'endless' && map !== 'custom' && map !== 'razorwheel' && map !== 'shatteredmoon' && map !== 'deltakings' && map !== 'labyrinth' && map !== 'riftcanyon' && n > 6 ? 'volcano8' : SEAT_ORDER[map] ? map : 'classic'; }
 function seatSide(map, k) { return map === 'hellgate' ? (k < 2 ? 0 : 1) : null; } // start index -> required ally (null = any team may sit there)
 function seatPlan(map, rows, ns) { // rows: [{ row, ally }] (active lobby rows, in order) -> start index per row (ns = spawn count of a custom map)
   map = seatMap(map, rows.length); const order = map === 'custom' ? SEAT_ORDER.custom.slice(0, ns || 8) : SEAT_ORDER[map], taken = new Set(), out = rows.map(() => null);
@@ -34,7 +34,7 @@ function newGame(opts) {
   // slots: [{ ai, diff, ally, fac, start }]; default 1v1 from legacy opts
   const slots = opts.slots || [0, 1].map(t => ({ ai: opts.aiTeams.includes(t), diff: t === 0 && opts.p0diff ? opts.p0diff : opts.diff, ally: t, fac: (opts.facs || [])[t], start: t ? 3 : 0 }));
   if (opts.map === 'custom' && !(opts.cmap && opts.cmap.w && Array.isArray(opts.cmap.starts) && opts.cmap.starts.length)) opts.map = 'classic'; // v7.7 map builder: a custom map travels inside opts (replays/online carry it)
-  const HG = opts.map === 'hellgate', EN = opts.map === 'endless', CU = opts.map === 'custom', RW = opts.map === 'razorwheel', SM = opts.map === 'shatteredmoon', DK = opts.map === 'deltakings', LB = opts.map === 'labyrinth'; MW = MH = CU ? cmapSize(opts.cmap) : SM || DK || LB ? 224 : HG ? 128 : RW ? 96 : EN ? 96 : (opts.map === 'volcano8' || slots.length > 6) ? 112 : 96; if (slots.length > 6 && !HG && !CU && !RW && !SM && !DK && !LB) opts.map = 'volcano8';
+  const HG = opts.map === 'hellgate', EN = opts.map === 'endless', CU = opts.map === 'custom', RW = opts.map === 'razorwheel', SM = opts.map === 'shatteredmoon', DK = opts.map === 'deltakings', LB = opts.map === 'labyrinth' || opts.map === 'riftcanyon'; MW = MH = CU ? cmapSize(opts.cmap) : SM || DK || LB ? 224 : HG ? 128 : RW ? 96 : EN ? 96 : (opts.map === 'volcano8' || slots.length > 6) ? 112 : 96; if (slots.length > 6 && !HG && !CU && !RW && !SM && !DK && !LB) opts.map = 'volcano8';
   const NP = slots.length;
   // every player gets its own start corner (guards against duplicate/missing starts from any lobby path)
   if (EN) { /* endlessSlots() already seated everyone */ }
@@ -81,7 +81,7 @@ function newGame(opts) {
 // 96x96 four-fold mirrored map: mains in corners (cliff ring + 2 ramps), two naturals each,
 // contested mid bases with rich (gold) fields, central monument, river with 4 bridges, forests.
 function genMap(R) {
-  G.mapName = G.opts.map || 'classic'; G.v8 = G.mapName === 'volcano8'; if (G.v8) G.mapName = 'volcano'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R); if (G.mapName === 'hellgate') return genHellgate(R); if (G.mapName === 'endless') return genEndless(R); if (G.mapName === 'custom') return genUserMap(R); if (G.mapName === 'razorwheel') return genRazorwheel(R); if (G.mapName === 'shatteredmoon') return genShatteredMoon(R); if (G.mapName === 'deltakings') return genDeltaKings(R); if (G.mapName === 'labyrinth') return genLabyrinth(R);
+  G.mapName = G.opts.map || 'classic'; G.v8 = G.mapName === 'volcano8'; if (G.v8) G.mapName = 'volcano'; if (G.mapName === 'volcano' || G.mapName === 'frost') return genCustom(R); if (G.mapName === 'hellgate') return genHellgate(R); if (G.mapName === 'endless') return genEndless(R); if (G.mapName === 'custom') return genUserMap(R); if (G.mapName === 'razorwheel') return genRazorwheel(R); if (G.mapName === 'shatteredmoon') return genShatteredMoon(R); if (G.mapName === 'deltakings') return genDeltaKings(R); if (G.mapName === 'labyrinth') return genLabyrinth(R); if (G.mapName === 'riftcanyon') return genRiftCanyon(R);
   const N = MW * MH, Q = MW / 2, gs = 8, gw = MW / gs + 2;
   const mk = () => { const a = []; for (let i = 0; i < gw * gw; i++) a.push(R()); return a; };
   const g1 = mk(), g2 = mk(), g3 = mk();
@@ -514,6 +514,87 @@ function genLabyrinth(R) {
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (!inb(nx, ny)) continue; const n = idx(nx, ny); if (!seen[n] && G.map[n] === 0) { seen[n] = 1; st.push(n); } } }
   for (let i = 0; i < N; i++) { if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.ore[i] = 0; G.rich[i] = 0; } if (G.map[i] !== 0) { G.forest[i] = 0; G.ice[i] = 0; } G.tier[i] = Math.round(G.lvl[i]); }
   G.six = true; G.oreMax = Float32Array.from(G.ore); G.mapName = 'labyrinth';
+}
+// v7.9.4 "Rift Canyon" — 224×224 8-player FFA, desert. A huge lava-floored canyon cuts diagonally across the whole map
+// (NW → SE, gently meandering). Four bases sit on raised mesas on each side, staggered in a zigzag so no two players face
+// each other head on. Four narrow cooled-rock crossings span the lava river, one ramp per seat leads down the canyon wall,
+// and the canyon floor holds the gas, rich ore, derricks and two Rift Outposts — the best resources mean leaving the high
+// ground. Built on canonical canyon coords (s along, e across from the meandering centre line); the half e < 0 is the
+// exact 180° image of e > 0, so every spot has a twin on the other side (exact point symmetry on the tile grid).
+function genRiftCanyon(R) {
+  const N = MW * MH, M = MW / 2, S2 = Math.SQRT1_2;
+  G.vents = []; G.sites = []; G.dkPos = []; G.monument = null; G.weather = null; G.ruins = null; G.crown = null; G.desert = true; G.theme = 'desert';
+  G.lpit = new Uint8Array(N); G.deco = { wr: [12, 12, MW - 24, MH - 24], fixed: [], nests: [] };
+  const hsh = (a, b) => { let h = (Math.round(a * 2) * 374761393 + Math.round(b * 2) * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+  const vn = (a, b, sc, o) => { a = a / sc + o; b = b / sc + o * 1.7; const ai = Math.floor(a), bi = Math.floor(b), fa = a - ai, fb = b - bi, sa = fa * fa * (3 - 2 * fa), sb = fb * fb * (3 - 2 * fb);
+    return (hsh(ai, bi) * (1 - sa) + hsh(ai + 1, bi) * sa) * (1 - sb) + (hsh(ai, bi + 1) * (1 - sa) + hsh(ai + 1, bi + 1) * sa) * sb; };
+  const C = s => 7 * dsin(s * 0.03);                                   // canyon centre line offset (odd in s -> point symmetric)
+  const WF = s => 20 + 1.5 * dcos(s * 0.07);                            // canyon floor half-width (even in s)
+  const RV = s => 5.2 + 0.9 * dsin(s * 0.21) * dsin(s * 0.21);          // lava river half-width
+  const SEATS = [-84, -36, 12, 60], E0 = 42, EMAX = 76;                  // canonical-side seats (s, e = E0); the other four are their 180° twins
+  const CROSS = [-72, -24, 24, 72], RAMP = 7;                            // crossings (both halves) sit 12 tiles 'ahead' of each seat; ramp 7 ahead
+  // features in canonical (s, e): [s, e, radius, total (410-ore tiles), rich]
+  const F = [], VENT = [], DER = [];
+  for (const S of SEATS) {
+    F.push([S - 5.5, E0 + 9, 2.2, 16, 0], [S + 5.5, E0 + 9, 2.2, 16, 0]);   // main x2 behind the HQ
+    F.push([S + 13, E0 + 19, 2.0, 13, 0]);                                    // natural on the plateau
+    F.push([S - 5, 13.5, 1.8, 12, 1]);                                        // canyon pocket under the mesa (rich)
+    VENT.push([S - 10, E0 - 1], [S + 10, E0 - 1], [S + 19, E0 + 14], [S - 12, 11], [S + 1, 10.5]); // main x2, natural, canyon pocket x2
+    DER.push([S + 12, 11]);                                                   // derrick beside the crossing
+  }
+  F.push([0, 14, 1.6, 9, 1]);                                                 // centre floor (rich), between the two middle seats
+  const OUTPOST = [0, 9.5];
+  const canon = (u, v) => { let s = (u + v) * S2, d = (v - u) * S2, e = d - C(s); if (e < 0) { s = -s; e = -e; } return [s, e]; };
+  const fid = new Int16Array(N).fill(-1), fcnt = new Float64Array(F.length * 2);
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+    const i = idx(x, y), u = x + 0.5 - M, v = y + 0.5 - M, [s, e] = canon(u, v), half = (v - u) * S2 - C((u + v) * S2) >= 0 ? 0 : 1;
+    let m = 0, lv = 1, pit = 0, lava = 0; const wf = WF(s), as = Math.abs(s);
+    // nearest seat on this half (for mesa + crown)
+    let bs = SEATS[0], bd = 1e9; for (const S of SEATS) { const d = dhypot(s - S, e - E0); if (d < bd) { bd = d; bs = S; } }
+    if (e < wf) {                                                                                   // canyon floor
+      lv = 0; const cr = CROSS.some(X => Math.abs(s - X) < 2.4 + 0.3 * dsin(e * 1.3));
+      if (e < RV(s) && !cr) { m = 1; pit = 1; lava = 1; }                                          // the lava river (blocked)
+      if (as > 112) { m = 1; pit = 1; lava = 1; }                                                  // the rift's far ends are all lava
+      if (!m && e > RV(s) + 1.5 && vn(s, e, 3.2, 7) > 0.8 && Math.min(...F.map(f => dhypot(s - f[0], e - f[1]) - f[2]), ...VENT.map(p => dhypot(s - p[0], e - p[1])), ...DER.map(p => dhypot(s - p[0], e - p[1])), ...CROSS.map(X => Math.abs(s - X) - 2), dhypot(s - OUTPOST[0], e - OUTPOST[1])) > 4) { m = 1; pit = 1; lava = 1; } // small lava pools on the floor
+    } else if (e < wf + 3.4) {                                                                      // canyon wall
+      const rmp = SEATS.some(S => Math.abs(s - (S + RAMP)) < 2.6);
+      if (rmp && as <= 112) { lv = Math.max(0, Math.min(1, (e - wf + 1) / 5.4)); } else { m = 1; lv = 1; }
+    } else {                                                                                        // plateau
+      if (e < wf + 6) { const rmp = SEATS.some(S => Math.abs(s - (S + RAMP)) < 2.6); if (rmp) lv = Math.max(0, Math.min(1, (e - wf + 1) / 5.4)); }
+      if (bd < 11) lv = 2; else if (bd < 15) lv = Math.max(lv, 2 - (bd - 11) / 4);                  // the mesa
+      const ph = datan2(e - E0, s - bs), gap = Math.abs(ph + 1.25) < 0.42 || Math.abs(ph) < 0.36 || Math.abs(Math.abs(ph) - D_PI) < 0.36; // gaps: canyon ramp, both neighbours
+      if (bd > 16.5 && bd < 18.8 && !gap && e > wf + 3.4) m = 1;                                    // broken rock crown around each mesa
+      const key = Math.min(bd - 21, ...F.map(f => dhypot(s - f[0], e - f[1]) - f[2] - 4), ...VENT.map(p => dhypot(s - p[0], e - p[1]) - 4), e - wf - 9);
+      if (key > 0 && vn(s, e, 7, 1) * 0.7 + vn(s, e, 3, 4) * 0.3 > 0.66) m = 1;                     // rock outcrops
+      if (e > EMAX + 2 * dsin(s * 0.11)) m = 1;                                                     // badlands beyond the canyon country
+    }
+    if (Math.abs(u) > 109 || Math.abs(v) > 109) { m = 1; if (e < wf) { pit = 1; lava = 1; } }        // map border
+    G.map[i] = m; G.lvl[i] = m && !pit ? Math.max(lv, 1) : lv; G.lava[i] = lava; G.lpit[i] = pit; G.elev[i] = vn(s, e, 8, 2);
+    for (let f = 0; f < F.length && fid[i] < 0; f++) if (dhypot(s - F[f][0], e - F[f][1]) <= F[f][2] + 0.3) { fid[i] = f * 2 + half; fcnt[fid[i]]++; G.map[i] = 0; G.lava[i] = 0; G.lpit[i] = 0; G.lvl[i] = lv; }
+    for (const [ps, pe] of VENT) if (dhypot(s - ps, e - pe) < 1.7) { G.map[i] = 0; G.lava[i] = 0; G.lpit[i] = 0; G.ore[i] = 0; }
+  }
+  for (let i = 0; i < N; i++) if (fid[i] >= 0 && G.map[i] === 0) { const f = F[fid[i] >> 1]; G.ore[i] = f[3] * (f[4] ? 540 : 410) * ORE_MULT / fcnt[fid[i]]; G.rich[i] = f[4]; }
+  // canonical (s, e) -> both tile images (the e < 0 twin is the exact 180° tile rotation)
+  const toXY = (s, e) => { const d = e + C(s), u = (s - d) * S2, v = (s + d) * S2; return [Math.floor(M + u), Math.floor(M + v)]; };
+  const pair = (s, e) => { const p = toXY(s, e); return [p, [MW - 1 - p[0], MH - 1 - p[1]]]; };
+  const seatXY = (s, e) => { const d = e + C(s); return [M + (s - d) * S2, M + (s + d) * S2]; };
+  // seats: canonical side then twins, ordered along the rift (NW -> SE): A-84, B-60, A-36, B-12, A12, B36, A60, B84
+  const A = SEATS.map(S => seatXY(S, E0)).map(([x, y]) => [Math.floor(x) + 0.5, Math.floor(y) + 0.5]), B = A.map(([x, y]) => [MW - x, MH - y]);
+  G.starts = [A[0], B[3], A[1], B[2], A[2], B[1], A[3], B[0]];
+  for (const [ps, pe] of VENT) for (const p of pair(ps, pe)) G.vents.push(p);
+  for (const [x, y] of G.starts) G.sites.push({ x, y, k: 'main' });
+  for (const S of SEATS) { for (const [x, y] of pair(S + 10, E0 + 17)) G.sites.push({ x: x + 0.5, y: y + 0.5, k: 'nat' }); for (const [x, y] of pair(S - 6, 9)) G.sites.push({ x: x + 0.5, y: y + 0.5, k: 'mid' }); }
+  for (const [x, y] of pair(4, 13)) G.sites.push({ x: x + 0.5, y: y + 0.5, k: 'mid' });
+  for (const [ps, pe] of DER) for (const p of pair(ps, pe)) G.dkPos.push(p);
+  const OP = pair(...OUTPOST); G.dkPos.push([...OP[0], 'Rift Outpost South-West'], [...OP[1], 'Rift Outpost North-East']);
+  const disc = (cx, cy, rr, f) => { for (let y = Math.floor(cy - rr); y <= cy + rr; y++) for (let x = Math.floor(cx - rr); x <= cx + rr; x++) if (inb(x, y) && dhypot(x + 0.5 - cx, y + 0.5 - cy) <= rr) f(idx(x, y)); };
+  for (const [sx, sy] of G.starts) disc(sx, sy, 7.5, i => { if (!(G.ore[i] > 0)) { G.map[i] = 0; G.lava[i] = 0; G.lpit[i] = 0; G.lvl[i] = 2; } });
+  // flood fill from start 0: walkable land nobody can reach becomes rock
+  const seen = new Uint8Array(N), st = [idx(Math.floor(G.starts[0][0]), Math.floor(G.starts[0][1]))]; seen[st[0]] = 1;
+  while (st.length) { const c = st.pop(), x = c % MW, y = (c / MW) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (!inb(nx, ny)) continue; const n = idx(nx, ny); if (!seen[n] && G.map[n] === 0) { seen[n] = 1; st.push(n); } } }
+  for (let i = 0; i < N; i++) { if (G.map[i] === 0 && !seen[i]) { G.map[i] = 1; G.ore[i] = 0; G.rich[i] = 0; if (G.lvl[i] < 1 && !G.lava[i]) G.lvl[i] = 1; } G.forest[i] = 0; G.tier[i] = Math.round(G.lvl[i]); }
+  G.six = true; G.oreMax = Float32Array.from(G.ore); G.mapName = 'riftcanyon';
 }
 // v6.0 "Hindu Kush Hellgate" — 128x128 2v6 desert warzone. Team A (2 seats) holds a raised western valley
 // behind the Hindu Kush ridge; the ONLY way in is the 7-tile Hellgate canyon. Six warlord bases ring the eastern

@@ -457,7 +457,7 @@ function lobbySelfTest() {
     if (new Set(G.players.map(P => P.color)).size !== G.players.length) errs.push(label + ' dup colours');
     if (list[0][0] === 'human' && !(hum[me] && !hum[me].ai && slots[me].row === 0)) errs.push(label + ' ME wrong');
   };
-  for (const map of ['classic', 'frost', 'volcano', 'volcano8', 'razorwheel', 'shatteredmoon', 'deltakings', 'labyrinth', 'hellgate']) { ms.value = map;
+  for (const map of ['classic', 'frost', 'volcano', 'volcano8', 'razorwheel', 'shatteredmoon', 'deltakings', 'labyrinth', 'riftcanyon', 'hellgate']) { ms.value = map;
     for (const pk of Object.keys(PRESETS)) {
       lobbySet(PRESETS[pk].slots); check(pk + '@' + map, map);
       // v7.8.4: skip random team/slot fuzz on Hellgate — side-locked seats make A/B flips intentional moves, not regressions
@@ -468,7 +468,7 @@ function lobbySelfTest() {
     }
     // all team splits for 4 active slots incl. 3v1 / 4v0, and You on every row
     for (let m = 0; m < 16; m++) { lobbySet([['human', m & 1 ? 'B' : 'A', 'fra', 'green'], ['si', m & 2 ? 'B' : 'A', 'rus'], ['normal', m & 4 ? 'B' : 'A', 'rand', 'blue'], ['hard', m & 8 ? 'B' : 'A']]); check('split' + m + '@' + map, map); }
-    for (let h = 0; h < 8; h++) { const L = [0, 1, 2, 3, 4, 5, 6, 7].map(i => [i === h ? 'human' : i < 6 || map === 'volcano8' || map === 'hellgate' || map === 'razorwheel' || map === 'shatteredmoon' || map === 'deltakings' || map === 'labyrinth' ? 'si' : 'off', map === 'hellgate' ? (i < 2 ? 'A' : 'B') : map === 'razorwheel' || map === 'shatteredmoon' || map === 'deltakings' || map === 'labyrinth' ? 'ABCDEFGH'[i] : i % 2 ? 'B' : 'A']); lobbySet(L); check('you@row' + (h + 1) + '@' + map, map); }
+    for (let h = 0; h < 8; h++) { const L = [0, 1, 2, 3, 4, 5, 6, 7].map(i => [i === h ? 'human' : i < 6 || map === 'volcano8' || map === 'hellgate' || map === 'razorwheel' || map === 'shatteredmoon' || map === 'deltakings' || map === 'labyrinth' || map === 'riftcanyon' ? 'si' : 'off', map === 'hellgate' ? (i < 2 ? 'A' : 'B') : map === 'razorwheel' || map === 'shatteredmoon' || map === 'deltakings' || map === 'labyrinth' || map === 'riftcanyon' ? 'ABCDEFGH'[i] : i % 2 ? 'B' : 'A']); lobbySet(L); check('you@row' + (h + 1) + '@' + map, map); }
   }
   // v7.8.4: 2v2v1v1v1v1 + pure 8-FFA must keep lobby teams into the match on Razorwheel and classic 8-player
   for (const map of ['razorwheel', 'volcano8']) {
@@ -570,12 +570,12 @@ function mapPreview() {
   const S = lobbySeats(), map = S.map, six = map === 'classic' && (S.n > 4 || S.rows.some(r => r.start > 3)), CU = map === 'custom' && typeof CM_SEL !== 'undefined' && CM_SEL, key = CU ? 'cm:' + CM_SEL.id + ':' + (CM_SEL.rev || 0) : map + (six ? '6' : '');
   if (map === 'custom' && !CU) return;
   if (!MP_CACHE[key]) {
-    const n = CU ? CM_SEL.starts.length : map === 'volcano8' || map === 'hellgate' || map === 'razorwheel' || map === 'shatteredmoon' || map === 'deltakings' || map === 'labyrinth' ? 8 : six || map === 'volcano' || map === 'frost' ? 6 : 4, slots = []; for (let i = 0; i < n; i++) slots.push({ ai: true, diff: 'easy', ally: map === 'hellgate' ? (i < 2 ? 0 : 1) : i % 2 });
+    const n = CU ? CM_SEL.starts.length : map === 'volcano8' || map === 'hellgate' || map === 'razorwheel' || map === 'shatteredmoon' || map === 'deltakings' || map === 'labyrinth' || map === 'riftcanyon' ? 8 : six || map === 'volcano' || map === 'frost' ? 6 : 4, slots = []; for (let i = 0; i < n; i++) slots.push({ ai: true, diff: 'easy', ally: map === 'hellgate' ? (i < 2 ? 0 : 1) : i % 2 });
     const G0 = typeof G !== 'undefined' ? G : null, MW0 = MW, MH0 = MH;
     try { newGame({ seed: 1, map, slots, cmap: CU ? CM_SEL : undefined }); } catch (e) { G = G0; MW = MW0; MH = MH0; return; }
     const x = cv.getContext('2d'), W = cv.width, s = W / MW, img = x.createImageData(W, W), d = img.data;
     for (let py = 0; py < W; py++) for (let px = 0; px < W; px++) { const tx = Math.floor(px / s), ty = Math.floor(py / s), i = ty * MW + tx, t = G.map[i], l = G.lvl[i];
-      let r, g, b; if (G.void && G.void[i]) { const st = ((i * 2654435761) >>> 0) % 97 === 0; r = st ? 190 : 10; g = st ? 200 : 10; b = st ? 230 : 24; } else if (G.ford && G.ford[i]) { r = 80; g = 150; b = 160; } else if (G.ford && G.bridge[i]) { r = 140; g = 104; b = 64; } else if (t === 1) { r = G.mud && G.mud[i] ? 150 : G.desert ? 112 : 88; g = G.mud && G.mud[i] ? 106 : G.desert ? 88 : 82; b = G.mud && G.mud[i] ? 68 : G.desert ? 66 : 74; } else if (t === 2) { r = 28; g = 80; b = 120; } else if (G.lava[i]) { r = 230; g = 90; b = 30; } else if (G.ore[i] > 0) { r = 230; g = 190; b = 60; } else if (G.ice[i]) { r = 170; g = 210; b = 230; } else { const th = CU ? CM_SEL.theme : '', base = CU ? cmBaseRGB(th) : map === 'frost' || map === 'labyrinth' ? [190, 205, 215] : map.startsWith('volcano') ? [70, 62, 58] : map === 'razorwheel' ? [78, 92, 70] : map === 'shatteredmoon' ? [150, 150, 156] : (map === 'hellgate' || map === 'endless') ? (G.wadi && G.wadi[i] ? [205, 180, 130] : [172, 138, 92]) : [70, 110, 60]; r = base[0] + l * 22; g = base[1] + l * 22; b = base[2] + l * 18; if (G.forest[i]) { r *= 0.7; g *= 0.85; b *= 0.7; } }
+      let r, g, b; if (G.void && G.void[i]) { const st = ((i * 2654435761) >>> 0) % 97 === 0; r = st ? 190 : 10; g = st ? 200 : 10; b = st ? 230 : 24; } else if (G.ford && G.ford[i]) { r = 80; g = 150; b = 160; } else if (G.ford && G.bridge[i]) { r = 140; g = 104; b = 64; } else if (G.lpit && G.lpit[i] && G.lava[i]) { r = 230; g = 90; b = 30; } else if (t === 1) { r = G.mud && G.mud[i] ? 150 : G.desert ? 112 : 88; g = G.mud && G.mud[i] ? 106 : G.desert ? 88 : 82; b = G.mud && G.mud[i] ? 68 : G.desert ? 66 : 74; } else if (t === 2) { r = 28; g = 80; b = 120; } else if (G.lava[i]) { r = 230; g = 90; b = 30; } else if (G.ore[i] > 0) { r = 230; g = 190; b = 60; } else if (G.ice[i]) { r = 170; g = 210; b = 230; } else { const th = CU ? CM_SEL.theme : '', base = CU ? cmBaseRGB(th) : map === 'frost' || map === 'labyrinth' ? [190, 205, 215] : map.startsWith('volcano') ? [70, 62, 58] : map === 'razorwheel' ? [78, 92, 70] : map === 'shatteredmoon' ? [150, 150, 156] : (map === 'hellgate' || map === 'endless' || map === 'riftcanyon') ? (G.wadi && G.wadi[i] ? [205, 180, 130] : [172, 138, 92]) : [70, 110, 60]; r = base[0] + l * 22; g = base[1] + l * 22; b = base[2] + l * 18; if (G.forest[i]) { r *= 0.7; g *= 0.85; b *= 0.7; } }
       const o = (py * W + px) * 4; d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255; }
     x.putImageData(img, 0, 0);
     x.fillStyle = '#4fe8dc'; for (const [vx, vy] of G.vents || []) { x.beginPath(); x.arc((vx + 0.5) * s, (vy + 0.5) * s, 2.6, 0, 7); x.fill(); }
@@ -608,7 +608,7 @@ window.addEventListener('load', () => {
     if (typeof cmSelChanged === 'function') cmSelChanged();
     const mv = $$('mapSel').value;
     if (mv === 'hellgate') hellgateSetup();
-    else if (mv === 'razorwheel' || mv === 'shatteredmoon' || mv === 'deltakings' || mv === 'labyrinth' || mv === 'volcano8') { // v7.8.4: leaving Hellgate's 2v6 team pattern on an FFA/8-slot map silently allies six warlords — flip to unique teams
+    else if (mv === 'razorwheel' || mv === 'shatteredmoon' || mv === 'deltakings' || mv === 'labyrinth' || mv === 'riftcanyon' || mv === 'volcano8') { // v7.8.4: leaving Hellgate's 2v6 team pattern on an FFA/8-slot map silently allies six warlords — flip to unique teams
       const cur = lobbyRead();
       const hellPat = cur.length >= 8 && cur[0] && cur[0][1] === 'A' && cur[1] && cur[1][1] === 'A'
         && cur.every((r, i) => r[0] === 'off' || r[1] === (i < 2 ? 'A' : 'B'))
