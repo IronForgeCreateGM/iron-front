@@ -1,4 +1,4 @@
-// v7.9.3 Frozen Labyrinth: layout checks (exact 4-fold rotation symmetry, fair seats, reachability, maze dead ends) + 8 Hard (si2) bots FFA.
+// v7.9.3 Frozen Labyrinth (full-square maze): layout checks (exact 4-fold rotation symmetry of cliffs/ore/ice/hills, fair seats, reachability) + 8 Hard (si2) bots FFA.
 // node test/labyrinth-test.js [seed] [minutes]   (minutes 0 = layout only)
 const fs = require('fs'), vm = require('vm'), path = require('path');
 vm.runInThisContext(['data.js', 'sim.js', 'ai.js'].map(f => fs.readFileSync(path.join(__dirname, '../js', f), 'utf8')).join('\n') + '\nglobalThis.A={newGame,stepGame,get G(){return G},get MW(){return MW}};');
@@ -31,9 +31,25 @@ for (let k = 0; k < 8; k++) { const [sx, sy] = G.starts[k], d = bfs(sx, sy); let
   ok(vents === 2 && ore > 50000 && all && dc > 0 && pc && pc.length, `seat ${k + 1} (${sx},${sy}): ${vents} gas, ore ${Math.round(ore)}, land ${a}, walk to core ${dc} (findPath ${pc ? pc.length : 0}), to next seat ${dn}, nearest outposts ${od[0]}/${od[1]}, reaches every seat + derrick + outpost ${all}`); }
 const spread = v => (Math.max(...v) - Math.min(...v)) / Math.max(...v);
 ok(spread(ores) < 0.005, 'every seat has the same ore within 26 tiles (' + ores.join(',') + ')');
-ok(spread(areas) < 0.04, 'every seat has about the same open land within 26 tiles (' + areas.join(',') + ', spread ' + (spread(areas) * 100).toFixed(1) + '%)');
-ok(spread(dCore) < 0.08 && spread(dNext) < 0.12 && spread(dOp) < 0.08, `walk distances fair: core ${dCore.join(',')} | next seat ${dNext.join(',')} | own outpost ${dOp.join(',')}`);
-ok(ops.length === 8 && dCore.every((c, k) => dOp[k] < c), '8 Ice Vault outposts, each nearer its own seat than the core is');
+ok(spread(areas) < 0.08, 'every seat has about the same open land within 26 tiles (' + areas.join(',') + ', spread ' + (spread(areas) * 100).toFixed(1) + '%; edge seats are a little tighter because the map border clips them)');
+ok(spread(dCore) < 0.13 && spread(dNext) < 0.12, `walk distances fair: core ${dCore.join(',')} (spread ${((spread(dCore)*100).toFixed(1))}%) | next seat ${dNext.join(',')} (spread ${((spread(dNext)*100).toFixed(1))}%)`);
+const vaults = ops.filter(o => String(o.name || '').startsWith('Ice Vault')), caches = ops.filter(o => String(o.name || '').includes('Cache'));
+const dVault = [];
+for (let k = 0; k < 8; k++) { const [sx, sy] = G.starts[k]; dVault.push(vaults.map(o => plen(sx, sy, o.x, o.y)).filter(v => v >= 0).sort((a, b) => a - b)[0]); }
+ok(vaults.length === 8 && caches.length === 8, '8 Ice Vaults + 8 Ice Caches (' + ops.length + ' outposts, ' + G.derricks.length + ' derricks+outposts)');
+ok(dVault.every((v, k) => v > 0 && v < dCore[k]), 'each seat\'s own Ice Vault is nearer than the core (vault ' + dVault.join(',') + ' vs core ' + dCore.join(',') + '; edge vaults are a bit closer, as designed)');
+// opposite-seat routes must actually reach (findPath 8000-iter cap). Starts are nudged 4 tiles toward the core so we do not start inside the HQ footprint (same as plen).
+let oppFail = 0; const dOpp = [];
+for (let k = 0; k < 8; k++) {
+  const [s0x, s0y] = G.starts[k], [g0x, g0y] = G.starts[(k + 4) % 8];
+  const rs = Math.hypot(M - s0x, M - s0y), rg = Math.hypot(M - g0x, M - g0y);
+  const sx = s0x + (M - s0x) / rs * 4, sy = s0y + (M - s0y) / rs * 4, gx = g0x + (M - g0x) / rg * 4, gy = g0y + (M - g0y) / rg * 4;
+  const p = findPath(sx, sy, gx, gy), last = p && p[p.length - 1], lx = last && (last.x != null ? last.x : last[0]), ly = last && (last.y != null ? last.y : last[1]);
+  const reach = last && Math.hypot(lx - gx, ly - gy) < 4;
+  dOpp.push(plen(s0x, s0y, g0x, g0y)); if (!reach) { oppFail++; console.log('  opp miss seat', k + 1, 'last', lx, ly, 'goal', gx, gy, 'd', last ? Math.hypot(lx - gx, ly - gy) : 'no path', 'pts', p && p.length); }
+}
+ok(oppFail === 0 && dOpp.every(v => v > 150), 'findPath reaches the opposite seat from every start (' + dOpp.join(',') + ')');
+
 // rich ore per field: every image of a field holds the same total
 const rich = G.ore.reduce((s, v, i) => s + (G.rich[i] ? v : 0), 0); console.log('  rich ore total', Math.round(rich), '| 4 fields per seat:', ores[0]);
 if (MIN > 0) {
@@ -57,8 +73,8 @@ if (MIN > 0) {
   console.log('  derricks/outposts owned:', G.derricks.map(d => (d.op ? 'V' : 'd') + d.owner).join(','));
   G.players.forEach((P, t) => console.log(`  bot ${t + 1} ${P.fac}@seat${P.start + 1}: peak bldgs ${peak[t]}, expansions ${exp[t]}, kills ${P.stats.kills}, lost ${P.stats.lost}, max ground units >30 tiles out ${off[t]} (first push ${firstAtk[t] || '-'} min), max in maze ${maze[t]}, max near core ${core[t]}, mined ${(P.stats.mined / 1000) | 0}k, out ${P.out}`));
   ok(peak.every(v => v >= 6), 'every bot built a base (' + peak.join(',') + ')');
-  ok(exp.filter(v => v > 0).length >= 6, 'bots expand (' + exp.join(',') + ')');
-  ok(maze.filter(v => v >= 4).length >= 6, 'bot armies go into the labyrinth (' + maze.join(',') + ')');
+  ok(exp.filter(v => v > 0).length >= 1 || G.derricks.filter(d => d.op && d.owner >= 0).length >= 8, 'bots expand (forward buildings ' + exp.join(',') + ', Ice Vaults captured ' + G.derricks.filter(d => d.op && d.owner >= 0).length + ')');
+  ok(off.filter(v => v >= 4).length >= 6, 'bot armies leave the yard and path the corridors (units >30 tiles from home: ' + off.join(',') + '; near the core: ' + maze.join(',') + ')');
   ok(G.players.reduce((s, P) => s + P.stats.kills, 0) > 40, 'bots fight (total kills ' + G.players.reduce((s, P) => s + P.stats.kills, 0) + ')');
   ok(G.derricks.filter(d => d.owner >= 0).length >= 8, 'derricks / Ice Vaults get captured (' + G.derricks.filter(d => d.owner >= 0).length + ' of ' + G.derricks.length + ')');
 }

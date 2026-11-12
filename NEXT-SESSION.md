@@ -1,10 +1,16 @@
+## SHIPPED morning Nov 12: v7.9.3 Frozen Labyrinth full-square maze LIVE — see NIGHTLY-LOG
+Nicholas approved the redesigned full-map maze at 9:37 AM PT ("I really like it. Send it and test the full square maze map you made"). Built-in map `labyrinth` (js/sim.js `genLabyrinth`): a real branching ice-cliff maze covering the whole 224x224 frost map, 8 fair seats, Ice Vaults at backyard dead ends, Ice Caches, mid plazas, a shared Core. Web unlocked; native = Full Unlock. Reused the v793 lobby/frost/ice visual work; replaced the old centre-only maze with the approved seed-32 layout. A D4 copy was applied to plaza ice and the core ore field so every seat faces the same resources. No unit-stat or AI changes. Screenshot: /workspace/iron-front-v7.9.3-maze.png
+- **FROZEN LABYRINTH FULL MAZE IS DONE AND LIVE.**
+- **Nightly must rebase local v794 (Rift Canyon) and qmhost (Quick Match host migration) onto the new main and renumber them v7.9.4 and v7.9.5.** Do not ship them on top of the old v793 centre-maze commits. Construction rewrite and iPhone polish still follow.
+- The uncommitted IAP/StoreKit edits were left untouched.
+
 ## SHIPPED afternoon Nov 11: v7.9.2 smarter late-game bots (f81)
 Hard bots gather the late-game air wing as one back-of-base flank (fighters stay home only if under air threat). When stuck against France Grand Cannons they bank gas, wait for Titans (never a short-range Viper), fire at the cannons (accept SM-3), and push once the guns weaken. Replay flag f81 (default on; `P.f81Off` for A/B). Bench vs live v7.9.1 Hard: same seat winners, no regression. Organic USA vs France (classic 57) improved from France-on-points to a tie, with 2 Titans on the cannons. fp76 still opt-in/held. No France/unit stat changes. The uncommitted IAP edits were left untouched.
 
 ## SHIPPED night Nov 10: v7.9.1 Delta of Kings (8-FFA, 224², grass) LIVE — see NIGHTLY-LOG
 Sketch panel 2 is done. Built-in map `deltakings` (js/sim.js `genDeltaKings`): X rivers, four islands with 2 bases each, 4 fords (`G.ford`, no-build), 4 derrick islets with bridges, King's Isle with 4 bridges. Exactly 8-fold symmetric. Web unlocked; native = Full Unlock.
 - Possible follow-ups: phone perf on 224² maps (~1.6M terrain tris, so consider a lower heightfield resolution for big maps on phones); a "Watch: 8 FFA Delta of Kings" preset.
-- **Next sketch maps (still to build):** Frozen Labyrinth, Rift Canyon (see backlog below).
+- **Next sketch maps (still to build):** Rift Canyon (see backlog below). Frozen Labyrinth shipped v7.9.3 (Nov 12, full-square maze).
 
 ## SHIPPED day Mon Nov 9: v7.9.0 Shattered Moon (8-FFA, 224²) — see NIGHTLY-LOG
 Nicholas picked "Shattered Moon" from the 4-map sketch (/workspace/mapsketch/four-maps.png, panel 1) and wants the other three built eventually.
@@ -14,7 +20,7 @@ Built-in map `shatteredmoon` (js/sim.js `genShatteredMoon`): 8 asteroid bases (2
 ## FUTURE MAP BACKLOG (Nicholas, Nov 9: "eventually we will probably do all of them") — sketch panels 2-4
 Use the full 224×224 size, only existing features (cliffs/high ground, water, lava, ore, gas vents, derricks, outposts, monument), make them bold, 8 seats rotationally/mirror fair, bots verified (expand, path, attack).
 1. ~~**Delta of Kings (grass theme).**~~ SHIPPED v7.9.1 (Nov 10). Two wide rivers cross in a big X and cut the map into four islands, two bases per island. Shallow fords and a few bridges are the only ways across; oil derricks sit on small river islands. You start next to a neighbour you will probably have to beat first, then the fight moves across the water.
-2. **Frozen Labyrinth (frost theme).** Bases in the corners and edge centres; the middle half of the map is a maze of ice cliffs. Outposts and rich ore pockets sit at the maze's dead ends, so you have to go in and claim them. Slow siege map where France's Grand Cannons and smart routing shine.
+2. ~~**Frozen Labyrinth (frost theme).**~~ SHIPPED v7.9.3 (Nov 12) as a full-square maze covering the whole map (not only the middle), with Nicholas's approval of the picture. Ice Vault outposts and Ice Caches at dead ends, a shared Core, 8 fair seats.
 3. **Rift Canyon (desert theme).** A huge lava-floored canyon cuts diagonally across the whole map. Four bases on high mesas on each side, staggered in a zigzag so no two players face each other head on. A few narrow ramps and bridges cross the rift and gas vents sit down inside it, so the best resources mean leaving the high ground. Every spot has a mirrored twin on the other side.
 
 ## SHIPPED night Nov 8: v7.8.8 idle air flank + Grand Cannon nuke punish LIVE
