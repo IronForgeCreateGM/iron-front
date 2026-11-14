@@ -3,7 +3,11 @@
 // Stages by build progress p: ground marking + rebar (0-8%), foundation pour (2-14%), scaffold + crane rise (5-24%), steel frame (12-42%),
 // walls assemble course by course from the ground up with welding sparks (22-88%), faction-colored panels snap on (72-92%),
 // completion: flash + dust burst + chime, scaffold and crane drop away. Walls/gates use a cheap version (1-2 draw calls).
+// v7.9.6 SC2-style blueprint: from the moment a site is placed the WHOLE finished building is shown as a translucent blue-white
+// hologram (same look for every team and country), and the real model fills it in from the ground up with a glowing weld seam at
+// the build line. When the site waits for power or money the hologram dims to amber and flickers. Render only, like everything here.
 const CS = { mats: {}, budget: 0, on: typeof THREE !== 'undefined' };
+const CS_HOLO = 0x8fdcff, CS_HOLO_W = 0xffb347, CS_SEAM = 0xffd9a0;
 const CS_BOX = CS.on ? new THREE.BoxGeometry(1, 1, 1) : null;
 const csS = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 function csMat(c, emi) { const k = c + '|' + (emi || 0); return CS.mats[k] || (CS.mats[k] = new THREE.MeshLambertMaterial({ color: c, emissive: emi ? c : 0, emissiveIntensity: emi || 0 })); }
@@ -117,12 +121,36 @@ function makeSite(e, o) {
     const base = pbrMaterial(), cm = base.clone(); cm.onBeforeCompile = base.onBeforeCompile; cm.customProgramCacheKey = base.customProgramCacheKey; cs.plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0); cm.clippingPlanes = [cs.plane]; cm.clipShadows = true;
     cs.cm = cm; cs.base = base; o.body.traverse(m => { if (m.isMesh && m.material === base) m.material = cm; });
     cs.courses = Math.max(3, Math.min(9, Math.round(bh / 0.22)));
+    csHolo(o, cs);
     cs.bots = csBots(e, s, cs); // v7.7.4 SC2-style builder bots
   }
   o.g.add(s); return cs;
 }
+// v7.9.6 blueprint hologram of the finished building (above the build line) + weld seam (at the build line). Same for all teams.
+function csHolo(o, cs) {
+  cs.hplane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const mk = (wire, op) => new THREE.MeshBasicMaterial({ color: CS_HOLO, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending, wireframe: wire, clippingPlanes: [cs.hplane], fog: false });
+  cs.hm = mk(false, 0.16); cs.hw = csLite() ? null : mk(true, 0.2); cs.ho = [cs.hm.opacity, cs.hw ? cs.hw.opacity : 0];
+  const inv = new THREE.Matrix4().copy(o.g.matrixWorld).invert(); cs.holo = new THREE.Group(); cs.holo.renderOrder = 3;
+  o.body.traverse(m => { if (!m.isMesh || m.material !== cs.cm) return; const rel = new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld);
+    for (const mat of cs.hw ? [cs.hm, cs.hw] : [cs.hm]) { const h = new THREE.Mesh(m.geometry, mat); h.matrixAutoUpdate = false; h.matrix.copy(rel); h.castShadow = h.receiveShadow = false; h.renderOrder = 3; cs.holo.add(h); } });
+  cs.s.add(cs.holo);
+  // weld seam: a thin glowing ring hugging the body extents at the build line
+  const W = cs.x1 - cs.x0 + 0.06, D = cs.z1 - cs.z0 + 0.06, mx = (cs.x0 + cs.x1) / 2, mz = (cs.z0 + cs.z1) / 2, t = 0.05;
+  cs.seamM = new THREE.MeshBasicMaterial({ color: CS_SEAM, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+  cs.seam = new THREE.Mesh(csMerge([[W, t, t, mx, 0, mz - D / 2], [W, t, t, mx, 0, mz + D / 2], [t, t, D, mx - W / 2, 0, mz], [t, t, D, mx + W / 2, 0, mz]]), cs.seamM);
+  cs.seam.renderOrder = 4; cs.seam.visible = false; cs.s.add(cs.seam); cs.own.push(cs.seam.geometry);
+}
+function csHoloAnim(cs, gy, cutY, h, p, wait, T, id) {
+  if (!cs.holo) return;
+  cs.hplane.constant = -(gy + 0.02 + cutY); cs.holo.visible = h < 1 && p < 0.97;
+  const fade = 1 - csS(0.9, 0.97, p), fl = wait ? 0.55 + 0.45 * (Math.sin(T * 13 + id) > 0.3 ? 1 : 0.4) : 0.8 + 0.2 * Math.sin(T * 3 + id), col = wait ? CS_HOLO_W : CS_HOLO;
+  cs.hm.opacity = cs.ho[0] * fade * fl; cs.hm.color.setHex(col); if (cs.hw) { cs.hw.opacity = cs.ho[1] * fade * fl; cs.hw.color.setHex(col); }
+  cs.seam.visible = h > 0.01 && h < 1 && p > 0.2; cs.seam.position.y = cutY + 0.045;
+  cs.seamM.opacity = wait ? 0.25 : 0.7 + 0.3 * Math.sin(T * 17 + id); cs.seamM.color.setHex(wait ? 0x8a6a40 : CS_SEAM);
+}
 function csRestore(o) { const cs = o.cs; if (!cs) return; if (cs.cm) { o.body.traverse(m => { if (m.isMesh && m.material === cs.cm) m.material = cs.base; }); cs.cm.dispose(); cs.cm = null; } o.body.visible = true; }
-function csDispose(o) { const cs = o.cs; if (!cs) return; csRestore(o); o.g.remove(cs.s); for (const g of cs.own) g.dispose(); cs.slabM.dispose(); cs.lampM.dispose(); o.cs = null; }
+function csDispose(o) { const cs = o.cs; if (!cs) return; csRestore(o); o.g.remove(cs.s); for (const g of cs.own) g.dispose(); cs.slabM.dispose(); cs.lampM.dispose(); for (const k of ['hm', 'hw', 'seamM']) if (cs[k]) cs[k].dispose(); o.cs = null; }
 function csSpark(x, y, z, n, sp, white) { for (let i = 0; i < n && CS.budget > 0; i++, CS.budget--) FX.spark.spawn(x, y, z, rnd(sp), rnd(sp), Math.random() * sp, 0.25 + Math.random() * 0.35, 0.06, 0.015, 1, white ? 0.95 : 0.78, white ? 0.85 : 0.35, 1, 9, 0); }
 function csPuff(x, y, z, size, rise) { if (CS.budget-- > 0) puff(x, y, z, size, 1.6, G.desert ? 0.74 : 0.62, 0.42, rise); }
 function csFrameStart() { CS.budget = Math.round((csLite() ? 10 : 28) * Math.max(0.3, FX.mul)); }
@@ -131,7 +159,7 @@ function conAnim(e, o, dt) {
   if (e.con && !o.cs) o.cs = makeSite(e, o); const cs = o.cs; if (!cs) return;
   const gy = o.g.position.y, T = R3.time, W = cs.W, D = cs.D, lite = csLite(), m = FX.mul * (lite ? 0.5 : 1), wx = e.x, wz = e.y;
   if (!e.con) { // finished: scaffold + crane fall away, slab sinks, then the site is removed
-    if (cs.doneT < 0) { cs.doneT = T; csRestore(o); o.body.scale.y = 1; for (const k of ['mark', 'rebar', 'frame', 'deck']) if (cs[k]) cs[k].visible = false; if (cs.panels) cs.panels.forEach(p => p.visible = false); }
+    if (cs.doneT < 0) { cs.doneT = T; csRestore(o); o.body.scale.y = 1; for (const k of ['mark', 'rebar', 'frame', 'deck', 'holo', 'seam']) if (cs[k]) cs[k].visible = false; if (cs.panels) cs.panels.forEach(p => p.visible = false); }
     const t = (T - cs.doneT) / 0.85; if (t >= 1) { csDispose(o); return; }
     const f = t * t; cs.scaf.position.y = -cs.ht * 1.1 * f; cs.scaf.scale.set(1 + 0.08 * t, 1 - 0.5 * f, 1 + 0.08 * t);
     if (cs.crane) { cs.crane.rotation.z = -1.1 * f; cs.crane.position.y = -0.6 * f; cs.crane.scale.setScalar(Math.max(0.05, 1 - 0.7 * f)); cs.crane.visible = t < 0.85; }
@@ -157,6 +185,7 @@ function conAnim(e, o, dt) {
   // walls: course by course from the ground up (each course slides up quickly, then a short pause)
   const n = cs.courses, f = csS(0.22, 0.88, p) * n, ci = Math.min(n, Math.floor(f)), fr2 = f - ci, h = Math.min(1, (ci + csS(0.45, 1, fr2)) / n), cutY = cs.bh * h;
   o.body.visible = p > 0.2; o.body.scale.y = 1; cs.plane.constant = gy + 0.02 + cutY + (h >= 1 ? 9 : 0);
+  csHoloAnim(cs, gy, cutY, o.body.visible ? h : 0, p, wait, T, e.id); // v7.9.6 blueprint hologram + weld seam
   const k = 1 - 0.4 * csS(0.5, 1, h); cs.deck.visible = o.body.visible && h > 0.02 && h < 1; cs.deck.scale.set((cs.x1 - cs.x0) * 0.97 * k, 0.03, (cs.z1 - cs.z0) * 0.97 * k); cs.deck.position.set((cs.x0 + cs.x1) / 2, cutY + 0.02, (cs.z0 + cs.z1) / 2);
   if (ci !== cs.course) { if (cs.course >= 0 && ci > cs.course && p > 0.22 && p < 0.9) { // a course locks in: little dust + spark shower round the base
       for (let i = 0; i < Math.round(3 * cs.sz * m); i++) { const a = Math.random() * 6.28; csPuff(wx + Math.cos(a) * W * 0.55, wz + Math.sin(a) * D * 0.55, gy + 0.1, 0.3 + 0.1 * cs.sz, 0.3); }
