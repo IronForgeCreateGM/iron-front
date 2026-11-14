@@ -26,8 +26,8 @@
 .tools{display:flex;gap:6px}.tools button{flex:1;background:#16212d;border:1px solid #2a3c52;color:#cde;padding:6px;border-radius:4px;cursor:pointer}.tools button.on{background:#5a3a14;border-color:#ffb14d}
 #info{min-height:70px;background:#0d141c;border:1px solid #223042;border-radius:4px;padding:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px}
 #info>img{width:72px;height:48px;border-radius:3px}.chip{display:inline-flex;align-items:center;gap:2px;background:#16212d;border-radius:3px;padding:1px 4px 1px 1px;font-weight:700}.chip img{width:36px;height:24px}
-.screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 30%,rgba(20,45,80,.85),rgba(3,6,10,.96));z-index:10}
-.panel{text-align:center;max-width:520px;padding:30px 40px;background:rgba(12,20,30,.75);border:1px solid #2d4a6a;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.screen{position:fixed;inset:0;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;overflow-x:hidden;background:radial-gradient(ellipse at 50% 30%,rgba(20,45,80,.85),rgba(3,6,10,.96));z-index:10}
+.panel{text-align:center;max-width:520px;padding:30px 40px;background:rgba(12,20,30,.75);border:1px solid #2d4a6a;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);margin:auto}
 h1{font-size:54px;letter-spacing:10px;margin:0;font-weight:900}h1 span{color:#4da3ff}.sub{color:#8aa3bb;letter-spacing:3px;margin-top:0}
 h1.victory{color:#7dff9a}h1.defeat{color:#ff5544}
 .panel button{background:#16263a;border:1px solid #2f5a88;color:#e3eefa;padding:8px 18px;margin:6px;border-radius:5px;cursor:pointer;font-size:14px}
@@ -65,8 +65,31 @@ select{background:#16263a;color:#e3eefa;border:1px solid #2f5a88;border-radius:4
 .est{margin:8px auto;border-collapse:collapse;font-size:13px}.est td,.est th{padding:2px 10px;text-align:left}.est th{color:#9ab;font-weight:500}
 #netWait{position:absolute;top:38%;left:50%;transform:translateX(-50%);background:rgba(10,14,20,.85);border:1px solid #456;padding:12px 18px;border-radius:6px;color:#ffd27a;font:600 15px system-ui;z-index:6;display:none;max-width:60%;text-align:center}
 .lrow{grid-template-columns:30px 1.4fr 0.9fr 1.3fr 0.9fr}
-#onBox{margin:8px 0;display:flex;gap:5px;justify-content:center;align-items:center;flex-wrap:wrap}#onBox input,#chatIn{background:#1b2530;color:#dde;border:1px solid #456;padding:4px 6px;border-radius:3px}#onBox button,#readyBtn{font-size:12px;padding:5px 8px}
-#onStatus{font-size:12px;color:#9cc;margin:4px 0;word-break:break-all}#onStatus a{color:#7cf}#onPanel{font-size:12px;text-align:left;margin:6px 0}#onPeers div{margin:2px 0}#chatLog{height:70px;overflow:auto;background:rgba(0,0,0,.3);border-radius:3px;padding:4px;margin:4px 0;color:#cde}#chatIn{width:70%}
+#onBox{margin:8px 0;display:flex;flex-direction:column;gap:8px;align-items:stretch}#onBox input,#chatIn{background:#1b2530;color:#dde;border:1px solid #456;padding:4px 6px;border-radius:3px}
+#onStatus{font-size:13px;color:#9cc;margin:6px 0;word-break:break-word}#onStatus a{color:#7cf}#onPanel{font-size:13px;text-align:left;margin:8px 0}#chatLog{height:56px;overflow:auto;background:rgba(0,0,0,.3);border-radius:6px;padding:6px;margin:8px 0 4px;color:#cde}#chatIn{width:100%;box-sizing:border-box}
+/* v7.9.7: simple host / join lobby — big actions, big room code, obvious Ready */
+#pname{font-size:16px;padding:10px 12px;border-radius:8px;width:100%;box-sizing:border-box}
+#onSteps{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;width:100%}
+#onJoinRow{display:flex;gap:8px;flex:1 1 240px;min-width:220px}
+#joinCode{flex:1;min-width:110px;font-size:18px;letter-spacing:.14em;text-transform:uppercase;padding:10px 12px;text-align:center;border-radius:8px}
+#hostBtn.onBig,#joinBtn.onBig,#readyBtn,#onStartBtn{font-size:18px;font-weight:700;padding:12px 20px;min-height:52px;border-radius:10px;cursor:pointer;border:1px solid #3a6a4a}
+#hostBtn.onBig{flex:1 1 160px;background:linear-gradient(#2a7a9a,#1a4a62);border-color:#7cf;color:#fff}
+#joinBtn.onBig{flex:0 0 auto;background:linear-gradient(#2a6a8a,#1a4058);border-color:#6af;color:#fff}
+#onCodeBox{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;margin:10px 0;padding:14px 12px;background:rgba(0,0,0,.4);border:1px solid #3a5a78;border-radius:12px}
+.onCodeLbl{width:100%;text-align:center;color:#9ab;letter-spacing:.14em;font-size:11px;text-transform:uppercase}
+#onCodeVal{font:700 40px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.22em;color:#ffd27a}
+#copyCodeBtn,#copyLinkBtn{min-height:44px;font-size:15px;padding:8px 14px;border-radius:8px}
+#onPeers .onPeer{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;margin:5px 0;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:8px;font-size:15px}
+#onPeers .onPeer .who{min-width:0}
+#onPeers .onPeer .st{font-weight:700;white-space:nowrap}
+#onPeers .st.ready{color:#7dff9a}#onPeers .st.wait{color:#ffd27a}#onPeers .st.open{color:#9cc}#onPeers .st.ai{color:#9ab}
+#onSlotBtns{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+#onSlotBtns button{min-height:40px;font-size:14px;padding:6px 12px;border-radius:8px}
+#onReadyRow{display:flex;gap:10px;margin:12px 0 8px;position:sticky;bottom:8px;z-index:6}
+#readyBtn{flex:1;background:linear-gradient(#2a8a4a,#1a5a32);border-color:#7dff9a;color:#fff}
+#readyBtn.on{background:linear-gradient(#1e6a38,#0e3a20);box-shadow:0 0 0 2px rgba(125,255,154,.35)}
+#onStartBtn{flex:1;background:linear-gradient(#d4a82e,#8a6a10);border-color:#ffd27a;color:#1a1408}
+#hideIpL{font-size:12px;color:#9ab;align-self:flex-start}
 button:disabled{opacity:.5;cursor:not-allowed}
 .ico.on{background:#2d5a3a;border-color:#6c9}
 .lopts{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0}.lopts select{margin-left:4px}#presets{display:inline-flex;gap:6px}
@@ -120,6 +143,12 @@ body.mobile #lobby .lrow{display:grid;grid-template-columns:22px 1.05fr 0.85fr 1
 body.mobile #lobby .lrow > .lf{grid-column:auto}
 body.mobile #lobby .lrow.lh{display:grid;font-size:10px;letter-spacing:.06em;opacity:.9}
 body.mobile #lobby .lrow select{width:100%}
+body.mobile #onSteps,body.mobile #onJoinRow,body.mobile #onReadyRow{flex-direction:column}
+body.mobile #hostBtn.onBig,body.mobile #joinBtn.onBig,body.mobile #readyBtn,body.mobile #onStartBtn{width:100%;min-height:56px;font-size:20px}
+body.mobile #onCodeVal{font-size:32px;letter-spacing:.16em}
+body.mobile #onReadyRow{position:sticky;bottom:max(8px,env(safe-area-inset-bottom));background:rgba(8,14,22,.94);padding:8px;margin:8px -4px 0;border-radius:10px}
+body.mobile #onPeers .onPeer{font-size:16px;min-height:44px}
+body.mobile #pname,body.mobile #joinCode{min-height:52px;font-size:18px}
 body.mobile #mapPrev{width:min(70vw,260px);height:min(70vw,260px)}
 body.mobile #pause button{min-height:48px;font-size:18px}
 body.mobile.inmenu #side,body.mobile.inmenu #mobMenuBtn{display:none!important}
@@ -281,3 +310,48 @@ body.mobile.mplay #waveHud .wvS{font-size:10px;margin-top:2px}body.mobile.mplay 
 .fcard .ulock{position:absolute;top:4px;right:6px;font-size:14px;line-height:1;pointer-events:none}
 .fcard.locked.on{border-color:rgba(255,210,122,.35);background:rgba(255,210,122,.06)}
 #presets button.ulocked,#modeTabs button.ulocked,#playEndlessBtn.ulocked{opacity:.6}
+
+/* v7.9.7: Host vs Join is an either/or choice; layout fits a Windows Chrome window; Ready/Start stay on screen */
+.onHint{margin:4px 0 8px;font-size:13px;color:#d7e6f4;line-height:1.4;text-align:left}
+#onSteps{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;width:100%}
+.onCard{flex:1 1 200px;background:rgba(255,255,255,.04);border:1px solid #3a5a78;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.onCardT{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#9cc;text-align:center}
+.onOr{display:flex;align-items:center;justify-content:center;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ffd27a;min-width:36px}
+#onJoinRow{display:flex;gap:8px;flex:1;min-width:0}
+.onInvite{display:block;width:100%;margin:4px 0 0;font-size:12px;color:#7cf;word-break:break-all;text-align:center}
+.onCodeTip{width:100%;text-align:center;color:#cfe;font-size:13px;margin-top:4px}
+#menu.inSetup{align-items:center;justify-content:flex-start;flex-direction:column}
+#menu.inSetup .panel{animation:none;transform:none;max-width:720px;width:min(720px,calc(100% - 24px));padding:10px 16px 16px;margin:8px auto;box-sizing:border-box;float:none}
+#menu.inSetup h1{font-size:28px;letter-spacing:6px;text-align:center}
+#menu.inSetup .sub{display:none}
+#menu.inSetup .howto{display:none}
+#setup.onlineSetup .setupRow{flex-direction:column;align-items:center}
+#setup.onlineSetup .setupL,#setup.onlineSetup .setupR{flex:none;width:100%;max-width:680px;margin:0 auto;text-align:center}
+#setup.onlineSetup .setupL .lopts{align-items:center}
+#setup.onlineSetup #mapPrev{margin-left:auto;margin-right:auto}
+#setup.onlineSetup,#setup.onlineOn{padding-bottom:120px}
+#setup.onlineOn .setupRow{display:flex;flex-direction:column}
+#setup.onlineOn .setupR{order:-1} /* code, players, Ready sit above the map so they are not hidden by the bar */
+#setup.onlineOn #mapPrev{width:140px;height:140px}
+#setup.onlineSetup #startBtn,#setup.onlineOn #startBtn{display:none!important} /* big onStartBtn is the one you press; #startBtn stays in the DOM for tests */
+#setup.onlineOn #lobby .lrow{margin:2px 0}
+#setup.onlineOn #lobby .lrow:not(.lh):has(.lt option[value="off"]:checked){display:none}
+#setup.onlineOn .fsel{margin:6px 0}
+#setup.onlineOn #facs{grid-template-columns:repeat(6,1fr);gap:4px}
+#setup.onlineOn .fcard{padding:4px 2px;font-size:11px}
+#setup.onlineOn .fcard .fl{font-size:16px}
+#setup.onlineOn #facDesc{min-height:0;margin-top:4px}
+#setup.onlineOn #chatLog{height:44px;margin:6px 0 4px}
+#onBox.inRoom #onSteps,#onBox.inRoom #onHint,#onBox.inRoom #hideIpL{display:none}
+/* Docked to document.body so a transformed/overflowing panel cannot hide Start or Ready */
+#onReadyRow.onReadyFixed{position:fixed;left:0;right:0;bottom:0;z-index:80;display:flex;justify-content:center;align-items:center;gap:12px;margin:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:rgba(8,14,22,.97);border-top:2px solid #ffd27a;box-sizing:border-box}
+#onReadyRow.onReadyFixed #readyBtn,#onReadyRow.onReadyFixed #onStartBtn{flex:1 1 auto;min-width:200px;max-width:420px;min-height:60px;height:60px;max-height:64px;font-size:22px;letter-spacing:0;margin:0;padding:8px 16px}
+#setup.onlineSetup .setupTop{flex-wrap:wrap;justify-content:space-between}
+#setup.onlineSetup #setupTitle{flex:1 0 100%;order:-1;font-size:15px;letter-spacing:.04em;text-align:center}
+body.mobile #setup.onlineSetup .setupRow{flex-direction:column}
+@media (max-width:820px){
+  .onOr{width:100%;min-height:18px}
+  #setup.onlineOn #facs{grid-template-columns:repeat(4,1fr)}
+  #onReadyRow.onReadyFixed{flex-direction:column}
+  #onReadyRow.onReadyFixed #readyBtn,#onReadyRow.onReadyFixed #onStartBtn{max-width:none;width:100%;min-width:0;min-height:56px;height:56px;max-height:56px}
+}

@@ -544,9 +544,12 @@ function uiMsgMenu(t) { const e = document.getElementById('onStatus'); if (e) e.
 function homeRecords() { const el = document.getElementById('homeHS'); if (!el || typeof endlessHS !== 'function') return; const h = endlessHS(), f = r => r ? `wave <b>${r.wave}</b> · ${r.score.toLocaleString()}` : '—';
   el.innerHTML = h.solo.length || h.coop.length ? `🏆 Endless best — Solo: ${f(h.solo[0])} &nbsp;|&nbsp; Co-op: ${f(h.coop[0])}` : '♾ New: <b>Endless mode</b> — hold four passes against infinite waves'; }
 function homeShow(mode) { // mode: null = home, 'bots', 'online'
-  const hb = document.getElementById('homeBtns'), su = document.getElementById('setup'), ow = document.getElementById('onWrap'); if (!hb || !su) return;
+  const hb = document.getElementById('homeBtns'), su = document.getElementById('setup'), ow = document.getElementById('onWrap'), mn = document.getElementById('menu'); if (!hb || !su) return;
   hb.style.display = mode ? 'none' : ''; su.style.display = mode ? '' : 'none'; if (ow) ow.style.display = mode === 'online' ? '' : 'none';
-  const t = document.getElementById('setupTitle'); if (t) t.textContent = mode === 'online' ? 'Online game — host or join, then set up slots' : 'Game vs bots';
+  if (mn) mn.classList.toggle('inSetup', !!mode);
+  su.classList.toggle('onlineSetup', mode === 'online');
+  if (mode !== 'online') su.classList.remove('onlineOn');
+  const t = document.getElementById('setupTitle'); if (t) t.textContent = mode === 'online' ? 'Online game — only one of you hosts, the other joins with the code' : 'Game vs bots';
   if (mode) mapPreview();
 }
 // v7.5.1: the preview shows the CURRENT lobby: each active row's number sits on the exact spot that player starts at (seatPlan),

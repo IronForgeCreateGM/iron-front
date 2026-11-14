@@ -1,3 +1,6 @@
+## SHIPPED Sat Nov 14 afternoon: v7.9.7 simpler online lobby — see NIGHTLY-LOG
+Nicholas was in the lobby with his brother and could not start (they had also each hosted their own room). v7.9.7 makes Host vs Join an either/or with a shareable room code/link, shows a large I’m Ready for both players, pins a large Start game button on screen once a friend joins, closes leftover seats instead of filling 6 Hard AI, and centers the lobby so it fits Windows Chrome and Mac. No gameplay/stat changes. IAP edits left untouched. Screenshots: /tmp/v797/lobby-host.png, /tmp/v797/lobby-guest.png.
+
 ## SHIPPED Sat Nov 14 nightly: v7.9.4 Rift Canyon + v7.9.5 Quick Match host migration LIVE — see NIGHTLY-LOG
 - Live main = aac0d2f (v7.9.5), pushed 12:35 AM PT Nov 14. v7.9.4 (1b1c18a) went live 3:39 AM PT Fri Nov 13 (backup run).
 - Week list left: #4 SC2-style construction look (visual only), #5 iPhone testing/polish for 224 maps. Note: render-only staged construction (v7.3 construct.js) and builder bots (v7.7.4) already exist; the sim-side "builder walks out" plan (docs/sc2-construction-plan.md) is still a held sim+AI change.

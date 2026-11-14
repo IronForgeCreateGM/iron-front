@@ -1,6 +1,7 @@
 'use strict';
 // ===== Online lobby over Trystero (Nostr signalling, WebRTC data channels) =====
-// Host owns the lobby: assigns 4 slots, broadcasts seed/slots/version, starts when all remote humans are ready.
+// Host owns the lobby: assigns slots, broadcasts seed/slots/version, starts when everyone is ready (host can start anyway with confirm).
+// v7.9.7: big Host game / Join with code, a large I'm Ready button for host and joiner, empty seats stay closed (no auto Hard AI).
 const ONL = { room: null, host: false, code: null, peers: {}, acts: {}, handlers: {}, leaveCbs: [], hostId: null, name: '', ready: false, started: false };
 // Same-browser transport (two tabs, ?transport=local): BroadcastChannel with a Trystero-like API. For local testing.
 function bcTrystero(tag) {
@@ -103,8 +104,8 @@ function onlParseCode(v) { v = String(v || '').trim(); const m = /[?&#]room=([A-
 function onlError(html, retry) { const code = ONL.code; onlStatus(`<div class="onErr">❌ ${html}</div><div class="onErrBtns">${retry !== false && code ? '<button id="onRetry">↻ Retry</button> ' : ''}<button id="onReload">⟳ Reload page</button> <span class="dim">[${typeof NET_VERSION !== 'undefined' ? NET_VERSION : ''}${ONL.strategy ? ' · ' + ONL.strategy : ''}]</span></div>`);
   const r = document.getElementById('onRetry'); if (r) r.onclick = () => onlRetry(); const l = document.getElementById('onReload'); if (l) l.onclick = () => onlHardReload(); console.warn('[online] ' + String(html).replace(/<[^>]+>/g, '')); }
 function onlLeaveRoom() { clearInterval(ONL.reachI); clearTimeout(ONL.reachT); try { ONL.room && ONL.room.leave(); } catch (e) {} ONL.room = null; ONL.peers = {}; ONL.hostId = null; ONL.hostLock = null; ONL_SEC.rate = {}; ONL.started = false; ONL.ready = false; ONL.acts = {}; ONL.handlers = {}; ONL.leaveCbs = []; ONL.strategy = null; ONL.kicked = null;
-  if (typeof RTCDIAG !== 'undefined') Object.keys(RTCDIAG).forEach(k => RTCDIAG[k] = 0); const rb = document.getElementById('readyBtn'); if (rb) rb.textContent = 'Ready'; }
-function onlRetry() { const code = ONL.code, host = ONL.host; onlLeaveRoom(); onlShowPanel(false); document.querySelectorAll('#lobby select').forEach(s => s.disabled = false); const sb = document.getElementById('startBtn'); if (sb) sb.style.display = '';
+  if (typeof RTCDIAG !== 'undefined') Object.keys(RTCDIAG).forEach(k => RTCDIAG[k] = 0); onlResetReadyBtn(); }
+function onlRetry() { const code = ONL.code, host = ONL.host; onlLeaveRoom(); onlShowPanel(false); document.querySelectorAll('#lobby select').forEach(s => s.disabled = false); onlHostStartVisible(false);
   setTimeout(() => host ? onlHost(code) : onlJoin(code), 400); }
 function onlHardReload() { const q = new URLSearchParams(location.search); q.set('v', Date.now().toString(36)); if (ONL.code && !ONL.host && !q.get('room')) q.set('room', ONL.code); location.replace(location.pathname + '?' + q.toString()); }
 // v7.6.3: 'new version available' check (version.json is fetched with no-store, so a cached old page notices it is stale)
@@ -115,26 +116,103 @@ function onlVersionCheck() { if (typeof fetch !== 'function' || location.protoco
 function onlStatus(t) { const e = document.getElementById('onStatus'); if (e) e.innerHTML = t; }
 function onlChatLine(t) { const e = document.getElementById('chatLog'); if (!e) return; const d = document.createElement('div'); d.textContent = t; e.appendChild(d); e.scrollTop = 1e9; }
 function onlName() { const v = netSafeName(document.getElementById('pname').value, ''); if (v) localStorage.setItem('if_name', v); return v || 'Commander' + ((Math.random() * 90 + 10) | 0); }
-function onlShowPanel(on) { ['hostBtn', 'joinBtn'].forEach(id => document.getElementById(id).disabled = on); document.getElementById('onPanel').style.display = on ? 'block' : 'none'; document.getElementById('presets').style.display = on ? 'none' : ''; }
+function onlResetReadyBtn() { const rb = document.getElementById('readyBtn'); if (rb) { rb.textContent = "I'm Ready"; rb.classList.remove('on'); } }
+function onlHostStartVisible(on) {
+  // v7.9.7: Start is large and stays on screen, but only once a friend has actually joined (so two hosts don't sit waiting in empty rooms)
+  const hasHuman = Object.keys(ONL.peers || {}).length > 0;
+  const os = document.getElementById('onStartBtn'), ab = document.getElementById('onSlotBtns');
+  if (os) os.style.display = (on && hasHuman) ? '' : 'none';
+  if (ab) ab.style.display = on ? '' : 'none';
+}
+function onlShowCode(code, link) {
+  ONL.invite = link || ''; if (code) ONL.code = code;
+  const box = document.getElementById('onCodeBox'), val = document.getElementById('onCodeVal'), a = document.getElementById('onInviteA');
+  if (val) val.textContent = code || '';
+  if (box) box.style.display = code ? 'flex' : 'none';
+  if (a) { if (link) { a.href = link; a.textContent = link; a.style.display = 'block'; } else { a.removeAttribute('href'); a.textContent = ''; a.style.display = 'none'; } }
+}
+function onlCopyText(text, btn) {
+  text = String(text || ''); if (!text) return;
+  const done = ok => { if (btn) { const t = btn.textContent; btn.textContent = ok ? 'Copied' : 'Copy failed'; setTimeout(() => { btn.textContent = t; }, 1600); } };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => done(true)).catch(() => { try { const i = document.createElement('input'); i.value = text; document.body.appendChild(i); i.select(); document.execCommand('copy'); i.remove(); done(true); } catch (e) { done(false); } });
+  else done(false);
+}
+function onlOccupied() { const s = new Set(); if (ONL.meRow != null && ONL.meRow >= 0) s.add(ONL.meRow); for (const p of Object.values(ONL.peers || {})) if (p && p.row != null) s.add(p.row | 0); return s; }
+function onlFfaMap() { const ms = document.getElementById('mapSel'), mv = ms && ms.value; return mv === 'razorwheel' || mv === 'shatteredmoon' || mv === 'deltakings' || mv === 'labyrinth' || mv === 'riftcanyon'; }
+function onlPrepHostSlots() { // v7.9.7: You + one open seat; leftover AI rows close so an 8-player map is not 1v7 Hard AI
+  const rows = lobbyRead();
+  let me = rows.findIndex(r => r[0] === 'human'); if (me < 0) { me = 0; rows[0][0] = 'human'; }
+  rows.forEach((r, i) => { if (i !== me && r[0] === 'human') r[0] = 'off'; });
+  let remote = rows.findIndex((r, i) => i !== me && r[0] === 'remote');
+  if (remote < 0) remote = rows.findIndex((r, i) => i !== me);
+  rows.forEach((r, i) => {
+    if (i === me) r[0] = 'human';
+    else if (i === remote) { r[0] = 'remote'; if (onlFfaMap() && typeof TEAM_LET === 'string') r[1] = TEAM_LET[i] || r[1]; }
+    else r[0] = 'off';
+  });
+  lobbySet(rows); ONL.meRow = me;
+}
+function onlCloseEmptyRemotes() {
+  const rows = lobbyRead(), taken = onlOccupied(); let changed = false;
+  rows.forEach((r, i) => { if (!taken.has(i) && r[0] === 'remote') { r[0] = 'off'; changed = true; } });
+  if (changed) lobbySet(rows);
+}
+function onlFirstClosed() { const taken = onlOccupied(), rows = lobbyRead(); return rows.findIndex((r, i) => r[0] === 'off' && !taken.has(i)); }
+function onlAddSlot(type) {
+  if (!ONL.host || ONL.started) return; const rows = lobbyRead(), i = onlFirstClosed(); if (i < 0) { onlChatLine('* no closed slot left to open'); return; }
+  rows[i][0] = type; if (onlFfaMap() && typeof TEAM_LET === 'string') rows[i][1] = TEAM_LET[i] || rows[i][1];
+  lobbySet(rows); onlBroadcastLobby();
+}
+function onlNotReadyNames() {
+  const need = Object.values(ONL.peers).filter(p => !p.ready).map(p => p.name);
+  if (!ONL.ready) need.unshift(ONL.name || 'Host');
+  return need;
+}
+function onlSetReady(on, fromPeer) {
+  ONL.ready = !!on;
+  const rb = document.getElementById('readyBtn');
+  if (rb) { rb.textContent = ONL.ready ? "✔ I'm Ready" : "I'm Ready"; rb.classList.toggle('on', ONL.ready); rb.style.display = ''; }
+  if (fromPeer) return;
+  if (ONL.host) onlBroadcastLobby();
+  else if (ONL.acts.ready) ONL.acts.ready({ r: ONL.ready });
+}
+function onlDockReadyBar(on) {
+  const row = document.getElementById('onReadyRow'), home = document.getElementById('onPanel');
+  if (!row) return;
+  if (on) { document.body.appendChild(row); row.classList.add('onReadyFixed'); }
+  else {
+    row.classList.remove('onReadyFixed');
+    if (home) { const chat = document.getElementById('chatLog'); if (chat && chat.parentNode === home) home.insertBefore(row, chat); else home.appendChild(row); }
+  }
+}
+function onlShowPanel(on) {
+  ['hostBtn', 'joinBtn'].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = on; });
+  const p = document.getElementById('onPanel'); if (p) p.style.display = on ? 'block' : 'none';
+  const pr = document.getElementById('presets'); if (pr) pr.style.display = on ? 'none' : '';
+  const su = document.getElementById('setup'); if (su) su.classList.toggle('onlineOn', !!on);
+  const box = document.getElementById('onBox'); if (box) box.classList.toggle('inRoom', !!on);
+  const jc = document.getElementById('joinCode'); if (jc) jc.disabled = on;
+  if (!on) { onlDockReadyBar(false); onlShowCode(''); onlHostStartVisible(false); onlResetReadyBtn(); }
+  else { onlDockReadyBar(true); const rb = document.getElementById('readyBtn'); if (rb) rb.style.display = ''; }
+}
 // ---- host ----
 function onlHost(keep) {
   if (!onlAvailable()) { onlError('Online play unavailable (the network library failed to load). Reload the page; if it keeps happening, disable ad-blockers for this site.', false); return; }
-  onlVersionCheck(); ONL.host = true; ONL.name = onlName(); const code = keep || onlCode(); onlJoinRoom(code);
-  const rows = lobbyRead(); // v5.7.3: keep the host's chosen "You" row; exactly one human row; at least one remote row
-  let me = rows.findIndex(r => r[0] === 'human'); if (me < 0) { me = 0; rows[0][0] = 'human'; } rows.forEach((r, i) => { if (i !== me && r[0] === 'human') r[0] = 'si'; });
-  if (!rows.some(r => r[0] === 'remote')) { rows[me === 1 ? 0 : 1][0] = 'remote'; } lobbySet(rows); ONL.meRow = me;
-  onlShowPanel(true); document.getElementById('readyBtn').style.display = 'none';
+  onlVersionCheck(); ONL.host = true; ONL.ready = false; ONL.name = onlName(); const code = keep || onlCode(); onlJoinRoom(code);
+  onlPrepHostSlots();
+  onlShowPanel(true); onlHostStartVisible(true); onlSetReady(false, true);
   const _q = new URLSearchParams(location.search), _x = ['relays', 'mqtt', 'trackers', 'strategies', 'turn'].filter(k => _q.get(k)).map(k => '&' + k + '=' + encodeURIComponent(_q.get(k))).join(''); const link = location.origin + location.pathname + '?room=' + code + _x + (onlHideIP() && !_q.get('strategies') ? '&strategies=relay' : ''); // share link keeps signalling/TURN overrides
-  onlStatus(`Room <b>${code}</b> — share: <a href="${netEsc(link)}" target="_blank">${netEsc(link)}</a>${onlHideIP() ? ' <span class="dim">(🛡 IP hidden: relay only)</span>' : ''}<br>${location.protocol === 'file:' ? '⚠ Hosting from file:// — friends must open the same game build via https.' : ''}`);
+  onlShowCode(code, link);
+  onlStatus(`Share this room code with your friend, or send the invite link. ${onlHideIP() ? '<span class="dim">(🛡 IP hidden: relay only)</span> ' : ''}${location.protocol === 'file:' ? '⚠ Hosting from file:// — friends must open the same game build via https.' : ''}`);
   ONL.handlers.hello = (d, pid) => {
     if (ONL.started) { if (d.ver === codeHash() && NET.rejoinReq(pid, netSafeName(d.name))) onlChatLine('* ' + netSafeName(d.name) + ' rejoined'); else ONL.acts.kick({ reason: 'Match already running (no free slot to rejoin).' }, pid); return; }
     if (d.ver !== codeHash()) { ONL.acts.kick({ reason: 'Version mismatch — the host has ' + NET_VERSION + ', you have ' + String(d.nv || 'an older version').slice(0, 24) + '. Both players: reload the page (iPhone home-screen app: close it fully and reopen), then join again.', code: 'version', hv: NET_VERSION }, pid); onlChatLine('* ' + String(d.name || 'A player').slice(0, 16) + ' tried to join with ' + String(d.nv || 'an older version').slice(0, 24) + ' (you have ' + NET_VERSION + ') — they need to reload'); return; }
     const cid = typeof d.cid === 'string' ? d.cid.slice(0, 24) : null; if (cid && Object.values(ONL.peers).some(p => p.cid === cid)) return; // v5.9.2: same player reached us over a second signalling strategy
     const taken = new Set(Object.values(ONL.peers).map(p => p.row)), rows = lobbyRead();
     let row = rows.findIndex((r, i) => r[0] === 'remote' && !taken.has(i));
-    if (row < 0) row = rows.findIndex((r, i) => i !== ONL.meRow && r[0] === 'off'); if (row >= 0 && rows[row][0] === 'off') { rows[row][0] = 'remote'; lobbySet(rows); }
-    if (row < 0) { ONL.acts.kick({ reason: 'Lobby is full — the host needs to set a slot to "Remote player" (or open a new room).', code: 'full' }, pid); return; }
-    ONL.peers[pid] = { name: netSafeName(d.name), row, ready: false, cid }; onlChatLine(`* ${ONL.peers[pid].name} joined (slot ${row + 1})`); onlBroadcastLobby();
+    if (row < 0) { ONL.acts.kick({ reason: 'Lobby is full — the host needs to press “Open a slot for a friend”.', code: 'full' }, pid); return; }
+    ONL.peers[pid] = { name: netSafeName(d.name), row, ready: false, cid }; onlChatLine(`* ${ONL.peers[pid].name} joined (slot ${row + 1})`);
+    onlCloseEmptyRemotes(); onlBroadcastLobby();
   };
   ONL.handlers.ready = (d, pid) => { if (ONL.peers[pid]) { ONL.peers[pid].ready = !!d.r; onlBroadcastLobby(); } };
   ONL.handlers.pref = (d, pid) => { const p = ONL.peers[pid]; if (!p) return; const rows = lobbyRead(); const own = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k); if (own(FACTIONS, d.fac)) rows[p.row][2] = d.fac; if (own(TEAM_COLORS, d.color) && !rows.some((r, i) => i !== p.row && r[3] === d.color)) rows[p.row][3] = d.color; lobbySet(rows); onlBroadcastLobby(); };
@@ -144,23 +222,41 @@ function onlHost(keep) {
 function lobbyChanged() { if (ONL.host && !ONL.started) onlBroadcastLobby(); }
 function onlBroadcastLobby() {
   if (!ONL.room) return; const rows = lobbyRead();
-  // remote rows that lost their peer stay 'remote' (open)
-  const st = { rows, peers: ONL.peers, hostName: ONL.name, hostRow: ONL.meRow, ver: codeHash() };
+  const st = { rows, peers: ONL.peers, hostName: ONL.name, hostRow: ONL.meRow, hostReady: !!ONL.ready, ver: codeHash() };
   ONL.acts.lobby(st); onlRenderPeers(st);
-  // v5.7.3: empty remote rows never block START (they become Hard AI); only joined-but-not-ready players do
-  const need = Object.values(ONL.peers), openRemote = rows.filter((r, i) => r[0] === 'remote' && !need.some(p => p.row === i)).length, notReady = need.filter(p => !p.ready);
-  const sb = document.getElementById('startBtn'); sb.disabled = notReady.length > 0;
-  sb.textContent = notReady.length ? 'WAITING FOR ' + notReady.map(p => p.name).join(', ') + ' TO PRESS READY' : 'START ONLINE' + (openRemote ? ` (${openRemote} empty slot${openRemote > 1 ? 's become' : ' becomes'} Hard AI)` : '');
+  // v7.9.7: Start stays clickable; if someone is not ready the host confirms. Empty remotes stay closed (they do not become Hard AI).
+  const notReady = onlNotReadyNames(), label = notReady.length ? 'Start anyway' : 'Start game';
+  const sb = document.getElementById('startBtn'), os = document.getElementById('onStartBtn');
+  if (sb) { sb.disabled = false; sb.textContent = label; }
+  if (os) { os.disabled = false; os.textContent = label; }
+  if (ONL.host) onlHostStartVisible(true);
+}
+function onlPeerStatus(ready, isHost, isYou) {
+  const tag = isHost ? 'host' : 'connected';
+  const st = ready ? "✔ Ready" : (isYou ? "Pick your faction, then press I'm Ready" : "Not ready");
+  return { tag, st, cls: ready ? 'ready' : 'wait' };
 }
 function onlRenderPeers(st) {
   const e = document.getElementById('onPeers'); if (!e) return;
-  const hr = st.rows ? st.rows.findIndex(r => r[0] === 'human') : 0, open = st.rows ? st.rows.map((r, i) => r[0] === 'remote' && !Object.values(st.peers).some(p => p.row === i) ? i : -1).filter(i => i >= 0) : [];
-  e.innerHTML = `<div>Slot ${((st.hostRow != null ? st.hostRow : Math.max(0, hr)) | 0) + 1}: <b>${netEsc(netSafeName(st.hostName, 'Host'))}</b> (host) 🟢</div>` + Object.values(st.peers).map(p => `<div>Slot ${(p.row | 0) + 1}: <b>${netEsc(netSafeName(p.name))}</b> 🟢 connected · ${p.ready ? '✔ READY' : '⏳ not ready yet'}</div>`).join('') + open.map(i => `<div class="dim">Slot ${i + 1}: open — waiting for a friend to open the link (becomes Hard AI if empty)</div>`).join('');
+  const hr = (st.hostRow != null ? st.hostRow : (st.rows ? st.rows.findIndex(r => r[0] === 'human') : 0)) | 0;
+  const peers = st.peers || {}, open = st.rows ? st.rows.map((r, i) => r[0] === 'remote' && !Object.values(peers).some(p => p.row === i) ? i : -1).filter(i => i >= 0) : [];
+  const ai = st.rows ? st.rows.map((r, i) => (r[0] === 'si' || r[0] === 'easy' || r[0] === 'normal') ? i : -1).filter(i => i >= 0) : [];
+  const hostReady = st.hostReady != null ? !!st.hostReady : (ONL.host && ONL.ready);
+  const hs = onlPeerStatus(hostReady, true, ONL.host);
+  let html = `<div class="onPeer"><span class="who">Slot ${hr + 1}: <b>${netEsc(netSafeName(st.hostName, 'Host'))}</b> · ${hs.tag}${ONL.host ? ' · you' : ''}</span><span class="st ${hs.cls}">${hs.st}</span></div>`;
+  html += Object.values(peers).map(p => { const me = !ONL.host && ONL.selfId && peers[ONL.selfId] === p; const s = onlPeerStatus(!!p.ready, false, me); return `<div class="onPeer"><span class="who">Slot ${(p.row | 0) + 1}: <b>${netEsc(netSafeName(p.name))}</b> · ${s.tag}${me ? ' · you' : ''}</span><span class="st ${s.cls}">${s.st}</span></div>`; }).join('');
+  html += open.map(i => `<div class="onPeer"><span class="who dim">Slot ${i + 1}: open for a friend</span><span class="st open">Waiting</span></div>`).join('');
+  html += ai.map(i => { const typ = st.rows[i][0]; const nm = typ === 'easy' ? 'Easy AI' : typ === 'normal' ? 'Medium AI' : 'Hard AI'; return `<div class="onPeer"><span class="who dim">Slot ${i + 1}: ${nm}</span><span class="st ai">AI</span></div>`; }).join('');
+  e.innerHTML = html;
 }
 function onlStartHost() {
+  // v7.9.7: if someone has not pressed I'm Ready, the host can still start after confirming
+  const notReady = onlNotReadyNames();
+  if (notReady.length && !confirm('Not everyone is ready yet (' + notReady.join(', ') + '). Start the match anyway?')) return;
+  if (!ONL.ready) onlSetReady(true, true);
   // v7.8.5: host You-row cannot start as a locked country without Full Unlock (bots/remotes unrestricted)
   { const rows0 = lobbyRead(), me = rows0.find(r => r[0] === 'human'); if (me && typeof unlockHumanRowOk === 'function' && !unlockHumanRowOk(me)) { if (typeof unlockOffer === 'function') unlockOffer(me[2]); return; } } { const ms = document.getElementById('mapSel'), mv = MENU.mode === 'endless' ? 'endless' : ms ? ms.value : 'classic'; if (typeof unlockMapOk === 'function' && !unlockMapOk(mv)) { if (typeof unlockOfferMap === 'function') unlockOfferMap(mv); return; } } // v7.8.9 map gate (host pick only)
-  const rows = lobbyRead(); rows.forEach((r, i) => { if (r[0] === 'remote' && !Object.values(ONL.peers).some(p => p.row === i)) r[0] = 'si'; }); lobbySet(rows);
+  const rows = lobbyRead(); rows.forEach((r, i) => { if (r[0] === 'remote' && !Object.values(ONL.peers).some(p => p.row === i)) r[0] = 'off'; }); lobbySet(rows);
   const names = { [Math.max(0, rows.findIndex(r => r[0] === 'human'))]: ONL.name }; for (const p of Object.values(ONL.peers)) names[p.row] = p.name;
   const slots = buildSlots(rows, names, lobbyOpts().map), seed = (Math.random() * 1e9) | 0;
   const peerTeam = {}; for (const pid in ONL.peers) { const k = slots.findIndex(s => s.row === ONL.peers[pid].row); if (k >= 0) peerTeam[pid] = k; }
@@ -172,8 +268,8 @@ function onlStartHost() {
 function onlJoin(code) {
   if (!onlAvailable()) { onlError('Online play unavailable (the network library failed to load). Reload the page; if it keeps happening, disable ad-blockers for this site.', false); return; }
   onlVersionCheck(); code = onlParseCode(code); if (!code) { onlError('Type the 5-letter room code (or paste the invite link) first.', false); return; }
-  ONL.host = false; ONL.name = onlName(); onlJoinRoom(code); onlShowPanel(true);
-  document.querySelectorAll('#lobby select').forEach(s => s.disabled = true); document.getElementById('startBtn').style.display = 'none';
+  ONL.host = false; ONL.ready = false; ONL.name = onlName(); onlJoinRoom(code); onlShowPanel(true); onlHostStartVisible(false); onlSetReady(false, true); onlShowCode(code);
+  document.querySelectorAll('#lobby select').forEach(s => s.disabled = true); const sb = document.getElementById('startBtn'); if (sb) sb.style.display = 'none';
   ONL.joinT0 = Date.now(); clearTimeout(ONL.reachT); clearInterval(ONL.reachI);
   // v5.9.2: tell the joiner which stage is failing: matchmaking (signalling) vs the direct WebRTC connection
   // v7.6.3: staged join: direct WebRTC first (via nostr/mqtt/torrent signalling), then the WebSocket relay after ~8s, then a clear error + Retry at 30s
@@ -186,14 +282,16 @@ function onlJoin(code) {
     if (rs && !relayUp) onlError(`Can't reach any matchmaking or relay server for room <b>${code}</b>. Your network or an ad-blocker/firewall is blocking WebSocket servers. Turn off VPN / ad-blocker for this site or try mobile data, then press Retry.`);
     else if (sig) onlError(`Found the host of room <b>${code}</b> but could not connect (direct connection blocked and the relay got no answer). Make sure the host is still on the lobby screen with this room open and that you both have the same version (both reload), then press Retry.`);
     else onlError(`Can't find the host of room <b>${code}</b>. Check: 1) the code is right and the host still has the lobby open (if they closed it, they need to host again and send the new code); 2) you both have the same version — both reload the page / reopen the home-screen app. Then press Retry.`); }, 1000);
-  ONL.handlers.lobby = (st, pid) => { if (ONL.kicked || !onlValidLobby(st)) return; ONL.hostId = pid; clearTimeout(ONL.reachT); clearInterval(ONL.reachI); lobbySet(st.rows); document.querySelectorAll('#lobby select').forEach(s => s.disabled = true); onlRenderPeers(st);
-    const mine = st.peers[ONL.selfId]; onlStatus(`Room <b>${code}</b> — host <b>${netEsc(netSafeName(st.hostName, 'Host'))}</b>. ${mine ? `You are slot ${(mine.row | 0) + 1}. Pick your faction/colour, then press Ready.` : 'Waiting for a slot…'} ${ONL.strategy ? `<span class="dim">(${ONL.strategy === 'relay' ? 'connected via relay server — a direct connection was blocked' : 'direct connection'})</span>` : ''}`); };
+  ONL.handlers.lobby = (st, pid) => { if (ONL.kicked || !onlValidLobby(st)) return; ONL.hostId = pid; clearTimeout(ONL.reachT); clearInterval(ONL.reachI); lobbySet(st.rows); document.querySelectorAll('#lobby select').forEach(s => s.disabled = true); onlShowCode(code); onlRenderPeers(st);
+    const mine = st.peers[ONL.selfId]; const rb = document.getElementById('readyBtn'); if (rb) rb.style.display = '';
+    if (mine && ONL.ready && !mine.ready && ONL.acts.ready) ONL.acts.ready({ r: true }); // resend if the host missed our Ready
+    onlStatus(`Joined <b>${code}</b> — host <b>${netEsc(netSafeName(st.hostName, 'Host'))}</b>. ${mine ? `You are slot ${(mine.row | 0) + 1}. Pick your faction, then press I'm Ready.` : 'Waiting for a slot…'} ${ONL.strategy ? `<span class="dim">(${ONL.strategy === 'relay' ? 'connected via relay server — a direct connection was blocked' : 'direct connection'})</span>` : ''}`); };
   ONL.handlers.kick = d => { clearInterval(ONL.reachI); ONL.kicked = d; onlError(netEsc(String(d.reason || 'The host refused the connection.').slice(0, 400)), d.code !== 'version'); };
   ONL.handlers.chat = d => { const m = String(d.m == null ? '' : d.m).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 140); if (m) onlChatLine(netSafeName(d.n, '?') + ': ' + m); };
   ONL.handlers.sync = (d, pid) => { if (ONL.started || !d.full || !netValidSync(d) || !onlValidStart(d.opts)) return; ONL.started = true; ONL.hostId = ONL.hostLock = pid; const o = d.opts;
     onlBegin({ seed: o.seed, slots: o.slots, me: d.me, humans: d.humans, peerTeam: d.peerTeam, host: false, hostPeer: pid, map: o.map, cmap: o.cmap, peace: o.peace, fog: o.fog !== false }); NET._applySync(d); };
   ONL.handlers.start = (d, pid) => { if (ONL.started || !onlValidStart(d) || !d.peerTeam || typeof d.peerTeam !== 'object' || !Array.isArray(d.humans)) return; ONL.started = true; ONL.hostId = ONL.hostLock = pid; onlBegin({ seed: d.seed, slots: d.slots, me: d.peerTeam[ONL.selfId], humans: d.humans, peerTeam: d.peerTeam, host: false, hostPeer: pid, map: d.map, cmap: d.cmap, peace: d.peace, fog: d.fog !== false }); };
-  document.getElementById('readyBtn').style.display = '';
+  const rb = document.getElementById('readyBtn'); if (rb) rb.style.display = '';
 }
 // v7.7.6: shape checks for the host's lobby and start packages (names are cleaned; nothing from a peer is ever run as code)
 function onlValidLobby(st) {
@@ -215,6 +313,7 @@ function onlValidStart(d) {
   return true;
 }
 function onlBegin(o) {
+  onlDockReadyBar(false); // v7.9.7: don't leave the Ready/Start bar over the match
   ONL.leaveCbs = []; // fresh leave handlers for this match (NET.begin will re-register)
   if (o.me == null) { onlStatus('You were not assigned a slot.'); return; }
   audioInit(); document.getElementById('menu').style.display = 'none';
@@ -226,7 +325,13 @@ function onlInitUI() {
   const hi = document.getElementById('hideIp'); if (hi) { hi.checked = onlHideIP(); hi.onchange = () => { try { localStorage.setItem('if_hideip', hi.checked ? '1' : '0'); } catch (e) {} }; }
   document.getElementById('hostBtn').onclick = () => onlHost();
   document.getElementById('joinBtn').onclick = () => onlJoin(document.getElementById('joinCode').value);
-  document.getElementById('readyBtn').onclick = () => { ONL.ready = !ONL.ready; ONL.acts.ready && ONL.acts.ready({ r: ONL.ready }); document.getElementById('readyBtn').textContent = ONL.ready ? '✔ Ready' : 'Ready'; };
+  const jc = document.getElementById('joinCode'); if (jc) jc.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('joinBtn').click(); } });
+  document.getElementById('readyBtn').onclick = () => onlSetReady(!ONL.ready);
+  const os = document.getElementById('onStartBtn'); if (os) os.onclick = () => { const sb = document.getElementById('startBtn'); if (sb) sb.click(); };
+  const ai = document.getElementById('addAiBtn'); if (ai) ai.onclick = () => onlAddSlot('si');
+  const op = document.getElementById('addOpenBtn'); if (op) op.onclick = () => onlAddSlot('remote');
+  const cc = document.getElementById('copyCodeBtn'); if (cc) cc.onclick = () => onlCopyText(ONL.code, cc);
+  const cl = document.getElementById('copyLinkBtn'); if (cl) cl.onclick = () => onlCopyText(ONL.invite || (ONL.code ? location.origin + location.pathname + '?room=' + ONL.code : ''), cl);
   document.getElementById('chatIn').onkeydown = e => { if (e.key === 'Enter' && e.target.value.trim() && ONL.room) { const m = e.target.value.trim().slice(0, 140); e.target.value = ''; if (ONL.host) { onlChatLine(ONL.name + ': ' + m); ONL.acts.chat({ m, n: ONL.name }); } else ONL.acts.chat({ m }); } e.stopPropagation(); };
   const code = new URLSearchParams(location.search).get('room'); if (code) { document.getElementById('joinCode').value = code; setTimeout(() => onlJoin(code), 50); }
 }
