@@ -1,3 +1,8 @@
+## SHIPPED Sat Nov 14 nightly: v7.9.4 Rift Canyon + v7.9.5 Quick Match host migration LIVE — see NIGHTLY-LOG
+- Live main = aac0d2f (v7.9.5), pushed 12:35 AM PT Nov 14. v7.9.4 (1b1c18a) went live 3:39 AM PT Fri Nov 13 (backup run).
+- Week list left: #4 SC2-style construction look (visual only), #5 iPhone testing/polish for 224 maps. Note: render-only staged construction (v7.3 construct.js) and builder bots (v7.7.4) already exist; the sim-side "builder walks out" plan (docs/sc2-construction-plan.md) is still a held sim+AI change.
+- The uncommitted IAP/StoreKit edits were left untouched.
+
 ## SHIPPED morning Nov 12: v7.9.3 Frozen Labyrinth full-square maze LIVE — see NIGHTLY-LOG
 Nicholas approved the redesigned full-map maze at 9:37 AM PT ("I really like it. Send it and test the full square maze map you made"). Built-in map `labyrinth` (js/sim.js `genLabyrinth`): a real branching ice-cliff maze covering the whole 224x224 frost map, 8 fair seats, Ice Vaults at backyard dead ends, Ice Caches, mid plazas, a shared Core. Web unlocked; native = Full Unlock. Reused the v793 lobby/frost/ice visual work; replaced the old centre-only maze with the approved seed-32 layout. A D4 copy was applied to plaza ice and the core ore field so every seat faces the same resources. No unit-stat or AI changes. Screenshot: /workspace/iron-front-v7.9.3-maze.png
 - **FROZEN LABYRINTH FULL MAZE IS DONE AND LIVE.**
