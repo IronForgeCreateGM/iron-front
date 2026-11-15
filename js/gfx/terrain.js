@@ -129,9 +129,35 @@ function wearMap() { // v7.6.2 render-only: BFS tracks start->centre / start->ne
   const T = new Float32Array(N); for (let pass = 0; pass < 2; pass++) { for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { let s = 0, c = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= MW || yy >= MH) continue; s += W[yy * MW + xx]; c++; } T[y * MW + x] = s / c; } W.set(T); }
   for (let i = 0; i < N; i++) W[i] = Math.min(1, W[i] * (1.5 + R() * 0.9)) * (mapTh() === 'frost' ? 0.75 : 0.85);
   return W; }
+// v7.9.9 iPhone polish (render only, sim untouched): the 224x224 maps were one ~1.6M-triangle terrain mesh drawn whole every
+// frame. On phones (touch UI on) big maps build the mesh at 2 verts/tile (~400k tris) and split it into 28x28-tile pieces so
+// three.js frustum-culls what is off screen. Desktop keeps the full 4 verts/tile single mesh. ?tres=1..4 / ?tchunk=0|1 for QA.
+function terrainBig() { return MW * MH > 160 * 160; }
+function terrainPhone() { if (typeof MOB === 'undefined') return false; if (MOB.on || MOB.set) return MOB.on; // link/URL starts run before mobile.js's load handler: same decision it will make
+  let sv = null; try { sv = localStorage.getItem('ifMobile'); } catch (e) {} const qm = typeof QS !== 'undefined' ? QS.get('mobile') : null; return qm != null ? qm === '1' : sv != null ? sv === '1' : mobDetect(); }
+function terrainMeshRes() { const q = typeof QS !== 'undefined' && QS.get('tres'); if (q) return Math.max(1, Math.min(HR, q | 0 || HR)); return terrainPhone() && terrainBig() ? 2 : HR; }
+function terrainChunked() { const q = typeof QS !== 'undefined' && QS.get('tchunk'); if (q != null && q !== '') return q === '1'; return terrainPhone() && terrainBig(); }
+function terrainChunks(geo, mat) {
+  const CS = 28, NX = Math.ceil(MW / CS), NY = Math.ceil(MH / CS), pos = geo.attributes.position, ix = geo.index.array, lists = [];
+  for (let k = 0; k < NX * NY; k++) lists.push([]);
+  for (let t = 0; t < ix.length; t += 3) { const a = ix[t], b = ix[t + 1], c = ix[t + 2], cx = (pos.getX(a) + pos.getX(b) + pos.getX(c)) / 3, cz = (pos.getZ(a) + pos.getZ(b) + pos.getZ(c)) / 3;
+    const k = Math.min(NY - 1, Math.max(0, Math.floor(cz / CS))) * NX + Math.min(NX - 1, Math.max(0, Math.floor(cx / CS))); lists[k].push(a, b, c); }
+  const grp = new THREE.Group(); grp.name = 'terrain';
+  for (const L of lists) { if (!L.length) continue; const g = new THREE.BufferGeometry();
+    for (const k in geo.attributes) g.setAttribute(k, geo.attributes[k]); g.setIndex(L);
+    const bb = new THREE.Box3(); bb.makeEmpty(); const v = new THREE.Vector3(); for (let i = 0; i < L.length; i++) bb.expandByPoint(v.fromBufferAttribute(pos, L[i]));
+    g.boundingBox = bb; g.boundingSphere = bb.getBoundingSphere(new THREE.Sphere());
+    const m = new THREE.Mesh(g, mat); m.receiveShadow = true; m.matrixAutoUpdate = false; m.updateMatrix(); grp.add(m); }
+  return grp;
+}
+function phoneThin(list, keep) { // v7.9.9: whole-map instanced props are drawn every frame (no culling); thin them on phones on the big maps. Hash, not the render RNG.
+  if (!(terrainPhone() && terrainBig()) || (typeof QS !== 'undefined' && QS.get('thin') === '0')) return list; let n = 0;
+  for (let j = 0; j < list.length; j++) { let h = Math.imul(j + 1, 2654435761) >>> 0; h ^= h >>> 15; h = Math.imul(h, 2246822519) >>> 0; h ^= h >>> 13; if ((h >>> 0) / 4294967296 < keep) list[n++] = list[j]; }
+  list.length = n; return list; }
 function buildTerrain3() {
   buildHeightfield();
-  const geo = new THREE.PlaneGeometry(MW, MH, HW - 1, HH - 1); geo.rotateX(-Math.PI / 2); geo.translate(MW / 2, 0, MH / 2);
+  const TR = terrainMeshRes(); R3.terrainRes = TR; // v7.9.9: phones build the 224x224 maps at 2 verts/tile (heights still come from the full heightfield)
+  const geo = new THREE.PlaneGeometry(MW, MH, MW * TR, MH * TR); geo.rotateX(-Math.PI / 2); geo.translate(MW / 2, 0, MH / 2);
   const pos = geo.attributes.position, n = pos.count;
   // PlaneGeometry vertex order: rows from z=0 (after rotation) ... compute from coords
   for (let i = 0; i < n; i++) pos.setY(i, heightAt(pos.getX(i), pos.getZ(i)));
@@ -163,7 +189,9 @@ function buildTerrain3() {
   geo.setAttribute('splat', new THREE.BufferAttribute(spl, 4)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   if (G.void) { const ix = geo.index.array, keep = []; for (let t = 0; t < ix.length; t += 3) { const a = ix[t], b = ix[t + 1], c = ix[t + 2]; if (Math.max(pos.getY(a), pos.getY(b), pos.getY(c)) > -5.6) keep.push(a, b, c); }
     geo.setIndex(keep); moonFlatten(); } // v7.9.0: open space shows through (and ~70% fewer terrain triangles on Shattered Moon)
-  const mesh = new THREE.Mesh(geo, terrainMaterial()); mesh.receiveShadow = true; R3.scene.add(mesh); R3.terrain = mesh;
+  const tmat = terrainMaterial();
+  if (terrainChunked()) { const grp = terrainChunks(geo, tmat); R3.scene.add(grp); R3.terrain = grp; } // v7.9.9 phone: only the pieces in view are drawn
+  else { const mesh = new THREE.Mesh(geo, tmat); mesh.receiveShadow = true; R3.scene.add(mesh); R3.terrain = mesh; }
   if (G.void) buildSpace(); else {
   // outside skirt
   const sk = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: { space: 0x0c0b16, mech: 0x26292d }[G.theme] || (G.desert ? 0x4a3a28 : 0x1c2416), roughness: 1 }));
@@ -298,6 +326,7 @@ function buildFoliage() {
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x; if (G.map[i] !== 0 || G.oreMax[i] > 0 || nearBase(x + 0.5, y + 0.5)) continue;
     const nearRock = [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [0, 2], [-2, 0], [0, -2]].some(([a, b]) => inb(x + a, y + b) && G.map[(y + b) * MW + x + a] === 1);
     if (R() < (G.void ? 0 : G.desert && !G.custom ? 0 : G.forest && G.forest[i] ? 0.6 : G.custom && (G.desert || G.theme === 'space' || G.theme === 'mech') ? 0 : nearRock ? 0.45 : 0.012)) trees.push([x + 0.2 + R() * 0.6, y + 0.2 + R() * 0.6, 0.7 + R() * 0.7]); }
+  phoneThin(trees, 0.5); // v7.9.9 phone + 224 map: half the trees (render only)
   const tm = new THREE.InstancedMesh(treeGeo, windMat(false, 0.8), trees.length); tm.castShadow = true; tm.receiveShadow = true; tm.frustumCulled = false;
   trees.forEach((t, j) => { e.set((R() - 0.5) * 0.1, R() * 6.28, (R() - 0.5) * 0.1); q.setFromEuler(e); m4.compose(new THREE.Vector3(t[0], heightAt(t[0], t[1]) - 0.05, t[1]), q, new THREE.Vector3(t[2], t[2] * (0.9 + R() * 0.4), t[2])); tm.setMatrixAt(j, m4);
     cl.setRGB(0.8 + R() * 0.4, 0.8 + R() * 0.4, 0.8 + R() * 0.3); tm.setColorAt(j, cl); (R3.treeTile = R3.treeTile || {})[Math.floor(t[1]) * MW + Math.floor(t[0])] = j; });
@@ -308,6 +337,7 @@ function buildFoliage() {
   const RB = new MB(0); RB.add('r', rg, G.desert ? 0x9a7652 : G.void ? 0x7a7a7e : 0x77706a, [0, 0.85, 0], 0, 0, 0); const rgeo = RB.build().r; const rocks = [];
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const i = y * MW + x; if (G.map[i] === 1 && !(G.void && G.void[i]) && !(G.mud && G.mud[i]) && !(G.lpit && G.lpit[i]) && R() < (G.void ? 0.8 : 0.3)) rocks.push([x + R(), y + R(), G.void ? 0.45 + R() * 0.75 : 0.25 + R() * 0.55]); // v7.9.0 moon: boulder fields + crater rim stones
     else if (G.map[i] === 0 && !G.oreMax[i] && R() < 0.02 && !nearBase(x, y)) rocks.push([x + R(), y + R(), 0.1 + R() * 0.12]); }
+  phoneThin(rocks, 0.4); // v7.9.9 phone + 224 map: 40% of the boulders (render only)
   const rm = new THREE.InstancedMesh(rgeo, pbrMaterial(), rocks.length); rm.castShadow = true; rm.receiveShadow = true; rm.frustumCulled = false;
   rocks.forEach((r, j) => { e.set(R() * 3, R() * 6, R() * 3); q.setFromEuler(e); m4.compose(new THREE.Vector3(r[0], heightAt(r[0], r[1]) + r[2] * 0.1, r[1]), q, new THREE.Vector3(r[2], r[2], r[2])); rm.setMatrixAt(j, m4); });
   R3.scene.add(rm); R3.rocks = rm; if (rocks.length) PR({ mesh: rm, file: 'rocks_' + TH, upright: true, sink: 0.08 });

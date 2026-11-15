@@ -84,6 +84,7 @@ function propsBuildScatter() {
     if (G.lava && adj(x, y, j => G.lava[j]) && r2 < 0.4) lav.push([px, py, h - 0.03, 0.35 + R() * 0.45, yaw, i, (propsHash(i) % 3)]);
     if (G.ice && !G.ice[i] && adj(x, y, j => G.ice[j]) && r2 < 0.3) ice.push([px, py, h - 0.02, 0.8 + R() * 0.7, yaw, i, (propsHash(i) % 2)]); }
   propsScatter({ file: 'debris_' + th, items: deb, light: 1, shadow: 0 });
+  if (typeof phoneThin === 'function') { phoneThin(lav, 0.5); phoneThin(ice, 0.5); } // v7.9.9 phone + 224 map
   if (lav.length) propsScatter({ file: 'lavarock', items: lav, shadow: 1 });
   if (ice.length) propsScatter({ file: 'iceshard', items: ice, mat: () => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.15, metalness: 0.05, transparent: true, opacity: 0.9, envMapIntensity: 1.2 }) });
 }
