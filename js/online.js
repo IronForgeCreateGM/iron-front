@@ -36,7 +36,7 @@ function onlStrategyConf(s, cfg, q) {
   if (cfg.turnConfig) conf.turnConfig = cfg.turnConfig;
   if (s === 'nostr') { const u = q.get('relays') ? urls(q.get('relays')) : cfg.relayUrls; if (u) conf.relayConfig = { urls: u }; }
   if (s === 'mqtt') { const u = q.get('mqtt') ? urls(q.get('mqtt')) : cfg.mqttUrls; if (u) conf.relayConfig = { urls: u }; }
-  if (s === 'relay') conf.startDelay = ONL.host || onlHideIP() ? 0 : (q.get('strategies') === 'relay' ? 0 : +(q.get('relaydelay') || 8000)); // guests give direct WebRTC 8s to win first
+  if (s === 'relay') conf.startDelay = ONL.host || ONL.started || onlHideIP() ? 0 : (q.get('strategies') === 'relay' ? 0 : +(q.get('relaydelay') || 8000)); // guests give direct WebRTC 8s to win first
   if (s === 'torrent') { const u = q.get('trackers') ? urls(q.get('trackers')) : cfg.trackerUrls; if (u) conf.relayConfig = { urls: u }; }
   return conf;
 }
@@ -54,7 +54,7 @@ function onlJoinRoom(code) {
   ONL.room = room;
   for (const name of ['lobby', 'hello', 'ready', 'pref', 'chat', 'start', 'kick', 'in', 'turn', 'hash', 'desync', 'pg', 'po', 'sync', 'rejoin']) {
     const sends = subs.map(sub => { const a = sub.room.makeAction(name); const send = Array.isArray(a) ? (d, to) => a[0](d, to || null) : (d, to) => a.send(d, to ? { target: to } : undefined);
-      const onm = (d, pid) => { if (!host && !chosen && name === 'lobby' && d && d.peers && typeof d.peers === 'object' && Object.prototype.hasOwnProperty.call(d.peers, sub.T.selfId)) commit(sub, pid); if (!live(sub)) return; via[pid] = via[pid] || sub; onlDispatch(name, d, pid); };
+      const onm = (d, pid) => { if (!host && !chosen && ((name === 'lobby' && d && d.peers && typeof d.peers === 'object' && Object.prototype.hasOwnProperty.call(d.peers, sub.T.selfId)) || (name === 'sync' && ONL.started && NET.recon && d && d.full))) commit(sub, pid); /* v7.9.8: a reconnecting guest commits to the route the host resync came over */ if (!live(sub)) return; via[pid] = via[pid] || sub; onlDispatch(name, d, pid); };
       if (Array.isArray(a)) a[1]((d, pid) => onm(d, pid)); else a.onMessage = (d, meta) => onm(d, meta && meta.peerId || meta);
       return { sub, send }; });
     ONL.acts[name] = (d, to) => { if (to) { const v = via[to]; const t = v ? sends.find(x => x.sub === v) : null; (t ? [t] : sends.filter(x => live(x.sub))).forEach(x => x.send(d, to)); } else sends.filter(x => live(x.sub)).forEach(x => x.send(d)); };
@@ -85,6 +85,12 @@ function onlAccept(name, d, pid) {
   return true;
 }
 function onNetMigrate(nh, amHost) { ONL.hostId = nh; if (amHost) { ONL.host = true; ONL.hostLock = null; } else { ONL.host = false; ONL.hostLock = nh; } if (typeof QM !== 'undefined' && QM.state === 'started') QM.hostId = nh; } // v7.9.5 Quick Match host migration
+// v7.9.8 reconnect: the guest lost the host mid-match. Wait a few seconds for the same connection to come back; if it doesn't,
+// re-open the room over every route (direct + relay server, relay starts at once) and ask the host for a resync. Retried every 12 s.
+function onNetHost(pid) { ONL.hostId = ONL.hostLock = pid; }
+function onNetRecon(on) { clearTimeout(ONL.reconT); ONL.reconT = null; if (!on) return; if (ONL.host || !ONL.code) return;
+  const again = () => { if (!NET.recon || !ONL.started) return; try { const old = ONL.room; ONL.hostLock = null; onlJoinRoom(ONL.code); if (old) setTimeout(() => { try { old.leave(); } catch (e) {} }, 0); } catch (e) { console.warn('[online] reconnect', e); } ONL.reconT = setTimeout(again, 12000); };
+  ONL.reconT = setTimeout(again, 5000); }
 function onlDispatch(name, d, pid) { const h = ONL.handlers[name]; if (!h || !onlAccept(name, d, pid)) return;
   try { h(d, pid); } catch (e) { ONL_SEC.errors++; console.warn('[online] dropped a malformed ' + name + ' message', e && e.message); } }
 // v7.7.6: "Hide my IP" = relay-only. No WebRTC (direct peer-to-peer) connection is ever opened, so other players never see
@@ -205,7 +211,7 @@ function onlHost(keep) {
   onlShowCode(code, link);
   onlStatus(`Share this room code with your friend, or send the invite link. ${onlHideIP() ? '<span class="dim">(🛡 IP hidden: relay only)</span> ' : ''}${location.protocol === 'file:' ? '⚠ Hosting from file:// — friends must open the same game build via https.' : ''}`);
   ONL.handlers.hello = (d, pid) => {
-    if (ONL.started) { if (d.ver === codeHash() && NET.rejoinReq(pid, netSafeName(d.name))) onlChatLine('* ' + netSafeName(d.name) + ' rejoined'); else ONL.acts.kick({ reason: 'Match already running (no free slot to rejoin).' }, pid); return; }
+    if (ONL.started) { if (d.ver === codeHash() && NET.rejoinReq(pid, netSafeName(d.name), typeof d.cid === 'string' ? d.cid.slice(0, 24) : null)) onlChatLine('* ' + netSafeName(d.name) + ' rejoined'); else ONL.acts.kick({ reason: 'Match already running (no free slot to rejoin).' }, pid); return; }
     if (d.ver !== codeHash()) { ONL.acts.kick({ reason: 'Version mismatch — the host has ' + NET_VERSION + ', you have ' + String(d.nv || 'an older version').slice(0, 24) + '. Both players: reload the page (iPhone home-screen app: close it fully and reopen), then join again.', code: 'version', hv: NET_VERSION }, pid); onlChatLine('* ' + String(d.name || 'A player').slice(0, 16) + ' tried to join with ' + String(d.nv || 'an older version').slice(0, 24) + ' (you have ' + NET_VERSION + ') — they need to reload'); return; }
     const cid = typeof d.cid === 'string' ? d.cid.slice(0, 24) : null; if (cid && Object.values(ONL.peers).some(p => p.cid === cid)) return; // v5.9.2: same player reached us over a second signalling strategy
     const taken = new Set(Object.values(ONL.peers).map(p => p.row)), rows = lobbyRead();
@@ -262,7 +268,8 @@ function onlStartHost() {
   const peerTeam = {}; for (const pid in ONL.peers) { const k = slots.findIndex(s => s.row === ONL.peers[pid].row); if (k >= 0) peerTeam[pid] = k; }
   const me = slots.findIndex(s => s.local), humans = slots.map((s, i) => !s.ai ? i : -1).filter(i => i >= 0);
   const gopt = lobbyOpts(); ONL.acts.start({ seed, slots, peerTeam, humans, host: ONL.selfId, map: gopt.map, cmap: gopt.cmap, peace: gopt.peace, fog: gopt.fog });
-  ONL.started = true; onlBegin({ seed, slots, me, humans, peerTeam, host: true, hostPeer: ONL.selfId, map: gopt.map, cmap: gopt.cmap, peace: gopt.peace, fog: gopt.fog });
+  const teamCid = {}; for (const pid in ONL.peers) if (peerTeam[pid] != null && ONL.peers[pid].cid) teamCid[peerTeam[pid]] = ONL.peers[pid].cid;
+  ONL.started = true; onlBegin({ seed, slots, me, humans, peerTeam, teamCid, host: true, hostPeer: ONL.selfId, map: gopt.map, cmap: gopt.cmap, peace: gopt.peace, fog: gopt.fog });
 }
 // ---- client ----
 function onlJoin(code) {
@@ -286,7 +293,8 @@ function onlJoin(code) {
     const mine = st.peers[ONL.selfId]; const rb = document.getElementById('readyBtn'); if (rb) rb.style.display = '';
     if (mine && ONL.ready && !mine.ready && ONL.acts.ready) ONL.acts.ready({ r: true }); // resend if the host missed our Ready
     onlStatus(`Joined <b>${code}</b> — host <b>${netEsc(netSafeName(st.hostName, 'Host'))}</b>. ${mine ? `You are slot ${(mine.row | 0) + 1}. Pick your faction, then press I'm Ready.` : 'Waiting for a slot…'} ${ONL.strategy ? `<span class="dim">(${ONL.strategy === 'relay' ? 'connected via relay server — a direct connection was blocked' : 'direct connection'})</span>` : ''}`); };
-  ONL.handlers.kick = d => { clearInterval(ONL.reachI); ONL.kicked = d; onlError(netEsc(String(d.reason || 'The host refused the connection.').slice(0, 400)), d.code !== 'version'); };
+  ONL.handlers.kick = d => { clearInterval(ONL.reachI); if (d.code === 'full' && !ONL.started && (ONL.fullTries = (ONL.fullTries || 0) + 1) <= 3) { onlStatus('The host\'s lobby still shows your old connection — retrying in a few seconds…'); clearTimeout(ONL.fullT); ONL.fullT = setTimeout(() => onlRetry(), 5000); return; } // v7.9.8: refresh mid-lobby
+    ONL.kicked = d; onlError(netEsc(String(d.reason || 'The host refused the connection.').slice(0, 400)), d.code !== 'version'); };
   ONL.handlers.chat = d => { const m = String(d.m == null ? '' : d.m).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 140); if (m) onlChatLine(netSafeName(d.n, '?') + ': ' + m); };
   ONL.handlers.sync = (d, pid) => { if (ONL.started || !d.full || !netValidSync(d) || !onlValidStart(d.opts)) return; ONL.started = true; ONL.hostId = ONL.hostLock = pid; const o = d.opts;
     onlBegin({ seed: o.seed, slots: o.slots, me: d.me, humans: d.humans, peerTeam: d.peerTeam, host: false, hostPeer: pid, map: o.map, cmap: o.cmap, peace: o.peace, fog: o.fog !== false }); NET._applySync(d); };
@@ -317,7 +325,7 @@ function onlBegin(o) {
   ONL.leaveCbs = []; // fresh leave handlers for this match (NET.begin will re-register)
   if (o.me == null) { onlStatus('You were not assigned a slot.'); return; }
   audioInit(); document.getElementById('menu').style.display = 'none';
-  startGame('normal', { slots: o.slots, seed: o.seed, me: o.me, map: o.map, cmap: o.cmap, peace: o.peace, fog: o.fog !== false, online: { tr: onlTransport, host: o.host, me: o.me, humans: o.humans, peerTeam: o.peerTeam, hostPeer: o.hostPeer, migrate: !!o.migrate, selfPid: o.selfPid || null } });
+  startGame('normal', { slots: o.slots, seed: o.seed, me: o.me, map: o.map, cmap: o.cmap, peace: o.peace, fog: o.fog !== false, online: { tr: onlTransport, host: o.host, me: o.me, humans: o.humans, peerTeam: o.peerTeam, hostPeer: o.hostPeer, migrate: !!o.migrate, selfPid: o.selfPid || null, teamCid: o.teamCid || {}, cid: ONL.cid || null } });
   announce('Online match — lockstep ' + NET.DELAY + ' ticks', 'net0', 1);
 }
 function onlInitUI() {

@@ -534,9 +534,14 @@ function netOverlay(stall, dt) {
   NET.waitT = stall ? NET.waitT + dt : 0;
   let txt = '';
   if (NET.desync) txt = `⚠ Desync at tick ${NET.desync.t} (player ${NET.desync.team + 1}) could not be repaired automatically — please restart the match.`;
+  else if (NET.online && NET.recon) { const sec = Math.max(0, Math.ceil((NET.RECON_MS - (NET.now() - NET.recon.t0)) / 1000)); txt = '📶 Lost the connection to the host — reconnecting… (' + sec + 's)'; }
   else if (NET.online && NET.waitT > 0.4) txt = NET.host && NET.waiting ? 'Waiting for ' + NET.waiting.map(t => G.players[t].name).join(', ') + '…' : 'Waiting for host…';
   if (NET.status) { NET.lastStatus = NET.status; uiMsg(NET.status); announce(NET.status, 'net' + NET.status, 5); NET.status = ''; }
-  el.textContent = txt; el.style.display = txt ? 'block' : 'none';
+  const rc = !!(NET.online && NET.recon); // v7.9.8: the reconnect overlay always has a way out (button is built once, only the text ticks)
+  if (rc) { if (!document.getElementById('reconAi')) { el.textContent = ''; const sp = document.createElement('span'); sp.id = 'reconTxt'; const b = document.createElement('button'); b.id = 'reconAi'; b.textContent = 'Stop waiting — play on vs AI'; b.onclick = () => NET.giveUp('You stopped waiting — continuing offline vs AI'); el.appendChild(sp); el.appendChild(document.createElement('br')); el.appendChild(b); el._t = null; }
+    const sp = document.getElementById('reconTxt'); if (sp && sp.textContent !== txt) sp.textContent = txt; }
+  else if (el._t !== txt || document.getElementById('reconAi')) { el._t = txt; el.textContent = txt; }
+  el.style.display = txt ? 'block' : 'none';
 }
 
 function uiMsgMenu(t) { const e = document.getElementById('onStatus'); if (e) e.textContent = t; }

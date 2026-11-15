@@ -273,7 +273,7 @@ function mobLifecycle() {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { MOB.hiddenAt = performance.now(); const app = mobIsApp(); if (started && !NET.online && !G.over && !paused && (MOB.on || app)) togglePause(); if (app && !NET.online && typeof AU !== 'undefined' && AU.ctx && AU.ctx.state === 'running') try { AU.ctx.suspend(); } catch (e) {} return; } // v7.7.3: the App Store app (iPhone, iPad, Mac) always pauses offline games and mutes when sent to the background (call, home swipe, Cmd-Tab)
     const away = performance.now() - (MOB.hiddenAt || performance.now()); if (typeof AU !== 'undefined' && AU.ctx && AU.ctx.state !== 'running') try { AU.ctx.resume(); } catch (e) {}
-    if (started && NET.online && away > 3000 && typeof ONL !== 'undefined' && !ONL.host) setTimeout(() => { const peers = ONL.room && ONL.room.getPeers ? Object.keys(ONL.room.getPeers()).length : 1; if (!peers || (G.players[ME] && G.players[ME].ai)) mobRejoinBanner(); }, 2500);
+    if (started && NET.online && away > 3000 && typeof ONL !== 'undefined' && !ONL.host) setTimeout(() => { const peers = ONL.room && ONL.room.getPeers ? Object.keys(ONL.room.getPeers()).length : 1; if (!NET.online) return; if (!peers && !NET.recon && typeof NET._reconStart === 'function') NET._reconStart(); else if (G.players[ME] && G.players[ME].ai && typeof NET._askRejoin === 'function') NET._askRejoin(true); }, 2500); // v7.9.8: reconnect by itself (was: a Rejoin banner that reloaded the page)
   });
   const cv = R3.renderer.domElement;
   cv.addEventListener('webglcontextlost', e => { e.preventDefault(); MOB.lost = true; uiMsg('Graphics paused (GPU context lost) — restoring…'); }, false);

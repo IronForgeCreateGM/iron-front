@@ -3,7 +3,7 @@
 // Every player action is a command {c:'move',...}. Offline: executed immediately.
 // Online: tagged for tick (now + DELAY); the host collects every human's input for a tick,
 // broadcasts the merged "turn", and all peers execute it before stepping that tick.
-const NET_VERSION = 'v7.9.7';
+const NET_VERSION = 'v7.9.8';
 const own = (T, ids) => (ids || []).map(byId).filter(e => e && e.team === T && e.hp > 0);
 const CMD = {
   mbuild(T, c) { const b = byId(c.b); return !!(b && b.team === T && siloBuild(b, c.k)); },
@@ -108,7 +108,7 @@ const NET = {
   begin(tr, opts) {
     Object.assign(this, { online: true, offline: false, tr, hostPeer: opts.hostPeer, status: '', host: opts.host, me: opts.me, humans: opts.humans.slice(), peerTeam: Object.assign({}, opts.peerTeam || {}), teamPeer: {},
       DELAY: 4, turns: new Map(), pending: [], batch: [], hashes: new Map(), desync: null, log: [], dropped: new Set(), lastSent: 0, maxTurn: 0, upto: {}, cin: new Map(), unsent: [], dropQ: [],
-      rtt: {}, dl: {}, waitSince: {}, lastHeard: {}, syncAt: {}, syncN: {}, resyncs: 0, stats: { sent: 0, recv: 0, bytes: 0 }, gopts: JSON.parse(JSON.stringify(G.opts)) , migrate: !!opts.migrate, selfPid: opts.selfPid || null, gone: new Set(), mig: null, migEarly: {}, migrations: 0 });
+      rtt: {}, dl: {}, waitSince: {}, lastHeard: {}, syncAt: {}, syncN: {}, resyncs: 0, stats: { sent: 0, recv: 0, bytes: 0 }, gopts: JSON.parse(JSON.stringify(G.opts)) , migrate: !!opts.migrate, selfPid: opts.selfPid || null, gone: new Set(), mig: null, migEarly: {}, migrations: 0, recon: null, reconOK: 0, rejAt: {}, _rejAsk: 0, teamCid: Object.assign({}, opts.teamCid || {}), cid: opts.cid || null });
     if (!this.host) { const gt = new Set(Object.values(this.peerTeam)); this.hostTeam = this.humans.find(h => !gt.has(h)); }
     for (const pid in this.peerTeam) this.teamPeer[this.peerTeam[pid]] = pid;
     for (let t = 1; t <= this.DELAY; t++) this.turns.set(t, []);
@@ -129,12 +129,14 @@ const NET = {
       if (!r) this.rtt[team] = { m: s, j: s * 0.2 }; else { r.j = r.j * 0.75 + Math.abs(s - r.m) * 0.25; r.m = r.m * 0.75 + s * 0.25; if (s > r.m + 2 * r.j) r.m = s * 0.5 + r.m * 0.5; } });
     tr.on('hash', (d, from) => { R(); if (this.host && d && netInt(d.t, 0, 1e8) && netInt(d.h, 0, 4294967295)) this._checkHash(d.t, d.h, this.peerTeam[from]); });
     tr.on('desync', (d, from) => { R(); if (!this.host && d && (from == null || !this.hostPeer || from === this.hostPeer) && netInt(d.t, 0, 1e8) && netInt(d.team, 0, 15)) this.desync = { t: d.t, team: d.team }; });
-    tr.on('sync', (d, from) => { R(); if (!this.host && (!this.hostPeer || from == null || from === this.hostPeer)) this._applySync(d); });
-    tr.on('rejoin', (d, from) => { R(); if (this.host && d) this.rejoinReq(from, netSafeName(d.name)); });
+    tr.on('sync', (d, from) => { R(); if (this.host) return;
+      if (this.recon && from != null && from !== this.hostPeer && d && d.full && d.opts && d.opts.seed === this.gopts.seed && netValidSync(d)) { this.hostPeer = from; if (typeof onNetHost === 'function') onNetHost(from); } // v7.9.8: the host answered our reconnect over a fresh connection
+      if (!this.hostPeer || from == null || from === this.hostPeer) this._applySync(d); });
+    tr.on('rejoin', (d, from) => { R(); if (this.host && d) this.rejoinReq(from, netSafeName(d.name), typeof d.cid === 'string' ? d.cid.slice(0, 24) : null); });
     tr.on('mg', (d, from) => { R(); this._migReport(d, from); }); // v7.9.5 host migration: a guest's turn report for the new host
     tr.onLeave(pid => { if (pid != null) this.gone.add(pid);
       if (this.host) { const team = this.peerTeam[pid]; if (team != null && this.teamPeer[team] === pid) this._drop(team, 'disconnected'); if (this.mig && this.mig.host) this._migPoll(); }
-      else if (this.hostPeer === pid) { if (this.migrate) this._migStart(pid); else this.goOffline('Host disconnected — continuing offline vs AI'); }
+      else if (this.hostPeer === pid) { if (this.migrate) this._migStart(pid); else this._reconStart(); } // v7.9.8: room games wait and reconnect instead of splitting at once
     });
   },
   // ---- v7.9.5 host migration (Quick Match only, opts.migrate): when the host leaves mid-match and 2+ humans remain, they keep
@@ -228,14 +230,27 @@ const NET = {
   _sendSync(team, full) { const pid = this.teamPeer[team]; if (!pid) return; this._flush(); this.syncAt[team] = this.lastSent; this.resyncs++;
     this.status = full ? G.players[team].name + ' is rejoining…' : 'Resyncing ' + G.players[team].name + ' (state mismatch repaired)';
     this._send('sync', { full, last: this.lastSent, log: this._compactLog(), opts: this.gopts, names: G.players.map(P => P.name), me: team, humans: this.humans, peerTeam: this.peerTeam, d: this.dl[team] || this.DELAY }, pid); },
-  rejoinReq(pid, name) { // host: a player re-opened the room during the match
-    let team = this.peerTeam[pid]; const base = n => String(n || '').replace(/ \(AI\)$/, '');
-    if (team == null || !this.dropped.has(team)) team = [...this.dropped].find(t => base(G.players[t].name) === name);
-    if (team == null) team = [...this.dropped][0]; if (team == null) return false;
+  rejoinReq(pid, name, cid) { // host: a player re-opened the room / reconnected during the match
+    const base = n => String(n || '').replace(/ \(AI\)$/, ''), now = this.now();
+    let team = this.peerTeam[pid];
+    // v7.9.8: a reconnecting guest may arrive over a brand-new connection (new peer id) before we noticed the old one drop
+    if (team == null && cid) for (const t in this.teamCid) if (this.teamCid[t] === cid && +t !== this.me && this.humans.includes(+t)) team = +t;
+    if (team == null || (!this.dropped.has(team) && this.teamPeer[team] !== pid && !(cid && this.teamCid[team] === cid))) { const byName = [...this.dropped].find(t => base(G.players[t].name) === name); if (byName != null) team = byName; else if (team == null) team = [...this.dropped][0]; }
+    if (team == null || team === this.me || !this.humans.includes(team)) return false;
+    if (this.rejAt[team] && now - this.rejAt[team] < 8000) return true; // already answering this player (several strategies / retries)
+    this.rejAt[team] = now;
     const old = this.teamPeer[team]; if (old && old !== pid) delete this.peerTeam[old];
-    this.peerTeam[pid] = team; this.teamPeer[team] = pid; this.dropped.delete(team); this.upto[team] = this.lastSent; this.lastHeard[team] = this.now(); delete this.syncN[team];
-    this.dropQ.push({ c: 'retake', p: team, n: name || base(G.players[team].name) }); this._sendSync(team, true); return true;
+    this.peerTeam[pid] = team; this.teamPeer[team] = pid; this.gone.delete(pid); if (cid) this.teamCid[team] = cid;
+    this.lastHeard[team] = now; delete this.syncN[team]; delete this.waitSince[team];
+    if (this.dropped.has(team)) { this.dropped.delete(team); this.dropQ.push({ c: 'retake', p: team, n: name || base(G.players[team].name) }); }
+    this._sendSync(team, true); this.upto[team] = Math.max(this.upto[team] || 0, this.lastSent + Math.max(3, this.dl[team] || this.DELAY)); this._tryFinalize(); return true; // v7.9.8: pre-cover the lead-in ticks (was a 20 s deadlock: host waited for input, the rejoined guest waited for a turn)
   },
+  // v7.9.8 guest: the host's connection dropped (Wi-Fi blip, phone locked, app switched). Freeze on "Reconnecting…", keep asking the
+  // host to take us back (the host answers with a full resync), and only fall back to "offline vs AI" after RECON_MS or if the player asks.
+  RECON_MS: 45000,
+  _reconStart() { if (this.recon || !this.online) return; this.recon = { t0: this.now() }; this._rejAsk = 0; this.status = 'Lost the connection to the host — reconnecting…'; if (typeof onNetRecon === 'function') onNetRecon(true); },
+  _askRejoin(force) { const now = this.now(); if (!force && now - this._rejAsk < 3000) return; this._rejAsk = now; const P = G.players[this.me]; this._send('rejoin', { name: P ? P.name.replace(/ \(AI\)$/, '') : 'Guest', cid: this.cid || undefined }); },
+  giveUp(msg) { this.recon = null; if (typeof onNetRecon === 'function') onNetRecon(false); this.goOffline(msg || 'Could not reconnect to the host — continuing offline vs AI'); },
   _applySync(d) { // client: rebuild the exact state by re-simulating the host's command log from the seed
     if (!netValidSync(d)) { NET_SEC.dropped++; return; } // v7.7.6
     if (d.full) { this.me = d.me; if (typeof ME !== 'undefined') ME = d.me; this.humans = d.humans.slice(); this.peerTeam = Object.assign({}, d.peerTeam); this.teamPeer = {}; for (const pid in this.peerTeam) this.teamPeer[this.peerTeam[pid]] = pid; }
@@ -247,13 +262,17 @@ const NET = {
     G.events.length = 0; RPL.on = recOn; this.log = log; for (const t of [...this.turns.keys()]) if (t <= d.last) this.turns.delete(t);
     for (let t = d.last + 1; t <= Math.max(this.maxTurn, d.last); t++) if (!this.turns.has(t)) this.turns.set(t, []);
     this.maxTurn = Math.max(this.maxTurn, d.last); this.pending = []; this.batch = []; this.desync = null; this.resyncs++; this._lagNote = false;
-    this.status = d.full ? 'Rejoined the match' : 'Resynced with host';
+    this.status = d.full ? (this.recon ? 'Reconnected — back in the match' : 'Rejoined the match') : 'Resynced with host'; if (this.recon) { this.recon = null; this.reconOK++; if (typeof onNetRecon === 'function') onNetRecon(false); }
     if (typeof onNetResync === 'function') onNetResync();
   },
   // turn buffer health -> sim speed multiplier (smooths jitter instead of hard stalls)
   pace() { if (!this.online) return 1; const ahead = this.maxTurn - G.tick; return ahead > this.DELAY + 5 ? 1.3 : ahead > this.DELAY + 2 ? 1.08 : ahead <= 1 ? 0.85 : 1; },
   ready() {
     if (!this.online) return true; const ok = this.turns.has(G.tick + 1);
+    if (!this.host && this.recon) { if (this.now() - this.recon.t0 > this.RECON_MS) { this.giveUp(); return true; } this._askRejoin(); return false; }
+    if (!this.host) { // v7.9.8: a guest that woke up with a hole in its turn stream (phone locked, tab asleep) asks the host to take it back
+      if (ok) this._stallT = 0; else { const now = this.now(); if (!this._stallT) this._stallT = now; const hole = this.maxTurn > G.tick + 1;
+        if (now - this._stallT > (hole ? 1500 : 10000)) this._askRejoin(); } }
     if (this.host) { const now = this.now();
       for (const h of this._need()) if (h !== this.me) { const behind = (this.upto[h] || 0) <= G.tick + 1; if (!behind) { delete this.waitSince[h]; continue; } if (ok) continue;
         if (!this.waitSince[h]) this.waitSince[h] = now; else if (now - this.waitSince[h] > this.DROP_MS) this._drop(h, 'is not responding'); }
@@ -272,7 +291,7 @@ const NET = {
     this.log.push([t, cmds]); stepGame();
     if (G.tick % 30 === 0) { const h = stateHash(); if (this.host) { this._checkHash(G.tick, h, this.me); this._adapt(); } else this._hq = [G.tick, h]; if (this.hashes.size > 50) this.hashes.delete(this.hashes.keys().next().value); }
     if (this.host && this.unsent.length && G.tick % this.B === 0) this._flush();
-    if (!this.host && G.players[this.me] && G.players[this.me].ai && !this._lagNote) { this._lagNote = true; this.status = 'You were dropped (connection too slow) — AI took over. Re-open the room link to rejoin.'; }
+    if (!this.host && G.players[this.me] && G.players[this.me].ai) { if (!this._lagNote) { this._lagNote = true; this.status = 'Connection hiccup — AI is covering for you while you rejoin…'; } this._askRejoin(); } // v7.9.8: rejoin automatically (was: re-open the room link)
     return true;
   },
   goOffline(msg) {

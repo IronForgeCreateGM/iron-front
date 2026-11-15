@@ -1,3 +1,6 @@
+## SHIPPED Sat Nov 14 evening: v7.9.8 online auto-reconnect — see NIGHTLY-LOG
+Room games no longer split when a connection blips: the guest waits on "Reconnecting…" (45 s, with a Stop waiting button), re-opens the room by itself and the host hands the seat back with a full resync. Also fixed the 20 s freeze right after a rejoin. Held: host migration for private rooms. Tests: test/recon-test.js, test/recon-browser-test.js.
+
 ## SHIPPED Sat Nov 14 afternoon: v7.9.7 simpler online lobby — see NIGHTLY-LOG
 Nicholas was in the lobby with his brother and could not start (they had also each hosted their own room). v7.9.7 makes Host vs Join an either/or with a shareable room code/link, shows a large I’m Ready for both players, pins a large Start game button on screen once a friend joins, closes leftover seats instead of filling 6 Hard AI, and centers the lobby so it fits Windows Chrome and Mac. No gameplay/stat changes. IAP edits left untouched. Screenshots: /tmp/v797/lobby-host.png, /tmp/v797/lobby-guest.png.
 

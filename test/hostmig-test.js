@@ -62,5 +62,5 @@ const t0 = Date.now();
 { const r = run({ label: 'two humans', seed: 5, n: 2, slow: 9, killAt: 600, end: 1200 }); const s = r.st;
   ok(s.length === 1 && !s[0].online && /Host disconnected/.test(s[0].status) && s[0].tick >= 1190, 'only one human left -> continues offline vs AI (unchanged)', s); }
 { const r = run({ label: 'room game', seed: 7, migrate: false, end: 1200 }); const s = r.st;
-  ok(s.every(x => !x.online && /Host disconnected/.test(x.status)), 'migrate off (room games): everyone continues offline as before', s.map(x => [x.id, x.online, x.status])); }
+  ok(s.every(x => !x.online && /Host disconnected|Could not reconnect/.test(x.status)), 'migrate off (room games): host never comes back -> after the v7.9.8 reconnect wait everyone continues offline', s.map(x => [x.id, x.online, x.status])); }
 console.log((fail ? 'HOSTMIG FAIL ' + fail : 'HOSTMIG OK') + ' ' + ((Date.now() - t0) / 1000).toFixed(1) + 's'); process.exit(fail ? 1 : 0);
