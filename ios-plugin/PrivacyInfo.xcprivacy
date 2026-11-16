@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Iron Front app privacy manifest (v7.9.10). Copy into ios/App/App/ and add it to the App target in Xcode
+     (File > Add Files, tick "App"). Matches privacy.html and the App Store Connect answer "Data Not Collected":
+     no tracking, no tracking domains, no collected data types. The App Store app never loads Sentry or PostHog
+     (js/sentry.js and js/analytics.js skip native), so no analytics/crash domains are contacted.
+     Accessed APIs: UserDefaults (CA92.1, app-only settings) is declared conservatively in case a local Swift
+     plugin stores app settings; Capacitor's own framework ships its own manifest. Re-check this file whenever
+     a plugin or SDK is added. -->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

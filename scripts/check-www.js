@@ -17,7 +17,21 @@ const vj = fs.existsSync(path.join(root, 'version.json')) ? JSON.parse(fs.readFi
 for (const [k, v] of [['js/net.js NET_VERSION', net], ['index.html title footer', tf], ['index.html subtitle', sub], ['version.json', vj]]) if (v !== pkg) errs.push(`version mismatch: package.json ${pkg} vs ${k} ${v}`);
 const key = fs.existsSync('/workspace/.mapbuilder-key') ? fs.readFileSync('/workspace/.mapbuilder-key', 'utf8').trim() : '';
 let n = 0, bytes = 0; (function walk(d) { for (const f of fs.readdirSync(d)) { const p = path.join(d, f), s = fs.statSync(p); if (s.isDirectory()) walk(p); else { n++; bytes += s.size; if (key && /\.(js|html|json|css)$/.test(f) && fs.readFileSync(p, 'utf8').includes(key)) errs.push('map-builder key found in ' + path.relative(www, p)); } } })(www);
-for (const f of ['icons/icon-1024.png', 'privacy.html', 'manifest.json']) if (!fs.existsSync(path.join(www, f)) && !fs.existsSync(path.join(root, f))) errs.push('App Store piece missing: ' + f);
+for (const f of ['icons/icon-1024.png', 'privacy.html', 'support.html', 'manifest.json']) if (!fs.existsSync(path.join(www, f)) && !fs.existsSync(path.join(root, f))) errs.push('App Store piece missing: ' + f);
+// v7.9.10 App Store privacy manifest (copied into ios/App/App/ in Xcode): must exist, declare no tracking and no collected data
+// (matches privacy.html and the "Data Not Collected" answer) and give a reason for every accessed-API category.
+const pm = path.join(root, 'ios-plugin/PrivacyInfo.xcprivacy');
+if (!fs.existsSync(pm)) errs.push('App Store piece missing: ios-plugin/PrivacyInfo.xcprivacy');
+else {
+  const x = fs.readFileSync(pm, 'utf8');
+  if (!/<key>NSPrivacyTracking<\/key>\s*<false\/>/.test(x)) errs.push('PrivacyInfo.xcprivacy: NSPrivacyTracking must be false');
+  if (!/<key>NSPrivacyTrackingDomains<\/key>\s*<array\/>/.test(x)) errs.push('PrivacyInfo.xcprivacy: NSPrivacyTrackingDomains must be empty');
+  if (!/<key>NSPrivacyCollectedDataTypes<\/key>\s*<array\/>/.test(x)) errs.push('PrivacyInfo.xcprivacy: NSPrivacyCollectedDataTypes must be empty (Data Not Collected)');
+  const cats = [...x.matchAll(/<key>NSPrivacyAccessedAPIType<\/key>\s*<string>([^<]+)<\/string>\s*<key>NSPrivacyAccessedAPITypeReasons<\/key>\s*<array>\s*<string>[0-9A-F]{4}\.\d<\/string>/g)].length;
+  if (cats !== (x.match(/<key>NSPrivacyAccessedAPIType<\/key>/g) || []).length) errs.push('PrivacyInfo.xcprivacy: every accessed API type needs a reason code');
+}
+for (const [f, needle] of [['privacy.html', 'MBEP Productions LLC'], ['support.html', 'github.com/IronForgeCreateGM/iron-front/issues']])
+  if (fs.existsSync(path.join(www, f)) && !fs.readFileSync(path.join(www, f), 'utf8').includes(needle)) errs.push(`${f}: missing "${needle}"`);
 warn.forEach(w => console.log('NOTE ' + w));
 console.log(`www/: ${n} files, ${(bytes / 1048576).toFixed(1)} MB, ${refs.length} references checked, version ${pkg}`);
 console.log(errs.length ? 'CHECK-WWW FAIL\n' + errs.join('\n') : 'CHECK-WWW OK'); process.exit(errs.length ? 1 : 0);
