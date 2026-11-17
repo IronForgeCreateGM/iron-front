@@ -42,14 +42,15 @@ function chatMute(name, on) {
 // adds one line to #chatLog. `from` = sender name for player messages (null for "* system" lines)
 function chatAddLine(t, from) {
   const e = typeof document !== 'undefined' && document.getElementById('chatLog'); if (!e) return false;
-  if (from != null && (!chatEnabled() || chatIsMuted(from))) return false;
   const d = document.createElement('div'); d.className = 'chatLine';
   if (from != null) {
     d.dataset.from = String(from).toLowerCase();
     const isMe = typeof ONL !== 'undefined' && ONL.name && String(ONL.name).toLowerCase() === d.dataset.from;
     if (!isMe) { const b = document.createElement('button'); b.type = 'button'; b.className = 'chatMute'; b.textContent = '🔇'; b.title = 'Mute ' + chatFilter(from) + ' (hide their messages)'; b.onclick = ev => { ev.stopPropagation(); chatMute(from, true); }; d.appendChild(b); }
   }
-  d.appendChild(document.createTextNode(chatFilter(t))); e.appendChild(d); e.scrollTop = 1e9; return true;
+  d.appendChild(document.createTextNode(chatFilter(t)));
+  const hide = from != null && (!chatEnabled() || chatIsMuted(from)); if (hide) d.style.display = 'none'; // kept (hidden) so Unmute / Chat on can show it again
+  e.appendChild(d); while (e.children.length > 200) e.removeChild(e.firstChild); e.scrollTop = 1e9; return !hide;
 }
 function chatApplyUi() {
   if (typeof document === 'undefined') return;
