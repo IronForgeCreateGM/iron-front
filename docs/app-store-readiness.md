@@ -1,7 +1,7 @@
 # Iron Front — App Store readiness checklist (iPhone + iPad + Mac, one universal app)
 
 Kept by the nightly runs. Ranked: top of "Left" = next thing to do. Seller: **MBEP Productions LLC** (being formed).
-Last updated: v7.9.10, Mon Nov 16, 2026 (nightly). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
+Last updated: v7.9.11, Tue Nov 17, 2026 (nightly; v7.9.10 is live). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
 
 ## Done
 - [x] Game runs fully offline (three.js vendored, no CDN); `npm run check:www` checks the app bundle is self-contained (v7.7.2).
@@ -20,7 +20,7 @@ Last updated: v7.9.10, Mon Nov 16, 2026 (nightly). Full how-to: APP-STORE.md (ha
       description, URLs, App Privacy answers, age-rating answers, review notes); `check:www` + `test/appstore-meta-test.js` guard them.
 
 ## Left (unblocked — nightly can do these, in order)
-1. **Lobby chat safety (guideline 1.2):** the online lobby has free-text chat. Add a per-player mute/hide-chat toggle (and a
+1. **[in progress, v7.9.11] Lobby chat safety (guideline 1.2):** the online lobby has free-text chat. Add a per-player mute/hide-chat toggle (and a
    simple word filter) or hide chat in the App Store app; then set the age-rating "Messaging and chat" answer accordingly.
 2. **Launch screen + icon set files:** ship a ready `LaunchScreen` background colour note / storyboard snippet (#05080c) and an
    `AppIcon.appiconset/Contents.json` (single 1024 universal + Mac sizes if Catalyst) in `ios-plugin/` so Xcode setup is copy-paste.
