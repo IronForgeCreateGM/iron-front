@@ -18,17 +18,18 @@ Last updated: v7.9.11, Tue Nov 17, 2026 (nightly; v7.9.10 is live). Full how-to:
       (Support URL); privacy policy names MBEP Productions LLC, adds Game Center + children notes and a date; Settings shows
       © 2026 MBEP Productions LLC + support link; listing draft `docs/app-store-listing.md` (name, subtitle, promo, keywords,
       description, URLs, App Privacy answers, age-rating answers, review notes); `check:www` + `test/appstore-meta-test.js` guard them.
+- [x] **v7.9.11:** lobby chat safety (guideline 1.2): word filter (masks insults/slurs incl. l33t and spaced spellings; host filters
+      before relaying), 🔇 per-player mute (saved on device, Unmute all), 💬 chat on/off (OFF by default in the App Store app),
+      ⚑ Report a player → `support.html#report`. `js/chatsafe.js`; tests `test/chatsafe-test.js`, `test/chatsafe-browser-test.js`.
 
 ## Left (unblocked — nightly can do these, in order)
-1. **[in progress, v7.9.11] Lobby chat safety (guideline 1.2):** the online lobby has free-text chat. Add a per-player mute/hide-chat toggle (and a
-   simple word filter) or hide chat in the App Store app; then set the age-rating "Messaging and chat" answer accordingly.
-2. **Launch screen + icon set files:** ship a ready `LaunchScreen` background colour note / storyboard snippet (#05080c) and an
+1. **Launch screen + icon set files:** ship a ready `LaunchScreen` background colour note / storyboard snippet (#05080c) and an
    `AppIcon.appiconset/Contents.json` (single 1024 universal + Mac sizes if Catalyst) in `ios-plugin/` so Xcode setup is copy-paste.
-3. **Refresh App Store screenshots** with v7.9.x (huge maps, new lobby) at 2868x1320 / 2752x2064 / 2880x1800 and pick the best 5.
-4. **First-run onboarding:** a short "how to play" (build power → refinery → barracks → attack) for brand-new players, skippable.
-5. **iPad/Mac layout pass:** check menus/HUD at iPad portrait + Stage Manager sizes and Mac window resizing; rotation on iPad.
-6. **Private-room host migration + hidden-desktop-tab host stall** (online polish).
-7. **External links in the app:** `target="_blank"` links (privacy/support) inside WKWebView — make sure they open (Capacitor Browser or same-window).
+2. **Refresh App Store screenshots** with v7.9.x (huge maps, new lobby) at 2868x1320 / 2752x2064 / 2880x1800 and pick the best 5.
+3. **First-run onboarding:** a short "how to play" (build power → refinery → barracks → attack) for brand-new players, skippable.
+4. **iPad/Mac layout pass:** check menus/HUD at iPad portrait + Stage Manager sizes and Mac window resizing; rotation on iPad.
+5. **Private-room host migration + hidden-desktop-tab host stall** (online polish).
+6. **External links in the app:** `target="_blank"` links (privacy/support) inside WKWebView — make sure they open (Capacitor Browser or same-window).
 
 ## Blocked on the LLC / Apple Developer account (Nicholas)
 - Apple Developer Program as an **Organization** (MBEP Productions LLC, D-U-N-S number, $99/yr).
@@ -37,3 +38,5 @@ Last updated: v7.9.11, Tue Nov 17, 2026 (nightly; v7.9.10 is live). Full how-to:
 - Game Center capability + two-iPhone Quick Match test (GAME-CENTER.md).
 - First real Xcode build/compile of the Swift plugins (needs a Mac; no `ios/` project in the repo yet), TestFlight, submission.
 - Confirm age-rating answers and listing text in `docs/app-store-listing.md`.
+- A support/report email for MBEP Productions LLC (player reports currently go to GitHub issues; Apple prefers a direct contact).
+- Optional later: show player names through the word filter in the lobby list and in-game (chat lines already are).

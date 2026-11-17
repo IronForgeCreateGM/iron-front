@@ -71,8 +71,10 @@ Free to play with USA, Russia, Germany and France on Iron Crossroads and Frostli
 - Profanity, sexual content, nudity, horror, drugs, alcohol, tobacco, gambling, simulated gambling, contests, medical info: **None**.
 - Unrestricted web access: **No**. Loot boxes / paid random items: **No**.
 - **Messaging and chat: Yes** — the online lobby has a short text chat (140 characters) between players in the same private room.
-  Apple may require a way to mute/report/block (guideline 1.2), and chat can raise the rating. Options before submitting:
-  hide lobby chat in the App Store app, or add a mute/report button. Listed as a top open item in docs/app-store-readiness.md.
+  Since v7.9.11 (guideline 1.2): chat is **off by default in the App Store app** (player turns it on with 💬), offensive words
+  are masked on every line (host filters before relaying too), 🔇 on a message mutes that player (saved on the device),
+  ⚑ Report a player opens support.html#report (how to report; reports go to the GitHub issues page until MBEP Productions LLC
+  has a support email). Mention this in the review notes.
 - **User-generated content:** No (the map builder is private and not in the app).
 - Expected result: **9+** (13+ if Apple weighs the chat or the realistic military setting).
 
