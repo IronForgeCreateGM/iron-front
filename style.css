@@ -356,3 +356,7 @@ body.mobile #setup.onlineSetup .setupRow{flex-direction:column}
   #onReadyRow.onReadyFixed{flex-direction:column}
   #onReadyRow.onReadyFixed #readyBtn,#onReadyRow.onReadyFixed #onStartBtn{max-width:none;width:100%;min-width:0;min-height:56px;height:56px;max-height:56px}
 }
+
+/* v7.9.11 lobby chat safety (js/chatsafe.js) */
+#chatTools{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0;font-size:12px}#chatTools button{font-size:12px;padding:3px 8px}#chatToggle.off{opacity:.75}#chatReport{color:#9cf;font-size:12px}#chatTools .dim{font-size:11px}
+.chatLine .chatMute{font-size:10px;padding:0 4px;margin-right:4px;background:transparent;border:1px solid #456;border-radius:3px;cursor:pointer;line-height:14px}#chatLog.chatOff{opacity:.8}

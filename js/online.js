@@ -120,7 +120,10 @@ function onlVersionCheck() { if (typeof fetch !== 'function' || location.protoco
     b.innerHTML = `🔄 A newer version of Iron Front (<b>${j.v}</b>) is available — you have ${NET_VERSION}. Online games need both players on the same version. <button id="verReload">Reload now</button> <button id="verX">✕</button>`;
     document.body.appendChild(b); document.getElementById('verReload').onclick = () => onlHardReload(); document.getElementById('verX').onclick = () => b.remove(); }).catch(() => {}); }
 function onlStatus(t) { const e = document.getElementById('onStatus'); if (e) e.innerHTML = t; }
-function onlChatLine(t) { const e = document.getElementById('chatLog'); if (!e) return; const d = document.createElement('div'); d.textContent = t; e.appendChild(d); e.scrollTop = 1e9; }
+function onlChatLine(t, from) { // v7.9.11: lines go through js/chatsafe.js (word filter, per-player mute, chat on/off)
+  if (typeof chatAddLine === 'function') { chatAddLine(t, from); return; }
+  const e = document.getElementById('chatLog'); if (!e) return; const d = document.createElement('div'); d.textContent = t; e.appendChild(d); e.scrollTop = 1e9; }
+const onlChatClean = m => typeof chatFilter === 'function' ? chatFilter(m) : m;
 function onlName() { const v = netSafeName(document.getElementById('pname').value, ''); if (v) localStorage.setItem('if_name', v); return v || 'Commander' + ((Math.random() * 90 + 10) | 0); }
 function onlResetReadyBtn() { const rb = document.getElementById('readyBtn'); if (rb) { rb.textContent = "I'm Ready"; rb.classList.remove('on'); } }
 function onlHostStartVisible(on) {
@@ -222,7 +225,7 @@ function onlHost(keep) {
   };
   ONL.handlers.ready = (d, pid) => { if (ONL.peers[pid]) { ONL.peers[pid].ready = !!d.r; onlBroadcastLobby(); } };
   ONL.handlers.pref = (d, pid) => { const p = ONL.peers[pid]; if (!p) return; const rows = lobbyRead(); const own = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k); if (own(FACTIONS, d.fac)) rows[p.row][2] = d.fac; if (own(TEAM_COLORS, d.color) && !rows.some((r, i) => i !== p.row && r[3] === d.color)) rows[p.row][3] = d.color; lobbySet(rows); onlBroadcastLobby(); };
-  ONL.handlers.chat = (d, pid) => { const n = ONL.peers[pid] ? ONL.peers[pid].name : null, m = String(d.m == null ? '' : d.m).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 140); if (!n || !m) return; onlChatLine(n + ': ' + m); ONL.acts.chat({ m, n }); };
+  ONL.handlers.chat = (d, pid) => { const n = ONL.peers[pid] ? ONL.peers[pid].name : null, m = String(d.m == null ? '' : d.m).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 140); if (!n || !m) return; const f = onlChatClean(m); onlChatLine(n + ': ' + f, n); ONL.acts.chat({ m: f, n }); };
   onlBroadcastLobby();
 }
 function lobbyChanged() { if (ONL.host && !ONL.started) onlBroadcastLobby(); }
@@ -295,7 +298,7 @@ function onlJoin(code) {
     onlStatus(`Joined <b>${code}</b> — host <b>${netEsc(netSafeName(st.hostName, 'Host'))}</b>. ${mine ? `You are slot ${(mine.row | 0) + 1}. Pick your faction, then press I'm Ready.` : 'Waiting for a slot…'} ${ONL.strategy ? `<span class="dim">(${ONL.strategy === 'relay' ? 'connected via relay server — a direct connection was blocked' : 'direct connection'})</span>` : ''}`); };
   ONL.handlers.kick = d => { clearInterval(ONL.reachI); if (d.code === 'full' && !ONL.started && (ONL.fullTries = (ONL.fullTries || 0) + 1) <= 3) { onlStatus('The host\'s lobby still shows your old connection — retrying in a few seconds…'); clearTimeout(ONL.fullT); ONL.fullT = setTimeout(() => onlRetry(), 5000); return; } // v7.9.8: refresh mid-lobby
     ONL.kicked = d; onlError(netEsc(String(d.reason || 'The host refused the connection.').slice(0, 400)), d.code !== 'version'); };
-  ONL.handlers.chat = d => { const m = String(d.m == null ? '' : d.m).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 140); if (m) onlChatLine(netSafeName(d.n, '?') + ': ' + m); };
+  ONL.handlers.chat = d => { const m = String(d.m == null ? '' : d.m).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 140); if (m) { const n = netSafeName(d.n, '?'); onlChatLine(n + ': ' + m, n); } };
   ONL.handlers.sync = (d, pid) => { if (ONL.started || !d.full || !netValidSync(d) || !onlValidStart(d.opts)) return; ONL.started = true; ONL.hostId = ONL.hostLock = pid; const o = d.opts;
     onlBegin({ seed: o.seed, slots: o.slots, me: d.me, humans: d.humans, peerTeam: d.peerTeam, host: false, hostPeer: pid, map: o.map, cmap: o.cmap, peace: o.peace, fog: o.fog !== false }); NET._applySync(d); };
   ONL.handlers.start = (d, pid) => { if (ONL.started || !onlValidStart(d) || !d.peerTeam || typeof d.peerTeam !== 'object' || !Array.isArray(d.humans)) return; ONL.started = true; ONL.hostId = ONL.hostLock = pid; onlBegin({ seed: d.seed, slots: d.slots, me: d.peerTeam[ONL.selfId], humans: d.humans, peerTeam: d.peerTeam, host: false, hostPeer: pid, map: d.map, cmap: d.cmap, peace: d.peace, fog: d.fog !== false }); };
@@ -340,6 +343,7 @@ function onlInitUI() {
   const op = document.getElementById('addOpenBtn'); if (op) op.onclick = () => onlAddSlot('remote');
   const cc = document.getElementById('copyCodeBtn'); if (cc) cc.onclick = () => onlCopyText(ONL.code, cc);
   const cl = document.getElementById('copyLinkBtn'); if (cl) cl.onclick = () => onlCopyText(ONL.invite || (ONL.code ? location.origin + location.pathname + '?room=' + ONL.code : ''), cl);
-  document.getElementById('chatIn').onkeydown = e => { if (e.key === 'Enter' && e.target.value.trim() && ONL.room) { const m = e.target.value.trim().slice(0, 140); e.target.value = ''; if (ONL.host) { onlChatLine(ONL.name + ': ' + m); ONL.acts.chat({ m, n: ONL.name }); } else ONL.acts.chat({ m }); } e.stopPropagation(); };
+  document.getElementById('chatIn').onkeydown = e => { if (e.key === 'Enter' && e.target.value.trim() && ONL.room && (typeof chatEnabled !== 'function' || chatEnabled())) { const m = onlChatClean(e.target.value.trim().slice(0, 140)); e.target.value = ''; if (ONL.host) { onlChatLine(ONL.name + ': ' + m, ONL.name); ONL.acts.chat({ m, n: ONL.name }); } else ONL.acts.chat({ m }); } e.stopPropagation(); };
+  if (typeof chatInitUi === 'function') chatInitUi();
   const code = new URLSearchParams(location.search).get('room'); if (code) { document.getElementById('joinCode').value = code; setTimeout(() => onlJoin(code), 50); }
 }
