@@ -1,7 +1,7 @@
 # Iron Front — App Store readiness checklist (iPhone + iPad + Mac, one universal app)
 
 Kept by the nightly runs. Ranked: top of "Left" = next thing to do. Seller: **MBEP Productions LLC** (being formed).
-Last updated: v7.9.11, Tue Nov 17, 2026 (nightly; v7.9.10 is live). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
+Last updated: v7.9.12, Wed Nov 18, 2026 (nightly; v7.9.11 went live 12:18 AM PT). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
 
 ## Done
 - [x] Game runs fully offline (three.js vendored, no CDN); `npm run check:www` checks the app bundle is self-contained (v7.7.2).
@@ -21,15 +21,20 @@ Last updated: v7.9.11, Tue Nov 17, 2026 (nightly; v7.9.10 is live). Full how-to:
 - [x] **v7.9.11:** lobby chat safety (guideline 1.2): word filter (masks insults/slurs incl. l33t and spaced spellings; host filters
       before relaying), 🔇 per-player mute (saved on device, Unmute all), 💬 chat on/off (OFF by default in the App Store app),
       ⚑ Report a player → `support.html#report`. `js/chatsafe.js`; tests `test/chatsafe-test.js`, `test/chatsafe-browser-test.js`.
+- [x] **v7.9.12:** Xcode copy-paste pieces in `ios-plugin/` (see `ios-plugin/README.md`): `AppIcon.appiconset/` (1024 universal iOS
+      icon + Mac Catalyst sizes 16–1024, RGB no alpha) and `LaunchScreen.storyboard` (plain #05080c = title screen + web view
+      colour, no white flash, no text/logo). `test/appstore-meta-test.js` checks every icon matches its slot; `check:www` checks presence.
 
 ## Left (unblocked — nightly can do these, in order)
-1. **Launch screen + icon set files:** ship a ready `LaunchScreen` background colour note / storyboard snippet (#05080c) and an
-   `AppIcon.appiconset/Contents.json` (single 1024 universal + Mac sizes if Catalyst) in `ios-plugin/` so Xcode setup is copy-paste.
+1. **External links in the app:** `target="_blank"` links (privacy/support/report) inside WKWebView — make sure they open
+   (Capacitor Browser or same-window) and there's a way back. Review-rejection risk if a link does nothing.
 2. **Refresh App Store screenshots** with v7.9.x (huge maps, new lobby) at 2868x1320 / 2752x2064 / 2880x1800 and pick the best 5.
 3. **First-run onboarding:** a short "how to play" (build power → refinery → barracks → attack) for brand-new players, skippable.
 4. **iPad/Mac layout pass:** check menus/HUD at iPad portrait + Stage Manager sizes and Mac window resizing; rotation on iPad.
 5. **Private-room host migration + hidden-desktop-tab host stall** (online polish).
-6. **External links in the app:** `target="_blank"` links (privacy/support) inside WKWebView — make sure they open (Capacitor Browser or same-window).
+6. **Test debt:** `test/reach-test.js` (v5.7.3) is stale vs the v7.9.7 lobby (fails the same on live 5c737fb and v7.9.11) — rewrite
+   for the new lobby; `test/recon-browser-test.js` fails on live base too. Gate scripts must start `python3 -m http.server 8765`
+   for privacy/reach (the 11/17 gate didn't, so both showed exit=1 from connection refused).
 
 ## Blocked on the LLC / Apple Developer account (Nicholas)
 - Apple Developer Program as an **Organization** (MBEP Productions LLC, D-U-N-S number, $99/yr).
