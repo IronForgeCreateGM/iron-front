@@ -28,5 +28,21 @@ if (!/Restore purchases/.test(sup)) errs.push('support.html should explain Resto
 for (const f of ['js/analytics.js', 'js/sentry.js']) if (!/native\s*\|\|/.test(rd(f)) && !/\|\|\s*native/.test(rd(f))) errs.push(f + ' must skip the native app');
 if (!rd('scripts/build-www.js').includes("'support.html'")) errs.push('build-www must copy support.html');
 const html = rd('index.html'); if (!/MBEP Productions LLC/.test(html) || !/href="support\.html"/.test(html)) errs.push('Settings credits should show © MBEP Productions LLC and a Support link');
+// v7.9.12 Xcode copy-paste pieces: AppIcon.appiconset (1024 universal iOS + Mac sizes; every PNG exists, matches its slot,
+// RGB with no alpha) and a launch screen storyboard in the title-screen colour #05080c.
+const ai = 'ios-plugin/AppIcon.appiconset/';
+try {
+  const cj = JSON.parse(rd(ai + 'Contents.json'));
+  if (!cj.images.some(i => i.idiom === 'universal' && i.platform === 'ios' && i.size === '1024x1024')) errs.push('AppIcon: needs the 1024x1024 universal iOS icon');
+  for (const i of cj.images) {
+    const f = path.join(root, ai + i.filename); if (!fs.existsSync(f)) { errs.push('AppIcon: missing ' + i.filename); continue; }
+    const b = fs.readFileSync(f), w = b.readUInt32BE(16), h = b.readUInt32BE(20), ct = b[25], want = parseFloat(i.size) * parseInt(i.scale || '1');
+    if (b.toString('ascii', 1, 4) !== 'PNG' || w !== want || h !== want) errs.push(`AppIcon: ${i.filename} is ${w}x${h}, slot wants ${want}`);
+    if (ct !== 2) errs.push(`AppIcon: ${i.filename} must be RGB without alpha (PNG colour type ${ct})`);
+  }
+} catch (e) { errs.push('AppIcon Contents.json: ' + e.message); }
+const ls = rd('ios-plugin/LaunchScreen.storyboard');
+if (!/launchScreen="YES"/.test(ls) || !/red="0\.0196\d*" green="0\.0313\d*" blue="0\.0470\d*"/.test(ls)) errs.push('LaunchScreen.storyboard must be a launch screen in #05080c');
+if (!/"backgroundColor": "#05080c"/.test(rd('capacitor.config.json'))) errs.push('capacitor.config.json ios.backgroundColor should stay #05080c (matches the launch screen)');
 console.log(errs.length ? 'APPSTORE-META FAIL\n' + errs.join('\n') : `APPSTORE-META OK (name ${[...fields.name].length}/30, subtitle ${[...fields.subtitle].length}/30, keywords ${fields.keywords.length}/100, description ${[...fields.description].length}/4000)`);
 process.exit(errs.length ? 1 : 0);
