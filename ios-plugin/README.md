@@ -10,5 +10,10 @@ Apple Developer account exists. After that, copy these files in (paths are insid
 | `PrivacyInfo.xcprivacy` | add to target **App** (tick "Copy items if needed") | Privacy manifest: no tracking, no data collected. |
 | `IronViewController.swift`, `IronGameCenterPlugin.swift` | add to target **App** | Native plugins (see APP-STORE.md and GAME-CENTER.md). |
 
+Optional (recommended), links: `npm i @capacitor/browser && npx cap sync ios` before building. With it, other-site links (GitHub
+issues, Sentry/PostHog privacy pages, online invite links) open in an in-app Safari sheet with a Done button; without it they go to
+Safari and the game stays put (js/extlinks.js falls back to a same-window link, which Capacitor sends to Safari). Privacy/support
+pages always open in the app with a "← Back to game" link. `node test/extlinks-test.js` checks both ways.
+
 Then in Xcode → target App → General: App Icons source = `AppIcon`; Launch Screen File = `LaunchScreen`.
 `node test/appstore-meta-test.js` and `npm run check:www` check these files are present and valid.

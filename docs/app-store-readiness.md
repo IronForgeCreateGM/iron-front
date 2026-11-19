@@ -1,7 +1,7 @@
 # Iron Front — App Store readiness checklist (iPhone + iPad + Mac, one universal app)
 
 Kept by the nightly runs. Ranked: top of "Left" = next thing to do. Seller: **MBEP Productions LLC** (being formed).
-Last updated: v7.9.12, Wed Nov 18, 2026 (nightly; v7.9.11 went live 12:18 AM PT). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
+Last updated: v7.9.13, Thu Nov 19, 2026 (nightly; v7.9.12 live since Nov 18). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
 
 ## Done
 - [x] Game runs fully offline (three.js vendored, no CDN); `npm run check:www` checks the app bundle is self-contained (v7.7.2).
@@ -24,17 +24,22 @@ Last updated: v7.9.12, Wed Nov 18, 2026 (nightly; v7.9.11 went live 12:18 AM PT)
 - [x] **v7.9.12:** Xcode copy-paste pieces in `ios-plugin/` (see `ios-plugin/README.md`): `AppIcon.appiconset/` (1024 universal iOS
       icon + Mac Catalyst sizes 16–1024, RGB no alpha) and `LaunchScreen.storyboard` (plain #05080c = title screen + web view
       colour, no white flash, no text/logo). `test/appstore-meta-test.js` checks every icon matches its slot; `check:www` checks presence.
+- [x] **v7.9.13:** external links in the app: WKWebView ignores `target="_blank"`, so `js/extlinks.js` (loaded by index/privacy/support)
+      routes every `_blank` or other-site link in the App Store app (Capacitor native) through `IF_LINKS.open()`: other sites → Capacitor
+      Browser plugin (in-app Safari sheet with Done) if installed, else same window (Capacitor hands other hosts to Safari); privacy/support
+      → same window, and both pages now have a "← Back to game" link at the top (href `index.html`). Web version unchanged (new tabs).
+      `test/extlinks-test.js`; `check:www` checks the back links + helper. Xcode step: `npm i @capacitor/browser && npx cap sync ios` (optional).
 
 ## Left (unblocked — nightly can do these, in order)
-1. **External links in the app:** `target="_blank"` links (privacy/support/report) inside WKWebView — make sure they open
-   (Capacitor Browser or same-window) and there's a way back. Review-rejection risk if a link does nothing.
-2. **Refresh App Store screenshots** with v7.9.x (huge maps, new lobby) at 2868x1320 / 2752x2064 / 2880x1800 and pick the best 5.
-3. **First-run onboarding:** a short "how to play" (build power → refinery → barracks → attack) for brand-new players, skippable.
-4. **iPad/Mac layout pass:** check menus/HUD at iPad portrait + Stage Manager sizes and Mac window resizing; rotation on iPad.
-5. **Private-room host migration + hidden-desktop-tab host stall** (online polish).
-6. **Test debt:** `test/reach-test.js` (v5.7.3) is stale vs the v7.9.7 lobby (fails the same on live 5c737fb and v7.9.11) — rewrite
+1. **Refresh App Store screenshots** with v7.9.x (huge maps, new lobby) at 2868x1320 / 2752x2064 / 2880x1800 and pick the best 5.
+2. **First-run onboarding:** a short "how to play" (build power → refinery → barracks → attack) for brand-new players, skippable.
+3. **iPad/Mac layout pass:** check menus/HUD at iPad portrait + Stage Manager sizes and Mac window resizing; rotation on iPad.
+4. **Private-room host migration + hidden-desktop-tab host stall** (online polish).
+5. **Test debt:** `test/reach-test.js` (v5.7.3) is stale vs the v7.9.7 lobby (fails the same on live 5c737fb and v7.9.11) — rewrite
    for the new lobby; `test/recon-browser-test.js` fails on live base too. Gate scripts must start `python3 -m http.server 8765`
    for privacy/reach (the 11/17 gate didn't, so both showed exit=1 from connection refused).
+6. **Report a player from inside an online lobby** opens support.html in the same window (leaves the lobby). Optional: with the
+   Capacitor Browser plugin, open the public https support page in the in-app sheet instead so the lobby stays connected.
 
 ## Blocked on the LLC / Apple Developer account (Nicholas)
 - Apple Developer Program as an **Organization** (MBEP Productions LLC, D-U-N-S number, $99/yr).
