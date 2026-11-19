@@ -33,6 +33,10 @@ else {
 for (const f of ['ios-plugin/AppIcon.appiconset/Contents.json', 'ios-plugin/AppIcon.appiconset/icon-1024.png', 'ios-plugin/LaunchScreen.storyboard']) if (!fs.existsSync(path.join(root, f))) errs.push('App Store piece missing: ' + f); // v7.9.12
 for (const [f, needle] of [['privacy.html', 'MBEP Productions LLC'], ['support.html', 'github.com/IronForgeCreateGM/iron-front/issues']])
   if (fs.existsSync(path.join(www, f)) && !fs.readFileSync(path.join(www, f), 'utf8').includes(needle)) errs.push(`${f}: missing "${needle}"`);
+for (const f of ['privacy.html', 'support.html']) { const p = path.join(www, f), t = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : ''; // v7.9.13: way back from the app's own pages
+  if (!/id="backToGame" href="index\.html"/.test(t)) errs.push(f + ': missing "← Back to game" link (id=backToGame, href=index.html)');
+  if (!t.includes('src="js/extlinks.js')) errs.push(f + ': must load js/extlinks.js (links inside the app)'); }
+if (!/src="js\/extlinks\.js/.test(html) || !fs.existsSync(path.join(www, 'js/extlinks.js'))) errs.push('index.html must load js/extlinks.js (target=_blank links do nothing in the app WKWebView)');
 warn.forEach(w => console.log('NOTE ' + w));
 console.log(`www/: ${n} files, ${(bytes / 1048576).toFixed(1)} MB, ${refs.length} references checked, version ${pkg}`);
 console.log(errs.length ? 'CHECK-WWW FAIL\n' + errs.join('\n') : 'CHECK-WWW OK'); process.exit(errs.length ? 1 : 0);
