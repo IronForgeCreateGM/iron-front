@@ -22,9 +22,22 @@ function mobSet(on, save) {
 function mobPerf() { // iPhone preset: DPR cap 1.5, no shadows/bloom/grass, lighter particles, 30 fps cap, shorter draw distance
   if (typeof UI !== 'undefined' && UI.set) { UI.set.quiet = true; UI.set.quietFps = UI.set.mobFps || '30'; }
   QUALITY.mobile = Object.assign({}, QUALITY.low, { pr: Math.min(1.5, window.devicePixelRatio || 1), shadows: false, bloom: false, fxaa: false, msaa: 0, grass: 0, fx: 0.35, label: 'Mobile' });
-  R3.auto = false; applyQuality('mobile');
+  R3.auto = false; applyQuality('mobile'); MOB.dyn = { max: QUALITY.mobile.pr, ceil: QUALITY.mobile.pr, low: 0, hi: 0, up: 0, n: 0 };
   if (R3.camera && R3.camera.far > 170) { R3.camera.far = 170; R3.camera.updateProjectionMatrix(); }
 }
+// v7.9.14 dynamic resolution (render only): when a phone can't hold its frame cap for 3 s in a match, the 3D view drops
+// 1.5 -> 1.25 -> 1.0 pixel ratio; after 20 s at full speed it steps back up (and stays put if that level was too slow).
+// UI, input and the simulation are untouched. ?dynres=0 turns it off for QA.
+function mobDynRes() {
+  const D = MOB.dyn; if (!D || !MOB.on || R3.qName !== 'mobile' || !R3.q || typeof started === 'undefined' || !started || paused || document.hidden || (G && G.over) || MOB.lost) { if (D) D.low = D.hi = 0; return; }
+  if (new URLSearchParams(location.search).get('dynres') === '0') return;
+  const cap = (UI.set && (+UI.set.quietFps || +UI.set.fpsCap)) || 60, fps = R3.fps || 0, now = performance.now(), cur = R3.q.pr;
+  const set = pr => { R3.q.pr = pr; r3Resize(); D.n++; D.low = D.hi = 0; };
+  if (fps < cap * 0.8) { D.hi = 0; if (++D.low >= 3 && cur > 1.0001) { if (now - D.up < 30000) D.ceil = Math.max(1, cur - 0.25); set(Math.max(1, cur - 0.25)); } }
+  else if (fps >= cap * 0.93) { D.low = 0; if (++D.hi >= 20 && cur < D.ceil - 0.0001) { set(Math.min(D.ceil, cur + 0.25)); D.up = now; } }
+  else D.low = D.hi = 0;
+}
+setInterval(() => { try { mobDynRes(); } catch (e) {} }, 1000);
 function mobWatch4v4() { // all-bot 4v4 on Volcano Crown XL, spectated
   if (typeof unlockMapOk === 'function' && !unlockMapOk('volcano8')) { homeShow('bots'); if (typeof unlockOfferMap === 'function') unlockOfferMap('volcano8'); return; } // v7.8.9 map gate (native only)
   homeShow('bots'); const ms = document.getElementById('mapSel'); ms.value = 'volcano8'; ms.dispatchEvent(new Event('change'));
@@ -291,7 +304,10 @@ window.addEventListener('load', () => {
   document.getElementById('mobMenuBtn').onclick = () => { if (typeof togglePause === 'function') togglePause(); };
   document.addEventListener('gesturestart', e => { if (MOB.on) e.preventDefault(); }); // iOS page pinch
   document.addEventListener('dblclick', e => { if (MOB.on) e.preventDefault(); }, { passive: false }); // no double-tap zoom
-  document.addEventListener('touchstart', () => { try { audioInit(); } catch (e) {} }, { once: true, passive: true }); // iOS audio unlock
+  // iOS audio unlock: Safari only lets WebAudio start on a real user activation (touchend / click / pointerup), not touchstart,
+  // and the game canvas cancels the synthetic click. v7.9.14: retry on every touchend/pointerup until the context is running.
+  const unlockA = () => { try { audioInit(); if (typeof AU !== 'undefined' && AU.ctx && AU.ctx.state === 'running') ['touchstart', 'touchend', 'pointerup', 'click'].forEach(ev => document.removeEventListener(ev, unlockA, true)); } catch (e) {} };
+  ['touchstart', 'touchend', 'pointerup', 'click'].forEach(ev => document.addEventListener(ev, unlockA, { capture: true, passive: true }));
   mobSet(qs != null ? qs === '1' : saved != null ? saved === '1' : mobDetect(), qs == null && saved != null);
   setInterval(() => { const m = document.getElementById('menu'); document.body.classList.toggle('inmenu', !!m && getComputedStyle(m).display !== 'none'); }, 250);
   const iv = setInterval(() => { if (typeof R3 !== 'undefined' && R3.renderer) { clearInterval(iv); mobInitTouch(); mobLifecycle(); if (MOB.on) mobPerf(); } }, 300);

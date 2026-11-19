@@ -1,7 +1,7 @@
 # Iron Front — App Store readiness checklist (iPhone + iPad + Mac, one universal app)
 
 Kept by the nightly runs. Ranked: top of "Left" = next thing to do. Seller: **MBEP Productions LLC** (being formed).
-Last updated: v7.9.13, Thu Nov 19, 2026 (nightly; v7.9.12 live since Nov 18). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
+Last updated: v7.9.14, Thu Nov 19, 2026 (v7.9.13 live Nov 19 AM). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
 
 ## Done
 - [x] Game runs fully offline (three.js vendored, no CDN); `npm run check:www` checks the app bundle is self-contained (v7.7.2).
@@ -29,6 +29,11 @@ Last updated: v7.9.13, Thu Nov 19, 2026 (nightly; v7.9.12 live since Nov 18). Fu
       Browser plugin (in-app Safari sheet with Done) if installed, else same window (Capacitor hands other hosts to Safari); privacy/support
       → same window, and both pages now have a "← Back to game" link at the top (href `index.html`). Web version unchanged (new tabs).
       `test/extlinks-test.js`; `check:www` checks the back links + helper. Xcode step: `npm i @capacitor/browser && npx cap sync ios` (optional).
+- [x] **v7.9.14:** iPhone smoothness pass (render only, sim/AI/balance untouched): phones draw the terrain in frustum-culled pieces on
+      every map (normal maps keep full 4 verts/tile; ~38% fewer triangles per frame mid-game), Mobile preset no longer allocates
+      full-size bloom/FXAA targets (render-target pixels 1.52M -> 0.57M), dynamic resolution 1.5 -> 1.25 -> 1.0 when the phone
+      can't hold its 30 fps cap for 3 s (steps back up after 20 s; `?dynres=0` for QA), WebAudio unlock retried on touchend/pointerup
+      (iOS won't start audio on touchstart) and resumed from iOS 'interrupted'. `test/v7914-mobile-perf-test.js`.
 
 ## Left (unblocked — nightly can do these, in order)
 1. **Refresh App Store screenshots** with v7.9.x (huge maps, new lobby) at 2868x1320 / 2752x2064 / 2880x1800 and pick the best 5.

@@ -46,8 +46,9 @@ function postResize(w, h, q) {
   for (const k of ['main', 'ldr', 'b1', 'b2', 'b3', 't1', 't2', 't3']) if (P[k]) P[k].dispose();
   const o = (extra) => Object.assign({ type: P.type, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false }, extra || {});
   P.main = new THREE.WebGLRenderTarget(w, h, o({ depthBuffer: true, samples: P.isGL2 && q.msaa ? q.msaa : 0 }));
-  P.ldr = new THREE.WebGLRenderTarget(w, h, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false });
-  const s = [2, 4, 8]; [1, 2, 3].forEach((i, k) => { const bw = Math.max(1, Math.floor(w / s[k])), bh = Math.max(1, Math.floor(h / s[k])); P['b' + i] = new THREE.WebGLRenderTarget(bw, bh, o()); P['t' + i] = new THREE.WebGLRenderTarget(bw, bh, o()); });
+  // v7.9.14: presets without FXAA / bloom (phones, Low, Quiet) get 1x1 placeholders instead of full-size targets they never draw to (less GPU memory on iPhone)
+  const lw = q.fxaa ? w : 1, lh = q.fxaa ? h : 1; P.ldr = new THREE.WebGLRenderTarget(lw, lh, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false });
+  const s = [2, 4, 8]; [1, 2, 3].forEach((i, k) => { const bw = q.bloom ? Math.max(1, Math.floor(w / s[k])) : 1, bh = q.bloom ? Math.max(1, Math.floor(h / s[k])) : 1; P['b' + i] = new THREE.WebGLRenderTarget(bw, bh, o()); P['t' + i] = new THREE.WebGLRenderTarget(bw, bh, o()); });
   P.fxaa.uniforms.uRes.value.set(w, h); P.final.uniforms.uPx.value.set(1 / w, 1 / h); P.final.uniforms.uSharp.value = q.sharpen || 0;
 }
 function pass(mat, target) { POST.quad.material = mat; POST.r.setRenderTarget(target); POST.r.render(POST.scene, POST.cam); }

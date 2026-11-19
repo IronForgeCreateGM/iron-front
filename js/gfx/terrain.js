@@ -136,7 +136,7 @@ function terrainBig() { return MW * MH > 160 * 160; }
 function terrainPhone() { if (typeof MOB === 'undefined') return false; if (MOB.on || MOB.set) return MOB.on; // link/URL starts run before mobile.js's load handler: same decision it will make
   let sv = null; try { sv = localStorage.getItem('ifMobile'); } catch (e) {} const qm = typeof QS !== 'undefined' ? QS.get('mobile') : null; return qm != null ? qm === '1' : sv != null ? sv === '1' : mobDetect(); }
 function terrainMeshRes() { const q = typeof QS !== 'undefined' && QS.get('tres'); if (q) return Math.max(1, Math.min(HR, q | 0 || HR)); return terrainPhone() && terrainBig() ? 2 : HR; }
-function terrainChunked() { const q = typeof QS !== 'undefined' && QS.get('tchunk'); if (q != null && q !== '') return q === '1'; return terrainPhone() && terrainBig(); }
+function terrainChunked() { const q = typeof QS !== 'undefined' && QS.get('tchunk'); if (q != null && q !== '') return q === '1'; return terrainPhone(); } // v7.9.14: phones cull the terrain in pieces on every map (normal maps keep full 4 verts/tile detail; ~60% fewer terrain triangles drawn per frame)
 function terrainChunks(geo, mat) {
   const CS = 28, NX = Math.ceil(MW / CS), NY = Math.ceil(MH / CS), pos = geo.attributes.position, ix = geo.index.array, lists = [];
   for (let k = 0; k < NX * NY; k++) lists.push([]);

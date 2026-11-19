@@ -2,7 +2,7 @@
 // ===== Synthesized sound effects (WebAudio, no assets) =====
 const AU = { ctx: null, last: {}, muted: false, vol: 0.45 };
 function audioInit() {
-  if (AU.ctx) { if (AU.ctx.state === 'suspended') AU.ctx.resume(); return; }
+  if (AU.ctx) { if (AU.ctx.state !== 'running' && AU.ctx.state !== 'closed') try { AU.ctx.resume(); } catch (e) {} return; } // v7.9.14: also iOS 'interrupted' (call / Siri)
   try {
     const C = window.AudioContext || window.webkitAudioContext; AU.ctx = new C();
     AU.master = AU.ctx.createGain(); AU.master.gain.value = AU.vol;
