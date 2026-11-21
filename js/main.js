@@ -147,7 +147,7 @@ function simAdvance(dt, maxN) {
   if (stall) acc = Math.min(acc, DT * 6); else if (n >= maxN) acc = 0; netOverlay(stall, dt);
 }
 // online: keep the lockstep running when this tab is hidden (rAF stops in background tabs)
-setInterval(() => { if (!started || !NET.online) return; const now = performance.now(); if (now - lastT > 250) { const dt = Math.min(2, (now - lastT) / 1000); lastT = now; simAdvance(dt, 70); if (G.events.length > 3000) G.events.splice(0, G.events.length - 1000); } }, 100);
+(window.IF_TICK ? (f, ms) => IF_TICK.every(f, ms) : setInterval)(() => { if (!started || !NET.online) return; const now = performance.now(); if (now - lastT > 250) { const dt = Math.min(2, (now - lastT) / 1000); lastT = now; simAdvance(dt, 70); if (G.events.length > 3000) G.events.splice(0, G.events.length - 1000); } }, 100);
 function frame(t, once) { // v7.0.3: the next frame is always scheduled, even if this one throws
   if (REC && !once) return;
   try { frameBody(t, once); } catch (e) { safeErr('frame', e); }

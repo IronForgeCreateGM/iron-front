@@ -1,7 +1,7 @@
 # Iron Front — App Store readiness checklist (iPhone + iPad + Mac, one universal app)
 
 Kept by the nightly runs. Ranked: top of "Left" = next thing to do. Seller: **MBEP Productions LLC** (being formed).
-Last updated: v7.9.19, Sat Nov 21, 2026 (v7.9.18 live Nov 21). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
+Last updated: v7.9.20, Sat Nov 21, 2026 (v7.9.19 live Nov 21). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
 
 ## Done
 - [x] Game runs fully offline (three.js vendored, no CDN); `npm run check:www` checks the app bundle is self-contained (v7.7.2).
@@ -63,10 +63,16 @@ Last updated: v7.9.19, Sat Nov 21, 2026 (v7.9.18 live Nov 21). Full how-to: APP-
       (mute / chat off / leave tips) with **Open report form** (prefilled GitHub issue incl. room code, through `IF_LINKS` → in-app Safari sheet
       if `@capacitor/browser` is installed, otherwise Safari; the lobby page stays) and Back to lobby. Web unchanged (new tab). `js/chatsafe.js`,
       `test/report-lobby-test.js`. Support email for reports still blocked on the LLC.
+- [x] **v7.9.20:** hidden-tab host stall (online polish): new `js/bgtick.js` (`IF_TICK.every(fn, ms)`, one inline Worker ticking every 100 ms,
+      falls back to setInterval; `?bgtick=0` forces the fallback). Used by the online lockstep keep-alive (`main.js`) and the relay
+      heartbeat + MQTT keep-alive (`relay.js`), so a host whose desktop tab is in the background (or a Mac window behind others) keeps sending turns
+      and keeps its relay connection (browsers throttle a hidden tab's setInterval to 1/s, and to 1/min after ~5 min hidden unless WebRTC is active).
+      `test/bgtick-test.js` (headless Chrome cannot really hide a tab, so the hidden-tab throttle itself was not reproduced); `online-e2e.js` passes
+      direct and relay-only (same as live v7.9.19); `recon-browser-test.js` passes; `check:www` checks the script is loaded.
 
 ## Left (unblocked — nightly can do these, in order)
 1. **iPad/Mac layout pass (mostly DONE v7.9.17/18):** setup screens fixed. Still open: Mac desktop HUD below ~700 px window height (build grid shows 2 rows, scrolls), portrait play on iPad (decision: landscape-only or a real portrait HUD).
-2. **Private-room host migration + hidden-desktop-tab host stall** (online polish).
+2. **Private-room host migration** (online polish; hidden-tab stall DONE v7.9.20). Quick Match already has it; rooms wait 45 s for the host.
 3. ~~Test debt~~ DONE (tests only, no version bump, after v7.9.18): `test/reach-test.js` rewritten for the v7.9.7 lobby (8 checks pass); `test/recon-browser-test.js` passes on v7.9.18 (2/2 runs, ~34 s; it starts its own server on 8769, the old failure was not reproducible). `reach-test.js` still needs a static server: `python3 -m http.server 8765` (or pass a URL).
 4. ~~Report a player from inside an online lobby~~ DONE v7.9.19.
 

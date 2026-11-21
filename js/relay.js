@@ -6,8 +6,10 @@
 // Guests stay silent for conf.startDelay ms so a working direct WebRTC connection wins first.
 // public:public@ = MQTT username/password (shiftr.io's public instance runs on port 443, so it also gets through strict firewalls)
 const RELAY_BROKERS = ['wss://public:public@public.cloud.shiftr.io', 'wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt'];
+// v7.9.20: timers that survive a hidden tab (IF_TICK, js/bgtick.js); plain setInterval where it is not loaded (node tests)
+const relayTick = (f, ms) => (typeof IF_TICK !== 'undefined' ? IF_TICK.every(f, ms) : { t: setInterval(f, ms), stop() { clearInterval(this.t); } });
 function mqttWs(url, onMsg, onState) { // minimal MQTT 3.1.1 client over WebSocket, QoS 0 only
-  const enc = new TextEncoder(), dec = new TextDecoder(); let ws, buf = new Uint8Array(0), up = false, closed = false, pid = 1, ka = null; const subs = [];
+  const enc = new TextEncoder(), dec = new TextDecoder(); let ws, buf = new Uint8Array(0), up = false, closed = false, pid = 1, ka = null; const subs = []; const stopKa = () => { if (ka) { ka.stop(); ka = null; } };
   const str = s => { const b = enc.encode(s); return [b.length >> 8, b.length & 255, ...b]; };
   const len = n => { const o = []; do { let d = n % 128; n = Math.floor(n / 128); if (n > 0) d |= 128; o.push(d); } while (n > 0); return o; };
   const pkt = (h, body) => { const u = new Uint8Array(1 + len(body.length).length + body.length); const L = len(body.length); u[0] = h; u.set(L, 1); u.set(body, 1 + L.length); return u; };
@@ -21,12 +23,12 @@ function mqttWs(url, onMsg, onState) { // minimal MQTT 3.1.1 client over WebSock
   const cm = /^(wss?:\/\/)([^:@\/]+):([^@\/]*)@(.*)$/.exec(url), user = cm ? decodeURIComponent(cm[2]) : null, pass = cm ? decodeURIComponent(cm[3]) : null, wsUrl = cm ? cm[1] + cm[4] : url;
   const open = () => { if (closed) return; try { ws = new WebSocket(wsUrl, 'mqtt'); } catch (e) { onState && onState('fail'); return; } ws.binaryType = 'arraybuffer';
     ws.onopen = () => { const id = 'if' + Math.random().toString(36).slice(2, 12); const body = user != null ? [...str('MQTT'), 4, 0xc2, 0, 30, ...str(id), ...str(user), ...str(pass)] : [...str('MQTT'), 4, 2, 0, 30, ...str(id)]; send(pkt(0x10, body));
-      clearInterval(ka); ka = setInterval(() => send(new Uint8Array([0xc0, 0])), 20000); };
+      stopKa(); ka = relayTick(() => send(new Uint8Array([0xc0, 0])), 20000); };
     ws.onmessage = e => { const u = new Uint8Array(e.data), nb = new Uint8Array(buf.length + u.length); nb.set(buf); nb.set(u, buf.length); buf = nb; parse(); };
-    ws.onclose = () => { up = false; buf = new Uint8Array(0); clearInterval(ka); onState && onState('down'); if (!closed) setTimeout(open, 3000); };
+    ws.onclose = () => { up = false; buf = new Uint8Array(0); stopKa(); onState && onState('down'); if (!closed) setTimeout(open, 3000); };
     ws.onerror = () => {}; };
   open();
-  return { subscribe, publish, isUp: () => up, close() { closed = true; clearInterval(ka); try { send(new Uint8Array([0xe0, 0])); ws && ws.close(); } catch (e) {} } };
+  return { subscribe, publish, isUp: () => up, close() { closed = true; stopKa(); try { send(new Uint8Array([0xe0, 0])); ws && ws.close(); } catch (e) {} } };
 }
 function relayTrystero(brokers) {
   const selfId = Math.random().toString(36).slice(2, 12);
@@ -63,12 +65,12 @@ function relayTrystero(brokers) {
       return pub(base + (m.to ? 'p/' + m.to : 'all'), JSON.stringify(m)); };
     const go = () => { if (closed) return; active = true; post({ t: 'hi' }); };
     if (!active) setTimeout(go, conf.startDelay);
-    const iv = setInterval(() => { if (closed || !active) return; post({ t: 'hb' }); for (const p in peers) if (Date.now() - peers[p] > 12000) { delete peers[p]; room.onPeerLeave && room.onPeerLeave(p); } }, 2000);
+    const iv = relayTick(() => { if (closed || !active) return; post({ t: 'hb' }); for (const p in peers) if (Date.now() - peers[p] > 12000) { delete peers[p]; room.onPeerLeave && room.onPeerLeave(p); } }, 2000);
     if (typeof addEventListener === 'function') addEventListener('pagehide', () => { if (!closed && active) post({ t: 'bye' }); });
     room.makeAction = n => (acts[n] = { onMessage: null, send: (d, o) => post({ t: 'msg', n, d, to: o && o.target }) });
     room.getPeers = () => Object.assign({}, peers); room.brokersUp = () => cons.filter(c => c.isUp()).length;
     room.activate = go; room.isActive = () => active;
-    room.leave = () => { if (closed) return; if (active) post({ t: 'bye' }); closed = true; clearInterval(iv); for (const k in inS) clearTimeout(inS[k].timer); setTimeout(() => cons.forEach(c => c.close()), 200); };
+    room.leave = () => { if (closed) return; if (active) post({ t: 'bye' }); closed = true; iv.stop(); for (const k in inS) clearTimeout(inS[k].timer); setTimeout(() => cons.forEach(c => c.close()), 200); };
     return room; } };
 }
 if (typeof module !== 'undefined') module.exports = { mqttWs, relayTrystero, RELAY_BROKERS };
