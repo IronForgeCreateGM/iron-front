@@ -387,3 +387,10 @@ body.mobile #setup:not(.onlineSetup) .setupL #presets{flex-wrap:wrap;gap:6px;min
 body.mobile #setup:not(.onlineSetup) #lobby .lrow{grid-template-columns:28px minmax(0,1fr) minmax(0,.72fr) minmax(0,1.4fr) minmax(0,.8fr)}body.mobile #setup:not(.onlineSetup) #lobby .lrow.lh span:nth-child(2){padding-left:2px}body.mobile #setup:not(.onlineSetup) #lobby .lrow select{font-size:13px;padding:4px 4px}
 body.mobile #setup:not(.onlineSetup) .setupL #presets button{font-size:12px;padding:6px 10px;min-height:44px}}
 @media (max-height:520px) and (max-width:720px){body.mobile #setup:not(.onlineSetup) #lobby .lrow select{font-size:12px;padding:4px 2px}}
+/* v7.9.18: iPad/Mac layout pass. The Quick-setup preset row never wrapped, so on Mac windows (and iPad split view) it made the left column as wide as all presets together: the seat table was pushed out of the panel and the faction text squeezed into a sliver, and the Map dropdown ran off the edge. The left column may now shrink, presets wrap, dropdowns stay inside it. */
+.setupL{min-width:0;max-width:100%}
+.setupL .lopts{min-width:0}
+.setupL #presets{flex-wrap:wrap;min-width:0}
+.setupL .lopts select{max-width:100%;min-width:0}
+.setupL .lopts label.mapRow{max-width:100%;min-width:0}
+#hint{bottom:142px;max-width:calc(100% - 330px)} /* v7.9.18: the controls hint sat on top of the Infantry/Vehicles/Aircraft tabs in short Mac windows */
