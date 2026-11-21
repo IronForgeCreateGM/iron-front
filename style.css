@@ -360,3 +360,21 @@ body.mobile #setup.onlineSetup .setupRow{flex-direction:column}
 /* v7.9.11 lobby chat safety (js/chatsafe.js) */
 #chatTools{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0;font-size:12px}#chatTools button{font-size:12px;padding:3px 8px}#chatToggle.off{opacity:.75}#chatReport{color:#9cf;font-size:12px}#chatTools .dim{font-size:11px}
 .chatLine .chatMute{font-size:10px;padding:0 4px;margin-right:4px;background:transparent;border:1px solid #456;border-radius:3px;cursor:pointer;line-height:14px}#chatLog.chatOff{opacity:.8}
+/* v7.9.16 first-run How to play (js/howto.js): one card, safe areas, fits iPhone landscape, iPad, Mac */
+#howto{position:fixed;inset:0;z-index:55;display:none;align-items:center;justify-content:center;background:rgba(3,6,10,.78);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);padding:calc(10px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));box-sizing:border-box;overflow-y:auto;touch-action:manipulation}
+#howto .htCard{width:min(480px,100%);background:rgba(12,20,30,.96);border:1px solid #2f5a88;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:16px 22px 14px;box-sizing:border-box;text-align:center;color:#e3eefa;margin:auto;animation:panelIn .3s var(--ease,ease)}
+#howto .htTop{display:flex;justify-content:space-between;align-items:center}
+#howto .htKick{font-size:11px;letter-spacing:3px;color:#7dbbff}
+#howto button{background:#16263a;border:1px solid #2f5a88;color:#e3eefa;border-radius:6px;cursor:pointer;font-size:15px;min-height:44px;padding:8px 16px}
+#howto button:hover,#howto button:focus-visible{background:#245187;border-color:#7dbbff;outline:none}
+#howto .htSkip{min-width:72px}
+#howto .htIc{font-size:40px;line-height:1.1;margin:6px 0 2px}
+#howto h2{margin:4px 0 6px;font-size:22px;letter-spacing:1px}
+#howto p{margin:0 auto;font-size:15px;line-height:1.5;max-width:420px;color:#cfdeee;min-height:4.5em}
+#howto kbd{background:#0b1622;border:1px solid #3b6a9c;border-radius:3px;padding:0 4px;font-size:12px}
+#howto .htDots{margin:10px 0 6px}#howto .htDots i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#2d4a6a;margin:0 4px}#howto .htDots i.on{background:#7dbbff}
+#howto .htNav{display:flex;justify-content:space-between;gap:10px;margin-top:4px}
+#howto .htNext{flex:1;max-width:240px;margin-left:auto;background:linear-gradient(#2a6fc0,#1a4377);font-weight:600}
+#howto .htFoot{font-size:11px;color:#8ea3b8;margin-top:8px}
+@media (max-height:440px){#howto .htCard{padding:8px 16px 8px}#howto .htIc{font-size:28px;margin:0}#howto h2{font-size:18px;margin:2px 0 4px}#howto p{font-size:14px;min-height:0}#howto .htDots{margin:6px 0 4px}#howto .htFoot{display:none}}
+@media (prefers-reduced-motion:reduce){#howto .htCard{animation:none}}
