@@ -1,7 +1,7 @@
 # Iron Front — App Store readiness checklist (iPhone + iPad + Mac, one universal app)
 
 Kept by the nightly runs. Ranked: top of "Left" = next thing to do. Seller: **MBEP Productions LLC** (being formed).
-Last updated: v7.9.20, Sat Nov 21, 2026 (v7.9.19 live Nov 21). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
+Last updated: v7.9.21, Sat Nov 21, 2026 (v7.9.20 live Nov 21). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
 
 ## Done
 - [x] Game runs fully offline (three.js vendored, no CDN); `npm run check:www` checks the app bundle is self-contained (v7.7.2).
@@ -69,10 +69,14 @@ Last updated: v7.9.20, Sat Nov 21, 2026 (v7.9.19 live Nov 21). Full how-to: APP-
       and keeps its relay connection (browsers throttle a hidden tab's setInterval to 1/s, and to 1/min after ~5 min hidden unless WebRTC is active).
       `test/bgtick-test.js` (headless Chrome cannot really hide a tab, so the hidden-tab throttle itself was not reproduced); `online-e2e.js` passes
       direct and relay-only (same as live v7.9.19); `recon-browser-test.js` passes; `check:www` checks the script is loaded.
+- [x] **v7.9.21:** Mac/desktop in-match HUD in short windows (CSS only, windows under ~760 px high; taller windows unchanged): smaller minimap
+      (208 px, 160 px under 640 px) and a shorter info box, so the side bar's build grid keeps 216-272 px instead of 46-166 px (it was one clipped
+      row at 900x600); the controls hint no longer overlaps the bottom-bar tabs (it now spans the whole game area and sits above them).
+      `test/hud-short-test.js` (4 window sizes; fails on v7.9.20 at 1280x720, 1100x700 and 900x600).
 
 ## Left (unblocked — nightly can do these, in order)
-1. **iPad/Mac layout pass (mostly DONE v7.9.17/18):** setup screens fixed. Still open: Mac desktop HUD below ~700 px window height (build grid shows 2 rows, scrolls), portrait play on iPad (decision: landscape-only or a real portrait HUD).
-2. **Private-room host migration** (online polish; hidden-tab stall DONE v7.9.20). Quick Match already has it; rooms wait 45 s for the host.
+1. **iPad/Mac layout pass (DONE v7.9.17/18/21 except):** portrait play on iPad (decision for Nicholas: keep landscape-only with the rotate screen, or build a portrait HUD). iPad touch HUD, menus, online lobby and Settings were checked at 1/1, 1/2, 1/3 and Stage Manager sizes.
+2. **Private-room host migration:** parked on purpose. Since v7.9.7 a private room is host + ONE friend (the other seats are closed), and with 2 humans a lost host can only mean the guest goes offline, so migration would be dead code. A tested implementation (12 s wait for the host, then elect; node tests in `recon-test.js` D2/F and `hostmig-test.js`) is saved off-repo in /workspace/n1121b/room-migration.patch for the day rooms allow 3+ humans again. (Hidden-tab host stall DONE v7.9.20.)
 3. ~~Test debt~~ DONE (tests only, no version bump, after v7.9.18): `test/reach-test.js` rewritten for the v7.9.7 lobby (8 checks pass); `test/recon-browser-test.js` passes on v7.9.18 (2/2 runs, ~34 s; it starts its own server on 8769, the old failure was not reproducible). `reach-test.js` still needs a static server: `python3 -m http.server 8765` (or pass a URL).
 4. ~~Report a player from inside an online lobby~~ DONE v7.9.19.
 

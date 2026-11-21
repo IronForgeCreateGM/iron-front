@@ -393,7 +393,7 @@ body.mobile #setup:not(.onlineSetup) .setupL #presets button{font-size:12px;padd
 .setupL #presets{flex-wrap:wrap;min-width:0}
 .setupL .lopts select{max-width:100%;min-width:0}
 .setupL .lopts label.mapRow{max-width:100%;min-width:0}
-#hint{bottom:142px;max-width:calc(100% - 330px)} /* v7.9.18: the controls hint sat on top of the Infantry/Vehicles/Aircraft tabs in short Mac windows */
+#hint{bottom:158px;max-width:calc(100% - 24px)} /* v7.9.18: the controls hint sat on top of the Infantry/Vehicles/Aircraft tabs in short Mac windows */
 /* v7.9.19 in-lobby report panel (App Store app): sits on top of the online lobby, safe areas, 44 px buttons */
 #reportBox{display:flex;position:fixed;inset:0;z-index:90;background:rgba(2,5,9,.78);align-items:center;justify-content:center;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
 #reportBox .rbCard{max-width:520px;max-height:100%;overflow:auto;background:#0e1620;border:1px solid #2f4258;border-radius:12px;padding:14px 18px;text-align:left;color:#d8e2ec;font-size:14px;line-height:1.45}
@@ -401,3 +401,6 @@ body.mobile #setup:not(.onlineSetup) .setupL #presets button{font-size:12px;padd
 #reportBox .rbRow{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}#reportBox .rbRow button{flex:1 1 180px;min-height:46px;font-size:16px}
 
 #reportBox .rbRow button{background:linear-gradient(#2a6fc4,#1c4f94);color:#fff;border:1px solid #4a86d6;border-radius:8px;cursor:pointer}#reportBox .rbRow button.alt{background:#16212d;border-color:#3a5068;color:#cfe0f2}
+/* v7.9.21: Mac/desktop windows shorter than ~760 px: smaller minimap + shorter info box so the build cards in the side bar get room (they showed one clipped row at 600-720 px) */
+@media (max-height:760px){body:not(.mobile) #side #minimap{width:208px!important;height:208px!important;align-self:center}body:not(.mobile) #side #ctx{min-height:64px}body:not(.mobile) #side{gap:6px;padding-top:8px;padding-bottom:8px}}
+@media (max-height:640px){body:not(.mobile) #side #minimap{width:160px!important;height:160px!important}body:not(.mobile) #side #ctx{min-height:48px}}
