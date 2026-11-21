@@ -4,7 +4,8 @@ const { chromium, devices } = require('playwright-core'), path = require('path')
 const ROOT = 'file://' + path.resolve(__dirname, '../index.html'), PART = process.argv[2] || 'play';
 (async () => {
   const br = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'] });
-  const ctx = await br.newContext({ ...devices['iPhone 14 landscape'] }); const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => { if (errs.length < 3) console.log('PAGEERR ' + e.message); errs.push(e.message); }); pg.on('console', m => { if (m.type() === 'error' && errs.length < 5) { console.log('CONSOLE ' + m.text().slice(0, 300)); errs.push(m.text()); } });
+  const VP = (process.env.VP || '').split('x').map(Number); // v7.9.22: VP=820x1180 runs the same play test in iPad portrait
+  const ctx = await br.newContext(VP[1] ? { ...devices['iPhone 14 landscape'], viewport: { width: VP[0], height: VP[1] }, screen: { width: VP[0], height: VP[1] } } : { ...devices['iPhone 14 landscape'] }); const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => { if (errs.length < 3) console.log('PAGEERR ' + e.message); errs.push(e.message); }); pg.on('console', m => { if (m.type() === 'error' && errs.length < 5) { console.log('CONSOLE ' + m.text().slice(0, 300)); errs.push(m.text()); } });
   let fail = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) fail++; };
   // in-page touch helpers (CDP round-trips are slow under software GL)
   const T = (pts, type) => pg.evaluate(([pts, type]) => { const cv = document.getElementById('view'), ts = pts.map(([x, y], i) => new Touch({ identifier: i + 1, target: cv, clientX: x, clientY: y }));

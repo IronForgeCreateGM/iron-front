@@ -55,7 +55,7 @@ function applyQuality(name) {
 function r3Resize() {
   const el = R3.renderer.domElement.parentElement, w = el.clientWidth, h = el.clientHeight, dpr = window.devicePixelRatio || 1;
   let pr = Math.min(dpr, R3.q.pr); if (R3.qName !== 'ultra' && w * pr * h * pr > 8.5e6) pr = Math.max(1, Math.sqrt(8.5e6 / (w * h))); // 5K: cap internal res ~4K
-  R3.renderer.setPixelRatio(pr); R3.renderer.setSize(w, h); R3.camera.aspect = w / h; R3.camera.updateProjectionMatrix();
+  R3.renderer.setPixelRatio(pr); R3.renderer.setSize(w, h); R3.camera.aspect = w / h; R3.camera.fov = h > w && document.body.classList.contains('mobile') ? Math.min(50, 2 * Math.atan(Math.tan(17 * Math.PI / 180) * h / w) * 180 / Math.PI) : 34; R3.camera.updateProjectionMatrix(); // v7.9.22: touch portrait widens the view (horizontal coverage closer to landscape); landscape/Mac stay 34
   postResize(Math.floor(w * pr), Math.floor(h * pr), R3.q);
 }
 // ---------- markers, rings, contact shadows ----------

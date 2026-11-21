@@ -404,3 +404,20 @@ body.mobile #setup:not(.onlineSetup) .setupL #presets button{font-size:12px;padd
 /* v7.9.21: Mac/desktop windows shorter than ~760 px: smaller minimap + shorter info box so the build cards in the side bar get room (they showed one clipped row at 600-720 px) */
 @media (max-height:760px){body:not(.mobile) #side #minimap{width:208px!important;height:208px!important;align-self:center}body:not(.mobile) #side #ctx{min-height:64px}body:not(.mobile) #side{gap:6px;padding-top:8px;padding-bottom:8px}}
 @media (max-height:640px){body:not(.mobile) #side #minimap{width:160px!important;height:160px!important}body:not(.mobile) #side #ctx{min-height:48px}}
+/* v7.9.22 iPad portrait match HUD: iPad-sized portrait windows (incl. narrow split view) play in portrait instead of the rotate overlay. iPhone portrait (<500 wide and <1000 tall) keeps the overlay. Landscape/Mac untouched. */
+@media (orientation:portrait) and (min-width:500px),(orientation:portrait) and (min-height:1000px){
+body.mobile.mplay #mRotate{display:none}
+body.mobile.mplay #mCards{height:164px;flex-wrap:wrap;align-content:flex-start;overflow-x:hidden;overflow-y:auto;touch-action:pan-y}
+body.mobile.mplay #mTabs,body.mobile.mplay #mCtx{bottom:calc(max(4px,env(safe-area-inset-bottom)) + 170px)}
+body.mobile.mplay #mCtx{max-height:calc(100vh - 470px);width:min(250px,calc(100vw - 172px))}
+body.mobile.mplay #mPlace{bottom:calc(max(4px,env(safe-area-inset-bottom)) + 178px)}
+}
+@media (orientation:portrait) and (min-width:500px) and (max-width:720px),(orientation:portrait) and (min-height:1000px) and (max-width:720px){
+body.mobile.mplay #side{top:calc(max(6px,env(safe-area-inset-top)) + 52px)}
+body.mobile.mplay #mCmd{top:calc(max(4px,env(safe-area-inset-top)) + min(30vmin,124px) + 68px)}
+body.mobile.mplay #mSel{left:max(6px,env(safe-area-inset-left));transform:none;top:calc(max(4px,env(safe-area-inset-top)) + 52px);max-width:calc(100vw - min(30vmin,124px) - 36px)}
+body.mobile.mplay #mAlerts{top:calc(max(4px,env(safe-area-inset-top)) + 100px);max-width:calc(100vw - min(30vmin,124px) - 36px)}
+body.mobile.mplay #waveHud{right:max(6px,env(safe-area-inset-right));top:calc(max(4px,env(safe-area-inset-top)) + min(30vmin,124px) + 272px);width:min(200px,60vw)}
+body.mobile.mplay #msg{top:calc(max(4px,env(safe-area-inset-top)) + min(30vmin,124px) + 272px);max-width:calc(100vw - 140px)}
+body.mobile.mplay #mPlace{bottom:calc(max(4px,env(safe-area-inset-bottom)) + 272px)}
+}

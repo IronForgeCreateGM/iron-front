@@ -58,7 +58,7 @@ function mobBuildHud() {
     <div id="mPlace"><div id="mPlHint"></div><button id="mNo" class="mb big no">✗</button><button id="mOk" class="mb big ok">✓</button></div>
     <div id="mBar"><div id="mTabs">${MTABS.map(([k, i]) => `<button class="tab mtab" data-cat="${k}">${i}<i></i></button>`).join('')}</div><div id="mCards"></div></div>
     <div id="mAuto"><b>🤖 Helpers</b>${MAUTO.map(([k, n]) => `<label><input type="checkbox" data-k="${k}"> ${n}</label>`).join('')}<label><input type="checkbox" id="mFps60"> 60 fps (smoother, more battery)</label><button id="mAutoClose" class="mb">Done</button></div>
-    <div id="mRotate"><div>📱↻<br>Rotate your iPhone or iPad to landscape</div></div>`;
+    <div id="mRotate"><div>📱↻<br>Rotate to landscape to play<br><small style="font-size:15px;opacity:.75">On iPad, portrait works too: make the window wider</small></div></div>`;
   v.appendChild(h);
   const $m = id => document.getElementById(id), tapB = (el, f) => { el.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); audioInit(); f(e); }); };
   tapB($m('mMenu'), () => togglePause());

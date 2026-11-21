@@ -73,9 +73,21 @@ Last updated: v7.9.21, Sat Nov 21, 2026 (v7.9.20 live Nov 21). Full how-to: APP-
       (208 px, 160 px under 640 px) and a shorter info box, so the side bar's build grid keeps 216-272 px instead of 46-166 px (it was one clipped
       row at 900x600); the controls hint no longer overlaps the bottom-bar tabs (it now spans the whole game area and sits above them).
       `test/hud-short-test.js` (4 window sizes; fails on v7.9.20 at 1280x720, 1100x700 and 900x600).
+- [x] **v7.9.22:** iPad portrait match play (Nicholas chose a real portrait HUD over landscape-only): touch match play in iPad-sized portrait
+      windows (portrait and at least 500 px wide or 1000 px tall: iPad 1/1 portrait, 2/3 and 1/2 split view) no longer shows the rotate
+      screen. Portrait HUD: build cards wrap into 2 rows (more cards without scrolling), unit tabs/info panel/✓✗ sit above them; in
+      narrow windows (500-720 px wide, or 1/2 split) the minimap and command buttons move below the money bar, and the selection chip,
+      alerts, survival wave box and messages move clear of them. In touch portrait the camera's field of view widens (34° to 50° max)
+      so you see about as much map side to side as in landscape (view only). iPhone portrait (under 500 px wide and 1000 px tall)
+      keeps the rotate screen ("Rotate to landscape to play"). Landscape, iPhone and Mac layouts are unchanged (all rules sit inside portrait
+      media queries; the field of view stays 34° for landscape and desktop). `test/ipad-portrait-test.js` checks 6 iPad portrait/split sizes
+      (no overlay, HUD inside the window with no overlaps when idle, with the army selected, with the HQ selected and while placing; a card tap
+      starts placement; a minimap tap moves the camera) and 2 iPhone portrait sizes (overlay kept). `VP=820x1180 node test/mobile-play-test.js`
+      runs the touch play test in iPad portrait (the "Upgrade tap" check times out on Playwright's stability wait at big software-GL
+      windows, also at iPad landscape 1180x820 on v7.9.21; a forced tap upgrades fine at 820x1180 and 410x1180). UI only (no sim/AI/balance/netcode change).
 
 ## Left (unblocked — nightly can do these, in order)
-1. **iPad/Mac layout pass (DONE v7.9.17/18/21 except):** portrait play on iPad (decision for Nicholas: keep landscape-only with the rotate screen, or build a portrait HUD). iPad touch HUD, menus, online lobby and Settings were checked at 1/1, 1/2, 1/3 and Stage Manager sizes.
+1. ~~**iPad/Mac layout pass**~~ DONE v7.9.17/18/21/22 (iPad portrait match HUD v7.9.22). iPad touch HUD, menus, online lobby and Settings were checked at 1/1, 1/2, 1/3 and Stage Manager sizes.
 2. **Private-room host migration:** parked on purpose. Since v7.9.7 a private room is host + ONE friend (the other seats are closed), and with 2 humans a lost host can only mean the guest goes offline, so migration would be dead code. A tested implementation (12 s wait for the host, then elect; node tests in `recon-test.js` D2/F and `hostmig-test.js`) is saved off-repo in /workspace/n1121b/room-migration.patch for the day rooms allow 3+ humans again. (Hidden-tab host stall DONE v7.9.20.)
 3. ~~Test debt~~ DONE (tests only, no version bump, after v7.9.18): `test/reach-test.js` rewritten for the v7.9.7 lobby (8 checks pass); `test/recon-browser-test.js` passes on v7.9.18 (2/2 runs, ~34 s; it starts its own server on 8769, the old failure was not reproducible). `reach-test.js` still needs a static server: `python3 -m http.server 8765` (or pass a URL).
 4. ~~Report a player from inside an online lobby~~ DONE v7.9.19.
