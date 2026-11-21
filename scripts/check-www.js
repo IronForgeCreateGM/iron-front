@@ -36,6 +36,7 @@ for (const [f, needle] of [['privacy.html', 'MBEP Productions LLC'], ['support.h
 for (const f of ['privacy.html', 'support.html']) { const p = path.join(www, f), t = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : ''; // v7.9.13: way back from the app's own pages
   if (!/id="backToGame" href="index\.html"/.test(t)) errs.push(f + ': missing "← Back to game" link (id=backToGame, href=index.html)');
   if (!t.includes('src="js/extlinks.js')) errs.push(f + ': must load js/extlinks.js (links inside the app)'); }
+if (!/src="js\/howto\.js/.test(html) || !fs.existsSync(path.join(www, 'js/howto.js')) || !html.includes('class="howtoBtn"')) errs.push('index.html must load js/howto.js and offer a How to play button (v7.9.16 first-run onboarding)');
 if (!/src="js\/extlinks\.js/.test(html) || !fs.existsSync(path.join(www, 'js/extlinks.js'))) errs.push('index.html must load js/extlinks.js (target=_blank links do nothing in the app WKWebView)');
 warn.forEach(w => console.log('NOTE ' + w));
 console.log(`www/: ${n} files, ${(bytes / 1048576).toFixed(1)} MB, ${refs.length} references checked, version ${pkg}`);

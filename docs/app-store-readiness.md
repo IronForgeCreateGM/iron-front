@@ -1,7 +1,7 @@
 # Iron Front — App Store readiness checklist (iPhone + iPad + Mac, one universal app)
 
 Kept by the nightly runs. Ranked: top of "Left" = next thing to do. Seller: **MBEP Productions LLC** (being formed).
-Last updated: v7.9.15, Fri Nov 20, 2026 (v7.9.14 live Nov 19). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
+Last updated: v7.9.16, Sat Nov 21, 2026 (v7.9.15 live Nov 20). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
 
 ## Done
 - [x] Game runs fully offline (three.js vendored, no CDN); `npm run check:www` checks the app bundle is self-contained (v7.7.2).
@@ -40,17 +40,23 @@ Last updated: v7.9.15, Fri Nov 20, 2026 (v7.9.14 live Nov 19). Full how-to: APP-
       2880x1800 (Mac). Sizes checked against Apple's App Store Connect "Screenshot specifications" page on Nov 20 2026. Listed with
       captions in `docs/app-store-listing.md` → Screenshots. `test/appstore-shots.js` rewritten (4 slots, 5 scenes, `--pack`, the
       camera now really moves — the old `camFocus` call never existed); `test/appstore-shots-meta-test.js` checks sizes/RGB/count/listing.
+- [x] **v7.9.16:** first-run onboarding: `js/howto.js` shows 5 short "How to play" cards (build your base → power then
+      money → make an army → move and attack → win) on the first launch, right under the title screen. Skip / Esc any time,
+      Back/Next or arrow keys, remembered on the device only (`localStorage.ifHowtoSeen`, no account, no network, offline).
+      Touch wording when the mobile UI is on or the pointer is coarse, mouse/keyboard wording on Mac/desktop. Fits iPhone
+      landscape/portrait, iPad and Mac windows inside the safe areas with 44 pt buttons. Re-open from ❓ How to play on the
+      menu or pause screen. Not shown for deep links (?room=) or automated runs; `?howto=1` forces it, `?howto=0` never.
+      `test/howto-test.js`; `check:www` checks it is loaded. UI only (no sim/AI/replay change).
 
 ## Left (unblocked — nightly can do these, in order)
-1. **First-run onboarding:** a short "how to play" (build power → refinery → barracks → attack) for brand-new players, skippable.
-2. **iPad/Mac layout pass:** check menus/HUD at iPad portrait + Stage Manager sizes and Mac window resizing; rotation on iPad.
+1. **iPad/Mac layout pass:** check menus/HUD at iPad portrait + Stage Manager sizes and Mac window resizing; rotation on iPad.
    Seen while taking v7.9.15 screenshots: the "Game vs bots" setup screen on an iPhone landscape squeezes the seat table
    (Spot/Player/Team/Faction/Colour headers overlap, dropdowns are slivers) — fix it so setup can be a store screenshot too.
-3. **Private-room host migration + hidden-desktop-tab host stall** (online polish).
-4. **Test debt:** `test/reach-test.js` (v5.7.3) is stale vs the v7.9.7 lobby (fails the same on live 5c737fb and v7.9.11) — rewrite
+2. **Private-room host migration + hidden-desktop-tab host stall** (online polish).
+3. **Test debt:** `test/reach-test.js` (v5.7.3) is stale vs the v7.9.7 lobby (fails the same on live 5c737fb and v7.9.11) — rewrite
    for the new lobby; `test/recon-browser-test.js` fails on live base too. Gate scripts must start `python3 -m http.server 8765`
    for privacy/reach (the 11/17 gate didn't, so both showed exit=1 from connection refused).
-5. **Report a player from inside an online lobby** opens support.html in the same window (leaves the lobby). Optional: with the
+4. **Report a player from inside an online lobby** opens support.html in the same window (leaves the lobby). Optional: with the
    Capacitor Browser plugin, open the public https support page in the in-app sheet instead so the lobby stays connected.
 
 ## Blocked on the LLC / Apple Developer account (Nicholas)
