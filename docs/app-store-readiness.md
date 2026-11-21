@@ -1,7 +1,7 @@
 # Iron Front — App Store readiness checklist (iPhone + iPad + Mac, one universal app)
 
 Kept by the nightly runs. Ranked: top of "Left" = next thing to do. Seller: **MBEP Productions LLC** (being formed).
-Last updated: v7.9.18, Sat Nov 21, 2026 (v7.9.17 live Nov 21). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
+Last updated: v7.9.19, Sat Nov 21, 2026 (v7.9.18 live Nov 21). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
 
 ## Done
 - [x] Game runs fully offline (three.js vendored, no CDN); `npm run check:www` checks the app bundle is self-contained (v7.7.2).
@@ -59,13 +59,16 @@ Last updated: v7.9.18, Sat Nov 21, 2026 (v7.9.17 live Nov 21). Full how-to: APP-
       `test/setup-layout-test.js` now checks 10 sizes incl. panel containment. iPad landscape/11"/Stage Manager menus, online lobby,
       Settings and the touch HUD were checked and looked fine. Match play on iPad is landscape-only (portrait shows the rotate screen);
       for Xcode set iPad orientations to landscape + "Requires full screen" or accept portrait showing that screen.
+- [x] **v7.9.19:** "⚑ Report a player" inside an online lobby no longer leaves the lobby in the App Store app: a panel on top of the lobby
+      (mute / chat off / leave tips) with **Open report form** (prefilled GitHub issue incl. room code, through `IF_LINKS` → in-app Safari sheet
+      if `@capacitor/browser` is installed, otherwise Safari; the lobby page stays) and Back to lobby. Web unchanged (new tab). `js/chatsafe.js`,
+      `test/report-lobby-test.js`. Support email for reports still blocked on the LLC.
 
 ## Left (unblocked — nightly can do these, in order)
 1. **iPad/Mac layout pass (mostly DONE v7.9.17/18):** setup screens fixed. Still open: Mac desktop HUD below ~700 px window height (build grid shows 2 rows, scrolls), portrait play on iPad (decision: landscape-only or a real portrait HUD).
 2. **Private-room host migration + hidden-desktop-tab host stall** (online polish).
 3. ~~Test debt~~ DONE (tests only, no version bump, after v7.9.18): `test/reach-test.js` rewritten for the v7.9.7 lobby (8 checks pass); `test/recon-browser-test.js` passes on v7.9.18 (2/2 runs, ~34 s; it starts its own server on 8769, the old failure was not reproducible). `reach-test.js` still needs a static server: `python3 -m http.server 8765` (or pass a URL).
-4. **Report a player from inside an online lobby** opens support.html in the same window (leaves the lobby). Optional: with the
-   Capacitor Browser plugin, open the public https support page in the in-app sheet instead so the lobby stays connected.
+4. ~~Report a player from inside an online lobby~~ DONE v7.9.19.
 
 ## Blocked on the LLC / Apple Developer account (Nicholas)
 - Apple Developer Program as an **Organization** (MBEP Productions LLC, D-U-N-S number, $99/yr).

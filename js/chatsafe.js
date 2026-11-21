@@ -66,4 +66,32 @@ function chatInitUi() {
   const mu = document.getElementById('chatMutedN'); if (mu) mu.onclick = () => { chatMuted().clear(); chatSaveMuted(); chatApplyUi(); };
   chatApplyUi();
 }
+// v7.9.19 App Store: "⚑ Report a player" inside an online lobby used to open support.html in the SAME window in the app (WKWebView has no tabs),
+// which left the lobby. In the app (Capacitor native) while the online screen is open it now shows a small panel on top of the lobby (mute / chat off /
+// leave tips + "Open report form" -> the GitHub issue page through IF_LINKS: in-app Safari sheet, or Safari) and the lobby stays connected.
+// The web version is unchanged (the link still opens a new tab).
+function chatReportUrl() {
+  const code = typeof ONL !== 'undefined' && ONL && ONL.code ? String(ONL.code).replace(/[^A-Za-z0-9]/g, '').slice(0, 12) : '';
+  const body = 'Player name:\nRoom code: ' + code + '\nDate and time:\nWhat happened:\n\n(Please do not include your own personal details.)';
+  return 'https://github.com/IronForgeCreateGM/iron-front/issues/new?title=' + encodeURIComponent('Player report') + '&body=' + encodeURIComponent(body);
+}
+function chatReportShow() {
+  if (typeof document === 'undefined') return false; let b = document.getElementById('reportBox'); if (b) { b.style.display = 'flex'; return true; }
+  b = document.createElement('div'); b.id = 'reportBox'; b.setAttribute('role', 'dialog'); b.setAttribute('aria-label', 'Report a player');
+  const card = document.createElement('div'); card.className = 'rbCard'; b.appendChild(card);
+  const h = document.createElement('h2'); h.textContent = '⚑ Report a player'; card.appendChild(h);
+  const ul = document.createElement('ul'); for (const t of ['Mute: tap 🔇 next to their message (hidden on this device only).', 'Chat off: 💬 Chat on / 🔕 Chat off turns all lobby chat off.', 'Leave: you can leave the room any time and host your own with friends you invite.', 'Report abuse: Open report form (GitHub issue with the player name, the room code, the time and what was said). MBEP Productions LLC reads reports there.']) { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); } card.appendChild(ul);
+  const p = document.createElement('p'); p.className = 'dim'; p.textContent = 'Your lobby stays open while you report.'; card.appendChild(p);
+  const row = document.createElement('div'); row.className = 'rbRow';
+  const go = document.createElement('button'); go.type = 'button'; go.id = 'reportOpen'; go.className = 'big'; go.textContent = 'Open report form'; go.onclick = () => { const u = chatReportUrl(); if (window.IF_LINKS && typeof IF_LINKS.open === 'function') IF_LINKS.open(u); };
+  const back = document.createElement('button'); back.type = 'button'; back.id = 'reportBack'; back.className = 'big alt'; back.textContent = 'Back to lobby'; back.onclick = () => { b.style.display = 'none'; };
+  row.appendChild(go); row.appendChild(back); card.appendChild(row); document.body.appendChild(b); return true;
+}
+if (typeof window !== 'undefined' && typeof document !== 'undefined') window.addEventListener('click', ev => { // window capture runs before extlinks.js (document capture)
+  try {
+    const a = ev.target && ev.target.closest && ev.target.closest('#chatReport'); if (!a || !window.IF_LINKS || !IF_LINKS.isApp()) return;
+    const su = document.getElementById('setup'); if (!su || !su.classList.contains('onlineSetup')) return; // not in the online lobby: normal link
+    ev.preventDefault(); ev.stopPropagation(); chatReportShow();
+  } catch (e) {}
+}, true);
 if (typeof module !== 'undefined' && module.exports) module.exports = { chatFilter, chatIsBad, chatNorm };
