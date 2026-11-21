@@ -1,7 +1,7 @@
 # Iron Front — App Store readiness checklist (iPhone + iPad + Mac, one universal app)
 
 Kept by the nightly runs. Ranked: top of "Left" = next thing to do. Seller: **MBEP Productions LLC** (being formed).
-Last updated: v7.9.16, Sat Nov 21, 2026 (v7.9.15 live Nov 20). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
+Last updated: v7.9.17, Sat Nov 21, 2026 (v7.9.16 live Nov 21). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
 
 ## Done
 - [x] Game runs fully offline (three.js vendored, no CDN); `npm run check:www` checks the app bundle is self-contained (v7.7.2).
@@ -47,11 +47,14 @@ Last updated: v7.9.16, Sat Nov 21, 2026 (v7.9.15 live Nov 20). Full how-to: APP-
       landscape/portrait, iPad and Mac windows inside the safe areas with 44 pt buttons. Re-open from ❓ How to play on the
       menu or pause screen. Not shown for deep links (?room=) or automated runs; `?howto=1` forces it, `?howto=0` never.
       `test/howto-test.js`; `check:www` checks it is loaded. UI only (no sim/AI/replay change).
+- [x] **v7.9.17:** iPhone landscape "Game vs bots" setup fixed (CSS only): the left column (map, peace time, quick setup) was as wide as
+      its longest preset row, which squeezed the seat table to 0-14 px per column; it now stays at 38% and wraps (44 px preset buttons), and the
+      table gets 28/1/.72/1.4/.8 columns (readable on iPhone 17 Pro 874x402 and iPhone SE 667x375). iPad/Mac sizes untouched.
+      `test/setup-layout-test.js` checks 8 device sizes. Before/after shots were saved by the nightly run.
 
 ## Left (unblocked — nightly can do these, in order)
 1. **iPad/Mac layout pass:** check menus/HUD at iPad portrait + Stage Manager sizes and Mac window resizing; rotation on iPad.
-   Seen while taking v7.9.15 screenshots: the "Game vs bots" setup screen on an iPhone landscape squeezes the seat table
-   (Spot/Player/Team/Faction/Colour headers overlap, dropdowns are slivers) — fix it so setup can be a store screenshot too.
+   (The iPhone-landscape "Game vs bots" seat-table squeeze is FIXED in v7.9.17.)
 2. **Private-room host migration + hidden-desktop-tab host stall** (online polish).
 3. **Test debt:** `test/reach-test.js` (v5.7.3) is stale vs the v7.9.7 lobby (fails the same on live 5c737fb and v7.9.11) — rewrite
    for the new lobby; `test/recon-browser-test.js` fails on live base too. Gate scripts must start `python3 -m http.server 8765`

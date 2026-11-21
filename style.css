@@ -378,3 +378,12 @@ body.mobile #setup.onlineSetup .setupRow{flex-direction:column}
 #howto .htFoot{font-size:11px;color:#8ea3b8;margin-top:8px}
 @media (max-height:440px){#howto .htCard{padding:8px 16px 8px}#howto .htIc{font-size:28px;margin:0}#howto h2{font-size:18px;margin:2px 0 4px}#howto p{font-size:14px;min-height:0}#howto .htDots{margin:6px 0 4px}#howto .htFoot{display:none}}
 @media (prefers-reduced-motion:reduce){#howto .htCard{animation:none}}
+/* v7.9.17: iPhone landscape "Game vs bots": the left column (map, peace time, quick setup) was as wide as its longest option/preset row, which squeezed the seat table (Spot/Player/Team/Faction/Colour) to 0-14 px. Let the column shrink to its 38% and wrap its contents. */
+@media (max-height:520px){body.mobile:not(.mplay) #setup:not(.onlineSetup) .setupL{min-width:0;max-width:38%}
+body.mobile #setup:not(.onlineSetup) .setupL .lopts{min-width:0}
+body.mobile #setup:not(.onlineSetup) .setupL #mapSel,body.mobile #setup:not(.onlineSetup) .setupL #peaceSel{max-width:100%;min-width:0;width:100%;margin-left:0}
+body.mobile #setup:not(.onlineSetup) .setupL label.mapRow,body.mobile #setup:not(.onlineSetup) .setupL label.peaceRow{display:block;width:100%}
+body.mobile #setup:not(.onlineSetup) .setupL #presets{flex-wrap:wrap;gap:6px;min-width:0;justify-content:flex-start}
+body.mobile #setup:not(.onlineSetup) #lobby .lrow{grid-template-columns:28px minmax(0,1fr) minmax(0,.72fr) minmax(0,1.4fr) minmax(0,.8fr)}body.mobile #setup:not(.onlineSetup) #lobby .lrow.lh span:nth-child(2){padding-left:2px}body.mobile #setup:not(.onlineSetup) #lobby .lrow select{font-size:13px;padding:4px 4px}
+body.mobile #setup:not(.onlineSetup) .setupL #presets button{font-size:12px;padding:6px 10px;min-height:44px}}
+@media (max-height:520px) and (max-width:720px){body.mobile #setup:not(.onlineSetup) #lobby .lrow select{font-size:12px;padding:4px 2px}}
