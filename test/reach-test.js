@@ -1,5 +1,5 @@
-// v5.7.3 online lobby: (a) host keeps chosen "You" row (slot 8), exactly one human, START never blocked by empty remote rows;
-// (b) joiner with no host sees "Can't reach host" after ~20s.  NODE_PATH=/workspace/pwlib/node_modules node test/reach-test.js [url]
+// v5.7.3, rewritten v7.9.17 for the v7.9.7 lobby: (a) host keeps the chosen "You" row (slot 8), exactly one human, no surprise AI, lone host can't start;
+// (b) joiner with no host sees "Can't reach host" after ~20-50s.  NODE_PATH=<playwright-core> node test/reach-test.js [url]  (needs a static server, e.g. python3 -m http.server 8765)
 const { chromium } = require('playwright-core'), path = require('path');
 const URL0 = process.argv[2] || 'http://localhost:8765/index.html';
 (async () => {
@@ -11,14 +11,18 @@ const URL0 = process.argv[2] || 'http://localhost:8765/index.html';
     lobbySet([['human', 'A'], ['remote', 'B'], ['hard', 'A'], ['remote', 'B'], ['hard', 'A'], ['hard', 'B'], ['hard', 'A'], ['hard', 'B']]); });
   const s8 = (await h.$$('#lobby .lrow:not(.lh) .lt'))[7]; await s8.selectOption('human'); await h.waitForTimeout(200);
   await h.click('#hostBtn'); await h.waitForTimeout(1500);
-  const r = await h.evaluate(() => ({ lt: lobbyRead().map(x => x[0]), sb: document.getElementById('startBtn').textContent, dis: document.getElementById('startBtn').disabled, peers: document.getElementById('onPeers').textContent }));
+  // v7.9.7 lobby (Host vs Join): leftover seats are closed (never filled with surprise Hard AI), the host keeps the chosen You row,
+  // "Start anyway" stays hidden until a friend has joined, so a lone host can never start a match by accident.
+  const r = await h.evaluate(() => { const g = id => { const e = document.getElementById(id); return e ? { t: e.textContent.trim(), disp: getComputedStyle(e).display } : null; }; return { lt: lobbyRead().map(x => x[0]), start: g('onStartBtn'), ready: g('readyBtn'), peers: g('onPeers').t, host: ONL.host, started: ONL.started, code: ONL.code }; });
+  ok(r.host && !!r.code, 'hosting: room code ' + r.code);
   ok(r.lt[7] === 'human' && r.lt.filter(v => v === 'human').length === 1, 'host keeps slot 8 as the only You: ' + r.lt.join(','));
-  ok(r.lt[1] === 'remote' && r.lt[3] === 'remote', 'host-made remote rows kept');
-  ok(!r.dis && /START ONLINE \(2 empty slots become Hard AI\)/.test(r.sb), 'START enabled: ' + r.sb);
-  ok(/Slot 8: .*\(host\)/.test(r.peers) && /Slot 2: open/.test(r.peers), 'peer list: ' + r.peers);
-  await h.evaluate(() => document.getElementById('startBtn').click()); await h.waitForTimeout(4000);
-  const g = await h.evaluate(() => ({ me: ME, n: G.players.length, ai: G.players.filter(p => p.ai).length, start: G.players[ME].start }));
-  ok(g.me === 7 && g.start === 7 && g.n === 8 && g.ai === 7, 'solo-hosted start: empty remotes became AI ' + JSON.stringify(g));
+  ok(r.lt[1] === 'remote' && r.lt.filter(v => v === 'remote').length === 1, 'one open seat for a friend, no extra remote rows: ' + r.lt.join(','));
+  ok(r.lt.filter(v => v === 'hard' || v === 'si' || v === 'med' || v === 'easy').length === 0, 'no surprise AI seats were added: ' + r.lt.join(','));
+  ok(r.ready && r.ready.disp !== 'none' && r.start && r.start.disp === 'none', 'I\'m Ready shown, Start anyway hidden while alone');
+  ok(/Slot 8: .*host/.test(r.peers) && /Slot 2: open/.test(r.peers), 'peer list: ' + r.peers.slice(0, 90));
+  await h.evaluate(() => document.getElementById('readyBtn').click()); await h.waitForTimeout(3000);
+  const g = await h.evaluate(() => ({ started: ONL.started, inGame: !!(typeof G !== 'undefined' && G && G.players && G.tick > 0) }));
+  ok(!g.started && !g.inGame, 'a lone host pressing Ready does not start a match: ' + JSON.stringify(g));
   // v7.7.2: since the relay fallback (v7.6.3) the joiner first shows "no direct route ... trying the relay server" for up to 30 s,
   // then the final "Can't find the host" error; poll for it (up to ~50 s) instead of reading at a fixed 22 s.
   let t = ''; for (let k = 0; k < 50; k++) { t = await j.textContent('#onStatus'); if (/Can't (reach|find)|could not connect/.test(t)) break; await j.waitForTimeout(1000); }

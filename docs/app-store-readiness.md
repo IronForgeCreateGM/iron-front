@@ -63,9 +63,7 @@ Last updated: v7.9.18, Sat Nov 21, 2026 (v7.9.17 live Nov 21). Full how-to: APP-
 ## Left (unblocked — nightly can do these, in order)
 1. **iPad/Mac layout pass (mostly DONE v7.9.17/18):** setup screens fixed. Still open: Mac desktop HUD below ~700 px window height (build grid shows 2 rows, scrolls), portrait play on iPad (decision: landscape-only or a real portrait HUD).
 2. **Private-room host migration + hidden-desktop-tab host stall** (online polish).
-3. **Test debt:** `test/reach-test.js` (v5.7.3) is stale vs the v7.9.7 lobby (fails the same on live 5c737fb and v7.9.11) — rewrite
-   for the new lobby; `test/recon-browser-test.js` fails on live base too. Gate scripts must start `python3 -m http.server 8765`
-   for privacy/reach (the 11/17 gate didn't, so both showed exit=1 from connection refused).
+3. ~~Test debt~~ DONE (tests only, no version bump, after v7.9.18): `test/reach-test.js` rewritten for the v7.9.7 lobby (8 checks pass); `test/recon-browser-test.js` passes on v7.9.18 (2/2 runs, ~34 s; it starts its own server on 8769, the old failure was not reproducible). `reach-test.js` still needs a static server: `python3 -m http.server 8765` (or pass a URL).
 4. **Report a player from inside an online lobby** opens support.html in the same window (leaves the lobby). Optional: with the
    Capacitor Browser plugin, open the public https support page in the in-app sheet instead so the lobby stays connected.
 
