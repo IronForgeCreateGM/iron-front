@@ -1,7 +1,7 @@
 # Iron Front — App Store readiness checklist (iPhone + iPad + Mac, one universal app)
 
 Kept by the nightly runs. Ranked: top of "Left" = next thing to do. Seller: **MBEP Productions LLC** (being formed).
-Last updated: v7.9.21, Sat Nov 21, 2026 (v7.9.20 live Nov 21). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
+Last updated: v7.9.23, Sun Nov 22, 2026 (v7.9.22 live Nov 21). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
 
 ## Done
 - [x] Game runs fully offline (three.js vendored, no CDN); `npm run check:www` checks the app bundle is self-contained (v7.7.2).
@@ -85,12 +85,20 @@ Last updated: v7.9.21, Sat Nov 21, 2026 (v7.9.20 live Nov 21). Full how-to: APP-
       starts placement; a minimap tap moves the camera) and 2 iPhone portrait sizes (overlay kept). `VP=820x1180 node test/mobile-play-test.js`
       runs the touch play test in iPad portrait (the "Upgrade tap" check times out on Playwright's stability wait at big software-GL
       windows, also at iPad landscape 1180x820 on v7.9.21; a forced tap upgrades fine at 820x1180 and 410x1180). UI only (no sim/AI/balance/netcode change).
+- [x] **v7.9.23:** player names through the word filter (guideline 1.2): `netSafeName` (js/net.js) now also runs `chatFilter` when
+      chatsafe.js is loaded, so a rude name is masked (f*******) everywhere it is shown: online lobby seat list, host name, chat lines,
+      join/rejoin/version notices, end-of-game scoreboard, "Waiting for…" banner, Quick Match / Game Center aliases, and names in loaded
+      replays. Your own typed name is cleaned the same way. Display only: names are not part of the sim/state hash; node tests keep the
+      plain sanitizer. `test/namesafe-test.js` (masked/clean names, length, wiring).
 
 ## Left (unblocked — nightly can do these, in order)
 1. ~~**iPad/Mac layout pass**~~ DONE v7.9.17/18/21/22 (iPad portrait match HUD v7.9.22). iPad touch HUD, menus, online lobby and Settings were checked at 1/1, 1/2, 1/3 and Stage Manager sizes.
 2. **Private-room host migration:** parked on purpose. Since v7.9.7 a private room is host + ONE friend (the other seats are closed), and with 2 humans a lost host can only mean the guest goes offline, so migration would be dead code. A tested implementation (12 s wait for the host, then elect; node tests in `recon-test.js` D2/F and `hostmig-test.js`) is saved off-repo in /workspace/n1121b/room-migration.patch for the day rooms allow 3+ humans again. (Hidden-tab host stall DONE v7.9.20.)
 3. ~~Test debt~~ DONE (tests only, no version bump, after v7.9.18): `test/reach-test.js` rewritten for the v7.9.7 lobby (8 checks pass); `test/recon-browser-test.js` passes on v7.9.18 (2/2 runs, ~34 s; it starts its own server on 8769, the old failure was not reproducible). `reach-test.js` still needs a static server: `python3 -m http.server 8765` (or pass a URL).
 4. ~~Report a player from inside an online lobby~~ DONE v7.9.19.
+5. ~~Player names through the word filter~~ DONE v7.9.23 (was listed under blocked as optional, but needed no account).
+
+All unblocked readiness items are done (item 2 parked on purpose). Next nightly: re-check for any new unblocked App Store item; otherwise the older queue (4c HARD AI math, 5a infantry remodel, 5b map polish, 6 lighter AI testing, 7 ai71 flaky tests).
 
 ## Blocked on the LLC / Apple Developer account (Nicholas)
 - Apple Developer Program as an **Organization** (MBEP Productions LLC, D-U-N-S number, $99/yr).
@@ -101,4 +109,3 @@ Last updated: v7.9.21, Sat Nov 21, 2026 (v7.9.20 live Nov 21). Full how-to: APP-
 - Confirm age-rating answers and listing text in `docs/app-store-listing.md`; upload the `appstore/screenshots/` set (needs the App Store Connect record).
 - Optional: an App Preview video (15–30 s) per slot — needs the app record; can be recorded from the simulator later.
 - A support/report email for MBEP Productions LLC (player reports currently go to GitHub issues; Apple prefers a direct contact).
-- Optional later: show player names through the word filter in the lobby list and in-game (chat lines already are).
