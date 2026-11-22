@@ -114,7 +114,7 @@ function startGame(diff, opts) {
   if (QS.get('dbg')) setTimeout(() => document.title = 'DBG map=' + G.mapName + ' np=' + G.players.length + ' t=' + (G.time | 0) + ' starts=' + G.players.map(P => P.start).join(''), 500);
   G.vis = G.visT[ME]; G.seen = G.seenT[ME];
   G.players.forEach((P, i) => P.name = (G.opts.slots[i] || {}).name || (P.ai ? DIFF_NAME(P.diff) : 'You'));
-  if (opts.replay) { G.replay = { cmds: opts.replay.cmds || [], hash: opts.replay.hash || [], i: 0, checked: 0, bad: 0 }; G.spectate = true; G.watch = true; G.opts.fog = false; document.body.classList.add('watching'); RPL.on = false; RPL.data = null; G.players.forEach((P, i) => P.name = (opts.replay.slots[i] || {}).name || P.name); }
+  if (opts.replay) { G.replay = { cmds: opts.replay.cmds || [], hash: opts.replay.hash || [], i: 0, checked: 0, bad: 0 }; G.spectate = true; G.watch = true; G.opts.fog = false; document.body.classList.add('watching'); RPL.on = false; RPL.data = null; G.players.forEach((P, i) => { const rn = (opts.replay.slots[i] || {}).name; P.name = rn ? (typeof netSafeName === 'function' ? netSafeName(rn, P.name) : rn) : P.name; }); }
   else { recStart(); keepLastReplay(); }
   if (opts.online) NET.begin(opts.online.tr, opts.online);
   if (G.players[ME].ai && !opts.demo) { DIR.auto = !!QS.get('auto'); G.spectate = true; G.watch = true; document.body.classList.add('watching'); }

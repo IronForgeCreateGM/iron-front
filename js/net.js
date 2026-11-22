@@ -42,7 +42,8 @@ const CMD = {
 // lockstep/determinism and old replays are unchanged (replays are not filtered).
 const NET_HOSTONLY = { drop: 1, retake: 1 };
 const NET_BADKEY = { __proto__: 1, constructor: 1, prototype: 1 };
-function netSafeName(s, d) { s = String(s == null ? '' : s).replace(/[<>&"'`\\\u0000-\u001f\u007f\u2028\u2029]/g, '').trim().slice(0, 16); return s || (d == null ? 'Guest' : d); }
+// v7.9.23: player names also go through the chat word filter (App Store guideline 1.2) wherever they are shown: lobby list, chat, scoreboard, Quick Match aliases. Display only (names are not in stateHash).
+function netSafeName(s, d) { s = String(s == null ? '' : s).replace(/[<>&"'`\\\u0000-\u001f\u007f\u2028\u2029]/g, '').trim().slice(0, 16); if (s && typeof chatFilter === 'function') s = chatFilter(s); return s || (d == null ? 'Guest' : d); }
 function netEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]); }
 function netCleanVal(v, depth, budget) {
   if (budget.n-- <= 0) return false; const t = typeof v;
