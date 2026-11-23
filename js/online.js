@@ -103,11 +103,14 @@ function onlPeerLeave(pid) {
   if (ONL.host && ONL.peers[pid]) { delete ONL.peers[pid]; onlBroadcastLobby(); onlChatLine('* a player left'); }
   if (!ONL.host && pid === ONL.hostId) { ONL.hostId = null; onlError('The host left the lobby (or their connection dropped). Ask them to keep the lobby open, then press Retry.'); }
 }
+// v7.9.24: share links from the App Store app must be the public https game, not capacitor://localhost/ (see js/extlinks.js)
+function onlGameUrl() { return (typeof IF_LINKS !== 'undefined' && IF_LINKS.gameUrl) ? IF_LINKS.gameUrl() : location.origin + location.pathname; }
+const onlInApp = () => typeof IF_LINKS !== 'undefined' && !!IF_LINKS.isApp && IF_LINKS.isApp();
 function onlCode() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < 5; i++) s += A[(Math.random() * A.length) | 0]; return s; }
 // v7.6.3: accept a pasted invite link, spaces, dashes and lower case in the join box
 function onlParseCode(v) { v = String(v || '').trim(); const m = /[?&#]room=([A-Za-z0-9]+)/.exec(v); if (m) v = m[1]; return v.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 8); }
 // v7.6.3: errors are shown in red on screen with Retry + Reload buttons (never silent)
-function onlError(html, retry) { const code = ONL.code; onlStatus(`<div class="onErr">❌ ${html}</div><div class="onErrBtns">${retry !== false && code ? '<button id="onRetry">↻ Retry</button> ' : ''}<button id="onReload">⟳ Reload page</button> <span class="dim">[${typeof NET_VERSION !== 'undefined' ? NET_VERSION : ''}${ONL.strategy ? ' · ' + ONL.strategy : ''}]</span></div>`);
+function onlError(html, retry) { const code = ONL.code; onlStatus(`<div class="onErr">❌ ${html}</div><div class="onErrBtns">${retry !== false && code ? '<button id="onRetry">↻ Retry</button> ' : ''}<button id="onReload">⟳ ${onlInApp() ? 'Restart' : 'Reload page'}</button> <span class="dim">[${typeof NET_VERSION !== 'undefined' ? NET_VERSION : ''}${ONL.strategy ? ' · ' + ONL.strategy : ''}]</span></div>`);
   const r = document.getElementById('onRetry'); if (r) r.onclick = () => onlRetry(); const l = document.getElementById('onReload'); if (l) l.onclick = () => onlHardReload(); console.warn('[online] ' + String(html).replace(/<[^>]+>/g, '')); }
 function onlLeaveRoom() { clearInterval(ONL.reachI); clearTimeout(ONL.reachT); try { ONL.room && ONL.room.leave(); } catch (e) {} ONL.room = null; ONL.peers = {}; ONL.hostId = null; ONL.hostLock = null; ONL_SEC.rate = {}; ONL.started = false; ONL.ready = false; ONL.acts = {}; ONL.handlers = {}; ONL.leaveCbs = []; ONL.strategy = null; ONL.kicked = null;
   if (typeof RTCDIAG !== 'undefined') Object.keys(RTCDIAG).forEach(k => RTCDIAG[k] = 0); onlResetReadyBtn(); }
@@ -210,7 +213,7 @@ function onlHost(keep) {
   onlVersionCheck(); ONL.host = true; ONL.ready = false; ONL.name = onlName(); const code = keep || onlCode(); onlJoinRoom(code);
   onlPrepHostSlots();
   onlShowPanel(true); onlHostStartVisible(true); onlSetReady(false, true);
-  const _q = new URLSearchParams(location.search), _x = ['relays', 'mqtt', 'trackers', 'strategies', 'turn'].filter(k => _q.get(k)).map(k => '&' + k + '=' + encodeURIComponent(_q.get(k))).join(''); const link = location.origin + location.pathname + '?room=' + code + _x + (onlHideIP() && !_q.get('strategies') ? '&strategies=relay' : ''); // share link keeps signalling/TURN overrides
+  const _q = new URLSearchParams(location.search), _x = ['relays', 'mqtt', 'trackers', 'strategies', 'turn'].filter(k => _q.get(k)).map(k => '&' + k + '=' + encodeURIComponent(_q.get(k))).join(''); const link = onlGameUrl() + '?room=' + code + _x + (onlHideIP() && !_q.get('strategies') ? '&strategies=relay' : ''); // share link keeps signalling/TURN overrides
   onlShowCode(code, link);
   onlStatus(`Share this room code with your friend, or send the invite link. ${onlHideIP() ? '<span class="dim">(🛡 IP hidden: relay only)</span> ' : ''}${location.protocol === 'file:' ? '⚠ Hosting from file:// — friends must open the same game build via https.' : ''}`);
   ONL.handlers.hello = (d, pid) => {
@@ -342,7 +345,7 @@ function onlInitUI() {
   const ai = document.getElementById('addAiBtn'); if (ai) ai.onclick = () => onlAddSlot('si');
   const op = document.getElementById('addOpenBtn'); if (op) op.onclick = () => onlAddSlot('remote');
   const cc = document.getElementById('copyCodeBtn'); if (cc) cc.onclick = () => onlCopyText(ONL.code, cc);
-  const cl = document.getElementById('copyLinkBtn'); if (cl) cl.onclick = () => onlCopyText(ONL.invite || (ONL.code ? location.origin + location.pathname + '?room=' + ONL.code : ''), cl);
+  const cl = document.getElementById('copyLinkBtn'); if (cl) cl.onclick = () => onlCopyText(ONL.invite || (ONL.code ? onlGameUrl() + '?room=' + ONL.code : ''), cl);
   document.getElementById('chatIn').onkeydown = e => { if (e.key === 'Enter' && e.target.value.trim() && ONL.room && (typeof chatEnabled !== 'function' || chatEnabled())) { const m = onlChatClean(e.target.value.trim().slice(0, 140)); e.target.value = ''; if (ONL.host) { onlChatLine(ONL.name + ': ' + m, ONL.name); ONL.acts.chat({ m, n: ONL.name }); } else ONL.acts.chat({ m }); } e.stopPropagation(); };
   if (typeof chatInitUi === 'function') chatInitUi();
   const code = new URLSearchParams(location.search).get('room'); if (code) { document.getElementById('joinCode').value = code; setTimeout(() => onlJoin(code), 50); }

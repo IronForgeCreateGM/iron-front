@@ -9,7 +9,11 @@
   function isApp() { try { const C = window.Capacitor; return !!(C && (typeof C.isNativePlatform === 'function' ? C.isNativePlatform() : C.isNative)); } catch (e) { return false; } }
   function abs(href) { try { return new URL(href, location.href).href; } catch (e) { return ''; } }
   function sameSite(u) { try { return new URL(u).origin === location.origin; } catch (e) { return false; } }
-  const L = window.IF_LINKS = { isApp, opened: [], open(href) {
+  // v7.9.24: the public web game. In the app the page lives at capacitor://localhost/, which means nothing to a friend,
+  // so invite links shared from the app point here instead (the friend can play in Safari/any browser, or type the code in their app).
+  const WEB = 'https://ironforgecreategm.github.io/iron-front/';
+  function gameUrl() { return isApp() ? WEB : location.origin + location.pathname; }
+  const L = window.IF_LINKS = { isApp, WEB, gameUrl, opened: [], open(href) {
     const u = abs(href); if (!u || !/^(https?|capacitor|file|ionic):/i.test(u)) return false;
     const B = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser;
     if (!sameSite(u) && /^https?:/i.test(u) && B && typeof B.open === 'function') {

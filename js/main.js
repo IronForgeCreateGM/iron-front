@@ -191,10 +191,22 @@ function simSanitize() {
 // v5.2 replays: save (download a small .json) / load (file picker on the menu)
 // v7.6: exactly one 'last game' replay is kept on this device: replaced the moment a new game starts, refreshed every 30 s, at the end, on quit / Play again and when the page closes
 function keepLastReplay() { try { if (typeof RPL !== 'undefined' && RPL.on && RPL.data) { const s = replayFile(); if (s) localStorage.setItem('ifLastReplay', s); } } catch (e) {} }
-function dlReplay(s, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([s], { type: 'application/json' })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+// v7.9.24 App Store app: a WKWebView ignores <a download>, so in the app a replay file goes to the iOS/macOS share sheet
+// (Save to Files, AirDrop, Mail...) when Web Share with files is available; it is always kept on the device as the last replay too.
+function replayInApp() { return typeof IF_LINKS !== 'undefined' && !!IF_LINKS.isApp && IF_LINKS.isApp(); }
+function dlReplay(s, name) {
+  if (replayInApp()) {
+    let f = null; try { f = new File([s], name, { type: 'application/json' }); } catch (e) {}
+    if (f && navigator.share && navigator.canShare && navigator.canShare({ files: [f] })) {
+      navigator.share({ files: [f], title: 'Iron Front replay' }).catch(e => { if (!e || e.name !== 'AbortError') typeof uiMsg === 'function' && uiMsg('Replay kept on this device (▶ Last game replay)'); });
+      return 'share';
+    }
+    typeof uiMsg === 'function' && uiMsg('Replay kept on this device (▶ Last game replay)'); return 'kept';
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([s], { type: 'application/json' })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); return 'download'; }
 addEventListener('pagehide', keepLastReplay); addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') keepLastReplay(); });
 function saveReplay() { const s = replayFile(); if (!s) { uiMsg && uiMsg('No replay recorded for this game'); return; } try { localStorage.setItem('ifLastReplay', s); } catch (e) {}
-  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([s], { type: 'application/json' })); a.download = 'ironfront-replay-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.json'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+  return dlReplay(s, 'ironfront-replay-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.json'); }
 function loadReplay(d) { if (!d || d.game !== 'ironfront' || !d.slots) { alert('Not an Iron Front replay file'); return; } audioInit && audioInit();
   startGame(d.diff || 'normal', { replay: d, r76: d.r76 ? 1 : 0, nt: d.nt ? 1 : 0, m7: d.m7 | 0, f79: d.f79 | 0, f80: d.f80 | 0, f81: d.f81 | 0, seed: d.seed, map: d.map, cmap: d.cmap, peace: d.peace, fog: d.fog, me: d.me || 0, slots: d.slots.map((s, i) => Object.assign({}, s, { local: i === (d.me || 0) && !s.ai })) }); }
 window.addEventListener('DOMContentLoaded', () => {
