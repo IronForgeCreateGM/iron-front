@@ -1,7 +1,7 @@
 # Iron Front — App Store readiness checklist (iPhone + iPad + Mac, one universal app)
 
 Kept by the nightly runs. Ranked: top of "Left" = next thing to do. Seller: **MBEP Productions LLC** (being formed).
-Last updated: v7.9.23, Sun Nov 22, 2026 (v7.9.22 live Nov 21). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
+Last updated: v7.9.24, Mon Nov 23, 2026 (v7.9.23 live Nov 22). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
 
 ## Done
 - [x] Game runs fully offline (three.js vendored, no CDN); `npm run check:www` checks the app bundle is self-contained (v7.7.2).
@@ -91,12 +91,21 @@ Last updated: v7.9.23, Sun Nov 22, 2026 (v7.9.22 live Nov 21). Full how-to: APP-
       replays. Your own typed name is cleaned the same way. Display only: names are not part of the sim/state hash; node tests keep the
       plain sanitizer. `test/namesafe-test.js` (masked/clean names, length, wiring).
 
+- [x] **v7.9.24:** no web-only bits inside the App Store app (WKWebView): invite link / Copy link from the app now use the public
+      game `https://ironforgecreategm.github.io/iron-front/?room=CODE` (was `capacitor://localhost/index.html?room=…`, useless to a
+      friend; `IF_LINKS.gameUrl()` in `js/extlinks.js`); no "Add to Home Screen" tip and no full-screen button in the app (already
+      full screen; Mac keeps the window's green button); Save replay / ⬇ Download in the app open the share sheet with the .json
+      (Save to Files, AirDrop) via Web Share, or say "kept on this device" when Web Share is missing (WKWebView ignores `<a download>`);
+      online error button says "Restart" in the app; Settings says sound is made "on your device". Web version unchanged.
+      `test/appweb-test.js`. Xcode check later: confirm the share sheet appears on a real iPhone/iPad/Mac build.
+
 ## Left (unblocked — nightly can do these, in order)
 1. ~~**iPad/Mac layout pass**~~ DONE v7.9.17/18/21/22 (iPad portrait match HUD v7.9.22). iPad touch HUD, menus, online lobby and Settings were checked at 1/1, 1/2, 1/3 and Stage Manager sizes.
 2. **Private-room host migration:** parked on purpose. Since v7.9.7 a private room is host + ONE friend (the other seats are closed), and with 2 humans a lost host can only mean the guest goes offline, so migration would be dead code. A tested implementation (12 s wait for the host, then elect; node tests in `recon-test.js` D2/F and `hostmig-test.js`) is saved off-repo in /workspace/n1121b/room-migration.patch for the day rooms allow 3+ humans again. (Hidden-tab host stall DONE v7.9.20.)
 3. ~~Test debt~~ DONE (tests only, no version bump, after v7.9.18): `test/reach-test.js` rewritten for the v7.9.7 lobby (8 checks pass); `test/recon-browser-test.js` passes on v7.9.18 (2/2 runs, ~34 s; it starts its own server on 8769, the old failure was not reproducible). `reach-test.js` still needs a static server: `python3 -m http.server 8765` (or pass a URL).
 4. ~~Report a player from inside an online lobby~~ DONE v7.9.19.
 5. ~~Player names through the word filter~~ DONE v7.9.23 (was listed under blocked as optional, but needed no account).
+6. ~~Web-only bits inside the app (invite link, home-screen tip, replay download)~~ DONE v7.9.24.
 
 All unblocked readiness items are done (item 2 parked on purpose). Next nightly: re-check for any new unblocked App Store item; otherwise the older queue (4c HARD AI math, 5a infantry remodel, 5b map polish, 6 lighter AI testing, 7 ai71 flaky tests).
 
@@ -105,6 +114,7 @@ All unblocked readiness items are done (item 2 parked on purpose). Next nightly:
 - Final bundle id (change `appId` in `capacitor.config.json`), Xcode signing, App Store Connect app record.
 - In-App Purchase product `ironfront_full_unlock` setup + StoreKit sandbox testing (uncommitted IAP work stays untouched until then).
 - Game Center capability + two-iPhone Quick Match test (GAME-CENTER.md).
+- On the first device build: check Save replay opens the share sheet and an app-shared invite link opens the web game (v7.9.24).
 - First real Xcode build/compile of the Swift plugins (needs a Mac; no `ios/` project in the repo yet), TestFlight, submission.
 - Confirm age-rating answers and listing text in `docs/app-store-listing.md`; upload the `appstore/screenshots/` set (needs the App Store Connect record).
 - Optional: an App Preview video (15–30 s) per slot — needs the app record; can be recorded from the simulator later.
