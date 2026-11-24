@@ -402,7 +402,8 @@ function chiefArmy(P, S, D, me, foes, knownB, home, intruders, hq, estart) {
       else if (far.length > S.grp.length * (m7On(P, 'b') ? 0.45 : 0.3) && !near.length && G.time > (S.regroupT || 0) && (S.regroupT = G.time + (m7On(P, 'b') ? 20 : 12))) { oM71(P, S, S.grp, c.x, c.y, true); }
       else {
         const tgts = knownB.slice(); const pref = S.towerHeavy ? ['turret', 'tesla', 'gatling', 'gcannon', 'aagun', 'wall', 'power', 'refinery', 'factory', 'barracks', 'cc', 'hq'] : D.si && !SIOFF.pref ? ['cc', 'factory', 'barracks', 'refinery', 'hq', 'airfield', 'turret', 'aagun', 'tech', 'power'] : ['turret', 'aagun', 'refinery', 'factory', 'barracks', 'power', 'airfield', 'tech', 'hq'];
-        tgts.sort((a, b) => dhypot(a.x - c.x, a.y - c.y) * 0.3 + (pref.indexOf(a.t) + 1 || 9) - dhypot(b.x - c.x, b.y - c.y) * 0.3 - (pref.indexOf(b.t) + 1 || 9));
+        if (!S.towerHeavy && D.si && f82On(P, 'tg82')) util82(P, S, c, tgts, foes, v); // v7.9.25: utility score (economy first, tower cover weighed by pack strength) instead of the fixed pref list
+        else tgts.sort((a, b) => dhypot(a.x - c.x, a.y - c.y) * 0.3 + (pref.indexOf(a.t) + 1 || 9) - dhypot(b.x - c.x, b.y - c.y) * 0.3 - (pref.indexOf(b.t) + 1 || 9));
         const M7 = m7On(P, 'b'); let t = (M7 && tgts.length ? tgt7(P, S, c, tgts) : null) || tgts[0] || huntTarget(P, S, c, estart);
         // v5.1 siege: break the weakest section of the wall/defence line in front of the pack (lowest hp, closest)
         if ((S.siege || S.doc && !SIOFF.commit) && (D.si || S.doc) && !SIOFF.siege) { const line = knownB.filter(b => (b.t === 'wall' || b.t === 'gate' || BT[b.t].wpn) && dhypot(b.x - c.x, b.y - c.y) < 13);
@@ -1288,6 +1289,19 @@ function pg76(P, V6) { return V6 && !SIOFF.pg76 && !G.end && peaceEnd76() >= 300
 const f79On = (P, k) => !!G.f79 && isV76(P) && !SIOFF.f79 && !P.f79Off && !(k && SIOFF[k]); // v7.7.9 AI rules (warheads wh79, recall rc79, France fortress gc79); off for old replays
 const f80On = (P, k) => !!G.f80 && isV76(P) && !SIOFF.f80 && !P.f80Off && !(k && SIOFF[k]); // v7.8.8 AI rules (idle air flank air80, Grand Cannon nuke punish gc80); off for old replays
 const f81On = (P, k) => !!G.f81 && isV76(P) && !SIOFF.f81 && !P.f81Off && !(k && SIOFF[k]); // v7.9.2 AI rules (air wing gather air81, GC Titan bank + push-on-weaken gc81); off for old replays
+const f82On = (P, k) => !!G.f82 && isV76(P) && !SIOFF.f82 && !P.f82Off && !(k && SIOFF[k]); // v7.9.25 AI rules (utility attack targets tg82); off for old replays
+// v7.9.25 utility AI (docs/ai-math-plan.md §3): score = type value (+ harvesters it feeds) / (distance + tower cover), integer, ties by id.
+// Tower cover is the Lanchester ratio of the defences within reach of the target to my pack value: a big army walks past a turret, a small one avoids it.
+const V82 = { silo: 14, refinery: 12, cc: 10, hq: 9, factory: 7, power: 6, airfield: 6, tech: 6, extractor: 5, barracks: 5, gcannon: 4, turret: 3, tesla: 3, gatling: 3, aagun: 3, gate: 1, wall: 1 };
+function util82(P, S, c, tgts, foes, v) {
+  const harv = foes.filter(f => f.kind === 'u' && f.t === 'harv' && f.hp > 0), def = tgts.filter(b => BT[b.t] && BT[b.t].wpn && !b.offline && (b.hp == null || b.hp > 0)), vv = Math.max(2000, v | 0);
+  const sc = new Map();
+  for (const b of tgts) { let val = V82[b.t] || 3;
+    if (b.t === 'refinery' || b.t === 'cc' || b.t === 'hq') { let h = 0; for (const u of harv) if (u.team === b.team && Math.abs(u.x - b.x) < 8 && Math.abs(u.y - b.y) < 8) h++; val += Math.min(12, h * 3); }
+    let dc = 0; for (const d of def) if (d !== b && Math.abs(d.x - b.x) <= 9 && Math.abs(d.y - b.y) <= 9) dc += BT[d.t].cost * ((d.lvl || 1) > 1 ? 14 : 10);
+    const dist = Math.floor(dhypot(b.x - c.x, b.y - c.y)), pen = Math.floor(dc / vv);
+    sc.set(b, Math.floor(val * 100000 / (15 + dist + pen))); }
+  tgts.sort((a, b) => sc.get(b) - sc.get(a) || a.id - b.id); }
 function noteGC81(P, S, gcs) { // remember Grand Cannon count/HP so we can see when a Titan (or a fight) actually weakened the line
   const n = gcs.length, hp = gcs.reduce((s, b) => s + b.hp, 0), off = gcs.filter(b => b.offline || b.hp < b.mhp * 0.45).length, prev = S.gcSnap81;
   // only count a drop against a fortress we already knew about (new/offline cannons appearing are not "weakened")
