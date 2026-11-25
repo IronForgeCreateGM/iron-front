@@ -38,6 +38,7 @@ for (const f of ['privacy.html', 'support.html']) { const p = path.join(www, f),
   if (!t.includes('src="js/extlinks.js')) errs.push(f + ': must load js/extlinks.js (links inside the app)'); }
 if (!/src="js\/howto\.js/.test(html) || !fs.existsSync(path.join(www, 'js/howto.js')) || !html.includes('class="howtoBtn"')) errs.push('index.html must load js/howto.js and offer a How to play button (v7.9.16 first-run onboarding)');
 if (!/src="js\/extlinks\.js/.test(html) || !fs.existsSync(path.join(www, 'js/extlinks.js'))) errs.push('index.html must load js/extlinks.js (target=_blank links do nothing in the app WKWebView)');
+if (!/src="js\/appfeel\.js/.test(html) || !fs.existsSync(path.join(www, 'js/appfeel.js'))) errs.push('index.html must load js/appfeel.js (no web view menu / page zoom / image drag in the app, v7.9.26)');
 if (!/src="js\/bgtick\.js/.test(html) || !fs.existsSync(path.join(www, 'js/bgtick.js'))) errs.push('index.html must load js/bgtick.js before main.js/relay.js (hidden-tab timers, v7.9.20)');
 warn.forEach(w => console.log('NOTE ' + w));
 console.log(`www/: ${n} files, ${(bytes / 1048576).toFixed(1)} MB, ${refs.length} references checked, version ${pkg}`);
