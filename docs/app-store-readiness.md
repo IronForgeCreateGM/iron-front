@@ -1,7 +1,7 @@
 # Iron Front — App Store readiness checklist (iPhone + iPad + Mac, one universal app)
 
 Kept by the nightly runs. Ranked: top of "Left" = next thing to do. Seller: **MBEP Productions LLC** (being formed).
-Last updated: v7.9.24, Mon Nov 23, 2026 (v7.9.23 live Nov 22). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
+Last updated: v7.9.26, Wed Nov 25, 2026 (v7.9.25 live Nov 24). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
 
 ## Done
 - [x] Game runs fully offline (three.js vendored, no CDN); `npm run check:www` checks the app bundle is self-contained (v7.7.2).
@@ -98,6 +98,13 @@ Last updated: v7.9.24, Mon Nov 23, 2026 (v7.9.23 live Nov 22). Full how-to: APP-
       (Save to Files, AirDrop) via Web Share, or say "kept on this device" when Web Share is missing (WKWebView ignores `<a download>`);
       online error button says "Restart" in the app; Settings says sound is made "on your device". Web version unchanged.
       `test/appweb-test.js`. Xcode check later: confirm the share sheet appears on a real iPhone/iPad/Mac build.
+- [x] **v7.9.26:** app feel inside the App Store app (guideline 4.2 "not just a web page"): `js/appfeel.js` (in the app only; web unchanged;
+      `?appfeel=0` for QA) turns off the WKWebView's own page gestures that made the game feel like a website: the right-click / two-finger-click
+      menu on Mac and iPad trackpads (Reload — which restarted the app mid-match — Back, Inspect Element, Copy Image, Look Up), long-press
+      text loupe / image callouts, dragging flag/icon images out of the window, text-selection start, and page pinch / double-click zoom when
+      the touch UI is off (iPad with a keyboard, Mac). Text boxes (player name, room code, chat) keep copy/paste/select. Only `preventDefault`,
+      so the game's right-click orders, double-click select and camera zoom are unchanged. `test/appfeel-test.js` (Mac-size app, iPhone app,
+      `?appfeel=0`, web; real right-click on the minimap in a skirmish still orders a move); `check:www` checks it is loaded.
 
 ## Left (unblocked — nightly can do these, in order)
 1. ~~**iPad/Mac layout pass**~~ DONE v7.9.17/18/21/22 (iPad portrait match HUD v7.9.22). iPad touch HUD, menus, online lobby and Settings were checked at 1/1, 1/2, 1/3 and Stage Manager sizes.
@@ -106,6 +113,7 @@ Last updated: v7.9.24, Mon Nov 23, 2026 (v7.9.23 live Nov 22). Full how-to: APP-
 4. ~~Report a player from inside an online lobby~~ DONE v7.9.19.
 5. ~~Player names through the word filter~~ DONE v7.9.23 (was listed under blocked as optional, but needed no account).
 6. ~~Web-only bits inside the app (invite link, home-screen tip, replay download)~~ DONE v7.9.24.
+7. ~~App feel in the app (no web view right-click menu / Reload, long-press callouts, image drag, page zoom)~~ DONE v7.9.26.
 
 All unblocked readiness items are done (item 2 parked on purpose). Next nightly: re-check for any new unblocked App Store item; otherwise the older queue (4c HARD AI math, 5a infantry remodel, 5b map polish, 6 lighter AI testing, 7 ai71 flaky tests).
 
@@ -114,7 +122,7 @@ All unblocked readiness items are done (item 2 parked on purpose). Next nightly:
 - Final bundle id (change `appId` in `capacitor.config.json`), Xcode signing, App Store Connect app record.
 - In-App Purchase product `ironfront_full_unlock` setup + StoreKit sandbox testing (uncommitted IAP work stays untouched until then).
 - Game Center capability + two-iPhone Quick Match test (GAME-CENTER.md).
-- On the first device build: check Save replay opens the share sheet and an app-shared invite link opens the web game (v7.9.24).
+- On the first device build: check Save replay opens the share sheet and an app-shared invite link opens the web game (v7.9.24); right-click on Mac / long-press on iPhone shows no web view menu, and the name box still pastes (v7.9.26).
 - First real Xcode build/compile of the Swift plugins (needs a Mac; no `ios/` project in the repo yet), TestFlight, submission.
 - Confirm age-rating answers and listing text in `docs/app-store-listing.md`; upload the `appstore/screenshots/` set (needs the App Store Connect record).
 - Optional: an App Preview video (15–30 s) per slot — needs the app record; can be recorded from the simulator later.
