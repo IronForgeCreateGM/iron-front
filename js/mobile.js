@@ -289,8 +289,9 @@ function mobLifecycle() {
     if (started && NET.online && away > 3000 && typeof ONL !== 'undefined' && !ONL.host) setTimeout(() => { const peers = ONL.room && ONL.room.getPeers ? Object.keys(ONL.room.getPeers()).length : 1; if (!NET.online) return; if (!peers && !NET.recon && typeof NET._reconStart === 'function') NET._reconStart(); else if (G.players[ME] && G.players[ME].ai && typeof NET._askRejoin === 'function') NET._askRejoin(true); }, 2500); // v7.9.8: reconnect by itself (was: a Rejoin banner that reloaded the page)
   });
   const cv = R3.renderer.domElement;
-  cv.addEventListener('webglcontextlost', e => { e.preventDefault(); MOB.lost = true; uiMsg('Graphics paused (GPU context lost) — restoring…'); }, false);
-  cv.addEventListener('webglcontextrestored', () => { MOB.lost = false; try { applyQuality(R3.qName || 'mobile'); } catch (e) {} uiMsg('Graphics restored'); }, false);
+  if (typeof IF_GPU !== 'undefined') IF_GPU.attach(cv); // v7.9.27: GPU context loss handled in js/gpuloss.js (pause offline, panel, Try again / Restart)
+  else { cv.addEventListener('webglcontextlost', e => { e.preventDefault(); MOB.lost = true; uiMsg('Graphics paused (GPU context lost) — restoring…'); }, false);
+    cv.addEventListener('webglcontextrestored', () => { MOB.lost = false; try { applyQuality(R3.qName || 'mobile'); } catch (e) {} uiMsg('Graphics restored'); }, false); }
 }
 function mobRejoinBanner() { let b = document.getElementById('mRejoin'); if (!b) { b = document.createElement('div'); b.id = 'mRejoin'; document.body.appendChild(b); }
   b.innerHTML = `Connection to the host was lost while the app was in the background.<br><button class="mb big">🔄 Rejoin match</button>`; b.style.display = 'block';
