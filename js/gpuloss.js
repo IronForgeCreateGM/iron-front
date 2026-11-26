@@ -9,12 +9,12 @@ function gpuPanel() {
   let p = document.getElementById('gpuLost');
   if (!p) {
     p = document.createElement('div'); p.id = 'gpuLost'; p.setAttribute('role', 'alertdialog'); p.setAttribute('aria-live', 'assertive');
-    p.style.cssText = 'position:fixed;inset:0;z-index:100000;display:none;align-items:center;justify-content:center;background:rgba(5,8,12,.92);color:#dfe8f2;font:16px system-ui,-apple-system,sans-serif;text-align:center;padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));box-sizing:border-box';
+    p.style.cssText = 'position:fixed;inset:0;z-index:100000;display:none;align-items:center;justify-content:center;background:#05080c;color:#dfe8f2;font:16px system-ui,-apple-system,sans-serif;text-align:center;padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));box-sizing:border-box';
     p.innerHTML = '<div style="max-width:420px"><div style="font-size:20px;font-weight:700;margin-bottom:8px">Graphics paused</div>'
       + '<div id="gpuLostTxt" style="opacity:.85;line-height:1.4">Your device took the graphics memory back for a moment. Restoring…</div>'
       + '<div id="gpuLostBtns" style="display:none;margin-top:16px;gap:12px;justify-content:center;flex-wrap:wrap">'
-      + '<button id="gpuRetry" class="mb big" style="min-height:44px;min-width:140px">Try again</button>'
-      + '<button id="gpuRestart" class="mb big" style="min-height:44px;min-width:140px">Restart</button></div></div>';
+      + '<button id="gpuRetry" style="min-height:44px;min-width:140px;background:#13243a;color:#dfe8f2;border:1px solid #3a6ea5;border-radius:8px;font:600 16px system-ui,-apple-system,sans-serif;padding:10px 18px;cursor:pointer">Try again</button>'
+      + '<button id="gpuRestart" style="min-height:44px;min-width:140px;background:#13243a;color:#dfe8f2;border:1px solid #3a6ea5;border-radius:8px;font:600 16px system-ui,-apple-system,sans-serif;padding:10px 18px;cursor:pointer">Restart</button></div></div>';
     document.body.appendChild(p);
     p.querySelector('#gpuRetry').onclick = () => gpuRetry();
     p.querySelector('#gpuRestart').onclick = () => { try { location.reload(); } catch (e) {} };
