@@ -30,7 +30,7 @@ else {
   const cats = [...x.matchAll(/<key>NSPrivacyAccessedAPIType<\/key>\s*<string>([^<]+)<\/string>\s*<key>NSPrivacyAccessedAPITypeReasons<\/key>\s*<array>\s*<string>[0-9A-F]{4}\.\d<\/string>/g)].length;
   if (cats !== (x.match(/<key>NSPrivacyAccessedAPIType<\/key>/g) || []).length) errs.push('PrivacyInfo.xcprivacy: every accessed API type needs a reason code');
 }
-for (const f of ['ios-plugin/AppIcon.appiconset/Contents.json', 'ios-plugin/AppIcon.appiconset/icon-1024.png', 'ios-plugin/LaunchScreen.storyboard']) if (!fs.existsSync(path.join(root, f))) errs.push('App Store piece missing: ' + f); // v7.9.12
+for (const f of ['ios-plugin/AppIcon.appiconset/Contents.json', 'ios-plugin/AppIcon.appiconset/icon-1024.png', 'ios-plugin/LaunchScreen.storyboard', 'ios-plugin/Info-additions.plist']) if (!fs.existsSync(path.join(root, f))) errs.push('App Store piece missing: ' + f); // v7.9.12
 for (const [f, needle] of [['privacy.html', 'MBEP Productions LLC'], ['support.html', 'github.com/IronForgeCreateGM/iron-front/issues']])
   if (fs.existsSync(path.join(www, f)) && !fs.readFileSync(path.join(www, f), 'utf8').includes(needle)) errs.push(`${f}: missing "${needle}"`);
 for (const f of ['privacy.html', 'support.html']) { const p = path.join(www, f), t = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : ''; // v7.9.13: way back from the app's own pages

@@ -78,6 +78,22 @@ Free to play with USA, Russia, Germany and France on Iron Crossroads and Frostli
 - **User-generated content:** No (the map builder is private and not in the app).
 - Expected result: **9+** (13+ if Apple weighs the chat or the realistic military setting).
 
+## Export compliance (encryption) — proposed answer (Nicholas to confirm)
+<!-- v7.9.28 -->
+- **Answer:** the app uses only **exempt** encryption → `ITSAppUsesNonExemptEncryption` = **NO** (already in `ios-plugin/Info-additions.plist`,
+  so App Store Connect and TestFlight stop asking on every upload).
+- **Why:** all encryption is the system's own, inside WebKit: HTTPS/WSS to the multiplayer relays, WebRTC (DTLS) between players, and
+  WebCrypto (AES-GCM/signatures in the bundled Trystero library) to protect and sign the room handshake. Standard algorithms only, no
+  custom crypto, and the app's main purpose is a game, not security or secure messaging. No CCATS / documentation upload expected.
+- **France:** the app is not a secure-storage/secure-messaging/security product, so no French declaration is expected.
+- This is MBEP Productions LLC's own call under US export rules (Apple's "Overview of export compliance"); if in doubt, answer the
+  questionnaire once in App Store Connect and keep the key in step with the answer.
+
+## EU Digital Services Act — trader status (needs the LLC)
+- To sell in the EU, App Store Connect asks whether the seller is a **trader**. MBEP Productions LLC sells an in-app purchase, so answer
+  **trader**; Apple then shows the LLC's address, phone and email on the EU product page. Needs the LLC's business address, a support
+  phone number and a support email (still open; see docs/app-store-readiness.md). Apple can hold EU distribution until this is verified.
+
 ## App Review notes (draft)
 > Iron Front is a real-time strategy game. No login is required. Single-player Skirmish, Endless and Watch modes work fully offline.
 > Online play is optional: "Play Online" hosts a private room with a code (peer-to-peer WebRTC), and "Quick Match" uses Game Center.

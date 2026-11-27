@@ -44,5 +44,28 @@ try {
 const ls = rd('ios-plugin/LaunchScreen.storyboard');
 if (!/launchScreen="YES"/.test(ls) || !/red="0\.0196\d*" green="0\.0313\d*" blue="0\.0470\d*"/.test(ls)) errs.push('LaunchScreen.storyboard must be a launch screen in #05080c');
 if (!/"backgroundColor": "#05080c"/.test(rd('capacitor.config.json'))) errs.push('capacitor.config.json ios.backgroundColor should stay #05080c (matches the launch screen)');
+// v7.9.28 Info.plist keys for Xcode (ios-plugin/Info-additions.plist): valid plist, export-compliance key set, Mac category,
+// orientations that match what the game supports (iPhone landscape only, iPad all four + split view since v7.9.22), the launch
+// screen name matches the storyboard, the display name matches capacitor.config.json, and no permission prompts are declared
+// (the game asks for none; also check the web code never calls camera/mic/location APIs that would need one).
+try {
+  const ip = rd('ios-plugin/Info-additions.plist'), keys = {};
+  if (!/^<\?xml[\s\S]*<plist version="1.0">\s*<dict>[\s\S]*<\/dict>\s*<\/plist>\s*$/.test(ip)) errs.push('Info-additions.plist is not a plist dict');
+  for (const m of ip.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<key>([^<]+)<\/key>\s*(<true\/>|<false\/>|<string>([^<]*)<\/string>|<array>([\s\S]*?)<\/array>)/g))
+    keys[m[1]] = m[2] === '<true/>' ? true : m[2] === '<false/>' ? false : m[3] !== undefined ? m[3] : [...m[4].matchAll(/<string>([^<]+)<\/string>/g)].map(x => x[1]);
+  const cap = JSON.parse(rd('capacitor.config.json')), eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  if (keys.ITSAppUsesNonExemptEncryption !== false) errs.push('Info-additions: ITSAppUsesNonExemptEncryption must be NO (matches the listing export-compliance answer)');
+  if (keys.LSApplicationCategoryType !== 'public.app-category.strategy-games') errs.push('Info-additions: LSApplicationCategoryType must be public.app-category.strategy-games');
+  if (keys.CFBundleDisplayName !== cap.appName) errs.push(`Info-additions: CFBundleDisplayName "${keys.CFBundleDisplayName}" != capacitor appName "${cap.appName}"`);
+  if (keys.UILaunchStoryboardName !== 'LaunchScreen' || !fs.existsSync(path.join(root, 'ios-plugin/LaunchScreen.storyboard'))) errs.push('Info-additions: UILaunchStoryboardName must be LaunchScreen (ios-plugin/LaunchScreen.storyboard)');
+  if (!eq(keys.UISupportedInterfaceOrientations, ['UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'])) errs.push('Info-additions: iPhone orientations must be landscape left + right only');
+  if (!eq([...(keys['UISupportedInterfaceOrientations~ipad'] || [])].sort(), ['UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight', 'UIInterfaceOrientationPortrait', 'UIInterfaceOrientationPortraitUpsideDown'])) errs.push('Info-additions: iPad needs all four orientations (portrait HUD since v7.9.22)');
+  if (keys.UIRequiresFullScreen !== false) errs.push('Info-additions: UIRequiresFullScreen must be NO (iPad split view is supported)');
+  if (keys.UIStatusBarHidden !== true || keys.UIViewControllerBasedStatusBarAppearance !== false) errs.push('Info-additions: status bar must be hidden (UIStatusBarHidden YES + UIViewControllerBasedStatusBarAppearance NO)');
+  for (const k of Object.keys(keys)) if (/UsageDescription$/.test(k)) errs.push('Info-additions: unexpected permission prompt ' + k + ' (the game asks for no permissions)');
+  for (const f of fs.readdirSync(path.join(root, 'js')).filter(f => f.endsWith('.js'))) if (/getUserMedia|geolocation\.|requestTrackingAuthorization|navigator\.bluetooth|DeviceMotionEvent\.requestPermission/.test(rd('js/' + f))) errs.push('js/' + f + ' uses an API that needs a permission prompt (add the Info.plist reason or remove it)');
+  if (!/Export compliance[\s\S]*ITSAppUsesNonExemptEncryption[\s\S]*\*\*NO\*\*/.test(md)) errs.push('listing: Export compliance section must give the ITSAppUsesNonExemptEncryption = NO answer');
+  if (!/Info-additions\.plist/.test(rd('ios-plugin/README.md'))) errs.push('ios-plugin/README.md must explain Info-additions.plist');
+} catch (e) { errs.push('Info-additions.plist: ' + e.message); }
 console.log(errs.length ? 'APPSTORE-META FAIL\n' + errs.join('\n') : `APPSTORE-META OK (name ${[...fields.name].length}/30, subtitle ${[...fields.subtitle].length}/30, keywords ${fields.keywords.length}/100, description ${[...fields.description].length}/4000)`);
 process.exit(errs.length ? 1 : 0);
