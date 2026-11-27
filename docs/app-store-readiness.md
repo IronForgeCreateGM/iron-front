@@ -1,7 +1,7 @@
 # Iron Front — App Store readiness checklist (iPhone + iPad + Mac, one universal app)
 
 Kept by the nightly runs. Ranked: top of "Left" = next thing to do. Seller: **MBEP Productions LLC** (being formed).
-Last updated: v7.9.27, Thu Nov 26, 2026 (v7.9.26 live Nov 25). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
+Last updated: v7.9.28, Fri Nov 27, 2026 (v7.9.27 live Nov 26). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
 
 ## Done
 - [x] Game runs fully offline (three.js vendored, no CDN); `npm run check:www` checks the app bundle is self-contained (v7.7.2).
@@ -112,6 +112,14 @@ Last updated: v7.9.27, Thu Nov 26, 2026 (v7.9.26 live Nov 25). Full how-to: APP-
       and **Restart** (44 pt). Online matches keep running (lockstep) and only get the panel. Render/UI only. `test/gpuloss-test.js`
       (Mac-size app on classic, iPhone-size app on 224 Delta of Kings, web with the stuck path, online code path); `check:www` checks it is loaded.
 
+- [x] **v7.9.28:** Info.plist keys for Xcode (`ios-plugin/Info-additions.plist`, merge into `ios/App/App/Info.plist`): `ITSAppUsesNonExemptEncryption`
+      = NO (only the system's own HTTPS/WSS, WebRTC and WebCrypto; App Store Connect/TestFlight stop asking the encryption questions on every
+      upload, no "Missing Compliance" builds), `LSApplicationCategoryType` = strategy-games (needed for the Mac build), display name Iron Front,
+      status bar hidden, iPhone landscape only (portrait was only the rotate screen), iPad all four orientations + Split View, launch screen
+      LaunchScreen; no permission prompts needed. Listing draft gained "Export compliance" (proposed answer + why) and "EU DSA trader status".
+      `test/appstore-meta-test.js` checks the keys match the game (orientations, name, storyboard, no `NS…UsageDescription`, no camera/mic/
+      location APIs in js/); `check:www` checks the file is there. Docs/config only (no game code change).
+
 ## Left (unblocked — nightly can do these, in order)
 1. ~~**iPad/Mac layout pass**~~ DONE v7.9.17/18/21/22 (iPad portrait match HUD v7.9.22). iPad touch HUD, menus, online lobby and Settings were checked at 1/1, 1/2, 1/3 and Stage Manager sizes.
 2. **Private-room host migration:** parked on purpose. Since v7.9.7 a private room is host + ONE friend (the other seats are closed), and with 2 humans a lost host can only mean the guest goes offline, so migration would be dead code. A tested implementation (12 s wait for the host, then elect; node tests in `recon-test.js` D2/F and `hostmig-test.js`) is saved off-repo in /workspace/n1121b/room-migration.patch for the day rooms allow 3+ humans again. (Hidden-tab host stall DONE v7.9.20.)
@@ -121,6 +129,7 @@ Last updated: v7.9.27, Thu Nov 26, 2026 (v7.9.26 live Nov 25). Full how-to: APP-
 6. ~~Web-only bits inside the app (invite link, home-screen tip, replay download)~~ DONE v7.9.24.
 7. ~~App feel in the app (no web view right-click menu / Reload, long-press callouts, image drag, page zoom)~~ DONE v7.9.26.
 8. ~~GPU context loss recovery (black screen after memory pressure / long background)~~ DONE v7.9.27 (found on the Nov 26 re-check).
+9. ~~Info.plist keys (export compliance, Mac category, orientations, status bar)~~ DONE v7.9.28 (found on the Nov 27 re-check).
 
 All unblocked readiness items are done (item 2 parked on purpose). Next nightly: re-check for any new unblocked App Store item; otherwise the older queue (4c HARD AI math, 5a infantry remodel, 5b map polish, 6 lighter AI testing, 7 ai71 flaky tests).
 
@@ -133,4 +142,6 @@ All unblocked readiness items are done (item 2 parked on purpose). Next nightly:
 - First real Xcode build/compile of the Swift plugins (needs a Mac; no `ios/` project in the repo yet), TestFlight, submission.
 - Confirm age-rating answers and listing text in `docs/app-store-listing.md`; upload the `appstore/screenshots/` set (needs the App Store Connect record).
 - Optional: an App Preview video (15–30 s) per slot — needs the app record; can be recorded from the simulator later.
+- Confirm the export-compliance answer (NO = exempt only) in `docs/app-store-listing.md`; EU DSA **trader** status needs the LLC's address, phone and email (v7.9.28).
+- On the first Xcode build: merge `ios-plugin/Info-additions.plist` and check Deployment Info shows iPhone landscape only / iPad all four (v7.9.28).
 - A support/report email for MBEP Productions LLC (player reports currently go to GitHub issues; Apple prefers a direct contact).
