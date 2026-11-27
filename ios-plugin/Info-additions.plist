@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- v7.9.28 Iron Front: keys to ADD to ios/App/App/Info.plist (merge them in; keep everything Capacitor generated).
+     Not a full Info.plist. See ios-plugin/README.md. Checked by node test/appstore-meta-test.js. -->
+<plist version="1.0">
+<dict>
+	<!-- Name under the icon (same as appName in capacitor.config.json). -->
+	<key>CFBundleDisplayName</key>
+	<string>Iron Front</string>
+	<!-- Export compliance: the game only uses encryption built into Apple's system (HTTPS/WSS, WebRTC DTLS and WebCrypto inside WebKit,
+	     used to connect and sign multiplayer messages; its main purpose is a game, not security). With this key App Store Connect stops
+	     asking the encryption questions on every upload. Nicholas confirms the answer once (docs/app-store-listing.md, Export compliance). -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<!-- App Store / Mac category (the Mac app needs it in the build; also turns on Game Mode on Mac). -->
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.strategy-games</string>
+	<!-- Full-screen game: no status bar over the HUD (the safe areas are already handled in CSS). -->
+	<key>UIStatusBarHidden</key>
+	<true/>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+	<!-- iPhone: landscape only (iPhone portrait would only show the "rotate to landscape" screen). -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<!-- iPad: every orientation (portrait match HUD since v7.9.22) and Split View / Stage Manager windows. -->
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIRequiresFullScreen</key>
+	<false/>
+	<!-- Launch screen file from ios-plugin/LaunchScreen.storyboard (plain #05080c). -->
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+</dict>
+</plist>
