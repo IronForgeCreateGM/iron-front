@@ -67,5 +67,22 @@ try {
   if (!/Export compliance[\s\S]*ITSAppUsesNonExemptEncryption[\s\S]*\*\*NO\*\*/.test(md)) errs.push('listing: Export compliance section must give the ITSAppUsesNonExemptEncryption = NO answer');
   if (!/Info-additions\.plist/.test(rd('ios-plugin/README.md'))) errs.push('ios-plugin/README.md must explain Info-additions.plist');
 } catch (e) { errs.push('Info-additions.plist: ' + e.message); }
+// v7.9.29 age rating: the listing answers Apple's current questionnaire (2025 ratings + social media Jul 2026 + Shared Location /
+// Dating and Relationships Nov 19 2026), every question has an answer, and the answers match what the game really does.
+{ const m = md.match(/<!--agerating-->([\s\S]*?)<!--\/agerating-->/); if (!m) errs.push('listing: age rating table (<!--agerating-->) missing'); else {
+  const A = {}; for (const row of m[1].split('\n')) { const c = row.split('|').map(x => x.trim()); if (c.length >= 5 && c[1] && !/^-+$/.test(c[1]) && c[1] !== 'Section') A[c[2]] = c[3]; }
+  const Q = ['Parental Controls', 'Age Assurance', 'Unrestricted Web Access', 'User-Generated Content', 'Social Media', 'Messaging and Chat', 'Shared Location', 'Advertising',
+    'Profanity or Crude Humor', 'Horror/Fear Themes', 'Alcohol, Tobacco, or Drug Use or References', 'Dating and Relationships', 'Medical or Treatment Information', 'Health or Wellness Topics',
+    'Mature or Suggestive Themes', 'Sexual Content or Nudity', 'Graphic Sexual Content and Nudity', 'Cartoon or Fantasy Violence', 'Realistic Violence',
+    'Prolonged Graphic or Sadistic Realistic Violence', 'Guns or Other Weapons', 'Gambling', 'Simulated Gambling', 'Contests', 'Loot Boxes'];
+  for (const q of Q) if (!A[q]) errs.push('age rating: no answer for "' + q + '"');
+  if (A['Messaging and Chat'] !== 'Yes') errs.push('age rating: the lobby has chat, Messaging and Chat must be Yes');
+  if (!fs.existsSync(path.join(root, 'js/chatsafe.js'))) errs.push('age rating answers rely on js/chatsafe.js (filter/mute/report)');
+  if (A['Realistic Violence'] === 'Frequent') errs.push('age rating: Frequent realistic violence would make it 18+');
+  for (const q of ['Advertising', 'Shared Location', 'Loot Boxes', 'Gambling']) if (A[q] && !/^(No|None)$/.test(A[q])) errs.push('age rating: ' + q + ' should be No/None');
+  if (!/Expected rating: 13\+/.test(md)) errs.push('age rating: expected rating (13+) missing');
+  if (!/China mainland/.test(md)) errs.push('listing: Availability must say to leave out China mainland (no game licence)');
+  const js = fs.readdirSync(path.join(root, 'js')).filter(f => f.endsWith('.js')).map(f => rd('js/' + f)).join('\n');
+  if (/googletag|adsbygoogle|admob|AdMob/.test(js)) errs.push('age rating says no ads but js/ has ad code'); } }
 console.log(errs.length ? 'APPSTORE-META FAIL\n' + errs.join('\n') : `APPSTORE-META OK (name ${[...fields.name].length}/30, subtitle ${[...fields.subtitle].length}/30, keywords ${fields.keywords.length}/100, description ${[...fields.description].length}/4000)`);
 process.exit(errs.length ? 1 : 0);

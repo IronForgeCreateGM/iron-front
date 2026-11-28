@@ -67,16 +67,58 @@ Free to play with USA, Russia, Germany and France on Iron Crossroads and Frostli
 - **Third-party SDKs in the app:** Capacitor (ships its own privacy manifest), three.js and Trystero (JavaScript, no data collection).
 
 ## Age rating questionnaire — proposed answers (Nicholas to confirm)
-- Cartoon or fantasy violence: **Infrequent/Mild** — Realistic violence: **Infrequent/Mild** (small stylised soldiers and vehicles explode; no blood or gore).
-- Profanity, sexual content, nudity, horror, drugs, alcohol, tobacco, gambling, simulated gambling, contests, medical info: **None**.
-- Unrestricted web access: **No**. Loot boxes / paid random items: **No**.
-- **Messaging and chat: Yes** — the online lobby has a short text chat (140 characters) between players in the same private room.
-  Since v7.9.11 (guideline 1.2): chat is **off by default in the App Store app** (player turns it on with 💬), offensive words
-  are masked on every line (host filters before relaying too), 🔇 on a message mutes that player (saved on the device),
-  ⚑ Report a player opens support.html#report (how to report; reports go to the GitHub issues page until MBEP Productions LLC
-  has a support email). Mention this in the review notes.
-- **User-generated content:** No (the map builder is private and not in the app).
-- Expected result: **9+** (13+ if Apple weighs the chat or the realistic military setting).
+<!-- v7.9.29 -->
+Updated Nov 28 2026 for Apple's **current** questionnaire (age ratings 4+ / 9+ / 13+ / 16+ / 18+ since July 2025, with the in-app controls,
+capabilities, medical/wellness and violence questions; the social media questions since July 9 2026; and the two descriptors added on
+Nov 19 2026, **Shared Location** and **Dating and Relationships**, which every app must answer by **Jan 12 2027**). Checked against App Store
+Connect Help "Age ratings values and definitions" and the App Store Connect release notes on Nov 28 2026. The old draft (pre-2025 questions,
+"expect 9+") is replaced: under the current rules a war game with tanks, guns and soldiers lands on **13+**.
+
+<!--agerating-->
+| Section | Question | Proposed answer | Why |
+| --- | --- | --- | --- |
+| In-App Controls | Parental Controls | No | Chat is off by default in the App Store app and has a word filter and mute, but there are no parent-facing controls. |
+| In-App Controls | Age Assurance | No | No age check (no Declared Age Range API, no ID). See the age-assurance note below. |
+| Capabilities | Unrestricted Web Access | No | Only fixed links open (privacy, support, report form) in Safari or the in-app Safari sheet; there is no address bar. |
+| Capabilities | User-Generated Content | No | Nothing players make is shared broadly; the map builder is private and not in the app. |
+| Capabilities | Social Media | No | No feed, likes, follows or public posts. |
+| Capabilities | Messaging and Chat | Yes | Short text chat (140 characters) between the players in one private room; off by default in the app, filtered, mutable, reportable. |
+| Capabilities | Shared Location | No | The game never reads or shares real-world location (no location APIs; `test/appstore-meta-test.js` checks js/). |
+| Capabilities | Advertising | No | No ads of any kind. |
+| Mature Themes | Profanity or Crude Humor | None | Game text has none; chat words are masked by the filter. |
+| Mature Themes | Horror/Fear Themes | None | |
+| Mature Themes | Alcohol, Tobacco, or Drug Use or References | None | |
+| Mature Themes | Dating and Relationships | No | |
+| Medical or Wellness | Medical or Treatment Information | None | |
+| Medical or Wellness | Health or Wellness Topics | None | |
+| Sexuality or Nudity | Mature or Suggestive Themes | Infrequent | Armies under real country names and flags fight each other ("war or political strife"); no real leaders, events or politics. |
+| Sexuality or Nudity | Sexual Content or Nudity | None | |
+| Sexuality or Nudity | Graphic Sexual Content and Nudity | None | |
+| Violence | Cartoon or Fantasy Violence | Frequent | Every match is combat: small stylised units shoot and explode, plus fantasy units (Raijin mechs, Tesla weapons). |
+| Violence | Realistic Violence | Infrequent | Soldiers and real-style tanks fight, seen from far above; no blood, gore or close-ups. Do **not** pick Frequent (that is 18+). |
+| Violence | Prolonged Graphic or Sadistic Realistic Violence | None | |
+| Violence | Guns or Other Weapons | Frequent | Guns, tanks, artillery and missiles are on screen all match. |
+| Chance-Based Activities | Gambling | None | |
+| Chance-Based Activities | Simulated Gambling | None | |
+| Chance-Based Activities | Contests | None | No rankings, leaderboards or prizes (Game Center is only used for Quick Match; no leaderboards). |
+| Chance-Based Activities | Loot Boxes | None | The only purchase is the one-time Full Unlock; nothing random is sold. |
+<!--/agerating-->
+
+- **Expected rating: 13+** (driven by Frequent cartoon/fantasy violence, Infrequent realistic violence and Frequent guns or other weapons;
+  each is listed under 13+). Messaging and chat alone is allowed at 4+. Do not set a higher minimum age by hand; 13+ fits.
+- **Regional:** Brazil self-rating about **A12** (messaging and chat, infrequent realistic violence, frequent guns); Korea shows an extra GRAC
+  rating for apps in the Games category (expect 12+); Australia only changes ratings for loot boxes / simulated gambling (none here).
+- **Age assurance (blocked on the LLC / Xcode):** in places where the law requires it, Apple shares an age range through the
+  **Declared Age Range** API and the developer must check it. The game has no accounts and keeps chat off by default, but whether
+  MBEP Productions LLC must call the API before turning chat on is a legal call for the LLC; it would be a small Swift plugin later.
+- **Review notes:** mention the chat safety (off by default, filter, mute, report), see "App Review notes" below.
+
+## Availability (countries and regions) — proposed
+- All regions **except China mainland**: games sold there (paid, or with in-app purchases) need a Chinese game licence (ISBN approval
+  number), entered on App Store Connect's **App Compliance** page (moved there Nov 16 2026). The LLC has none, so leave China mainland
+  unticked. Hong Kong, Macao and Taiwan do not need it.
+- Russia: Apple has not sold paid apps or in-app purchases there since 2022; leave it ticked (free download still works) or untick it,
+  either is fine. Iran is not an App Store region.
 
 ## Export compliance (encryption) — proposed answer (Nicholas to confirm)
 <!-- v7.9.28 -->
@@ -99,6 +141,8 @@ Free to play with USA, Russia, Germany and France on Iron Crossroads and Frostli
 > Online play is optional: "Play Online" hosts a private room with a code (peer-to-peer WebRTC), and "Quick Match" uses Game Center.
 > To test the in-app purchase: tap Brazil, Iran, China or Japan in the country picker (or a locked map) to open the Full Unlock sheet;
 > Settings → Restore purchases restores it. The app collects no data.
+> Lobby chat (private rooms only) is off by default; players turn it on with 💬. Offensive words are masked, 🔇 mutes a player,
+> and ⚑ Report a player opens a report form.
 
 ## Screenshots
 <!-- v7.9.15 -->
