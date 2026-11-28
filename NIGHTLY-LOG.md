@@ -733,3 +733,4 @@ Pushed commit 7c3dc39 to main (fast-forward from 6bec943, no force-push). Live p
 - RESUME: v7.9.28 is built and fully tested at 6797265 (branch v7928) and only needs the push. Left: with the token set, check ls-remote main is still 84dc5de, push 6797265 (or the log commit on top) to main by hash (FF only), then confirm version.json shows v7.9.28 and the live page loads. Next new item after that: older queue 4c HARD AI math (docs/ai-math-plan.md).
 
 - 2026-11-28 12:30 AM PT: v7.9.28 confirmed LIVE (version.json v7.9.28, main 252c1af; pushed after the 11/27 log was written).
+- RESUME 2026-11-28 ~12:30 AM PT: v7.9.29 (age rating answers for Apple's current questionnaire + availability, docs/tests only) built at bbbd10a (branch v7929, worktree /workspace/n1128/wt); gate running /workspace/n1128/g/sum.txt vs live 252c1af. Left: gate results, FF push, live check, screenshot/zip, final entry.
