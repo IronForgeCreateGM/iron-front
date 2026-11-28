@@ -1,7 +1,7 @@
 # Iron Front — App Store readiness checklist (iPhone + iPad + Mac, one universal app)
 
 Kept by the nightly runs. Ranked: top of "Left" = next thing to do. Seller: **MBEP Productions LLC** (being formed).
-Last updated: v7.9.28, Fri Nov 27, 2026 (v7.9.27 live Nov 26). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
+Last updated: v7.9.29, Sat Nov 28, 2026 (v7.9.28 live Nov 27). Full how-to: APP-STORE.md (has uncommitted IAP edits — leave them).
 
 ## Done
 - [x] Game runs fully offline (three.js vendored, no CDN); `npm run check:www` checks the app bundle is self-contained (v7.7.2).
@@ -119,6 +119,15 @@ Last updated: v7.9.28, Fri Nov 27, 2026 (v7.9.27 live Nov 26). Full how-to: APP-
       LaunchScreen; no permission prompts needed. Listing draft gained "Export compliance" (proposed answer + why) and "EU DSA trader status".
       `test/appstore-meta-test.js` checks the keys match the game (orientations, name, storyboard, no `NS…UsageDescription`, no camera/mic/
       location APIs in js/); `check:www` checks the file is there. Docs/config only (no game code change).
+- [x] **v7.9.29:** age rating answers for Apple's **current** questionnaire (`docs/app-store-listing.md`): the old draft used the pre-2025
+      questions and said 9+. Now a full answer table for every question App Store Connect asks today (in-app controls, capabilities incl. social
+      media from Jul 2026, mature themes, medical/wellness, sexuality, violence, chance-based, and the **Shared Location** + **Dating and
+      Relationships** descriptors added Nov 19 2026 — required for all apps by Jan 12 2027), each with the reason. Expected rating **13+**
+      (frequent cartoon/fantasy violence, infrequent realistic violence, frequent guns; never pick Frequent realistic violence = 18+); regional
+      notes (Brazil ~A12, Korea GRAC). New "Availability" section: leave out **China mainland** (needs a Chinese game licence on the new App
+      Compliance page). Review notes mention the chat safety. `test/appstore-meta-test.js` checks every question is answered and the answers
+      match the game (chat = Yes, no ads/location/loot boxes in js/, 13+ and China note present). Docs/tests only (no game code change).
+      Note: APP-STORE.md step 5 still says "expect 9+"; fix it when the uncommitted IAP edits in APP-STORE.md are committed.
 
 ## Left (unblocked — nightly can do these, in order)
 1. ~~**iPad/Mac layout pass**~~ DONE v7.9.17/18/21/22 (iPad portrait match HUD v7.9.22). iPad touch HUD, menus, online lobby and Settings were checked at 1/1, 1/2, 1/3 and Stage Manager sizes.
@@ -130,8 +139,9 @@ Last updated: v7.9.28, Fri Nov 27, 2026 (v7.9.27 live Nov 26). Full how-to: APP-
 7. ~~App feel in the app (no web view right-click menu / Reload, long-press callouts, image drag, page zoom)~~ DONE v7.9.26.
 8. ~~GPU context loss recovery (black screen after memory pressure / long background)~~ DONE v7.9.27 (found on the Nov 26 re-check).
 9. ~~Info.plist keys (export compliance, Mac category, orientations, status bar)~~ DONE v7.9.28 (found on the Nov 27 re-check).
+10. ~~Age rating answers for the current (2025/Nov 2026) questionnaire + availability (China mainland)~~ DONE v7.9.29 (found on the Nov 28 re-check).
 
-All unblocked readiness items are done (item 2 parked on purpose). Next nightly: re-check for any new unblocked App Store item; otherwise the older queue (4c HARD AI math, 5a infantry remodel, 5b map polish, 6 lighter AI testing, 7 ai71 flaky tests).
+All unblocked readiness items are done (item 2 parked on purpose). Also re-checked Nov 28: offline play, iPhone 224 maps, hidden-tab host, onboarding/settings were already done; the ipad-portrait "768x1024 placing: ✓ not visible" failure is a test timing flake (the ✓ is shown on the next drawn frame, which under gate load can take >600 ms), not a game bug. Next nightly: re-check for any new unblocked App Store item; otherwise the older queue (4c HARD AI math, 5a infantry remodel, 5b map polish, 6 lighter AI testing, 7 ai71 flaky tests).
 
 ## Blocked on the LLC / Apple Developer account (Nicholas)
 - Apple Developer Program as an **Organization** (MBEP Productions LLC, D-U-N-S number, $99/yr).
@@ -144,4 +154,8 @@ All unblocked readiness items are done (item 2 parked on purpose). Next nightly:
 - Optional: an App Preview video (15–30 s) per slot — needs the app record; can be recorded from the simulator later.
 - Confirm the export-compliance answer (NO = exempt only) in `docs/app-store-listing.md`; EU DSA **trader** status needs the LLC's address, phone and email (v7.9.28).
 - On the first Xcode build: merge `ios-plugin/Info-additions.plist` and check Deployment Info shows iPhone landscape only / iPad all four (v7.9.28).
+- Age rating: confirm the v7.9.29 answers in App Store Connect (incl. Shared Location / Dating and Relationships, due for all apps by
+  Jan 12 2027). Age assurance: decide (LLC/legal) whether the app must call Apple's Declared Age Range API before chat is turned on in
+  regions that require it; if yes it is a small Swift plugin on the first Xcode build (v7.9.29).
+- Availability: untick China mainland in App Store Connect (no Chinese game licence) (v7.9.29).
 - A support/report email for MBEP Productions LLC (player reports currently go to GitHub issues; Apple prefers a direct contact).
